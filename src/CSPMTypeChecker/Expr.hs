@@ -84,7 +84,8 @@ instance TypeCheckable Exp Type where
 					targ <- typeCheck p
 					return $ TFunction [targ] tr)
 	typeCheck' (Let decls exp) =
-		local [] (	-- Add a new scope: typeCheckDecl will add vars into it
+		-- Add a new scope: typeCheckDecl will add vars into it	
+		local [] (
 			do
 				typeCheckDecls decls
 				typeCheck exp)
@@ -95,12 +96,7 @@ instance TypeCheckable Exp Type where
 			t <- unifyAll ts
 			return $ TSeq t
 	typeCheck' (ListComp es stmts) =
-		do
-			fvs <- concatMapM freeVars stmts
-			errorIfFalse (noDups fvs) (DuplicatedDefinitions fvs)
-			local fvs (
-				do
-					stmts <- mapM (typeCheckStmt TSeq) stmts
+		typeCheckStmts TSeq stmts (do
 					ts <- mapM typeCheck es
 					t <- unifyAll ts
 					return $ TSeq t)
@@ -141,15 +137,9 @@ instance TypeCheckable Exp Type where
 			ensureHasConstraint Eq t
 			return $ TSet t
 	typeCheck' (SetComp es stmts) = 
-		do
-			fvs <- concatMapM freeVars stmts
-			errorIfFalse (noDups fvs) (DuplicatedDefinitions fvs)
-			local fvs (
-				do
-					stmts <- mapM (typeCheckStmt TSet) stmts
+		typeCheckStmts TSet stmts (do
 					ts <- mapM typeCheck es
 					t <- unifyAll ts
-					ensureHasConstraint Eq t
 					return $ TSet t)
 	typeCheck' (SetEnum es) = 
 		do
@@ -157,12 +147,7 @@ instance TypeCheckable Exp Type where
 			mapM ensureIsChannel ts
 			return $ TSet TEvent
 	typeCheck' (SetEnumComp es stmts) = 
-		do
-			fvs <- concatMapM freeVars stmts
-			errorIfFalse (noDups fvs) (DuplicatedDefinitions fvs)
-			local fvs (
-				do
-					stmts <- mapM (typeCheckStmt TSet) stmts
+		typeCheckStmts TSet stmts (do
 					ts <- mapM typeCheck es
 					mapM ensureIsChannel ts
 					return $ TSet TEvent)
@@ -189,7 +174,7 @@ instance TypeCheckable Exp Type where
 			t <- getType n
 			instantiate t
 
--- Processes
+	-- Processes
 	typeCheck' (AlphaParallel e1 a1 a2 e2) =
 		do
 			t1 <- typeCheck e1
@@ -285,135 +270,113 @@ instance TypeCheckable Exp Type where
 	typeCheck' (Prefix e1 fields e2) =
 		do
 			fvs <- concatMapM freeVars fields
-			-- TODO: do some sort of foldr
 			errorIfFalse (noDups fvs) (DuplicatedDefinitions fvs)
-			local fvs (
-				do
-					t1 <- typeCheck e1
-					fs <- mapM typeCheck fields
-					unify (TDot t1 (foldr1 TDot fs)) TEvent
+			t1 <- typeCheck e1
+			let 
+				tcfs [] tsfields = do
+					unify (TDot t1 (foldr1 TDot (reverse tsfields))) TEvent
 					t2 <- typeCheck e2
 					ensureIsProc t2
-					return TProc)
---		where
---			tc (f:fs) typ =
---				do
---					rt <- freshTypeVar
---					unify typ (TDotable f rt)
---					tc fs rt
---			tc [] typ = unify typ TEvent
-	-- Replicated Operators
-	typeCheck' (ReplicatedAlphaParallel stmts e1 e2) =
-		do
-			fvs <- concatMapM freeVars stmts
-			errorIfFalse (noDups fvs) (DuplicatedDefinitions fvs)
-			local fvs (
-				do
-					stmts <- mapM (typeCheckStmt TSet) stmts
-					t1 <- typeCheck e1
-					unify t1 (TSet TEvent)
-					t2 <- typeCheck e2
-					ensureIsProc t2
-					return TProc)
-	typeCheck' (Rename e1 exps stmts) = 
-		do
-			fvs <- concatMapM freeVars stmts
-			errorIfFalse (noDups fvs) (DuplicatedDefinitions fvs)
-			local fvs (
-				do
-					t1 <- typeCheck e1
-					ensureIsProc t1
-					stmts <- mapM (typeCheckStmt TSet) stmts
-					let (as, bs) = unzip exps
-					-- Unify the pairs of channels
-					ast <- mapM typeCheck as
-					bst <- mapM typeCheck bs
-					ts <- zipWithM unify ast bst
-					mapM ensureIsChannel ts
-					return TProc)
-	typeCheck' (ReplicatedParallel alpha stmts proc) =
-		do
-			fvs <- concatMapM freeVars stmts
-			errorIfFalse (noDups fvs) (DuplicatedDefinitions fvs)
-			local fvs (
-				do
-					stmts <- mapM (typeCheckStmt TSet) stmts
-					talpha <- typeCheck alpha
-					unify talpha (TSet TEvent)
-					t1 <- typeCheck proc
-					ensureIsProc t1
-					return TProc)
-	typeCheck' (ReplicatedInterleave stmts e1) =
-		do
-			fvs <- concatMapM freeVars stmts
-			errorIfFalse (noDups fvs) (DuplicatedDefinitions fvs)
-			local fvs (
-				do
-					stmts <- mapM (typeCheckStmt TSet) stmts
-					t1 <- typeCheck e1
-					ensureIsProc t1
-					return TProc)
-	typeCheck' (ReplicatedExternalChoice stmts e1) =
-		do
-			fvs <- concatMapM freeVars stmts
-			errorIfFalse (noDups fvs) (DuplicatedDefinitions fvs)
-			local fvs (
-				do
-					stmts <- mapM (typeCheckStmt TSet) stmts
-					t1 <- typeCheck e1
-					ensureIsProc t1
-					return TProc)
-	typeCheck' (ReplicatedInternalChoice stmts e1) =
-		do
-			fvs <- concatMapM freeVars stmts
-			errorIfFalse (noDups fvs) (DuplicatedDefinitions fvs)
-			local fvs (
-				do
-					stmts <- mapM (typeCheckStmt TSet) stmts
-					t1 <- typeCheck e1
-					ensureIsProc t1
-					return TProc)
-	typeCheck' x = panic ("TCExpr.hs::no case for type checking a "++show x)
-{-
-typeCheckReplicatedOp :: [AnStmt] ->
-typeCheckReplicateOp [] = 
-typeCheckReplicateOp (stmt:stmts) =
-	do
-		fvs <- freeVars stmt
-		local fvs (
-			do
-				typeCheckStmt TSet stmt
-				typeCheckReplicatedOp stmts
-		)
--}
+					return TProc
+				tcfs (f:fs) tsfields =
+					typeCheckField f (\ t -> tcfs fs (t:tsfields))
 
-instance TypeCheckable AnField Type where
---	errorConstructor = ErrorWithExp
-	-- Important: we use the typeCheck' version after removing the annotation
-	-- so the error message contains this node
-	typeCheck' (An srcloc typ inner) = 
+			tcfs fields []
+			
+	-- Replicated Operators
+	typeCheck' (ReplicatedAlphaParallel stmts alpha proc) =
+		typeCheckReplicatedOp stmts (do
+			t1 <- typeCheck alpha
+			unify t1 (TSet TEvent)
+			t2 <- typeCheck proc
+			ensureIsProc t2
+			return TProc)
+	typeCheck' (Rename e1 exps stmts) = 
+		typeCheckReplicatedOp stmts (do
+			t1 <- typeCheck e1
+			ensureIsProc t1
+			let (as, bs) = unzip exps
+			-- Unify the pairs of channels
+			ast <- mapM typeCheck as
+			bst <- mapM typeCheck bs
+			ts <- zipWithM unify ast bst
+			mapM ensureIsChannel ts
+			return TProc)
+	typeCheck' (ReplicatedParallel alpha stmts proc) =
+		typeCheckReplicatedOp stmts (do
+			talpha <- typeCheck alpha
+			unify talpha (TSet TEvent)
+			t1 <- typeCheck proc
+			ensureIsProc t1
+			return TProc)
+	typeCheck' (ReplicatedInterleave stmts e1) =
+		typeCheckReplicatedOp stmts (do
+			t1 <- typeCheck e1
+			ensureIsProc t1
+			return TProc)
+	typeCheck' (ReplicatedExternalChoice stmts e1) =
+		typeCheckReplicatedOp stmts (do
+			t1 <- typeCheck e1
+			ensureIsProc t1
+			return TProc)
+	typeCheck' (ReplicatedInternalChoice stmts e1) =
+		typeCheckReplicatedOp stmts (do
+			t1 <- typeCheck e1
+			ensureIsProc t1
+			return TProc)
+	typeCheck' x = panic ("TCExpr.hs::no case for type checking a "++show x)
+
+
+typeCheckField :: PField -> (Type -> TypeCheckMonad a) -> TypeCheckMonad a
+typeCheckField field tc = typeCheckField' (unAnnotate field) tc
+typeCheckField' (Input p (Just e)) tc = 
 		do
-			t' <- typeCheck' inner
-			--			setPType typ t'
-			return t'
-instance TypeCheckable Field Type where
-	typeCheck' (Input p (Just e)) = 
-		do
-			tp <- typeCheck p
 			t <- typeCheck e
-			unify (TSet tp) t
-			return tp
-	typeCheck' (Input p Nothing) = typeCheck p
-	typeCheck' (Output e) = typeCheck e
-	
-typeCheckStmt :: (Type -> Type) -> PStmt -> TypeCheckMonad Type
-typeCheckStmt typc = typeCheckStmt' typc . unAnnotate
-typeCheckStmt' typc (Qualifier e) = 
+			fvs <- freeVars p
+			local fvs (do
+				tp <- typeCheck p
+				unify (TSet tp) t
+				tc tp)
+typeCheckField' (Input p Nothing) tc = 
+	do
+		fvs <- freeVars p
+		local fvs (typeCheck p >>= tc)
+typeCheckField' (Output e) tc = typeCheck e >>= tc
+
+-- We cannot type check stmts in a TypeCheckable context since we want to 
+-- type check statements in two different circumstances:
+--	(1) When the generator has to be a set (e.g. in a replicated operator)
+-- 	(2) When it is a sequence (e.g. list comprehension).
+-- Hence the first argument is a type constructor, which given a type, returns
+-- that type encapsulate in some other type.
+typeCheckStmt :: (Type -> Type) -> PStmt -> TypeCheckMonad a -> TypeCheckMonad a
+typeCheckStmt typc stmt tc = typeCheckStmt' typc (unAnnotate stmt) tc
+typeCheckStmt' typc (Qualifier e) tc = 
 	do
 		t <- typeCheck e
 		ensureIsBool t
-typeCheckStmt' typc (Generator p exp) =
+		tc
+typeCheckStmt' typc (Generator p exp) tc =
 	do
-		tpat <- typeCheck p
 		texp <- typeCheck exp
-		unify (typc tpat) texp
+		fvs <- freeVars p
+		local fvs (do
+			tpat <- typeCheck p
+			unify (typc tpat) texp
+			tc)
+
+-- Type check a series of statements. For each statement a new scope is added
+-- to ensure that clauses only depend on variables already bound.
+typeCheckStmts :: (Type -> Type) -> [AnStmt] -> TypeCheckMonad a -> TypeCheckMonad a
+typeCheckStmts typc stmts tc =
+	do
+		fvs <- concatMapM freeVars stmts
+		-- TODO: should this be an error?
+		errorIfFalse (noDups fvs) (DuplicatedDefinitions fvs)
+		check stmts
+	where
+		check [] = tc
+		check (stmt:stmts) = typeCheckStmt typc stmt (check stmts)
+
+-- Shortcut for replicated operators
+typeCheckReplicatedOp = typeCheckStmts TSet
