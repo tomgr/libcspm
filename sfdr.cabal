@@ -27,9 +27,9 @@ Cabal-version:       >=1.2
 
 --  Hs-Source-Dirs: src
 
-Executable sfdr
+Executable sfdri
   -- .hs or .lhs file containing the Main module.
-  Main-is: Main.hs
+  Main-is: Sfdri/Main.hs
   
 --  Other-Modules: CSPMDataStructures
   -- Packages needed in order to build this package.
@@ -41,12 +41,14 @@ Executable sfdr
     containers >= 0.4, 
     mtl >= 2.0, 
     pretty >= 1.0,
-    directory >= 1.0
+    directory >= 1.0,
+    haskeline >= 0.6,
+    graph-wrapper >= 0.2
   
   -- Modules not exported by this package.
   Other-modules:
-    CSPMParser.Lexer, 
-    CSPMParser.Parser
+    CSPM.Parser.Lexer, 
+    CSPM.Parser.Parser
   
   Build-tools: alex, happy
   Hs-Source-Dirs: src

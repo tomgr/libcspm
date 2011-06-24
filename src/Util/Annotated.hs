@@ -1,41 +1,81 @@
 module Util.Annotated where
 
--- From GHC TODO: use FastString for file names
-{- |
-A SrcSpan delimits a portion of a text file.  It could be represented
-by a pair of (line,column) coordinates, but in fact we optimise
-slightly by using more compact representations for single-line and
-zero-length spans, both of which are quite common.
+import Prelude
+import Util.Prelude
+import Util.PrettyPrint
 
-The end position is defined to be the column /after/ the end of the
-span.  That is, a span of (1,1)-(1,2) is one character long, and a
-span of (1,1)-(1,1) is zero characters long.
--}
-data SrcSpan
-	= SrcSpanOneLine 		-- a common case: a single line
-	{ srcSpanFile     :: String,
-		srcSpanLine     :: {-# UNPACK #-} !Int,
-		srcSpanSCol     :: {-# UNPACK #-} !Int,
-		srcSpanECol     :: {-# UNPACK #-} !Int
+data SrcLoc = 
+	SrcLoc {
+		srcLocFile :: String,
+		srcLocLine :: !Int,
+		srcLocCol :: !Int
 	}
-	| SrcSpanMultiLine
-	{ srcSpanFile	  :: String,
-		srcSpanSLine    :: {-# UNPACK #-} !Int,
-		srcSpanSCol	  :: {-# UNPACK #-} !Int,
-		srcSpanELine    :: {-# UNPACK #-} !Int,
-		srcSpanECol     :: {-# UNPACK #-} !Int
+	| NoLoc
+	deriving Eq
+	
+instance Ord SrcLoc where
+	(SrcLoc f1 l1 c1) `compare` (SrcLoc f2 l2 c2) =
+		(f1 `compare` f2) `thenCmp` 
+		(l1 `compare` l2) `thenCmp` 
+		(c1 `compare` c2)
+	NoLoc `compare` NoLoc = EQ
+	NoLoc `compare` _ = LT
+	_ `compare` NoLoc = GT
+	
+-- From GHC
+data SrcSpan = 
+	SrcSpanOneLine { 
+		srcSpanFile :: String,
+		srcSpanLine :: !Int,
+		srcSpanSCol :: !Int,
+		srcSpanECol :: !Int
 	}
-	| SrcSpanPoint
-	{ srcSpanFile	  :: String,
-		srcSpanLine	  :: {-# UNPACK #-} !Int,
-		srcSpanCol      :: {-# UNPACK #-} !Int
+	| SrcSpanMultiLine { 
+		srcSpanFile :: String,
+		srcSpanSLine :: !Int,
+		srcSpanSCol :: !Int,
+		srcSpanELine :: !Int,
+		srcSpanECol :: !Int
+	}
+	| SrcSpanPoint { 
+		srcSpanFile	:: String,
+		srcSpanLine :: !Int,
+		srcSpanCol :: !Int
 	}
 	| Unknown
-	deriving (Eq)
+	deriving Eq
 	
+srcSpanStart :: SrcSpan -> SrcLoc
+srcSpanStart (SrcSpanOneLine f l sc ec) = SrcLoc f l sc
+srcSpanStart (SrcSpanMultiLine f sl sc el ec) = SrcLoc f sl sc
+srcSpanStart (SrcSpanPoint f l c) = SrcLoc f l c
+srcSpanStart Unknown = NoLoc
+
+srcSpanEnd :: SrcSpan -> SrcLoc
+srcSpanEnd (SrcSpanOneLine f l sc ec) = SrcLoc f l ec
+srcSpanEnd (SrcSpanMultiLine f sl sc el ec) = SrcLoc f el ec
+srcSpanEnd (SrcSpanPoint f l c) = SrcLoc f l c
+srcSpanEnd Unknown = NoLoc
+
+-- We want to order SrcSpans first by the start point, then by the end point.
+instance Ord SrcSpan where
+	a `compare` b = 
+		(srcSpanStart a `compare` srcSpanStart b) `thenCmp` 
+		(srcSpanEnd   a `compare` srcSpanEnd   b)
+
 instance Show SrcSpan where
-	show (SrcSpanOneLine f sline scol1 ecol1) = f++":"++(show sline)++"::"++(show scol1)++"-"++(show ecol1)
-	show (SrcSpanMultiLine f sline scol1 eline ecol1) = f++":"++(show sline)++"::"++(show scol1)++"-"++(show eline)++"::"++(show ecol1)
+	show s = show (prettyPrint s)
+
+instance PrettyPrintable SrcSpan where
+	prettyPrint (SrcSpanOneLine f sline scol1 ecol1) = 
+		text f <> colon <> int sline <> colon <> int scol1 <> char '-' <> int ecol1
+	prettyPrint (SrcSpanMultiLine f sline scol eline ecol) = 
+		text f <> colon <> int sline <> colon <> int scol
+						<> char '-' 
+						<> int eline <> colon <> int ecol
+	prettyPrint (SrcSpanPoint f sline scol) = 
+		text f <> colon <> int sline <> colon <> int scol
+	prettyPrint Unknown = text "<unknown location>"
 	
 combineSpans :: SrcSpan -> SrcSpan -> SrcSpan
 combineSpans s1 s2 | srcSpanFile s1 /= srcSpanFile s2 = error "Spans files"
@@ -59,13 +99,23 @@ data Located a =
 	deriving (Eq, Show)
 	
 data Annotated a b = 
-	An SrcSpan a b
+	An {
+		loc :: SrcSpan,
+		annotation :: a,
+		inner :: b
+	}
+
+dummyAnnotation :: a
+dummyAnnotation = error "Dummy annotation evaluated"
 
 unAnnotate :: Annotated a b -> b
 unAnnotate (An _ _ b) = b
 	
 instance Show b => Show (Annotated a b) where
 	show (An _ _ b) = show b
+
+instance (PrettyPrintable b) => PrettyPrintable (Annotated a b) where
+	prettyPrint (An loc typ inner) = prettyPrint inner
 
 instance Eq b => Eq (Annotated a b) where
 	(An _ _ b1) == (An _ _ b2) = b1 == b2

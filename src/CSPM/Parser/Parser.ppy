@@ -1,0 +1,602 @@
+{
+module CSPM.Parser.Parser (
+	parseFile_, parseInteractiveStmt_, parseExpression_
+) 
+where
+
+import Char
+
+import CSPM.DataStructures.Names
+import CSPM.DataStructures.Syntax
+import CSPM.DataStructures.Tokens
+import CSPM.DataStructures.Types hiding (TDot)
+import CSPM.Parser.Lexer
+import CSPM.Parser.Monad
+import Util.Annotated
+import Util.Exception
+import Util.Monad
+}
+
+-- Lift the src span from $1 to the resulting token
+-- (i.e. LL (LLit ...) (Exp ...) = LExp ...
+#define LL liftLoc $1
+-- Make a src span from the first item to the last
+#define AN annotate $1
+#define AN2 annotate2 $1 $>
+#define AN2L annotate2List $1 $>
+#define AN2LL annotate2List' $1 $>
+
+%name parseFile_ CSPMFile
+%name parseInteractiveStmt_ InteractiveStmt
+%name parseExpression_ Exp
+%lexer { getNextTokenWrapper } { L _ TEOF }
+%monad { ParseMonad }
+%tokentype { LToken }
+%error { parseError }
+%token
+	integer_literal		{ L _ (TInteger _) }
+	ident				{ L _ (TIdent _) }
+	newline				{ L _ TNewLine }
+
+	"false"				{ L _ TFalse }
+	"true"				{ L _ TTrue }
+
+	"="					{ L _ TDefineEqual }
+
+	","					{ L _ TComma }
+	"."					{ L _ TDot }
+	"?"					{ L _ TQuestionMark }
+	"!"					{ L _ TExclamationMark }
+	".."				{ L _ TDoubleDot }
+	":"					{ L _ TColon }
+	"<-"				{ L _ TDrawnFrom }
+	"<->"				{ L _ TTie }
+	"|"					{ L _ TPipe }
+
+	"@@"				{ L _ TDoubleAt }
+	"_"					{ L _ TWildCard }
+
+	"if"				{ L _ TIf }
+	"then"				{ L _ TThen }
+	"else"				{ L _ TElse }
+	"let"				{ L _ TLet }
+	"within"			{ L _ TWithin }
+	"\\"				{ L _ TBackSlash }
+	"@"					{ L _ TLambdaDot }
+	"channel"			{ L _ TChannel }
+	"datatype"			{ L _ TDataType }
+	"external"			{ L _ TExternal }
+	"transparent"		{ L _ TTransparent }
+	"nametype"			{ L _ TNameType }
+
+	"assert"			{ L _ TAssert }
+	"deadlock free"		{ L _ TDeadlockFree }
+	"livelock free"		{ L _ TLivelockFree }
+	"divergence free"	{ L _ TDivergenceFree }
+	"deterministic"		{ L _ TDeterministic }
+	"tau priority"		{ L _ TTauPriority }
+	"[T="				{ L _ TTraceRefines }
+	"[F="				{ L _ TFailuresRefines }
+	"[FD="				{ L _ TFailuresDivergencesRefines }
+	
+	"not"				{ L _ TNot }
+	"and"				{ L _ TAnd }
+	"or"				{ L _ TOr }
+	"=="				{ L _ TEq }
+	"!="				{ L _ TNotEq }
+	"<="				{ L _ TLtEq }
+	">="				{ L _ TGtEq }
+	"<>"				{ L _ TEmptySeq }
+	"<"					{ L _ TLt }
+	">"					{ L _ TGt }
+	"close_seq"			{ L _ TCloseSeq }
+
+	"+"					{ L _ TPlus }
+	"-"					{ L _ TMinus }
+	"*"					{ L _ TTimes }
+	"/"					{ L _ TDivide }
+	"%"					{ L _ TMod }
+
+	"^"					{ L _ TConcat }
+	"#"					{ L _ THash }
+
+	"("					{ L _ TLParen }
+	")"					{ L _ TRParen }
+	"{"					{ L _ TLBrace }
+	"}"					{ L _ TRBrace }
+	"{|"				{ L _ TLPipeBrace }
+	"|}"				{ L _ TRPipeBrace }
+	"[["				{ L _ TLDoubleSqBracket }
+	"]]"				{ L _ TRDoubleSqBracket }
+	"[|"				{ L _ TLPipeSqBracket }
+	"|]"				{ L _ TRPipeSqBracket }
+	"["					{ L _ TLSqBracket }
+	"]"					{ L _ TRSqBracket }
+
+	"[]"				{ L _ TExtChoice }
+	"|~|"				{ L _ TIntChoice }
+	"|||"				{ L _ TInterleave }
+	"->"				{ L _ TPrefix }
+	"/\\"				{ L _ TInterrupt }
+	"[>"				{ L _ TSlidingChoice }
+	"|>"				{ L _ TRException }
+	"||"				{ L _ TParallel }
+	";"					{ L _ TSemiColon }
+	"&"					{ L _ TGuard }
+
+-- TODO: lambda dot
+%nonassoc "let" "within" "@" "if" "then" "else"
+%nonassoc "@@" --COLON AT AS
+%left "\\"
+%left "|||"
+%nonassoc "|>" "[|" "|]" "[" "]" "||" --"[[" "]]" -- PROB
+%left "|~|"
+%left "[]"
+%left "/\\"
+%left "[>"
+%left ";"
+%right "&" "->" --GUARD WHERESQ (this is &[)
+%left "?" "!"
+%right "."	-- TODO: correct?
+%nonassoc ":"
+%left "or"
+%left "and"
+%left "not"
+%nonassoc "==" "!=" "<" "<=" ">" ">="
+%left "+" "-"
+%left "*" "/" "%"
+%left "#"
+%left "^"
+--%left PATTERN -- (this is $??)
+%nonassoc "(" ")" "[[" "]]"
+--%nonassoc SCOPE (this is ::)
+
+%%
+
+CSPMFile :: { [PDecl] }
+	:
+	Newlines0 DeclList							{ $2 }
+	
+InteractiveStmt :: { PInteractiveStmt }
+	:
+	"let" Exp "=" Exp							{% do
+													d <- convDecl $2 $4 
+													return $ AN2 (Bind d)}
+	| Exp										{ AN (Evaluate $1) }
+
+Newlines :
+	newline										{ }
+	| Newlines newline 							{ }
+Newlines0 :
+												{ }
+	| Newlines0 newline 						{ }
+
+DeclList :: { [PDecl] }
+	:
+												{ [] }
+	| DeclList1									{ $1 }
+DeclList1 :: { [PDecl] }
+	:
+	rDeclList1NC								{ combineDecls (reverse $1) }
+rDeclList1NC :: { [PDecl] }
+	:
+	Decl										{ [$1] }
+	| rDeclList1NC Newlines MaybeDecl			{ case $3 of 
+													Just d -> d:$1
+													Nothing -> $1 }
+MaybeDecl :: { Maybe PDecl }
+	:
+												{ Nothing }
+	| Decl										{ Just $1 }
+
+Decl :: { PDecl }
+	:
+	DeclA										{% annotateWithSymbolTable $1 }
+DeclA :: { PDecl }
+	:
+	Exp "=" Exp									{% convDecl $1 $3 }
+	| "channel" NameCommaList1					{ AN2L (Channel (map unLoc $2) Nothing) }
+	| "channel" NameCommaList1 ":" Exp			{ AN2 (Channel (map unLoc $2) (Just $4)) }
+	| "datatype" Name "=" DataTypeClauseList1	{ AN2L (DataType (unLoc $2) $4) }
+	| "external" NameCommaList1					{ AN2L (External (map unLoc $2)) }
+	| "transparent" NameCommaList1				{ AN2L (Transparent (map unLoc $2)) }
+	| "assert" Assertion						{ AN (Assert $2) }
+	| "nametype" Name "=" Exp					{ AN2 (NameType (unLoc $2) $4) }
+
+Assertion :: { Assertion }
+	:
+--	Exp											{  (BoolAssertion $1) }
+--	"not" Assertion								{  (ASNot $2) }
+	Exp "[T=" Exp								{  (Refinement $1 Traces $3 Nothing) }
+	| Exp "[F=" Exp								{  (Refinement $1 Failures $3 Nothing) }
+	| Exp "[FD=" Exp							{  (Refinement $1 FailuresDivergences $3 Nothing) }
+--	| Exp Model Exp	ModelProperty				{  (Refinement $1 $2 $3 (Just $4)) }
+	| Exp SemanticProperty						{  (PropertyCheck $1 $2 Nothing) }
+--	| Exp SemanticProperty Model				{  (PropertyCheck $1 $2 (Just $3)) }
+SemanticProperty :: { SemanticProperty }
+	:
+	"deadlock free"								{ DeadlockFreedom }
+	| "livelock free"							{ LivelockFreedom }
+	| "divergence free"							{ LivelockFreedom }
+	| "deterministic"							{ Deterministic }
+--Model :: { Model }
+--	:
+--	semantic_model								{ $1 }
+ModelProperty :: { ModelProperty }
+	:
+	"tau priority" Exp							{ TauPriority $2 }
+
+DataTypeClause :: { PDataTypeClause }
+	:
+	Name "." Exp								{ AN2 (DataTypeClause (unLoc $1) (Just $3)) }
+	| Name										{ AN (DataTypeClause (unLoc $1) Nothing) }
+DataTypeClauseList1 :: { [PDataTypeClause] }
+	:
+	rDataTypeClauseList							{ reverse $1 }
+rDataTypeClauseList :: { [PDataTypeClause] }
+	:
+	DataTypeClause								{ [$1] }
+	| rDataTypeClauseList "|" DataTypeClause	{ $3:$1 }
+
+Name :: { Located Name }
+	: 
+	ident							{ LL (Name (getName $1)) }
+NameCommaList1 :: { [Located Name] }
+	:
+	rNameCommaList					{ reverse $1 }
+rNameCommaList :: { [Located Name] }
+	:
+	Name							{ [$1] }
+	| rNameCommaList "," Name		{ $3:$1 }
+
+QName :: { Located QualifiedName }
+	:
+	ident							{ LL (UnQual (Name (getName $1))) }
+
+Literal :: { Located Literal }:
+	integer_literal					{ LL (Int (getInt $1)) }
+	| "true"						{ LL (Bool True) }
+	| "false"						{ LL (Bool False) }
+
+-- We parse patterns as expressions and then transform them later
+-- This is because statements are unable to determine if something is
+-- a pattern or an expression without an arbitrary lookahead:
+--		Pat "<-" Exp
+--		Exp
+Pat :: { PPat }
+	:
+	Exp								{ transformPattern $1 }
+
+BegSeq
+	:
+	"<"							{% do
+--									liftIO (putStrLn "Putting <")
+									modifyTopFileParserState (
+										\ st @ (FileParserState { sequenceStack = (c:cs) }) -> 
+											st { sequenceStack = (c+1):cs })
+									return $1
+								}
+EndSeq
+	:
+	"close_seq"					{% do
+									modifyTopFileParserState (
+										\ st @ (FileParserState { sequenceStack = (c:cs) }) -> 
+											st { sequenceStack = (c-1):cs })
+									return $1
+								}
+
+-- An expression annotated with a pType
+Exp :: { PExp }
+	:
+	ExpA							{% do
+										t <- freshPType
+										let An l _ e = $1
+										return $ An l t e
+									}
+-- An annotated expression with a dummy PType - DO NOT USE THIS
+ExpA :: { PExp }
+	:
+	-- Basic Types
+	Literal							{ LL (Lit (unLoc $1)) }
+	| QName							{ LL (Var (unLoc $1)) }
+	| "(" ExpCommaList2 ")"			{ AN2 (Tuple $2) }
+	| Exp "." Exp					{ AN2 (DotApp $1 $3) }
+
+	-- Language Structure
+	| "let" DeclList1 "within" Exp	{ AN2 (Let $2 $4) }
+	| "if" Exp "then" Exp "else" Exp { AN2 (If $2 $4 $6) }
+	| "(" Exp ")"					{ AN2 (Paren $2) }
+	| Exp "(" ExpCommaList ")"		{ AN2 (App $1 $3) }
+	| "\\" Pat "@" Exp				{ AN2 (Lambda $2 $4) }
+
+	-- Boolean ExpPatressions
+	| Exp "==" Exp					{ AN2 (BooleanBinaryOp Equals $1 $3) }
+	| Exp "!=" Exp					{ AN2 (BooleanBinaryOp NotEquals $1 $3) }
+	| Exp "<" Exp					{ AN2 (BooleanBinaryOp LessThan $1 $3) }
+	| Exp ">" Exp					{ AN2 (BooleanBinaryOp GreaterThan $1 $3) }
+	| Exp "<=" Exp					{ AN2 (BooleanBinaryOp LessThanEq $1 $3) }
+	| Exp ">=" Exp					{ AN2 (BooleanBinaryOp GreaterThanEq $1 $3) }
+	| "not" Exp						{ AN2 (BooleanUnaryOp Not $2) } 
+	| Exp "or" Exp					{ AN2 (BooleanBinaryOp Or $1 $3) }
+	| Exp "and" Exp					{ AN2 (BooleanBinaryOp And $1 $3) }
+
+	-- Arithmetic ExpPatressions
+	| "-" Exp						{ AN2 (MathsUnaryOp Negate $2) }
+	| Exp "+" Exp					{ AN2 (MathsBinaryOp Plus $1 $3) }
+	| Exp "-" Exp					{ AN2 (MathsBinaryOp Minus $1 $3) }
+	| Exp "%" Exp					{ AN2 (MathsBinaryOp Mod $1 $3) }
+	| Exp "/" Exp					{ AN2 (MathsBinaryOp Divide $1 $3) }
+	| Exp "*" Exp					{ AN2 (MathsBinaryOp Times $1 $3) }
+
+	-- Sequences
+	| "<>"							{ AN (List []) }
+	| BegSeq ExpCommaList EndSeq	{ AN2 (List $2) }
+	| BegSeq ExpCommaList "|" StmtCommaList EndSeq { AN2 (ListComp $2 $4) }
+	| BegSeq Exp ".." EndSeq		{ AN2 (ListEnumFrom $2) }
+	| BegSeq Exp ".." Exp EndSeq	{ AN2 (ListEnumFromTo $2 $4) }
+	| Exp "^" Exp					{ AN2 (Concat $1 $3) }
+	| "#" Exp						{ AN2 (ListLength $2) }
+
+	-- Sets
+	| "{" ExpCommaList "}"			{ AN2 (Set $2) }
+	| "{" ExpCommaList "|" StmtCommaList "}" { AN2 (SetComp $2 $4) }
+	| "{" Exp ".." "}"				{ AN2 (SetEnumFrom $2) }
+	| "{" Exp ".." Exp "}"			{ AN2 (SetEnumFromTo $2 $4) }
+	| "{|" ExpCommaList "|}"		{ AN2 (SetEnum $2) }
+	| "{|" ExpCommaList "|" StmtCommaList "|}" { AN2 (SetEnumComp $2 $4) }
+
+	-- TODO: disallow these in expressions
+	-- Patterns
+	| "_"							{ LL (ExpPatWildCard) }
+	| Exp "@@" Exp					{ LL (ExpPatDoublePattern $1 $3) }
+
+	-- Processes
+	| Exp FieldList "->" Exp		{ AN2 (Prefix $1 $2 $4) }
+	| Exp "->" Exp					{ AN2 (Prefix $1 [] $3) }
+
+	| Exp "[]" Exp					{ AN2 (ExternalChoice $1 $3) }
+	| Exp "\\" Exp					{ AN2 (Hiding $1 $3) }
+	| Exp "|~|" Exp					{ AN2 (InternalChoice $1 $3) }
+	| Exp "|||" Exp					{ AN2 (Interleave $1 $3) }
+	| Exp "[|" Exp "|]" Exp			{ AN2 (GenParallel $1 $3 $5) }
+	| Exp "[" Exp "||" Exp "]" Exp	{ AN2 (AlphaParallel $1 $3 $5 $7) }
+	| Exp "/\\" Exp					{ AN2 (Interrupt $1 $3) }
+	| Exp "[|" Exp "|>" Exp			{ AN2 (Exception $1 $3 $5) }
+	| Exp "[>" Exp					{ AN2 (SlidingChoice $1 $3) }
+	| Exp ";" Exp					{ AN2 (SequentialComp $1 $3) }
+	| Exp "&" Exp					{ AN2 (GuardedExp $1 $3) }
+	--- TODO: check all on LHS are generators only
+	-- TODO: check LHS all use <- only
+	| Exp "[[" RenameList1 OptStmtList "]]" { AN2 (Rename $1 $3 $4) }
+	| Exp "[" TieList1 OptStmtList "]" Exp	{ AN2 (LinkParallel $1 $3 $4 $6) }
+
+	| "|||" StmtCommaList "@" Exp	{ AN2 (ReplicatedInterleave $2 $4) }
+	| "[]" StmtCommaList "@" Exp	{ AN2 (ReplicatedExternalChoice $2 $4) }
+	| "|~|" StmtCommaList "@" Exp	{ AN2 (ReplicatedInternalChoice $2 $4) }
+	| "||" StmtCommaList "@" "[" Exp "]" Exp { AN2 (ReplicatedAlphaParallel $2 $5 $7) }
+	| "[|" Exp "|]" StmtCommaList "@" Exp { AN2 (ReplicatedParallel $2 $4 $6) }
+	| "[" TieList1 "]" StmtCommaList "@" Exp { AN2 (ReplicatedLinkParallel $2 $4 $6) }
+
+Field :: { PField }
+	:
+	-- For somer eason changing Exp to Pat causes a shift/reduce error, hence we do this
+	"?" Exp							{ AN2 (Input (transformPattern $2) Nothing) }
+	| "?" Pat ":" Exp				{ AN2 (Input $2 (Just $4)) }
+	| "!" Exp						{ AN2 (Output $2) }
+
+Rename :: { (PExp, PExp) }
+	:
+	Exp "<-" Exp					{ ($1, $3) }
+RenameList1 :: { [(PExp, PExp)] }
+	:
+	rRenameList1					{ reverse $1 }
+rRenameList1 :: { [(PExp, PExp)] }
+	:
+	Rename							{ [$1] }
+	| rRenameList1 "," Rename		{ $3:$1 }
+Tie :: { (PExp, PExp) }
+	:
+	Exp "<->" Exp					{ ($1, $3) }
+TieList1 :: { [(PExp, PExp)] }
+	:
+	rTieList1						{ reverse $1 }
+rTieList1 :: { [(PExp, PExp)] }
+	:
+	Tie								{ [$1] }
+	| rTieList1 "," Tie				{ $3:$1 }
+
+FieldList :: { [PField] }
+	:
+	 rFieldList						{ reverse $1 }
+rFieldList :: { [PField] }
+	:
+	Field							{ [$1] }
+	| rFieldList Field				{ $2:$1 }
+
+-- List containing at least 2 items
+ExpCommaList2 :: { [PExp] }
+	:
+	Exp "," rExpCommaList		{ $1:(reverse $3) }
+-- List containing at least 1 items
+ExpCommaList1 :: { [PExp] }
+	:
+	rExpCommaList					{ reverse $1 }
+ExpCommaList :: { [PExp] }
+	:
+									{ [] }
+	| rExpCommaList					{ reverse $1 }
+rExpCommaList :: { [PExp] }
+	:
+	rExpCommaList "," Exp			{ $3:$1 }
+	| Exp							{ [$1] }
+
+-- ****************************************
+-- Statements
+OptStmtList :: { [PStmt] }
+	:
+									{ [] }
+	| "|" StmtCommaList				{ $2 }
+Stmt :: { PStmt }
+	:
+	Pat "<-" Exp					{ AN2 (Generator $1 $3) }
+	| Pat ":" Exp					{ AN2 (Generator $1 $3) }
+	| Exp							{ AN (Qualifier $1) }
+StmtCommaList :: { [PStmt] }
+	:
+	rStmtCommaList					{ reverse $1 }
+rStmtCommaList :: { [PStmt] }
+	:
+	rStmtCommaList "," Stmt			{ $3:$1 }
+	| Stmt							{ [$1] }
+
+{
+combineDecls :: [PDecl] -> [PDecl]
+combineDecls [] = []
+combineDecls ((An loc1 b (FunBind n ms)):(An loc2 c (FunBind n' ms')):ds) | n == n' = 
+	combineDecls $ (An (combineSpans loc1 loc2) b (FunBind n (ms++ms'))):ds
+combineDecls (d:ds) = d:combineDecls ds
+
+convDecl :: PExp -> PExp -> ParseMonad PDecl
+convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) = 
+	let
+		span = combineSpans loc1 loc2
+
+		-- REMMBER: needs to reverse pts
+		getPats :: Exp -> ([[PPat]], Name)
+		getPats (App f args) = 
+				((map transformPattern args):ps, n)
+			where
+				(ps, n) = getPats (unAnnotate f)
+		getPats (Var (UnQual n)) = ([], n)
+		
+		convFunBind exp = 
+				FunBind	n [An span (dummyAnnotation) (Match (reverse ps) rhs)]
+			where
+				(ps, n) = getPats exp
+
+		convPatBind exp = PatBind (transformPattern exp) rhs
+	in do
+		symbTable <- freshPSymbolTable
+		case lhsexp of
+			App f args	-> return $ An span symbTable (convFunBind lhsexp)
+			_			-> return $ An span symbTable (convPatBind lhs)
+
+checkExp :: PExp -> PExp
+checkExp (An a b exp) =
+	let 
+		check :: Exp -> Exp
+		check (App e es) = App (checkExp e) (map checkExp es)
+		check (BooleanBinaryOp op e1 e2) = BooleanBinaryOp op (checkExp e1) (checkExp e2)
+		check (BooleanUnaryOp op e) = BooleanUnaryOp op (checkExp e)
+		check (Concat e1 e2) = Concat (checkExp e1) (checkExp e2)
+		check (DotApp e1 e2) = DotApp (checkExp e1) (checkExp e2)
+		check (If e1 e2 e3) = If (checkExp e1) (checkExp e2) (checkExp e3)
+		check (Lambda p e) = Lambda p (checkExp e)
+		check (Let decls e) = Let decls (checkExp e)
+		check (Lit lit) = Lit lit
+		check (List es) = List (map checkExp es)
+		check (ListComp es stmts) = ListComp (map checkExp es) stmts
+		check (ListEnumFrom e) = ListEnumFrom (checkExp e)
+		check (ListEnumFromTo e1 e2) = ListEnumFromTo (checkExp e1) (checkExp e2)
+		check (ListLength e) = ListLength (checkExp e)
+		check (MathsBinaryOp op e1 e2) = MathsBinaryOp op (checkExp e1) (checkExp e2)
+		check (MathsUnaryOp op e) = MathsUnaryOp op (checkExp e)
+		check (Paren e) = Paren (checkExp e)
+		check (Set es) = Set (map checkExp es)
+		check (SetComp es stmts) = SetComp (map checkExp es) stmts
+		check (SetEnumFrom e) = SetEnumFrom (checkExp e)
+		check (SetEnumFromTo e1 e2) = SetEnumFromTo (checkExp e1) (checkExp e2)
+		check (SetEnum es) = SetEnum (map checkExp es)
+		check (SetEnumComp es stmts) = SetEnumComp (map checkExp es) stmts
+		check (Tuple es) = Tuple (map checkExp es)
+		check (Var qname) = Var qname
+
+		-- TODO: check inside stmts etc
+		check (AlphaParallel e1 e2 e3 e4) = 
+			AlphaParallel (checkExp e1) (checkExp e2) (checkExp e3) (checkExp e4)
+		check (Exception e1 e2 e3) = Exception (checkExp e1) (checkExp e2) (checkExp e3)
+		check (ExternalChoice e1 e2) = ExternalChoice (checkExp e1) (checkExp e2)
+		check (GenParallel e1 e2 e3) = GenParallel (checkExp e1) (checkExp e2) (checkExp e3)
+		check (GuardedExp e1 e2) = GuardedExp (checkExp e1) (checkExp e2)
+		check (InternalChoice e1 e2) = InternalChoice (checkExp e1) (checkExp e2)
+		check (Interrupt e1 e2) = Interrupt (checkExp e1) (checkExp e2)
+		check (Interleave e1 e2) = Interleave (checkExp e1) (checkExp e2)
+		check (Prefix e1 fields e2) = Prefix (checkExp e1) fields (checkExp e2)
+		check (SequentialComp e1 e2) = SequentialComp (checkExp e1) (checkExp e2)
+		check (SlidingChoice e1 e2) = SlidingChoice (checkExp e1) (checkExp e2)
+
+		check (ReplicatedAlphaParallel stmts e1 e2) = 
+			ReplicatedAlphaParallel stmts (checkExp e1) (checkExp e2)
+		check (ReplicatedInterleave stmts e1) = ReplicatedInterleave stmts (checkExp e1)
+		check (ReplicatedExternalChoice stmts e1) = ReplicatedExternalChoice stmts (checkExp e1)
+	in
+		An a b (check exp)
+
+dotAppToList :: PExp -> [PExp]
+dotAppToList (An a b exp) = 
+	let	
+		list :: Exp -> [PExp]
+		list (DotApp e1 e2) = (dotAppToList e1) ++ (dotAppToList e2)
+		list x = [An a b x]
+	in
+		list exp
+
+transformPattern :: PExp -> PPat
+transformPattern (An a b exp) = 
+	let
+		trans :: Exp -> Pat
+		trans (Concat e1 e2) = PConcat (transformPattern e1) (transformPattern e2)
+		trans (DotApp e1 e2) = PDotApp (transformPattern e1) (transformPattern e2)
+		trans (List xs) = PList (map transformPattern xs)
+		trans (Lit x) = PLit x
+		trans (Set xs) = PSet (map transformPattern xs)
+		trans (Paren x) = PParen (transformPattern x)
+		trans (Tuple xs) = PTuple (map transformPattern xs)
+		trans (Var (UnQual x)) = PVar x
+		trans (ExpPatWildCard) = PWildCard
+		trans (ExpPatDoublePattern e1 e2) = PDoublePattern (transformPattern e1) (transformPattern e2)
+		trans x = error ("Invalid pattern: "++show x) -- TODO
+	in
+		An a () (trans exp)
+
+-- Helper function to get the contents of tokens
+getInt (L _ (TInteger x)) = x
+getName (L _ (TIdent x)) = x
+
+class Locatable a where
+	getLoc :: a b -> SrcSpan
+	unLoc :: a b -> b
+	mkLoc :: SrcSpan -> b -> a b
+
+instance Locatable Located where
+	getLoc (L loc _) = loc
+	unLoc (L _ b) = b
+	mkLoc loc b = L loc b
+
+instance Locatable (Annotated a) where
+	getLoc (An loc _ _) = loc
+	unLoc (An _ _ b) = b
+	mkLoc loc b = An loc dummyAnnotation b
+
+annotate :: (Locatable t1, Locatable t2) => t1 a -> b -> t2 b
+annotate t1 b = mkLoc (getLoc t1) b
+
+annotate2 :: (Locatable t1, Locatable t2, Locatable t3) => t1 a -> t2 b -> c -> t3 c
+annotate2 t1 t2 b = mkLoc (combineSpans (getLoc t1) (getLoc t2)) b
+annotate2List :: (Locatable t1, Locatable t2, Locatable t3) => t1 a -> [t2 b] -> c -> t3 c
+annotate2List t1 t2 b = annotate2 t1 (last t2) b
+annotate2List' :: (Locatable t1, Locatable t2, Locatable t3) => [t1 a] -> t2 b -> c -> t3 c
+annotate2List' t1 t2 b = annotate2 (last t1) t2 b
+
+annotateWithSymbolTable 
+	:: Annotated PSymbolTable a -> ParseMonad (Annotated PSymbolTable a)
+annotateWithSymbolTable (An l _ a) = do
+	symbTable <- freshPSymbolTable
+	return $ An l symbTable a
+
+liftLoc :: (Locatable t1, Locatable t2) => t1 a -> b -> t2 b
+liftLoc t1 b = mkLoc (getLoc t1) b
+
+parseError :: LToken -> ParseMonad a
+parseError = throwException . ParseException
+}

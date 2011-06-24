@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Monad
 import Data.List
 import System
 import System.Console.GetOpt
@@ -8,12 +9,9 @@ import System.FilePath
 import System.Exit
 import System.IO
 
-import CSPMDataStructures.Syntax
-import CSPMParser.Parser
-import CSPMTypeChecker.Module
-import CSPMTypeChecker.Monad
-import Util.Annotated
-import Util.Monad
+import CSPM
+--import Util.Annotated
+--import Util.Monad
 
 -- We make the decision that union types are not supported. This is because of cases
 -- such as:
@@ -48,17 +46,16 @@ doDir path =
 		mapM_ doFile [file | file <- files']
 
 doFile :: FilePath -> IO ()
-doFile fp = 
-	do
- 		putStrLn("*****************************")
-		putStrLn ("Doing "++fp)
-		res <- runTyger (do
-			ast <- parseFile fp
-    			runTypeChecker (typeCheckModules [An (error "") (error "") (GlobalModule ast)]))
-		case res of
-			Left err	-> putStrLn (show err)
-			Right _		-> putStrLn ("Done")
-
+doFile fp = do
+	putStrLn("*****************************")
+	putStrLn ("Doing "++fp)
+	s <- newCSPMSession
+	unCSPM s $ do
+		ms <- parse (fileParser fp)
+		typeCheck (fileTypeChecker ms)
+--		ms <- runTypeChecker (typeCheckModules ms)
+		return ()
+	return ()
 
 main :: IO ()
 main = 

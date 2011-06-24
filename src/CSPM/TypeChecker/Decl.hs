@@ -1,0 +1,308 @@
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
+module CSPM.TypeChecker.Decl (typeCheckDecls) where
+
+import Control.Monad
+import Control.Monad.Trans
+import Data.Graph.Wrapper
+import qualified Data.Map as M
+import qualified Data.Set as S
+import List (nub, intersect, (\\))
+
+import CSPM.DataStructures.Names
+import CSPM.DataStructures.Syntax
+import CSPM.DataStructures.Types
+import CSPM.PrettyPrinter
+import CSPM.TypeChecker.BuiltInFunctions
+import CSPM.TypeChecker.Common
+import CSPM.TypeChecker.Dependencies
+import CSPM.TypeChecker.Exceptions
+import CSPM.TypeChecker.Expr
+import CSPM.TypeChecker.Monad
+import CSPM.TypeChecker.Pat
+import CSPM.TypeChecker.Unification
+import Util.Annotated
+import Util.List
+import Util.Monad
+import Util.PartialFunctions
+import Util.PrettyPrint
+
+-- | Type check a list of possibly mutually recursive functions
+typeCheckDecls :: [PDecl] -> TypeCheckMonad ()
+typeCheckDecls decls = do
+	namesBoundByDecls <- mapM (\ decl -> do
+		namesBound <- namesBoundByDecl decl
+		return (decl, namesBound)) decls
+		
+	let 
+		-- | Map from declarations to integer identifiers
+		declMap = zip decls [0..]
+		invDeclMap = invert declMap
+		-- | Map from names to the identifier of the declaration that it is
+		-- defined by.
+		varToDeclIdMap = 
+			[(n, apply declMap d) | (d, ns) <- namesBoundByDecls, n <- ns]
+		boundVars = map fst varToDeclIdMap
+		namesToLocations = [(n, loc d) | (d, ns) <- namesBoundByDecls, n <- ns]
+
+	-- Throw an error if a name is defined multiple times
+	manyErrorsIfFalse (noDups boundVars) 
+		(duplicatedDefinitionsMessage namesToLocations)
+
+	-- We prebind the datatypes and channels as they can be matched on in 
+	-- patterns (and thus, given a var in a pattern we can't decide if it
+	-- is free or a dependency otherwise).
+	mapM_ prebindDecl (map unAnnotate decls)
+
+	-- Map from decl id -> [decl id] meaning decl id depends on the list of
+	-- ids
+	declDeps <- mapM (\ decl -> do
+			deps <- dependencies decl
+			let depsInThisGroup = intersect deps boundVars
+			return (apply declMap decl, mapPF varToDeclIdMap depsInThisGroup)
+		) decls
+
+	let 
+		-- | Edge from n -> n' iff n uses n'
+		declGraph :: Graph Int Int
+		declGraph = fromListSimple [(id, deps) | (id, deps) <- declDeps]
+		-- | The graph of strongly connected components, with an edge
+		-- from scc i to scc j if j depends on i, but i does not depend
+		-- on j.
+		sccgraph :: Graph (S.Set Int) (M.Map Int Int)
+		sccgraph = transpose (sccGraph declGraph)
+		-- | The strongly connected components themselves, topologically sorted
+		sccs :: [S.Set Int]
+		sccs = topologicalSort sccgraph
+		
+		-- | Get the declarations corresponding to certain ids
+		typeInferenceGroup = mapPF invDeclMap
+
+		-- When an error occurs continue type checking, but only
+		-- type check groups that do not depend on the failed group.
+		-- failM is called at the end if any error has occured.
+		typeCheckGroups [] b = if b then failM else return ()
+		typeCheckGroups (g:gs) b = do
+			err <- tryAndRecover (do
+				typeCheckMutualyRecursiveGroup (typeInferenceGroup (S.toList g))
+				return False --(gs,b)
+				) (return True)
+			if not err then typeCheckGroups gs b
+			-- Else, continue type checking but remove all declaration groups
+			-- that are reachable from this group. Also, set the flag to be 
+			-- True to indicate that an error has occured so that failM is 
+			-- called at the end.
+			else typeCheckGroups (gs \\ (reachableVertices sccgraph g)) True
+	
+	-- Start type checking the groups
+	typeCheckGroups sccs False
+	
+-- | Type checks a group of certainly mutually recursive functions. Only 
+-- functions that are mutually recursive should be included otherwise the
+-- types could end up being less general.
+typeCheckMutualyRecursiveGroup :: [PDecl] -> TypeCheckMonad ()
+typeCheckMutualyRecursiveGroup ds = do
+	-- We only create variables for non datatype declarations as the others
+	-- were prebound in prebindDataType
+	fvs <- liftM nub (concatMapM namesBoundByDecl 
+				(filter (not . wasPrebound . unAnnotate) ds))
+	ftvs <- replicateM (length fvs) freshTypeVar
+	zipWithM setType fvs (map (ForAll []) ftvs)
+	
+	-- The list of all variables bound by these declaration
+	fvs <- liftM nub (concatMapM namesBoundByDecl ds)
+
+	-- Type check each declaration then generalise the types
+	nts <- generaliseGroup fvs (map typeCheck ds)
+	-- Add the type of each declaration (if one exists to each declaration)
+	zipWithM annotate nts ds
+	
+	-- Compress all the types we have inferred here (they should never be 
+	-- touched again)
+	mapM_ (\ n -> do
+		t <- getType n
+		t' <- compressTypeScheme t
+		setType n t') fvs
+	where
+		wasPrebound (DataType _ _ ) = True
+		wasPrebound (Channel _ _ ) = True
+		wasPrebound _ = False
+		
+		annotate nts (An _ psymbtable _) = setPSymbolTable psymbtable nts
+
+-- | Takes a type and returns the inner type, i.e. the type that this
+-- is a set of. For example TSet t1 -> t, TTuple [TSet t1, TSet t2] -> (t1, t2).
+-- The type that is returned is guaranteed to satisfy Eq since, at the
+-- recursion only bottoms out on reaching something that is of type TSet.
+evaluateTypeExpression :: Type -> TypeCheckMonad Type
+evaluateTypeExpression (TTuple ts) = do
+	-- TTuple [TSet t1,...] = TSet (TTuple [t1,...])
+	ts' <- mapM evaluateTypeExpression ts
+	return $ TTuple ts'
+evaluateTypeExpression (TDot t1 t2) = do
+	-- TDot (TSet t1) (TSet t2) = TSet (TDot t1 t2)
+	t1' <- evaluateTypeExpression t1
+	t2' <- evaluateTypeExpression t2
+	return $ TDot t1' t2'
+-- Otherwise, it must be a set.
+evaluateTypeExpression t = do
+	fv <- freshTypeVar
+	unify t (TSet fv)
+	return fv
+
+instance TypeCheckable PDecl [(Name, Type)] where
+	errorContext an = Nothing
+	typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
+
+instance TypeCheckable Decl [(Name, Type)] where
+	errorContext (FunBind n ms) = Just $ 
+		-- This will only be helpful if the equations don't match in
+		-- type
+		text "In the delcaration of:" <+> prettyPrint n
+	errorContext (p@(PatBind pat exp)) = Just $
+		hang (text "In a pattern binding:") tabWidth (prettyPrint p)
+	errorContext (DataType n cs) = Just $
+		text "In the delcaration of:" <+> prettyPrint n
+	-- TODO
+	errorContext (Channel ns es) = Nothing
+	errorContext (Transparent ns) = Nothing
+	errorContext (External ns) = Nothing
+	errorContext (Assert a) = Nothing
+	
+	typeCheck' (FunBind n ms) = do
+		ts <- mapM (\ m -> addErrorContext (matchCtxt m) $ typeCheck m) ms
+		ForAll [] t <- getType n
+		-- This unification also ensures that each equation has the same number
+		-- of arguments.
+		(t' @ (TFunction tsargs _)) <- unifyAll (t:ts)
+		return [(n, t')]
+		where
+			matchCtxt an = 
+				hang (text "In an equation for" <+> prettyPrint n <> colon) 
+					tabWidth (prettyPrintMatch n an)
+	typeCheck' (PatBind pat exp) = do
+		tpat <- typeCheck pat
+		texp <- typeCheck exp
+		-- We evaluate the dots to implement the 'longest match' rule. For
+		-- example, suppose we have the following declaration:
+		--   datatype A = B.Integers.Integers
+		--   f(B.x) = x
+		-- Then we make the decision that x should be of type Int.Int.
+		tpat <- evaluateDots tpat
+		texp <- evaluateDots texp
+		unify texp tpat
+		ns <- namesBoundByDecl' (PatBind pat exp)
+		ts <- mapM getType ns
+		return $ zip ns [t | ForAll _ t <- ts]
+	-- The following two clauses rely on the fact that they have been 
+	-- prebound.
+	typeCheck' (Channel ns Nothing) = do
+		-- We now unify the each type to be a TEvent
+		mapM (\ n -> setType n (ForAll [] TEvent)) ns
+		-- (Now getType n for any n in ns will return TEvent)
+		return [(n, TEvent) | n <- ns]
+	typeCheck' (Channel ns (Just e)) = do
+		t <- typeCheck e
+		valueType <- evaluateTypeExpression t
+		dotList <- typeToDotList valueType
+		let t = foldr TDotable TEvent dotList
+		mapM (\ n -> setType n (ForAll [] t)) ns
+		return $ [(n, t) | n <- ns]
+	typeCheck' (DataType n clauses) = do
+		nts <- mapM (\ clause -> do
+			(n', ts) <- typeCheck clause
+			let t = foldr TDotable (TDatatype n) ts
+			-- The type of n' is currently TPrebound
+			setType n' (ForAll [] t)
+			return (n', t)
+			) clauses
+		-- We have already set the type of n in prebindDataType
+		ForAll [] t <- getType n
+		return $ (n,t):nts
+	typeCheck' (NameType n e) = do
+		t <- typeCheck e
+		valueType <- evaluateTypeExpression t
+		return [(n, TSet valueType)]
+	typeCheck' (Transparent ns) = do
+		mapM_ (\ (n@(Name s)) -> do
+			t <- applyPFOrError (transparentFunctionNotRecognised n) 
+								transparentFunctions s
+			setType n (ForAll [] t)) ns
+		return []
+	typeCheck' (External ns) = do
+		mapM_ (\ (n@(Name s)) -> do
+			t <- applyPFOrError (externalFunctionNotRecognised n) 
+								externalFunctions s
+			setType n (ForAll [] t)) ns
+		return []
+ 	typeCheck' (Assert a) = typeCheck a >> return []
+
+instance TypeCheckable Assertion () where
+	errorContext a = Just $ 
+		hang (text "In the assertion" <> colon) tabWidth (prettyPrint a)
+	typeCheck' (PropertyCheck e1 p m) = do
+		t1 <- typeCheck e1
+		ensureIsProc t1
+		return ()
+ 	typeCheck' (Refinement e1 m e2 p) = do
+		t1 <- typeCheck e1 	
+		t2 <- typeCheck e2
+		ensureIsProc t1
+		ensureIsProc t2
+		case p of
+			Just (TauPriority e3) -> do
+									t1 <- typeCheck e3
+									unify t1 (TSet TEvent)
+									return ()
+			Nothing				-> return ()
+ 
+instance TypeCheckable PDataTypeClause (Name, [Type]) where
+	errorContext an = Nothing
+	typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
+
+instance TypeCheckable DataTypeClause (Name, [Type]) where
+	errorContext c = Just $
+		hang (text "In the data type clause" <> colon) tabWidth 
+			(prettyPrint c)
+	typeCheck' (DataTypeClause n' Nothing) = do
+		return (n', [])
+	typeCheck' (DataTypeClause n' (Just e)) = do
+		t <- typeCheck e
+		valueType <- evaluateTypeExpression t
+		dotList <- typeToDotList valueType
+		return (n', dotList)
+
+instance TypeCheckable PMatch Type where
+	errorContext an = Nothing
+	typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
+instance TypeCheckable Match Type where
+	-- We create the error context in FunBind as that has access
+	-- to the name
+	errorContext (Match groups exp) = Nothing
+	typeCheck' (Match groups exp) = do
+		-- Introduce free variables for all the parameters
+		fvs <- liftM concat (mapM freeVars groups)
+		local fvs $ do
+			tgroups <- mapM (\ pats -> mapM (\ pat -> 
+					-- We evaluate the dots here to implment the longest 
+					-- match rule
+					typeCheck pat >>= evaluateDots
+				) pats) groups
+	
+			-- We evaluate the dots here to implment the longest match rule
+			tr <- typeCheck exp >>= evaluateDots
+			
+			-- We need to evaluate the dots in the patterns twice just in case 
+			-- the type inferences on the RHS have resulted in extra dots on 
+			-- the left being able to be removed.
+			tgroups <- mapM (\ pats -> mapM (\ pat -> 
+					typeCheck pat >>= evaluateDots
+				) pats) groups
+
+			return $ foldr (\ targs tr -> TFunction targs tr) tr tgroups
+
+applyPFOrError 
+	:: Eq a => Error -> PartialFunction a b -> a -> TypeCheckMonad b
+applyPFOrError err pf a = 
+	case safeApply pf a of
+		Just a -> return a
+		Nothing -> raiseMessageAsError err

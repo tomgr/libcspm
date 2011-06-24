@@ -32,17 +32,17 @@ newtype Tyger a = Tyg {
 } deriving (Monad, MonadIO, MonadError TygerError)
 
 class Monad m => MonadTyger m where
-	panic :: String -> m a
+--	panic :: String -> m a
 	debugOutput :: String -> m ()
 instance MonadTyger Tyger where
-	panic = throwError . Panic
+--	panic = throwError . Panic
 	debugOutput = liftIO . putStrLn
 instance MonadTyger m => MonadTyger (StateT s m) where
-	panic = lift . panic
+--	panic = lift . panic
 	debugOutput = lift . debugOutput
 instance (MonadTyger m, Error e) => MonadTyger (ErrorT e m) where
-	panic = lift . panic
+--	panic = lift . panic
 	debugOutput = lift . debugOutput
-		
+
 runTyger :: Tyger a -> IO (Either TygerError a)
 runTyger = runErrorT . runTyg
