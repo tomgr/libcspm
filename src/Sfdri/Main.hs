@@ -11,8 +11,9 @@ import CSPM
 import Sfdri.Monad
 import Util.Annotated
 import Util.Exception
-import Util.PrettyPrint
 import Util.Monad
+import Util.Prelude
+import Util.PrettyPrint
 
 main :: IO ()
 main = do
@@ -136,9 +137,11 @@ typeOfExpr str = do
 
 loadFileCommand :: String -> InputT Sfdri ()
 loadFileCommand fname = do
+	fname <- liftIO $ expandPathIO (trim fname)
 	-- Reset the context
 	lift resetCSPM
 	lift $ modifyState (\st -> st { currentFilePath = Just fname })
+	-- Handle the error here so that the filepath is remembered (for reloading)
 	handleSourceError () $ do
 		pFile <- parse (fileParser fname)
 		tcFile <- typeCheck (fileTypeChecker pFile)
