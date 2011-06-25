@@ -32,7 +32,9 @@ runFromStateToState st prog = runTypeChecker st $ do
 initTypeChecker :: IO TypeInferenceState
 initTypeChecker = runTypeChecker newTypeInferenceState $ do
 	injectBuiltInFunctions
-	getState
+	-- Add a blank level in the environment to allow built in functions
+	-- to be overriden.
+	local [] getState
 
 typeCheckExp :: PExp -> TypeCheckMonad TCExp
 typeCheckExp exp = typeCheck exp >> return exp

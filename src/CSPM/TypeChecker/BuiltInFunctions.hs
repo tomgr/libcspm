@@ -105,7 +105,4 @@ builtInNames =
 		++ map extract seqs
 		++ map extract sets
 	where
-		extract f =
-			let (a,_,_) = f (error "")
-			in a
--- TODO: prevent built in types being overridden
+		extract f = let (a,_,_) = f (error "") in a
