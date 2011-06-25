@@ -7,6 +7,7 @@ where
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import Util.Annotated
+import Util.Exception
 import Util.PrettyPrint
 	
 -- *************************************************************************
@@ -63,7 +64,7 @@ instance PrettyPrintable Decl where
 			<+> fsep (punctuate (text "|") (map prettyPrint dtcs))
 
 instance PrettyPrintable Assertion where
-	prettyPrint a = error "TODO: prettyPrint assertion"
+	prettyPrint a = panic "Cannot print assertion"
 
 instance PrettyPrintable Model where
 	prettyPrint (Traces) = text "[T="
@@ -182,7 +183,13 @@ instance PrettyPrintable Exp where
 		braces (prettyPrint lb <> text ".." <> prettyPrint ub)
 	prettyPrint (Tuple exps) = parens (list (map prettyPrint exps))
 	prettyPrint (Var qname) = prettyPrint qname
-
+	
+	-- Patterns - this is only used when emitting parser errors about invalid
+	-- expressions.
+	prettyPrint (ExpPatWildCard) = char '_'
+	prettyPrint (ExpPatDoublePattern e1 e2) = 
+		prettyPrint e1 <+> text "@@" <+> prettyPrint e2
+	
 	-- Processes
 	prettyPrint(AlphaParallel p1 a1 p2 a2) =
 		fsep [prettyPrint p1,

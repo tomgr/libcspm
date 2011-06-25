@@ -102,11 +102,6 @@ evalTypeExpr :: Value -> ValueSet
 evalTypeExpr (VSet s) = s
 evalTypeExpr (VDot vs) = cartProduct VDot (map evalTypeExpr vs)
 evalTypeExpr (VTuple vs) = cartProduct VTuple (map evalTypeExpr vs)
---		conv _ = error "UH_OH"
-
-	where
-		isSet (VSet _) = True
-		isSet _ = False
 
 -- | Produces a ValueSet of the carteisan product of several ValueSets, 
 -- using 'vc' to convert each sequence of values into a single value.

@@ -1,6 +1,7 @@
 module CSPM.DataStructures.Tokens where
 
 import Util.Annotated
+import Util.PrettyPrint
 
 data Token = 
 	TInteger Integer
@@ -99,3 +100,6 @@ data Token =
 	deriving (Eq, Show)
 	
 type LToken = Located Token
+
+instance PrettyPrintable Token where
+	prettyPrint e = text (show e)

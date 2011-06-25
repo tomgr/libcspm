@@ -354,7 +354,6 @@ typeCheckStmt' typc (Generator p exp) tc = do
 typeCheckStmts :: (Type -> Type) -> [AnStmt] -> TypeCheckMonad a -> TypeCheckMonad a
 typeCheckStmts typc stmts tc = do
 		fvs <- concatMapM freeVars stmts
-		-- TODO: should this be an error?
 -- TODO: do this
 --		errorIfFalse (noDups fvs) (DuplicatedDefinitions fvs)
 		check stmts

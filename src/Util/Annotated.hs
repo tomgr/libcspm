@@ -1,6 +1,7 @@
 module Util.Annotated where
 
 import Prelude
+import Util.Exception
 import Util.Prelude
 import Util.PrettyPrint
 
@@ -78,7 +79,8 @@ instance PrettyPrintable SrcSpan where
 	prettyPrint Unknown = text "<unknown location>"
 	
 combineSpans :: SrcSpan -> SrcSpan -> SrcSpan
-combineSpans s1 s2 | srcSpanFile s1 /= srcSpanFile s2 = error "Spans files"
+combineSpans s1 s2 | srcSpanFile s1 /= srcSpanFile s2 = 
+	panic "Cannot combine spans as they span files"
 combineSpans (SrcSpanOneLine f1 line1 scol1 ecol1) 
 		(SrcSpanOneLine f2 line2 scol2 ecol2) = 
 	if line1 == line2 then SrcSpanOneLine f1 line1 scol1 ecol2
@@ -92,11 +94,12 @@ combineSpans (SrcSpanMultiLine f1 sline1 scol1 eline1 ecol1)
 combineSpans (SrcSpanMultiLine f1 sline1 scol1 eline1 ecol1) 
 		(SrcSpanMultiLine f2 sline2 scol2 eline2 ecol2) =
 	SrcSpanMultiLine f1 sline1 scol1 eline2 ecol2
-combineSpans f1 f2 = error (show f1 ++ show f2)
 
 data Located a = 
-	L SrcSpan a 
-	deriving (Eq, Show)
+	L {
+		locatedLoc :: SrcSpan,
+		locatedInner :: a 
+	}
 	
 data Annotated a b = 
 	An {
@@ -106,16 +109,22 @@ data Annotated a b =
 	}
 
 dummyAnnotation :: a
-dummyAnnotation = error "Dummy annotation evaluated"
+dummyAnnotation = panic "Dummy annotation evaluated"
 
 unAnnotate :: Annotated a b -> b
 unAnnotate (An _ _ b) = b
 	
 instance Show b => Show (Annotated a b) where
 	show (An _ _ b) = show b
-
+instance Show a => Show (Located a) where
+	show (L _ a) = show a
+	
 instance (PrettyPrintable b) => PrettyPrintable (Annotated a b) where
 	prettyPrint (An loc typ inner) = prettyPrint inner
+instance (PrettyPrintable a) => PrettyPrintable (Located a) where
+	prettyPrint (L loc inner) = prettyPrint inner
 
 instance Eq b => Eq (Annotated a b) where
 	(An _ _ b1) == (An _ _ b2) = b1 == b2
+instance Eq a => Eq (Located a) where
+	(L _ b1) == (L _ b2) = b1 == b2

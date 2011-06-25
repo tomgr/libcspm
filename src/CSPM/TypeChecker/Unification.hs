@@ -120,15 +120,7 @@ unifyConstraint Eq (TDotable a b) = -- channels and datatypes are only dotable t
 unifyConstraint Eq (TDatatype n) = return True
 	-- User data types are not orderable P524
 unifyConstraint c t = 
---	ts <- getUnificationStack
---	cts <- mapM (\ (t1, t2) -> do
---		t1' <- evaluateDots t1 >>= compress
---		t2' <- evaluateDots t2 >>= compress
---		return (t1', t2')) ts
 	raiseMessageAsError $ constraintUnificationErrorMessage c t
-
-	-- TODO: unification error
-	-- error ("constraing unification failed "++show c ++ show t) --return False
 
 -- | The main type unification algorithm
 unify :: Type -> Type -> TypeCheckMonad Type
@@ -235,8 +227,6 @@ unifyNoStk (TDot t1 t2) (TDot t1' t2') = do
 			dotableToDotted (TDotable (TDot arg1 arg2) rt)
 		dotableToDotted x = x
 		
-		combine [] bs = error "TODO: unification error"
-		combine as [] = combine [] as
 		combine ((TDotable argt1' rt1'):(var1 @ (TVar _)):[]) 
 				((TDotable argt2' rt2'):(var2 @ (TVar _)):[]) = do
 			let (TDotable argt1 rt1) = dotableToDotted (TDotable argt1' rt1')

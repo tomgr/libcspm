@@ -3,6 +3,7 @@ module CSPM.Evaluator.ValueSet where
 import qualified Data.Set as S
 
 import CSPM.Evaluator.Values
+import Util.Exception
 import Util.PrettyPrint
 
 data ValueSet = 
@@ -25,10 +26,10 @@ instance Eq ValueSet where
 	ExplicitSet s == RangedSet lb ub = s == S.fromList (map VInt [lb..ub])
 	RangedSet lb ub == ExplicitSet s = s == S.fromList (map VInt [lb..ub])
 	
-	ExplicitSet s == Events = error "TODO: events equality"
-	Events == ExplicitSet s = error "TODO: events equality"
+	ExplicitSet s == Events = panic "TODO: events equality"
+	Events == ExplicitSet s = panic "TODO: events equality"
 	
-	_ == _ = error "Cannot compare sets"
+	_ == _ = panic "Cannot compare sets"
 	
 instance Ord ValueSet where
 	compare (ExplicitSet s1) (ExplicitSet s2) = compare s1 s2
@@ -61,11 +62,11 @@ member (VInt i) (RangedSet lb ub) = i >= lb && i <= ub
 card :: ValueSet -> Integer
 card (ExplicitSet s) = toInteger (S.size s)
 card (RangedSet lb ub) = ub-lb+1
-card (Events) = error "card(Events) Not implemented"
+card (Events) = panic "card(Events) Not implemented"
 
 empty :: ValueSet -> Bool
-empty Events = error "empty(Events) Not implemented"
-empty Processes = error "empty(Processes) Not implemented"
+empty Events = panic "empty(Events) Not implemented"
+empty Processes = panic "empty(Processes) Not implemented"
 empty (ExplicitSet s) = S.null s
 empty (IntSetFrom lb) = False
 empty (Integers) = False
@@ -78,7 +79,7 @@ unions :: [ValueSet] -> ValueSet
 unions vs = foldr union (ExplicitSet S.empty) vs
 
 intersections :: [ValueSet] -> ValueSet
-intersections vs = error "Unions not implemented"
+intersections vs = panic "Unions not implemented"
 
 union :: ValueSet -> ValueSet -> ValueSet
 union (ExplicitSet s1) (ExplicitSet s2) =

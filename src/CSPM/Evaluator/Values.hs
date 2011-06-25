@@ -42,8 +42,8 @@ instance Ord Value where
 	
 	-- These are only ever used for the internal set implementation
 	compare (VDot vs1) (VDot vs2) = compare vs1 vs2
---	compare (VEvent n vs1) (VEvent n' vs2) = error "
 	-- TODO
+--	compare (VEvent n vs1) (VEvent n' vs2) = 
 	compare (VDataType n vs1) (VDataType n' vs2) = 
 		compare n n' `thenCmp` compare vs1 vs2
 	

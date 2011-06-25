@@ -133,7 +133,7 @@ data Exp =
 	| ReplicatedParallel AnExp [AnStmt] AnExp -- alpha exp is first
 	| ReplicatedLinkParallel [(AnExp, AnExp)] [AnStmt] AnExp
 	
-	-- TODO: Used only for parsing
+	-- Used only for parsing
 	| ExpPatWildCard
 	| ExpPatDoublePattern AnExp AnExp
 	

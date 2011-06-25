@@ -152,9 +152,9 @@ instance Evaluatable Exp where
 			Negate -> return $ VInt (-i)
 	eval (Paren e) = eval e
 	eval (Set es) = mapM eval es >>= return . VSet . S.fromList
---	eval (SetComp es stmts) = error "TODO: setComp"
---	eval (SetEnum es) = error "TODO: SetEnum"
---	eval (SetEnumComp es stmts) = error "TODO: SetEnumComp"
+--	eval (SetComp es stmts) =
+--	eval (SetEnum es) = 
+--	eval (SetEnumComp es stmts) =
 	eval (SetEnumFrom e) = do
 		VInt lb <- eval e
 		return $ VSet (S.IntSetFrom lb)

@@ -2,6 +2,8 @@ module Util.PartialFunctions where
 
 import List (nub)
 
+import Util.Exception
+
 -- *********************************************************************
 -- Partial functions
 -- *********************************************************************
@@ -25,7 +27,7 @@ apply f x =
 		pos = [b | (a,b) <- f, a == x]
 	in
 		if length pos == 0 then 
-			error ("Partial function applied to value outside of domain")
+			panic ("Partial function applied to value outside of domain")
 		else head pos
 		
 applyRelation :: Eq a => PartialFunction a b -> a -> [b]

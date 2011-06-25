@@ -6,6 +6,7 @@ import Data.List
 
 import Control.Monad.Trans
 import CSPM.DataStructures.Tokens
+import CSPM.Parser.Exceptions
 import CSPM.Parser.Monad
 import Util.Annotated
 import Util.Exception
@@ -220,22 +221,28 @@ nestedComment _ _ = do
 	st <- getParserState
 	go 1 st
 	where 
-		err st = error "error in nested comment"   -- TODO
+		err :: ParseMonad a
+		err = do
+			FileParserState { 
+				fileName = fname, 
+				tokenizerPos = pos, 
+				currentStartCode = sc } <- getTopFileParserState
+			throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
 		go :: Int -> AlexInput -> ParseMonad LToken
 		go 0 st = do setParserState st; getNextToken
 		go n st = do
 			case alexGetChar st of
-				Nothing  -> err st
+				Nothing  -> err
 				Just (c,st) -> do
 					case c of
 						'-' -> do
 							case alexGetChar st of
-								Nothing				-> err st
+								Nothing			 -> err
 								Just ('\125',st) -> go (n-1) st
 								Just (c,st)      -> go n st
 						'\123' -> do
 							case alexGetChar st of
-								Nothing			 -> err st
+								Nothing		  -> err
 								Just ('-',st) -> go (n+1) st
 								Just (c,st)   -> go n st
 						c -> go n st
@@ -276,11 +283,15 @@ alexGetChar (st @ (ParserState { fileStack = fps:fpss })) = gc fps
 
 getNextToken :: ParseMonad LToken
 getNextToken = do
-	FileParserState { fileName = fname, tokenizerPos = pos, currentStartCode = sc } <- getTopFileParserState
+	FileParserState { 
+		fileName = fname, 
+		tokenizerPos = pos, 
+		currentStartCode = sc } <- getTopFileParserState
 	st <- getParserState
 	case alexScan st sc of
 		AlexEOF -> return $ L Unknown TEOF
-		AlexError st' -> throwException $ LexicalException fname pos
+		AlexError st' -> 
+			throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
 		AlexSkip st' len -> do
 			setParserState st'
 			getNextToken
@@ -289,15 +300,6 @@ getNextToken = do
 			action st len
 
 getNextTokenWrapper :: (LToken -> ParseMonad a) -> ParseMonad a
-getNextTokenWrapper cont = 
-	getNextToken >>= cont
---	do
---		st <- getParserState
---		liftIO $ putStrLn ("Getting next token in state "++show st)
---		tok <- getNextToken
---		liftIO $ putStrLn ("Got next token "++show tok)
---		st <- getParserState
---		liftIO $ putStrLn ("Finished in state "++show st)
---		cont tok
+getNextTokenWrapper cont = getNextToken >>= cont
 
 }

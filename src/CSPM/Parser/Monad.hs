@@ -1,8 +1,9 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 module CSPM.Parser.Monad (
-	ParserException(..), ParseMonad, ParserState(..), FilePosition(..), 
+	ParseMonad, ParserState(..), 
 	FileParserState(..), movePos,
-	setParserState, getParserState, modifyTopFileParserState, getTopFileParserState,
+	setParserState, getParserState, 
+	FilePosition(..), filePositionToSrcLoc,
+	modifyTopFileParserState, getTopFileParserState,
 	
 	runParser, pushFile, pushFileContents,
 	getTokenizerPos, getFileName, getInput, 
@@ -16,9 +17,11 @@ import Data.Typeable
 import Prelude
 import System.FilePath
 import System.IO
+import System.IO.Error
 
 import CSPM.DataStructures.Tokens
-import Util.Exception
+import CSPM.Parser.Exceptions
+import Util.Annotated
 
 -- *************************************************************************
 -- Parser Support Types
@@ -37,6 +40,10 @@ data FilePosition = FilePosition !Int !Int !Int
 startPos :: FilePosition
 startPos = FilePosition 0 1 1
 
+filePositionToSrcLoc :: String -> FilePosition -> SrcSpan
+filePositionToSrcLoc filePath (FilePosition _ line col) = 
+	SrcSpanPoint filePath line col
+	
 movePos :: FilePosition -> Char -> FilePosition
 -- Don't treat tabs any differently (editors don't)
 --movePos (FilePosition a l c) '\t' = 
@@ -47,14 +54,6 @@ movePos (FilePosition a l c) _    = FilePosition (a+1)  l     (c+1)
 -- *************************************************************************
 -- Parser Monad
 -- *************************************************************************
-data ParserException = 
-	LexicalException FilePath FilePosition
-	| ParseException LToken
-	| UnknownExeception String
-	deriving (Show, Typeable)
-	
-instance Exception ParserException
-
 data ParserState = ParserState {
 		rootDir :: !String,
 		fileStack :: ![FileParserState]
@@ -100,13 +99,10 @@ pushFile fname prog =
 	do
 		dirname <- gets rootDir		
 		let filename = combine dirname fname
---		h <- liftIO $ openFile filename ReadMode
---		str <- liftIO $ hGetContents h
--- TODO: following not lazy
-		str <- liftIO $ readFile filename
+		str <- liftIO $ catch (readFile filename) (\err ->
+			throwSourceError [fileAccessErrorMessage filename])
 		pushFileContents filename str
 		x <- prog
---		liftIO $ hClose h
 		return x
 
 pushFileContents :: String -> String -> ParseMonad ()

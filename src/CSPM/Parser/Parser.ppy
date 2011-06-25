@@ -10,11 +10,10 @@ import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Tokens
 import CSPM.DataStructures.Types hiding (TDot)
+import CSPM.Parser.Exceptions
 import CSPM.Parser.Lexer
 import CSPM.Parser.Monad
 import Util.Annotated
-import Util.Exception
-import Util.Monad
 }
 
 -- Lift the src span from $1 to the resulting token
@@ -290,7 +289,7 @@ Exp :: { PExp }
 	:
 	ExpA							{% do
 										t <- freshPType
-										let An l _ e = $1
+										let An l _ e = checkExp $1
 										return $ An l t e
 									}
 -- An annotated expression with a dummy PType - DO NOT USE THIS
@@ -461,7 +460,7 @@ convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) =
 	let
 		span = combineSpans loc1 loc2
 
-		-- REMMBER: needs to reverse pts
+		-- REMEMBER: needs to reverse pts
 		getPats :: Exp -> ([[PPat]], Name)
 		getPats (App f args) = 
 				((map transformPattern args):ps, n)
@@ -482,7 +481,7 @@ convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) =
 			_			-> return $ An span symbTable (convPatBind lhs)
 
 checkExp :: PExp -> PExp
-checkExp (An a b exp) =
+checkExp (anExp@(An a b exp)) =
 	let 
 		check :: Exp -> Exp
 		check (App e es) = App (checkExp e) (map checkExp es)
@@ -529,6 +528,8 @@ checkExp (An a b exp) =
 			ReplicatedAlphaParallel stmts (checkExp e1) (checkExp e2)
 		check (ReplicatedInterleave stmts e1) = ReplicatedInterleave stmts (checkExp e1)
 		check (ReplicatedExternalChoice stmts e1) = ReplicatedExternalChoice stmts (checkExp e1)
+		
+		check x = throwSourceError [invalidExpressionErrorMessage anExp]
 	in
 		An a b (check exp)
 
@@ -542,7 +543,7 @@ dotAppToList (An a b exp) =
 		list exp
 
 transformPattern :: PExp -> PPat
-transformPattern (An a b exp) = 
+transformPattern (anExp@ (An a b exp)) = 
 	let
 		trans :: Exp -> Pat
 		trans (Concat e1 e2) = PConcat (transformPattern e1) (transformPattern e2)
@@ -554,8 +555,9 @@ transformPattern (An a b exp) =
 		trans (Tuple xs) = PTuple (map transformPattern xs)
 		trans (Var (UnQual x)) = PVar x
 		trans (ExpPatWildCard) = PWildCard
-		trans (ExpPatDoublePattern e1 e2) = PDoublePattern (transformPattern e1) (transformPattern e2)
-		trans x = error ("Invalid pattern: "++show x) -- TODO
+		trans (ExpPatDoublePattern e1 e2) = 
+			PDoublePattern (transformPattern e1) (transformPattern e2)
+		trans x = throwSourceError [invalidPatternErrorMessage anExp]
 	in
 		An a () (trans exp)
 
@@ -581,11 +583,14 @@ instance Locatable (Annotated a) where
 annotate :: (Locatable t1, Locatable t2) => t1 a -> b -> t2 b
 annotate t1 b = mkLoc (getLoc t1) b
 
-annotate2 :: (Locatable t1, Locatable t2, Locatable t3) => t1 a -> t2 b -> c -> t3 c
+annotate2 :: 
+	(Locatable t1, Locatable t2, Locatable t3) => t1 a -> t2 b -> c -> t3 c
 annotate2 t1 t2 b = mkLoc (combineSpans (getLoc t1) (getLoc t2)) b
-annotate2List :: (Locatable t1, Locatable t2, Locatable t3) => t1 a -> [t2 b] -> c -> t3 c
+annotate2List :: 
+	(Locatable t1, Locatable t2, Locatable t3) => t1 a -> [t2 b] -> c -> t3 c
 annotate2List t1 t2 b = annotate2 t1 (last t2) b
-annotate2List' :: (Locatable t1, Locatable t2, Locatable t3) => [t1 a] -> t2 b -> c -> t3 c
+annotate2List' :: 
+	(Locatable t1, Locatable t2, Locatable t3) => [t1 a] -> t2 b -> c -> t3 c
 annotate2List' t1 t2 b = annotate2 (last t1) t2 b
 
 annotateWithSymbolTable 
@@ -598,5 +603,5 @@ liftLoc :: (Locatable t1, Locatable t2) => t1 a -> b -> t2 b
 liftLoc t1 b = mkLoc (getLoc t1) b
 
 parseError :: LToken -> ParseMonad a
-parseError = throwException . ParseException
+parseError tok = throwSourceError [parseErrorMessage tok]
 }

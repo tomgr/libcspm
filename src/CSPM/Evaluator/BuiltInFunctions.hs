@@ -6,6 +6,7 @@ import CSPM.DataStructures.Names
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet as S
+import Util.Exception
 
 builtInFunctions :: [(Name, Value)]
 builtInFunctions = 
@@ -33,7 +34,7 @@ builtInFunctions =
 						subsets = powerset (n-1)
 		-}
 		-- | Set of all sequences over s
-		cspm_Seq [VSet s] = error "Not implemented"
+		cspm_Seq [VSet s] = panic "Not implemented"
 		{-
 			itemsAsList <- S.toList s
 			let 
@@ -45,7 +46,7 @@ builtInFunctions =
 						ends = seqsOfLength n-1
 			S.lazySet (list 0)		
 		-}
-		cspm_seq [VSet s] = error "Not implemented" --S.toList s
+		cspm_seq [VSet s] = panic "Not implemented" --S.toList s
 		
 		cspm_length [VList xs] = VInt $ (toInteger (length xs))
 		cspm_null [VList xs] = VBool $ null xs

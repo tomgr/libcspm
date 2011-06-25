@@ -15,7 +15,7 @@ import Data.Typeable
 import List
 import Prelude hiding (catch)
 
-import Util.Annotated
+import {-# SOURCE #-} Util.Annotated
 import Util.PrettyPrint
 
 type ErrorMessages = [ErrorMessage]

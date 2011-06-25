@@ -8,6 +8,7 @@ import CSPM.DataStructures.Types
 import CSPM.TypeChecker.Monad
 
 import CSPM.DataStructures.Names
+import Util.Exception
 import Util.PartialFunctions
 
 -- ************************************************************************
@@ -105,4 +106,4 @@ builtInNames =
 		++ map extract seqs
 		++ map extract sets
 	where
-		extract f = let (a,_,_) = f (error "") in a
+		extract f = let (a,_,_) = f (panic "Dummy type var evaluated") in a

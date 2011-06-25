@@ -21,19 +21,6 @@ newtype LazyEvalMonad s a = LazyEvalMonad {
 	-- Notice that this doesn't yield a new environment
 	unLazyEvalMonad :: s -> a
 }
-
-test :: (Int, Bool, Int)
-test = runLazyEvalMonad (EvaluationState new) $ do
-		v <- inf 0
-		let x = head v
-		let y = error "A"
-		let z = True
-		Just vs1 <- return $ Just [0,1,2]
-		Just vs2 <- return $ error "blah"
-		return (x, z || y, head (vs1++vs2))
-	where
-		inf :: Int -> EvaluationMonad [Int]
-		inf x = inf x >>= \xs -> return $ x:xs
 		
 runLazyEvalMonad :: s -> LazyEvalMonad s a -> a
 runLazyEvalMonad st (LazyEvalMonad prog) = prog st

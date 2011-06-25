@@ -48,15 +48,20 @@ handleSourceError v prog = prog `catch` (handle v)
 	where
 		handle :: a -> SfdrException -> InputT Sfdri a
 		handle v e = do
-			outputStrLn $ "\ESC[1;31m\STX"++show e++"\ESC[0m\STX" 
+			printError (show e)
 			return v
+
+printError :: String -> InputT Sfdri ()
+printError s = outputStrLn $ "\ESC[1;31m\STX"++s++"\ESC[0m\STX" 
 
 processInput :: String -> InputT Sfdri Bool
 processInput (':':str) = do
 	let (cmd,rest) = break isSpace str
 	case getCommand cmd of
 		Just (_, f, _) -> f (dropWhile isSpace rest)
-		Nothing -> error "command not found"
+		Nothing -> do
+			printError ("unknown command :"++ str)
+			return True
 processInput expr = 
 	if dropWhile isSpace expr == "" then return True
 	else keepGoing evaluate expr
@@ -105,7 +110,7 @@ sfdriComplete line@(left,_) =
 		lookupCompleter cmd = 
 			case getCommand cmd of
 				Just (_,_,c) -> c
-				Nothing -> error ("no completer found A"++cmd++"A")
+				Nothing -> noCompletion
 
 completeCommand :: CompletionFunc Sfdri
 completeCommand = wrapCompleter lineBreakers $ 
