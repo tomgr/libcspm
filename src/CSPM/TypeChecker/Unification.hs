@@ -1,3 +1,4 @@
+{-# LANGUAGE DoAndIfThenElse #-}
 module CSPM.TypeChecker.Unification (
 	generaliseGroup, instantiate, unify, unifyAll, evaluateDots,
 	typeToDotList,

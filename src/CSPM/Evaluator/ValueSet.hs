@@ -12,7 +12,6 @@ data ValueSet =
 	| Events -- Set of all events
 	| ExplicitSet (S.Set Value)
 	| IntSetFrom Integer -- {lb..}
--- | InfSetTo Integer
 	| RangedSet Integer Integer -- {lb..ub}
 
 instance Eq ValueSet where

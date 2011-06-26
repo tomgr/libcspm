@@ -1,4 +1,5 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances,
+	DoAndIfThenElse #-}
 module CSPM.TypeChecker.Decl (typeCheckDecls) where
 
 import Control.Monad

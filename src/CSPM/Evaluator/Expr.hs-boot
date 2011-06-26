@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeSynonymInstances #-}
 module CSPM.Evaluator.Expr where
 
 import CSPM.DataStructures.Syntax

@@ -1,38 +1,14 @@
 Name:                sfdr
 Version:             0.1
--- A short (one-line) description of the package.
--- Synopsis:            
--- A longer description of the package.
--- Description:         
-License:             OtherLicense
-License-file:        LICENSE
 Author:              Thomas Gibson-Robinson
 Maintainer:          thomas.gibsonrobinson+sfdr@gmail.com
--- A copyright notice.
--- Copyright:           
 Category:            Concurrency
 Build-type:          Simple
--- Extra files to be distributed with the package, such as examples or
--- a README.
--- Extra-source-files:  
--- Constraint on the version of Cabal needed to build this package.
 Cabal-version:       >=1.2
 
-
---Library 
---  Build-depends: base
---  Exposed-modules:
---    CSPMDataStructures.Syntax, CSPMDataStructures.Tokens, 
---    CSPMDataStructures.Types
-
---  Hs-Source-Dirs: src
-
 Executable sfdri
-  -- .hs or .lhs file containing the Main module.
   Main-is: Sfdri/Main.hs
   
---  Other-Modules: CSPMDataStructures
-  -- Packages needed in order to build this package.
   Build-depends: 
     base, 
     haskell98, 
@@ -50,7 +26,5 @@ Executable sfdri
     CSPM.Parser.Lexer, 
     CSPM.Parser.Parser
   
-  Build-tools: alex, happy
+  Build-tools: alex, happy, cpphs
   Hs-Source-Dirs: src
-  
-  Extensions: DoAndIfThenElse

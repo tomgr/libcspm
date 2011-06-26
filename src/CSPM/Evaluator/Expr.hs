@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE TypeSynonymInstances, DoAndIfThenElse #-}
 module CSPM.Evaluator.Expr (
 	Evaluatable, eval,
 ) where
