@@ -158,10 +158,10 @@ CSPMFile :: { [PDecl] }
 	
 InteractiveStmt :: { PInteractiveStmt }
 	:
-	"let" Exp "=" Exp							{% do
+	"let" Exp "=" CExp							{% do
 													d <- convDecl $2 $4 
 													return $ AN2 (Bind d)}
-	| Exp										{ AN (Evaluate $1) }
+	| CExp										{ AN (Evaluate $1) }
 
 Newlines :
 	newline										{ }
@@ -193,25 +193,25 @@ Decl :: { PDecl }
 	DeclA										{% annotateWithSymbolTable $1 }
 DeclA :: { PDecl }
 	:
-	Exp "=" Exp									{% convDecl $1 $3 }
+	Exp "=" CExp								{% convDecl $1 $3 }
 	| "channel" NameCommaList1					{ AN2L (Channel (map unLoc $2) Nothing) }
-	| "channel" NameCommaList1 ":" Exp			{ AN2 (Channel (map unLoc $2) (Just $4)) }
+	| "channel" NameCommaList1 ":" CExp			{ AN2 (Channel (map unLoc $2) (Just $4)) }
 	| "datatype" Name "=" DataTypeClauseList1	{ AN2L (DataType (unLoc $2) $4) }
 	| "external" NameCommaList1					{ AN2L (External (map unLoc $2)) }
 	| "transparent" NameCommaList1				{ AN2L (Transparent (map unLoc $2)) }
 	| "assert" Assertion						{ AN (Assert $2) }
-	| "nametype" Name "=" Exp					{ AN2 (NameType (unLoc $2) $4) }
+	| "nametype" Name "=" CExp					{ AN2 (NameType (unLoc $2) $4) }
 
 Assertion :: { Assertion }
 	:
---	Exp											{  (BoolAssertion $1) }
---	"not" Assertion								{  (ASNot $2) }
-	Exp "[T=" Exp								{  (Refinement $1 Traces $3 Nothing) }
-	| Exp "[F=" Exp								{  (Refinement $1 Failures $3 Nothing) }
-	| Exp "[FD=" Exp							{  (Refinement $1 FailuresDivergences $3 Nothing) }
---	| Exp Model Exp	ModelProperty				{  (Refinement $1 $2 $3 (Just $4)) }
-	| Exp SemanticProperty						{  (PropertyCheck $1 $2 Nothing) }
---	| Exp SemanticProperty Model				{  (PropertyCheck $1 $2 (Just $3)) }
+--	Exp											{ (BoolAssertion $1) }
+--	"not" Assertion								{ (ASNot $2) }
+	Exp "[T=" CExp								{ (Refinement $1 Traces $3 Nothing) }
+	| Exp "[F=" CExp							{ (Refinement $1 Failures $3 Nothing) }
+	| Exp "[FD=" CExp							{ (Refinement $1 FailuresDivergences $3 Nothing) }
+--	| Exp Model Exp	ModelProperty				{ (Refinement $1 $2 $3 (Just $4)) }
+	| Exp SemanticProperty						{ (PropertyCheck $1 $2 Nothing) }
+--	| Exp SemanticProperty Model				{ (PropertyCheck $1 $2 (Just $3)) }
 SemanticProperty :: { SemanticProperty }
 	:
 	"deadlock free"								{ DeadlockFreedom }
@@ -223,11 +223,11 @@ SemanticProperty :: { SemanticProperty }
 --	semantic_model								{ $1 }
 ModelProperty :: { ModelProperty }
 	:
-	"tau priority" Exp							{ TauPriority $2 }
+	"tau priority" CExp							{ TauPriority $2 }
 
 DataTypeClause :: { PDataTypeClause }
 	:
-	Name "." Exp								{ AN2 (DataTypeClause (unLoc $1) (Just $3)) }
+	Name "." CExp								{ AN2 (DataTypeClause (unLoc $1) (Just $3)) }
 	| Name										{ AN (DataTypeClause (unLoc $1) Nothing) }
 DataTypeClauseList1 :: { [PDataTypeClause] }
 	:
@@ -264,12 +264,11 @@ Literal :: { Located Literal }:
 --		Exp
 Pat :: { PPat }
 	:
-	Exp								{ transformPattern $1 }
+	Exp								{ convPat $1 }
 
 BegSeq
 	:
 	"<"							{% do
---									liftIO (putStrLn "Putting <")
 									modifyTopFileParserState (
 										\ st @ (FileParserState { sequenceStack = (c:cs) }) -> 
 											st { sequenceStack = (c+1):cs })
@@ -284,12 +283,16 @@ EndSeq
 									return $1
 								}
 
+-- A checked expression (that will not contain any patterns)
+CExp :: { PExp }
+	:
+	Exp								{ checkExp $1 }
 -- An expression annotated with a pType
 Exp :: { PExp }
 	:
 	ExpA							{% do
 										t <- freshPType
-										let An l _ e = checkExp $1
+										let An l _ e = $1
 										return $ An l t e
 									}
 -- An annotated expression with a dummy PType - DO NOT USE THIS
@@ -379,13 +382,13 @@ ExpA :: { PExp }
 Field :: { PField }
 	:
 	-- For somer eason changing Exp to Pat causes a shift/reduce error, hence we do this
-	"?" Exp							{ AN2 (Input (transformPattern $2) Nothing) }
-	| "?" Pat ":" Exp				{ AN2 (Input $2 (Just $4)) }
-	| "!" Exp						{ AN2 (Output $2) }
+	"?" Exp							{ AN2 (Input (convPat $2) Nothing) }
+	| "?" Exp ":" Exp				{ AN2 (Input (convPat $2) (Just (checkExp $4))) }
+	| "!" Exp						{ AN2 (Output (checkExp $2)) }
 
 Rename :: { (PExp, PExp) }
 	:
-	Exp "<-" Exp					{ ($1, $3) }
+	CExp "<-" CExp					{ ($1, $3) }
 RenameList1 :: { [(PExp, PExp)] }
 	:
 	rRenameList1					{ reverse $1 }
@@ -395,7 +398,7 @@ rRenameList1 :: { [(PExp, PExp)] }
 	| rRenameList1 "," Rename		{ $3:$1 }
 Tie :: { (PExp, PExp) }
 	:
-	Exp "<->" Exp					{ ($1, $3) }
+	CExp "<->" CExp					{ ($1, $3) }
 TieList1 :: { [(PExp, PExp)] }
 	:
 	rTieList1						{ reverse $1 }
@@ -463,7 +466,7 @@ convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) =
 		-- REMEMBER: needs to reverse pts
 		getPats :: Exp -> ([[PPat]], Name)
 		getPats (App f args) = 
-				((map transformPattern args):ps, n)
+				((map convPat args):ps, n)
 			where
 				(ps, n) = getPats (unAnnotate f)
 		getPats (Var (UnQual n)) = ([], n)
@@ -473,7 +476,7 @@ convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) =
 			where
 				(ps, n) = getPats exp
 
-		convPatBind exp = PatBind (transformPattern exp) rhs
+		convPatBind exp = PatBind (convPat exp) rhs
 	in do
 		symbTable <- freshPSymbolTable
 		case lhsexp of
@@ -506,11 +509,12 @@ checkExp (anExp@(An a b exp)) =
 		check (SetEnumFrom e) = SetEnumFrom (checkExp e)
 		check (SetEnumFromTo e1 e2) = SetEnumFromTo (checkExp e1) (checkExp e2)
 		check (SetEnum es) = SetEnum (map checkExp es)
+		-- We don't need to check inside stmts as they will have been checked
+		-- upon creation
 		check (SetEnumComp es stmts) = SetEnumComp (map checkExp es) stmts
 		check (Tuple es) = Tuple (map checkExp es)
 		check (Var qname) = Var qname
 
-		-- TODO: check inside stmts etc
 		check (AlphaParallel e1 e2 e3 e4) = 
 			AlphaParallel (checkExp e1) (checkExp e2) (checkExp e3) (checkExp e4)
 		check (Exception e1 e2 e3) = Exception (checkExp e1) (checkExp e2) (checkExp e3)
@@ -542,21 +546,21 @@ dotAppToList (An a b exp) =
 	in
 		list exp
 
-transformPattern :: PExp -> PPat
-transformPattern (anExp@ (An a b exp)) = 
+convPat :: PExp -> PPat
+convPat (anExp@ (An a b exp)) = 
 	let
 		trans :: Exp -> Pat
-		trans (Concat e1 e2) = PConcat (transformPattern e1) (transformPattern e2)
-		trans (DotApp e1 e2) = PDotApp (transformPattern e1) (transformPattern e2)
-		trans (List xs) = PList (map transformPattern xs)
+		trans (Concat e1 e2) = PConcat (convPat e1) (convPat e2)
+		trans (DotApp e1 e2) = PDotApp (convPat e1) (convPat e2)
+		trans (List xs) = PList (map convPat xs)
 		trans (Lit x) = PLit x
-		trans (Set xs) = PSet (map transformPattern xs)
-		trans (Paren x) = PParen (transformPattern x)
-		trans (Tuple xs) = PTuple (map transformPattern xs)
+		trans (Set xs) = PSet (map convPat xs)
+		trans (Paren x) = PParen (convPat x)
+		trans (Tuple xs) = PTuple (map convPat xs)
 		trans (Var (UnQual x)) = PVar x
 		trans (ExpPatWildCard) = PWildCard
 		trans (ExpPatDoublePattern e1 e2) = 
-			PDoublePattern (transformPattern e1) (transformPattern e2)
+			PDoublePattern (convPat e1) (convPat e2)
 		trans x = throwSourceError [invalidPatternErrorMessage anExp]
 	in
 		An a () (trans exp)
