@@ -39,10 +39,10 @@ namesBoundByDecl' (DataType n dcs) =
 		namesBoundByDtClause (DataTypeClause n _) = [n]
 	in
 		return $ n:concatMap (namesBoundByDtClause . unAnnotate) dcs
+namesBoundByDecl' (NameType n e) = return [n]
 namesBoundByDecl' (External ns) = return ns
 namesBoundByDecl' (Transparent ns) = return ns
 namesBoundByDecl' (Assert _) = return []
-namesBoundByDecl' x = panic $ "Unknown declaration "++show x
 
 -- This method heavily affects the DataType clause of typeCheckDecl.
 -- If any changes are made here changes will need to be made to typeCheckDecl
@@ -57,9 +57,6 @@ prebindDecl (DataType n cs) =
 	let
 		prebindDataTypeClause (DataTypeClause n' _) = 
 			setType n' (ForAll [] TPrebound)
---		do
---			fvs <- replicateM (length es) freshTypeVar
---			setType n' (ForAll [] (foldr TDotable (TDatatype n) fvs))
 		clauseNames = [n' | DataTypeClause n' _ <- map unAnnotate cs]
 		namesToLocations = [(n', loc) | (An loc _ (DataTypeClause n' _)) <- cs]
 	in do
@@ -70,12 +67,6 @@ prebindDecl (DataType n cs) =
 		setType n (ForAll [] (TSet (TDatatype n)))
 prebindDecl (Channel ns _) = 
 	mapM_ (\n -> setType n (ForAll [] TPrebound)) ns
---	where
---		bind n = do
---			fv <- freshTypeVar
---			fvs <- replicateM (length es) freshTypeVar
---			let t = foldr (\ fv t -> TDotable fv t) TEvent fvs
---			setType n (ForAll [] fv)
 prebindDecl _ = return ()
 
 class Dependencies a where

@@ -163,6 +163,8 @@ instance TypeCheckable Decl [(Name, Type)] where
 		hang (text "In a pattern binding:") tabWidth (prettyPrint p)
 	errorContext (DataType n cs) = Just $
 		text "In the delcaration of:" <+> prettyPrint n
+	errorContext (NameType n e) = Just $
+		text "In the declaration of:" <+> prettyPrint n
 	-- TODO
 	errorContext (Channel ns es) = Nothing
 	errorContext (Transparent ns) = Nothing
