@@ -134,18 +134,22 @@ typeCheckMutualyRecursiveGroup ds = do
 -- is a set of. For example TSet t1 -> t, TTuple [TSet t1, TSet t2] -> (t1, t2).
 -- The type that is returned is guaranteed to satisfy Eq since, at the
 -- recursion only bottoms out on reaching something that is of type TSet.
-evaluateTypeExpression :: Type -> TypeCheckMonad Type
-evaluateTypeExpression (TTuple ts) = do
+evalTypeExpression :: Type -> TypeCheckMonad Type
+evalTypeExpression (TTuple ts) = do
 	-- TTuple [TSet t1,...] = TSet (TTuple [t1,...])
-	ts' <- mapM evaluateTypeExpression ts
+	ts' <- mapM evalTypeExpression ts
 	return $ TTuple ts'
-evaluateTypeExpression (TDot t1 t2) = do
+evalTypeExpression (TDot t1 t2) = do
 	-- TDot (TSet t1) (TSet t2) = TSet (TDot t1 t2)
-	t1' <- evaluateTypeExpression t1
-	t2' <- evaluateTypeExpression t2
+	t1' <- evalTypeExpression t1
+	t2' <- evalTypeExpression t2
 	return $ TDot t1' t2'
+evalTypeExpression (TSeq t) = do
+	-- TSeq (TSet t) = TSet (TSeq t)
+	t <- evalTypeExpression t
+	return $ TSeq t
 -- Otherwise, it must be a set.
-evaluateTypeExpression t = do
+evalTypeExpression t = do
 	fv <- freshTypeVar
 	unify t (TSet fv)
 	return fv
@@ -205,7 +209,7 @@ instance TypeCheckable Decl [(Name, Type)] where
 		return [(n, TEvent) | n <- ns]
 	typeCheck' (Channel ns (Just e)) = do
 		t <- typeCheck e
-		valueType <- evaluateTypeExpression t
+		valueType <- evalTypeExpression t
 		dotList <- typeToDotList valueType
 		let t = foldr TDotable TEvent dotList
 		mapM (\ n -> setType n (ForAll [] t)) ns
@@ -223,7 +227,7 @@ instance TypeCheckable Decl [(Name, Type)] where
 		return $ (n,t):nts
 	typeCheck' (NameType n e) = do
 		t <- typeCheck e
-		valueType <- evaluateTypeExpression t
+		valueType <- evalTypeExpression t
 		return [(n, TSet valueType)]
 	typeCheck' (Transparent ns) = do
 		mapM_ (\ (n@(Name s)) -> do
@@ -270,7 +274,7 @@ instance TypeCheckable DataTypeClause (Name, [Type]) where
 		return (n', [])
 	typeCheck' (DataTypeClause n' (Just e)) = do
 		t <- typeCheck e
-		valueType <- evaluateTypeExpression t
+		valueType <- evalTypeExpression t
 		dotList <- typeToDotList valueType
 		return (n', dotList)
 

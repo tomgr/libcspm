@@ -62,7 +62,7 @@ bindDecl (DataType n cs) =
 		bindClause (DataTypeClause nc (Just e)) = do
 			v <- eval e
 			let sets = conv v
-			let setOfValues = cartProduct (VDataType nc) sets
+			let setOfValues = cartesianProduct (VDataType nc) sets
 			let binds = [(nc, VDataType nc []),
 				(internalNameForDataTypeClause nc, VTuple (map VSet sets))]
 			return (setOfValues, binds)
@@ -100,10 +100,6 @@ valuesForDataTypeClause n = do
 
 evalTypeExpr :: Value -> ValueSet
 evalTypeExpr (VSet s) = s
-evalTypeExpr (VDot vs) = cartProduct VDot (map evalTypeExpr vs)
-evalTypeExpr (VTuple vs) = cartProduct VTuple (map evalTypeExpr vs)
-
--- | Produces a ValueSet of the carteisan product of several ValueSets, 
--- using 'vc' to convert each sequence of values into a single value.
-cartProduct :: ([Value] -> Value) -> [ValueSet] -> ValueSet
-cartProduct vc = fromList . map vc . sequence . map toList
+evalTypeExpr (VDot vs) = cartesianProduct VDot (map evalTypeExpr vs)
+evalTypeExpr (VTuple vs) = cartesianProduct VTuple (map evalTypeExpr vs)
+evalTypeExpr (VList [VSet s]) = allSequences s
