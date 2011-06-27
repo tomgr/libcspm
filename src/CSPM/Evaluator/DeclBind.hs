@@ -73,10 +73,9 @@ bindDecl (DataType n cs) =
 		(sets, binds) <- mapAndUnzipM (bindClause . unAnnotate) cs
 		let dt = (n, VSet (unions sets))
 		return $ dt:concat binds
---bindDecl (NameType n e) = do
---	v <- eval e
---	evalTypeExpr [v]
---	return [(n, 
+bindDecl (NameType n e) = do
+	v <- eval e
+	return [(n, VSet $ evalTypeExpr v)]
 
 bindDecl (Assert _) = return []
 bindDecl (External ns) = return []
