@@ -1,0 +1,7 @@
+datatype IntTree = 
+	Leaf.Int | Node.<IntTree>
+
+flatten(Leaf.i) = <i>
+flatten(Node.ts) = concat(<flatten(t) | t <- ts>)
+
+combine(t1)(t2) = Node.<t1,t2>
