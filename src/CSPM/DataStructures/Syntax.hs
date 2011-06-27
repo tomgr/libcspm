@@ -153,6 +153,7 @@ data Stmt =
 data InteractiveStmt =
 	Evaluate AnExp
 	| Bind AnDecl
+	deriving Show
 
 {-
 data Component = 
