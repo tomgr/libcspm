@@ -77,7 +77,11 @@ class Monad m => MonadIOException m where
 	tryM :: (MonadIOException m) => m a -> m (Either SfdrException a)
 	
 instance MonadIOException IO where
-	tryM = try
+	tryM prog = do
+		r <- try prog
+		case r of
+			Left (e@(Panic s)) -> throwException e
+			_ -> return r
 
 instance MonadIOException m => MonadIOException (StateT s m) where
 	tryM prog = 
