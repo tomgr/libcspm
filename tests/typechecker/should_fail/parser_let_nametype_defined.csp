@@ -1,0 +1,3 @@
+P = let
+		nametype Blah = {0..1}
+	within 2

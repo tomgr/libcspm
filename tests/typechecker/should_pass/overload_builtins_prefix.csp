@@ -1,0 +1,3 @@
+channel c : {0..1}
+
+P(x) = c?union:{0} -> P(x+union)

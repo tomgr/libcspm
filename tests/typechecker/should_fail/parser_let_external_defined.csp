@@ -1,0 +1,3 @@
+P = let
+		external chase
+	within P

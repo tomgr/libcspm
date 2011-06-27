@@ -1,0 +1,5 @@
+P = {union | union <- {1,2,3}}
+
+pick({x}) = x
+
+X = pick(P)+2

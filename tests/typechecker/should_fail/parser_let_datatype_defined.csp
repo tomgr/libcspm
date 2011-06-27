@@ -1,0 +1,3 @@
+P = let
+		datatype A = B | C.{0..1}
+	within 2

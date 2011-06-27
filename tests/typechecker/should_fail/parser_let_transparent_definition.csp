@@ -1,0 +1,3 @@
+P = let
+		transparent chase
+	within P

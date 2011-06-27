@@ -4,8 +4,24 @@ Author:              Thomas Gibson-Robinson
 Maintainer:          thomas.gibsonrobinson+sfdr@gmail.com
 Category:            Concurrency
 Build-type:          Simple
-Cabal-version:       >=1.2
+Cabal-version:       >=1.9.2
 
+Test-Suite cspm-tests
+  Main-is: Test/Main.hs
+  Type: exitcode-stdio-1.0
+  Hs-Source-Dirs: src
+  Build-depends: 
+    base, 
+    haskell98, 
+    filepath >= 1.2, 
+    array >= 0.3, 
+    containers >= 0.4, 
+    mtl >= 2.0, 
+    pretty >= 1.0,
+    directory >= 1.0,
+    haskeline >= 0.6,
+    graph-wrapper >= 0.2
+  
 Executable sfdri
   Main-is: Sfdri/Main.hs
   

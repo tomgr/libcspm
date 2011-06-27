@@ -1,0 +1,3 @@
+datatype A = B.{0..1}
+
+datatype A = C.{0..1}
