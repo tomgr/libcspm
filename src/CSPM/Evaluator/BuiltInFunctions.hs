@@ -20,33 +20,10 @@ builtInFunctions =
 		cspm_card [VSet s] = VInt $ S.card s
 		cspm_empty [VSet s] = VBool $ S.empty s
 		cspm_set [VList xs] = S.fromList xs
-		-- | Powerset
-		cspm_Set [VSet s] = 
-			(S.fromList . map (VSet . S.fromList)
-				. filterM (\x -> [True, False]) . S.toList) s
-		--return $ VSet (powerset (card s))
-		{-	where
-				-- sets up to size n
-				powerset 0 = S.fromList [S.empty]
-				powerset n =
-					S.map (\ e -> ) s
-					where
-						subsets = powerset (n-1)
-		-}
+		cspm_Set [VSet s] = S.powerset s
 		-- | Set of all sequences over s
-		cspm_Seq [VSet s] = panic "Not implemented"
-		{-
-			itemsAsList <- S.toList s
-			let 
-				list n = seqsOfLength n ++ list (n+1)
-				seqsOfLength 0 = []
-				seqsOfLength n =
-					concatMap (\ h -> map (h:) ends) itemsAsList
-					where
-						ends = seqsOfLength n-1
-			S.lazySet (list 0)		
-		-}
-		cspm_seq [VSet s] = panic "Not implemented" --S.toList s
+		cspm_Seq [VSet s] = S.allSequences s
+		cspm_seq [VSet s] = S.toList s
 		
 		cspm_length [VList xs] = VInt $ (toInteger (length xs))
 		cspm_null [VList xs] = VBool $ null xs
