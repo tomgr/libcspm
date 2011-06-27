@@ -1,10 +1,11 @@
 module CSPM.Evaluator.ValueSet where
 
+import Control.Monad
 import qualified Data.Set as S
 
 import CSPM.Evaluator.Values
 import Util.Exception
-import Util.PrettyPrint
+import Util.PrettyPrint hiding (empty)
 
 data ValueSet = 
 	Integers -- Set of all integers
@@ -13,6 +14,7 @@ data ValueSet =
 	| ExplicitSet (S.Set Value)
 	| IntSetFrom Integer -- {lb..}
 	| RangedSet Integer Integer -- {lb..ub}
+	| LazySet [Value]
 
 instance Eq ValueSet where
 	Integers == Integers = True
@@ -42,6 +44,30 @@ instance PrettyPrintable ValueSet where
 instance Show ValueSet where
 	show = show . prettyPrint
 
+
+-- | Produces a ValueSet of the carteisan product of several ValueSets, 
+-- using 'vc' to convert each sequence of values into a single value.
+cartesianProduct :: ([Value] -> Value) -> [ValueSet] -> ValueSet
+cartesianProduct vc = fromList . map vc . sequence . map toList
+
+powerset :: ValueSet -> ValueSet
+powerset = ExplicitSet . S.fromList . map (VSet . fromList) 
+			. filterM (\x -> [True, False]) . toList
+
+-- | Returns the set of all sequences over the input set
+allSequences :: ValueSet -> ValueSet
+allSequences s = if empty s then emptySet else 
+	let 
+		itemsAsList :: [Value]
+		itemsAsList = toList s
+		list :: Integer -> [Value]
+		list 0 = [VList []]
+		list n = concatMap (\x -> map (app x) (list (n-1)))  itemsAsList
+			where
+				app :: Value -> Value -> Value
+				app x (VList xs) = VList $ x:xs
+	in LazySet (list 0)
+
 emptySet = ExplicitSet S.empty
 
 fromList :: [Value] -> ValueSet
@@ -50,6 +76,7 @@ fromList = ExplicitSet . S.fromList
 toList :: ValueSet -> [Value]
 toList (ExplicitSet s) = S.toList s
 toList (RangedSet lb ub) = map VInt [lb..ub]
+toList (LazySet xs) = xs
 
 member :: Value -> ValueSet -> Bool
 member v (ExplicitSet s) = S.member v s
@@ -57,6 +84,7 @@ member (VInt i) Integers = True
 member (VInt i) (IntSetFrom lb) = i >= lb
 member (VInt i) (RangedSet lb ub) = i >= lb && i <= ub
 --member (VEvent _) Events = True
+member v (LazySet xs) = v `elem` xs
 
 card :: ValueSet -> Integer
 card (ExplicitSet s) = toInteger (S.size s)
@@ -70,6 +98,10 @@ empty (ExplicitSet s) = S.null s
 empty (IntSetFrom lb) = False
 empty (Integers) = False
 empty (RangedSet lb ub) = False
+empty (LazySet xs) =
+	case xs of
+		x:_ -> False
+		_	-> True
 
 mapMonotonic :: (Value -> Value) -> ValueSet -> ValueSet
 mapMonotonic f (ExplicitSet s) = ExplicitSet $ S.mapMonotonic f s
