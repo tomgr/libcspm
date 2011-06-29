@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, FunctionalDependencies #-}
 module CSPM.TypeChecker.Common where
 
 import CSPM.DataStructures.Syntax
@@ -16,6 +16,10 @@ class TypeCheckable a b | a -> b where
 		case errorContext a of
 			Just c -> addErrorContext c (typeCheck' a)
 			Nothing -> typeCheck' a
+	
+	typeCheckExpect :: a -> Type -> TypeCheckMonad b
+	typeCheckExpect _ _ = panic "typeCheckExpect not supported"
+	
 	typeCheck' :: a -> TypeCheckMonad b
 	errorContext :: a -> Maybe ErrorContext
 
@@ -23,36 +27,41 @@ instance TypeCheckable Literal Type where
 	errorContext a = Nothing
 	typeCheck' (Int n) = return TInt
 	typeCheck' (Bool b) = return TBool
+	
+ensureAreEqual :: TypeCheckable a Type => [a] -> TypeCheckMonad Type
+ensureAreEqual [] = freshTypeVar
+ensureAreEqual (e:es) = do
+	t <- typeCheck e
+	mapM (\e -> typeCheckExpect e t) es
+	return t
 
--- *************************************************************************
--- Helper methods
--- *************************************************************************
-ensureIsList :: Type -> TypeCheckMonad Type
-ensureIsList typ = do
+ensureIsList :: TypeCheckable a b => a -> TypeCheckMonad b
+ensureIsList e = do
 	fv <- freshTypeVar
-	unify (TSeq fv) typ
+	typeCheckExpect e (TSeq fv)
 
-ensureIsSet :: Type -> TypeCheckMonad Type
-ensureIsSet typ = do
+ensureIsSet :: TypeCheckable a b => a -> TypeCheckMonad b
+ensureIsSet e = do
 	fv <- freshTypeVarWithConstraints [Eq]
-	unify (TSet fv) typ
+	typeCheckExpect e (TSet fv)
 
-ensureIsBool :: Type -> TypeCheckMonad Type
-ensureIsBool typ = unify TBool typ
+ensureIsBool :: TypeCheckable a b => a -> TypeCheckMonad b
+ensureIsBool e = typeCheckExpect e TBool
 
-ensureIsInt :: Type -> TypeCheckMonad Type
-ensureIsInt typ = unify TInt typ
+ensureIsInt :: TypeCheckable a b => a -> TypeCheckMonad b
+ensureIsInt e = typeCheckExpect e TInt
 
-ensureIsChannel :: Type -> TypeCheckMonad Type
-ensureIsChannel t = unify TEventable t
+ensureIsChannel :: TypeCheckable a b => a -> TypeCheckMonad b
+ensureIsChannel e = typeCheckExpect e TEventable
 
-ensureIsEvent :: Type -> TypeCheckMonad Type
-ensureIsEvent t = unify TEvent t
+ensureIsEvent :: TypeCheckable a b => a -> TypeCheckMonad b
+ensureIsEvent e = typeCheckExpect e TEvent
+
+ensureIsProc :: TypeCheckable a b => a -> TypeCheckMonad b
+ensureIsProc e = typeCheckExpect e TProc
 
 ensureHasConstraint :: Constraint -> Type -> TypeCheckMonad Type
 ensureHasConstraint c t = do
 	fv1 <- freshTypeVarWithConstraints [c]
 	unify fv1 t
 
-ensureIsProc :: Type -> TypeCheckMonad Type
-ensureIsProc t = unify TProc t

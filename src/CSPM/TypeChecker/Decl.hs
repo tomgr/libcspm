@@ -247,18 +247,14 @@ instance TypeCheckable Assertion () where
 	errorContext a = Just $ 
 		hang (text "In the assertion" <> colon) tabWidth (prettyPrint a)
 	typeCheck' (PropertyCheck e1 p m) = do
-		t1 <- typeCheck e1
-		ensureIsProc t1
+		ensureIsProc e1
 		return ()
  	typeCheck' (Refinement e1 m e2 p) = do
-		t1 <- typeCheck e1 	
-		t2 <- typeCheck e2
-		ensureIsProc t1
-		ensureIsProc t2
+		ensureIsProc e1
+		ensureIsProc e2
 		case p of
 			Just (TauPriority e3) -> do
-									t1 <- typeCheck e3
-									unify t1 (TSet TEvent)
+									typeCheckExpect e3 (TSet TEvent)
 									return ()
 			Nothing				-> return ()
  
