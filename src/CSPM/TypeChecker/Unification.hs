@@ -299,23 +299,18 @@ unifyNoStk (TDot t1 t2) (TDot t1' t2') = do
 			t <- unify a (foldr1 TDot (b:bs))
 			return [t]
 
+		-- Hence, as /= [], bs /= []
+
 		-- Otherwise, if both arguments are simple, and not equal to TDot,
 		-- then we can just unify them.
-		combine (a:as) (b:bs) | isSimple a && isSimple b = do
+		-- Note, if the first item in the list is a var, and b is not dotable 
+		-- then, providing there is another item after the var, (by the shortest
+		-- match rule) we unify the var and b.
+		combine (a:as) (b:bs) | not (isDotable a) && not (isDotable b) = do
 			t <- unify a b
 			ts <- combine as bs
 			return (t:ts)
 		
-		-- If the first item in the list is a var, and b is simple then, 
-		-- providing there is another item after the var, (by the shortest 
-		-- match rule) we unify the var and b.
-		combine (a0:a1:as) (b:bs) | isVar a0 && isSimple b = do
-			unify a0 b
-			combine (a1:as) (bs)
-		combine (a:as) (b0:b1:bs) | isVar b0 && isSimple a = do
-			unify b0 a
-			combine as (b1:bs)
-				
 		-- ASSUMPTION: argt is not a TDot, or a TDotable. 
 		
 		-- Otherwise, if the head of one of the lists is dotable then we proceed
