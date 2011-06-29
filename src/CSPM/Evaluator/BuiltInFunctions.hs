@@ -32,6 +32,7 @@ builtInFunctions =
 		cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
 		cspm_elem [v, VList vs] = VBool $ v `elem` vs
 		
+		-- | Functions that return sets
 		set_funcs = [
 			("union", cspm_union), ("inter", cspm_inter), 
 			("diff", cspm_diff), ("Union", cspm_Union), 
@@ -39,10 +40,12 @@ builtInFunctions =
 			("Set", cspm_Set), ("Seq", cspm_Seq)
 			]
 		
+		-- | Functions that return sequences
 		seq_funcs = [
 			("seq", cspm_seq), ("tail", cspm_tail), ("concat", cspm_concat)
 			]
 		
+		-- | Functions that return something else
 		other_funcs = [
 			("length", cspm_length), ("null", cspm_null), 
 			("head", cspm_head), ("elem", cspm_elem),
