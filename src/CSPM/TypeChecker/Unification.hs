@@ -167,7 +167,7 @@ unifyNoStk a (TVar b) = do
 			res <- liftM and (mapM (\ c -> unifyConstraint c a) cs)
 			if res then applySubstitution b a
 			else raiseUnificationError False
-		Right t			-> unify t a
+		Right t			-> unify a t
 
 
 -- Type Atoms
@@ -353,11 +353,24 @@ unifyNoStk (TDot t1 t2) (TDot t1' t2') = do
 				-- rtA then, we can produce rt. Thus we reduce as follows.
 				combine (foldr TDotable rt argsA : as) (b:bs)
 
-		combine as ((TDotable argt rt):b:bs) = 
-			combine ((TDotable argt rt):b:bs) as
+		-- Symmetric case of above
+		combine (a:as) ((TDotable argt rt):b:bs)
+			| (isSimple b || (isVar b && bs /= [])) = do
+				unify argt b
+				combine (rt:bs) (a:as)
+			| isVar b = do
+				let (args, urt) = reduceDotable (TDotable argt rt)
+				t:ts <- evaluateDots (foldl1 TDot (a:as)) >>= typeToDotList
+				t1 <- unify urt t
+				combine (args++ts) [b]
+				return (t1:ts)
+			| isDotable b = do
+				let (argsB, rtB) = reduceDotable b
+				unify argt rtB
+				combine (foldr TDotable rt argsB : bs) (a:as)
 		
 		-- TODO: explain why we can't do the unification (it may be because of
-		-- a type error, but may well be because
+		-- a type error, but may well be because of an unsupported type list).
 		combine as bs = raiseUnificationError True
 
 -- TDot + TEvent/TEventable/TDatatype/TDotable
