@@ -158,12 +158,17 @@ unifyNoStk (TVar a) b = do
 		Left (tva, cs)	-> do
 			res <- liftM and (mapM (\ c -> unifyConstraint c b) cs)
 			if res then applySubstitution a b
-			else do
-				t1' <- compress (TVar a)
-				t2' <- compress b
-				raiseMessageAsError $ unificationErrorMessage [(t1', t2')]
+			else raiseUnificationError False
 		Right t			-> unify t b
-unifyNoStk t (TVar b) = unifyNoStk (TVar b) t
+unifyNoStk a (TVar b) = do
+	res <- readTypeRef b
+	case res of
+		Left (tvb, cs)	-> do
+			res <- liftM and (mapM (\ c -> unifyConstraint c a) cs)
+			if res then applySubstitution b a
+			else raiseUnificationError False
+		Right t			-> unify t a
+
 
 -- Type Atoms
 unifyNoStk TInt TInt = return TInt
@@ -362,28 +367,39 @@ unifyNoStk (TDot t1 t2) (TDot t1' t2') = do
 
 -- TDot + TEvent/TEventable/TDatatype/TDotable
 unifyNoStk (TDot t1 t2) (TDatatype n) = do
-	unify t1 (TDotable t2 (TDatatype n))
+	unify (TDotable t2 (TDatatype n)) t1
 	return $ TDatatype n
-unifyNoStk (TDatatype n) (TDot t1 t2) = unifyNoStk (TDot t1 t2) (TDatatype n)
+unifyNoStk (TDatatype n) (TDot t1 t2) = do
+	unify (TDotable t2 (TDatatype n)) t1
+	return $ TDatatype n
+
 unifyNoStk (TDot t1 t2) TEvent = do
-	unify t1 (TDotable t2 TEvent)
+	unify (TDotable t2 TEvent) t1
 	return TEvent
-unifyNoStk TEvent (TDot t1 t2) = unifyNoStk (TDot t1 t2) TEvent
+unifyNoStk TEvent (TDot t1 t2) = do
+	unify (TDotable t2 TEvent) t1
+	return TEvent
+
 unifyNoStk (TDot t1 t2) TEventable = do
-	unify t1 (TDotable t2 TEventable)
+	unify (TDotable t2 TEventable) t1
 	return TEventable
-unifyNoStk TEventable (TDot t1 t2) = unifyNoStk (TDot t1 t2) TEventable
+unifyNoStk TEventable (TDot t1 t2) = do
+	unify (TDotable t2 TEventable) t1
+	return TEventable
+
 unifyNoStk (TDot t1 t2) (TDotable argt rt) = do
-	unify t1 (TDotable t2 (TDotable argt rt))
+	unify (TDotable t2 (TDotable argt rt)) t1
 	return $ TDotable argt rt
-unifyNoStk (TDotable argt rt) (TDot t1 t2) = 
-	unifyNoStk (TDot t1 t2) (TDotable argt rt)
+unifyNoStk (TDotable argt rt) (TDot t1 t2) = do
+	unify (TDotable t2 (TDotable argt rt)) t1
+	return $ TDotable argt rt
 
 unifyNoStk (TDotable argt rt) TEventable = do
-	unify rt TEventable
+	unify TEventable rt
 	return $ TDotable argt rt
-unifyNoStk TEventable (TDotable argt rt) = 
-	unifyNoStk (TDotable argt rt) TEventable
+unifyNoStk TEventable (TDotable argt rt) = do
+	unify TEventable rt
+	return $ TDotable argt rt
 
 unifyNoStk t1 t2 = raiseUnificationError False
 
