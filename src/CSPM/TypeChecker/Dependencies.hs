@@ -172,22 +172,30 @@ instance Dependencies Exp where
 		return $ ds1++ds2
 	dependencies' (Interleave e1 e2) = dependencies' [e1,e2]
 	dependencies' (Prefix e1 fields e2) = do
--- BIG TODO: for all replicated operators do some sort of fold to check
--- that vars are in scope when used
 		depse <- dependencies' [e1,e2]
 		depsfields <- dependencies fields
 		fvfields <- freeVars fields
 		let fvse = nub (fvfields++depsfields++depse)
 		return $ fvse \\ fvfields
-	dependencies' (Rename e1 renames stmts) = dependenciesStmts stmts (e1:es++es')
+	dependencies' (Rename e1 renames stmts) = do
+		d1 <- dependencies' e1
+		d2 <- dependenciesStmts stmts (es++es')
+		return $ d1++d2
 		where (es, es') = unzip renames
 	dependencies' (SequentialComp e1 e2) = dependencies' [e1,e2]
 	dependencies' (SlidingChoice e1 e2) = dependencies' [e1,e2]
 
-	dependencies' (ReplicatedAlphaParallel stmts e1 e2) = dependenciesStmts stmts [e1,e2]
-	dependencies' (ReplicatedInterleave stmts e1) = dependenciesStmts stmts [e1]
-	dependencies' (ReplicatedExternalChoice stmts e1) = dependenciesStmts stmts [e1]
-	dependencies' (ReplicatedInternalChoice stmts e1) = dependenciesStmts stmts [e1]
+	dependencies' (ReplicatedAlphaParallel stmts e1 e2) = 
+		dependenciesStmts stmts [e1,e2]
+	dependencies' (ReplicatedInterleave stmts e1) = 
+		dependenciesStmts stmts [e1]
+	dependencies' (ReplicatedExternalChoice stmts e1) = 
+		dependenciesStmts stmts [e1]
+	dependencies' (ReplicatedInternalChoice stmts e1) = 
+		dependenciesStmts stmts [e1]
+	dependencies' (ReplicatedLinkParallel ties stmts e) =
+		dependenciesStmts stmts (e:es++es')
+		where  (es, es') = unzip ties
 	dependencies' (ReplicatedParallel e1 stmts e2) = dependenciesStmts stmts [e1,e2]
 	
 	dependencies' x = panic ("TCDependencies.hs: unrecognised exp "++show x)

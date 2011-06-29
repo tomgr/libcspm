@@ -1,0 +1,5 @@
+channel a : Bool
+channel b : Bool
+
+Q(x) = STOP
+P = Q(x) [[ a.x <- b.x | x <- {true, false}]]

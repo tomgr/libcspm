@@ -201,7 +201,7 @@ instance TypeCheckable Exp Type where
 	typeCheck' (Interleave e1 e2) = do
 		ensureIsProc e1
 		ensureIsProc e2
-		return TProc
+		return TProc		
 	typeCheck' (SequentialComp e1 e2) = do
 		ensureIsProc e1
 		ensureIsProc e2
@@ -233,16 +233,20 @@ instance TypeCheckable Exp Type where
 			tcfs (f:fs) tsfields =
 				typeCheckField f (\ t -> tcfs fs (t:tsfields))
 		tcfs fields []
-			
-	-- Replicated Operators
-	typeCheck' (ReplicatedAlphaParallel stmts alpha proc) =
+
+	typeCheck' (LinkParallel e1 ties stmts e2) = do
+		ensureIsProc e1
+		ensureIsProc e2
+		typeCheckReplicatedOp stmts $ do
+			let (as, bs) = unzip ties
+			ast <- mapM ensureIsChannel as
+			bst <- mapM ensureIsChannel bs
+			ts <- zipWithM unify ast bst
+			return TProc
+
+	typeCheck' (Rename e1 exps stmts) = do
+		ensureIsProc e1
 		typeCheckReplicatedOp stmts (do
-			t1 <- typeCheck alpha
-			unify t1 (TSet TEvent)
-			ensureIsProc proc)
-	typeCheck' (Rename e1 exps stmts) = 
-		typeCheckReplicatedOp stmts (do
-			ensureIsProc e1
 			let (as, bs) = unzip exps
 			-- Unify the pairs of channels
 			-- TODO: error contexts
@@ -250,10 +254,24 @@ instance TypeCheckable Exp Type where
 			bst <- mapM ensureIsChannel bs
 			ts <- zipWithM unify ast bst
 			return TProc)
+			
+	-- Replicated Operators
+	typeCheck' (ReplicatedAlphaParallel stmts alpha proc) =
+		typeCheckReplicatedOp stmts (do
+			t1 <- typeCheck alpha
+			unify t1 (TSet TEvent)
+			ensureIsProc proc)
 	typeCheck' (ReplicatedParallel alpha stmts proc) =
 		typeCheckReplicatedOp stmts (do
 			typeCheckExpect alpha (TSet TEvent)
 			ensureIsProc proc)
+	typeCheck' (ReplicatedLinkParallel ties stmts proc) = 
+		typeCheckStmts TSeq stmts $ do
+			let (as, bs) = unzip ties
+			ast <- mapM ensureIsChannel as
+			bst <- mapM ensureIsChannel bs
+			ts <- zipWithM unify ast bst
+			ensureIsProc proc
 	typeCheck' (ReplicatedInterleave stmts e1) =
 		typeCheckReplicatedOp stmts (ensureIsProc e1)
 	typeCheck' (ReplicatedExternalChoice stmts e1) =
