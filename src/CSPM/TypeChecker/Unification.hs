@@ -13,6 +13,7 @@ import CSPM.DataStructures.Types
 import CSPM.TypeChecker.Environment
 import CSPM.TypeChecker.Exceptions
 import CSPM.TypeChecker.Monad
+import Util.Exception
 import Util.Monad
 
 -- | Return the free type variables (and their constraints) for all 'TypeVar's 
@@ -418,13 +419,17 @@ unifyNoStk t1 t2 = raiseUnificationError False
 -- [TDotable TInt (TDatatype (Name "A")),TBool]
 raiseUnificationError :: Bool -> TypeCheckMonad a
 raiseUnificationError isDotError = do
+	b <- getInError
+	if b then throwException $ UserError else setInError True $ do
 	ts <- getUnificationStack
 	cts <- mapM (\ (t1, t2) -> do
 		t1 <- compress t1
 		t2 <- compress t2
-		if isDotError then return (t1, t2) else do
-		t1 <- evaluateDots t1
-		t2 <- evaluateDots t2
+		-- Try and tidy any dot lists
+		(t1, t2) <- tryAndRecover (do
+			t1 <- evaluateDots t1
+			t2 <- evaluateDots t2
+			return (t1, t2)) (return (t1,t2))
 		return (t1, t2)) ts
 	raiseMessageAsError $ unificationErrorMessage cts
 		

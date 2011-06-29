@@ -10,6 +10,7 @@ module CSPM.TypeChecker.Monad (
 	ErrorContext, addErrorContext, getErrorContexts,
 	getSrcSpan, setSrcSpan,
 	getUnificationStack, addUnificationPair,
+	getInError, setInError,
 	
 	raiseMessageAsError, raiseMessagesAsError, panic,
 	manyErrorsIfFalse, errorIfFalseM, errorIfFalse, tryAndRecover, failM,
@@ -53,7 +54,9 @@ data TypeInferenceState = TypeInferenceState {
 		errors :: [ErrorMessage],
 		-- | Stack of attempted unifications - the current one
 		-- is at the front. In the form (expected, actual).
-		unificationStack :: [(Type, Type)]
+		unificationStack :: [(Type, Type)],
+		-- | Are we currently in an error state
+		inError :: Bool
 	}
 	
 newTypeInferenceState :: TypeInferenceState
@@ -63,7 +66,8 @@ newTypeInferenceState = TypeInferenceState {
 		srcSpan = Unknown,
 		errorContexts = [],
 		errors = [],
-		unificationStack = []
+		unificationStack = [],
+		inError = False
 	}
 
 type TypeCheckMonad = StateT TypeInferenceState IO
@@ -119,6 +123,17 @@ getErrors = gets errors
 addErrors :: [ErrorMessage] -> TypeCheckMonad ()
 addErrors es = modify (\ st -> st { errors = es++(errors st) })
 
+getInError :: TypeCheckMonad Bool
+getInError = gets inError
+
+setInError :: Bool -> TypeCheckMonad a -> TypeCheckMonad a
+setInError b prog = do
+	o <- getInError
+	modify (\st -> st { inError = b })
+	a <- prog
+	modify (\st -> st { inError = o })
+	return a
+
 getSrcSpan :: TypeCheckMonad SrcSpan
 getSrcSpan = gets srcSpan
 
@@ -127,7 +142,6 @@ setSrcSpan :: SrcSpan -> TypeCheckMonad a -> TypeCheckMonad a
 setSrcSpan loc prog = do
 	oLoc <- getSrcSpan
 	modify (\st -> st { srcSpan = loc })
-	l <- getSrcSpan
 	a <- prog
 	modify (\st -> st { srcSpan = oLoc })
 	return a
@@ -191,8 +205,8 @@ tryAndRecover prog handler = tryM prog >>= \x ->
 				-- The errors will be discarded as the errors propogate up.
 				-- Hence, we reset them.
 				setErrors msgs
-				x <- handler
-				return x
+				handler
+			UserError -> handler
 			-- An exception type we don't want to interfer with
 			e			-> throwException e
 	where
