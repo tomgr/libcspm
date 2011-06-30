@@ -16,7 +16,7 @@ main = do
 getAndFilterDirectoryContents :: FilePath -> IO [FilePath]
 getAndFilterDirectoryContents fp = do
 	names <- getDirectoryContents fp
-	return $ filter (`notElem` [".", ".."]) names
+	return $ filter (`notElem` [".", "..", ".DS_Store"]) names
 
 getTestFiles :: IO [(FilePath, Bool)]
 getTestFiles = do
