@@ -97,23 +97,23 @@ instance TypeCheckable Exp Type where
 		typeCheckExpect e3 t2
 	typeCheck' (Lambda p exp) = do
 		fvs <- freeVars p
-		local fvs (do
+		local fvs $ do
 			tr <- typeCheck exp
 			targ <- typeCheck p
-			return $ TFunction [targ] tr)
+			return $ TFunction [targ] tr
 	typeCheck' (Let decls exp) =
 		-- Add a new scope: typeCheckDecl will add vars into it	
-		local [] (do
-				typeCheckDecls decls
-				typeCheck exp)
+		local [] $ do
+			typeCheckDecls decls
+			typeCheck exp
 	typeCheck' (Lit lit) = typeCheck lit
 	typeCheck' (List es) = do
 		t <- ensureAreEqual es
 		return $ TSeq t
 	typeCheck' (ListComp es stmts) =
-		typeCheckStmts TSeq stmts (do
+		typeCheckStmts TSeq stmts $ do
 			t <- ensureAreEqual es
-			return $ TSeq t)
+			return $ TSeq t
 	typeCheck' (ListEnumFrom lb) = do
 		ensureIsInt lb
 		return $ TSeq TInt
@@ -137,16 +137,16 @@ instance TypeCheckable Exp Type where
 		ensureHasConstraint Eq t
 		return $ TSet t
 	typeCheck' (SetComp es stmts) = 
-		typeCheckStmts TSet stmts (do
+		typeCheckStmts TSet stmts $ do
 			t <- ensureAreEqual es
-			return $ TSet t)
+			return $ TSet t
 	typeCheck' (SetEnum es) =  do
 		mapM ensureIsChannel es
 		return $ TSet TEvent
 	typeCheck' (SetEnumComp es stmts) = 
-		typeCheckStmts TSet stmts (do
+		typeCheckStmts TSet stmts $ do
 			mapM ensureIsChannel es
-			return $ TSet TEvent)
+			return $ TSet TEvent
 	typeCheck' (SetEnumFrom lb) = do
 		ensureIsInt lb
 		return $ TSet TInt
@@ -240,37 +240,33 @@ instance TypeCheckable Exp Type where
 		typeCheckReplicatedOp stmts $ do
 			let (as, bs) = unzip ties
 			ast <- mapM ensureIsChannel as
-			bst <- mapM ensureIsChannel bs
-			ts <- zipWithM unify ast bst
+			zipWithM typeCheckExpect bs ast
 			return TProc
 
 	typeCheck' (Rename e1 exps stmts) = do
 		ensureIsProc e1
-		typeCheckReplicatedOp stmts (do
+		typeCheckReplicatedOp stmts $ do
 			let (as, bs) = unzip exps
 			-- Unify the pairs of channels
-			-- TODO: error contexts
 			ast <- mapM ensureIsChannel as
-			bst <- mapM ensureIsChannel bs
-			ts <- zipWithM unify ast bst
-			return TProc)
+			zipWithM typeCheckExpect bs ast
+			return TProc
 			
 	-- Replicated Operators
 	typeCheck' (ReplicatedAlphaParallel stmts alpha proc) =
-		typeCheckReplicatedOp stmts (do
+		typeCheckReplicatedOp stmts $ do
 			t1 <- typeCheck alpha
 			unify t1 (TSet TEvent)
-			ensureIsProc proc)
+			ensureIsProc proc
 	typeCheck' (ReplicatedParallel alpha stmts proc) =
-		typeCheckReplicatedOp stmts (do
+		typeCheckReplicatedOp stmts $ do
 			typeCheckExpect alpha (TSet TEvent)
-			ensureIsProc proc)
+			ensureIsProc proc
 	typeCheck' (ReplicatedLinkParallel ties stmts proc) = 
 		typeCheckStmts TSeq stmts $ do
 			let (as, bs) = unzip ties
 			ast <- mapM ensureIsChannel as
-			bst <- mapM ensureIsChannel bs
-			ts <- zipWithM unify ast bst
+			zipWithM typeCheckExpect bs ast
 			ensureIsProc proc
 	typeCheck' (ReplicatedInterleave stmts e1) =
 		typeCheckReplicatedOp stmts (ensureIsProc e1)
@@ -292,14 +288,12 @@ typeCheckField field tc =
 				tp <- addErrorContext errCtxt (do
 						tp <- typeCheck p
 						unify (TSet tp) t
-						return tp
-					)
+						return tp)
 				tc tp
 		check (Input p Nothing) = do
 			fvs <- freeVars p
 			local fvs (addErrorContext errCtxt (typeCheck p) >>= tc)
-		check (Output e) = do
-			addErrorContext errCtxt (typeCheck e) >>= tc
+		check (Output e) = addErrorContext errCtxt (typeCheck e) >>= tc
 	in setSrcSpan (loc field) (check (unAnnotate field))
 
 -- | The first argument is a type constructor, which given a type, returns
