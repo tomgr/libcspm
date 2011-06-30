@@ -1,0 +1,5 @@
+datatype A = EE.{0..1}
+
+channel test : {0..1}.A.{0..1}
+
+S13(x) = test.0.EE?x:{0.1} -> STOP

@@ -1,0 +1,4 @@
+datatype A = B.{0..1} | X.{0..1}.{0..1}
+channel e : Bool.A.Bool
+
+test12 = (B.true) == (B.false)

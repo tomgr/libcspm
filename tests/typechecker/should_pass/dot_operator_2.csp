@@ -1,0 +1,205 @@
+datatype A = BB | CC | DD.{0..2}.{0..23} | EE.{0..1}
+
+channel aa, bb : {0..1}.{0..2}
+channel cc : A
+channel dd : A.{true, false}.A
+
+-- TODO: wrong type inferred for this
+-- kk :: Event -> Event
+kk(aa._._) = bb.0.1
+kk(aa._._) = bb.0.1
+kk(aa.0.0) = bb.0.1
+kk(aa._.x) = bb.0.x
+
+
+-- Type too general?
+-- blah :: Event -> Int.Int
+blah(aa.x) = x
+
+-- blah2 :: Int.Int -> Event
+blah2(x) = aa.x
+S11(x) = dd.DD.0.x -> STOP
+
+channel ee : A.{true, false}.A
+channel done
+
+channel test : {0..1}.A.{0..1}
+
+S9(x) = dd.BB.x.CC
+-- S8 :: Bool -> TDotable A Int
+--S8(x) = dd.BB.x
+S10 = dd.DD.0?x -> STOP
+
+S12(x) = dd.DD.0!x -> STOP
+S13(x) = test.0.EE?x:{0.1} -> STOP
+S14(y) = S13(y)
+
+
+K7 = dd.DD.0.0.true.CC -> STOP
+
+
+-- mkEvent :: (TDotableWith b Yield TEvent, b, TProc) -> TProc
+mkEvent(a,e,P) = a.e -> P
+-- prefix :: (TEvent, TProc) -> TProc
+prefix(a,P) = a -> P
+
+Q'' = prefix(cc.CC, STOP)
+Q''' = mkEvent(cc, CC, STOP)
+Q = mkEvent(aa, 1.2, STOP)
+Q' = prefix(bb.1.2, STOP)
+Q'''' = mkEvent(cc, BB, STOP)
+Q''''' = mkEvent(cc, DD.0.1, STOP)
+R = mkEvent(dd, BB.false.(DD.0.0), prefix(ee.CC.true.(DD.1.1), STOP))
+F(x) = dd.x -> STOP
+a = dd.BB.true
+R' = mkEvent(a, CC, STOP)
+S = Q [] R
+T5 = {| cc |}
+T6 = {| cc.BB |}
+T7 = {| dd |}
+T8 = {| dd.BB |}
+T = {| dd.CC.true |}
+T4(x, y) = {| x.y |}
+T2 = union({| cc.BB |}, T4(cc, BB))
+T3 = {| dd.(DD.0.1) |}
+K1 = DD.0.0
+K2 = cc.CC -> STOP
+K3 = cc.EE.1 -> STOP
+K4 = EE.1
+K5 = cc.K4 -> STOP
+K6 = cc.K1 -> STOP
+J = done -> STOP
+
+
+U = dd?x -> U
+U1 = dd?x:{BB.true.BB} -> U1
+V = dd?x?y -> V
+-- FDR rejects the following
+-- TODO: emit a warning
+V1 = dd?x:{BB.true}?y:{BB} -> V1
+V2 = dd?x:{BB}?y:{true.BB} -> V2
+V3 = dd?x:{BB}?y:{true}?z:{BB} -> STOP
+Z = dd?x?y?z -> Z
+
+M2(x) = dd.x
+M'(x,y) = x.y
+M''(x) = DD.x
+
+--N1 = M2(DD.0.1)?x?y -> STOP
+--N2 = M2(BB)?x?y -> STOP
+--O = M2(CC)?x -> STOP
+
+Rename(aa.0.1) = bb.0.1
+Rename(bb.0.1) = aa.0.1
+Rename(cc.DD.0.3) = done
+Rename(done) = aa.0.1
+
+
+-- Taken from ucs/cahpter20/phone.csp
+N=4
+Phones = {0..N-1}
+M = 3
+Exchanges = {0..M-1}
+Exch(n) = {n%M}
+local(x,y) = member(x,Exch(y))
+nonlocal(x,y) = not(member(x,Exch(y)))
+mcnames = Phones
+speech = {0}
+datatype dirs = PPlus | MMinus 
+channel mc:mcnames.cmess.dirs
+channel mcp:mcnames.cmess
+datatype cmess =  Ring |Confirm | Cancel | Hungup | Pickup.mcnames | Isbusy | Talk.speech | EndC
+ch(x) = x  -- each phone uses its own label for its channel
+channel lift,  hangup, ringing: Phones
+channel say,hear:Phones.speech
+channel call:Phones.Exchanges.Phones.mcnames.dirs
+channel callp:Phones.Exchanges.Phones.mcnames
+channel called:Phones.Exchanges.mcnames.dirs
+channel calledp:Phones.Exchanges.mcnames
+channel dial:Phones.Phones
+channel busy:Phones.Exchanges
+channel ring:Exchanges.Phones.mcnames.dirs
+channel ringp:Exchanges.Phones.mcnames
+
+port(call._._._.c.D) = ({|mc.c|},D)
+port(called._._.c.D) = ({|mc.c|},D)
+port(ring._._.c.D) = ({|mc.c|},D)
+port(mc.c.Pickup.c'.D) = ({|mc.c'|},D)
+port(mc.c._.D) = ({|mc.c|},D)
+port(x) = ({},PPlus)
+
+modify(x,A) = let 
+                  (pt,dt) = port(x)
+                  within 
+                  if dt == PPlus then union(A,pt)
+                  else diff(A,pt)
+
+
+flatten(call.x.y.z.c.D) = callp.x.y.z.c
+flatten(called.x.y.c.D) = calledp.x.y.c
+flatten(mc.c.x.D) = mcp.c.x
+flatten(ring.n.c.x.D) = ringp.n.c.x
+flatten(x) = x
+
+prime2(x,y,c,d) = call.x.y.c.d -> STOP
+prime1(X) = {|callp.x.y.c | call.x.y.c.d <- X|}
+prime(A) = Union({{|mcp.n.x | mc.n.x.d <- A|},
+                  {|callp.x.y.c | call.x.y.c.d <- A|},
+                  {|calledp.x.y.c | called.x.y.c.d <- A|},
+                  {|ringp.x.y.c | ring.x.y.c.d <- A|}
+                })
+
+
+
+datatype namestype = IV.Int | IA.Int.Int
+                   | BV.Int | BA.Int.Int | NonVar
+X = {BV.j | j <- bvnums}
+Y = {BA.j.k | j <- banums, k <- itype(BA.j)}
+bvnames = union(X,Y)
+bvnames' = union({BV.j | j <- bvnums},{BA.j.k | j <- banums, k <- itype(BA.j)})
+bvnums = {1..1}
+banums = {1..0}
+ivnames = union({IV.j | j <- ivnums},{IA.j.k | j <- ianums, k <- itype(IA.j)})
+ivnums = {1..9}
+ianums = {1..2}
+ianames = {}
+MinI = 0
+MaxI = 4
+datatype BinIOps = Plus | Times | Minus | Div | Mod | Max | Min
+datatype UIOps = Uminus
+-- The following function decides if an integer expression is formally constant.
+
+AllInts = {MinI..MaxI}
+datatype EInt = Ok.AllInts | NotOk
+itype(v) = let vts = <ty | (v',ty) <- itypes, v'==v> 
+            within if vts==<> then ditype else head(vts)
+itypes = <(IA.1, {0..3})>
+ditype = {0,1}
+
+datatype BExpr = BVar.bvnames |
+                 True |
+                 False |
+                 Not.BExpr |
+                 ErrorB
+
+datatype IExpr =  IVar.ivnames |
+                  IArc.(ianames,IExpr) |
+                  Const.{MinI..MaxI} |
+                  BIOp.BinIOps.IExpr.IExpr |
+                  UIOp.UIOps.IExpr |
+                  ErrorI
+
+subsi(x,v,IVar.y) = if x==y then Const.v else IVar.y
+-- IVar.y
+
+--xt(BVar.BV.v) = BV.v
+xt(BVar.BA.v) = BA.v
+--xt(_) = NonVar
+
+ctype(IV.n) = let v = IV.n
+              vts = <ty | (v',ty) <- <>, v'==v>
+           within if vts == <> then {MinI..MaxI} else head(vts)
+
+ctype(IA.n.m) = let a = IA.n
+                vts = <ty | (v',ty) <- <>, a==v'>
+           within if vts == <> then head(vts) else head(vts)

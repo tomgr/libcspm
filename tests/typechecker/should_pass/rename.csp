@@ -1,0 +1,18 @@
+channel a : Bool
+channel b : Bool
+
+channel c : Int.Bool
+
+P = STOP [[ a <- b ]]
+Q = STOP [[ a.true <- b.true ]]
+R = STOP [[ a <- c.0 ]]
+S = STOP [[ c.x.d <- a.d | x <- Int, d <- Bool]]
+
+
+T={0}
+Nodes = {0..10}
+
+channel receive:Nodes.Nodes.T
+channel receive':Nodes.T
+
+Ring' = STOP[[receive.X.Y.Z <- receive'.X.Z | X <- Nodes, Y <- Nodes, Z <- T]]

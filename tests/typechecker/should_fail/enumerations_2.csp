@@ -1,0 +1,7 @@
+datatype A = B.Bool.{0..1}
+channel c : A
+
+f(x) = {| x |}
+
+Q = [] x : f(0) @ x -> P
+

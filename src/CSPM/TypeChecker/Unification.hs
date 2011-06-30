@@ -132,6 +132,150 @@ unifyConstraint Eq (TDatatype n) = return True
 unifyConstraint c t = 
 	raiseMessageAsError $ constraintUnificationErrorMessage c t
 
+
+
+-- | Takes a 'TDotable' and returns a tuple consisting of:
+-- the arguments that it takes and the ultimate return type. Note
+-- that due to the way that TDotables are introduced the return type
+-- is guaranteed to be simple.
+-- This requires that its argument is compressed.
+reduceDotable :: Type -> ([Type], Type)
+reduceDotable (TDotable argt rt) = 
+	let (args, urt) = reduceDotable rt in (argt:args, urt)
+reduceDotable x = ([], x)
+
+-- | We convert all TDotable (TDot t1 t2) to 
+-- TDotable t1 (TDotable t2...). Thus every argument of a TDotable
+-- is not a TDot.
+toNormalForm :: Type -> Type
+toNormalForm (TDotable (TDot t1 t2) rt) = 
+	toNormalForm (TDotable t1 (TDotable t2 rt))
+-- Hence, t1 is atomic (of some sort)
+toNormalForm (TDotable t1 (TDotable t2 rt)) = 
+	TDotable t1 (toNormalForm (TDotable t2 rt))
+toNormalForm x = x
+
+isVar :: Type -> Bool
+isVar (TVar _) = True
+isVar _ = False
+
+isDotable :: Type -> Bool
+isDotable (TDotable _ _) = True
+isDotable _ = False
+
+isSimple a = not (isDotable a) && not (isVar a)
+
+-- Assumption, argument of TDotable is always simple
+-- and that result of TDotable is either another TDotable or
+-- simple.
+
+-- Also, we assume that if a type list is of the form 
+-- [TDotable argt rt, arg] then arg must contribute to argt (though 
+-- obviously argt could itself by a TDotable). In reality, this means
+-- that we prohibit definitions such as:
+--   datatype A = B.{0..1}
+-- f(x) = B.x
+-- Intuitively this can be thought of as prohibiting dots usage
+-- as a functional programming construct.
+
+-- | Takes two type lists and unifies them into one type list.
+combineTypeLists :: [Type] -> [Type] -> TypeCheckMonad [Type]
+combineTypeLists [] [] = return []
+
+-- If either of the front components is a TDot, compute the dot list.
+combineTypeLists ((TDot a1 a2):as) bs = do
+	ts <- typeToDotList (TDot a1 a2)
+	combineTypeLists (ts++as) bs
+combineTypeLists as ((TDot b1 b2):bs) = do
+	ts <- typeToDotList (TDot b1 b2)
+	combineTypeLists as (ts++bs)
+
+-- If one type list has just one component left then this must be equal
+-- to the dotted type of the other.
+combineTypeLists (a:as) [b] = do
+	t <- unify (foldr1 TDot (a:as)) b
+	return [t]
+combineTypeLists [a] (b:bs) = do
+	t <- unify a (foldr1 TDot (b:bs))
+	return [t]
+
+-- Hence, as /= [], bs /= []
+
+-- Otherwise, if both arguments are simple, and not equal to TDot,
+-- then we can just unify them.
+-- Note, if the first item in the list is a var, and b is not dotable 
+-- then, providing there is another item after the var, (by the shortest
+-- match rule) we unify the var and b.
+combineTypeLists (a:as) (b:bs) | not (isDotable a) && not (isDotable b) = do
+	t <- unify a b
+	ts <- combineTypeLists as bs
+	return (t:ts)
+
+-- ASSUMPTION: argt is not a TDot, or a TDotable. 
+
+-- Otherwise, if the head of one of the lists is dotable then we proceed
+-- as follows
+combineTypeLists ((a0@(TDotable argt rt)):a:as) (b:bs)
+	| (isSimple a || (isVar a && as /= [])) = do
+		-- By assumption a is not a TDot and so either, a is simple and
+		-- hence we unify argt and a or, it is a var. Then, providing 
+		-- as /= [] we can use the shortest match rule to justify 
+		-- matching with just with one component.
+		unify argt a
+		combineTypeLists (rt:as) (b:bs)
+	| isVar a = do
+		-- as == [] otherwise the above case applies. Hence, we need to 
+		-- set a to be equal to the args necessary to remove all 
+		-- TDotables from the front, plus any extension needed in order
+		-- to make it match (b:bs). Firstly, compute what the ultimate
+		-- return type (urt) and args to get this will be.
+		let (args, urt) = reduceDotable (TDotable argt rt)
+		-- As urt is simple it immediately follows that the length of
+		-- the urt type list is 1. Therefore, even if bs has a var on 
+		-- the end we still want the b:bs type list to be as short as
+		-- possible (and thus don't need to extend it). Hence, we can
+		-- use the evaluateDots function.
+		t:ts <- evaluateDots (foldl1 TDot (b:bs)) >>= typeToDotList
+		-- The first type in this list must be equal to urt
+		t1 <- unify urt t
+		-- We want to set the var a to all the args, plus any extension
+		-- from bs
+		combineTypeLists (args++ts) [a]
+		return (t1:ts)
+	-- Else, a is not simple, or a var. Hence is a TDotable. 
+	| isDotable a = do
+		-- Compute the ultimate return type of A, and the args to get 
+		-- to it.
+		let (argsA, rtA) = reduceDotable a
+		-- We know rtA has to be the same type as argt
+		unify argt rtA
+		-- Hence, if we can find all the arguments required to produce
+		-- rtA then, we can produce rt. Thus we reduce as follows.
+		combineTypeLists (foldr TDotable rt argsA : as) (b:bs)
+
+-- Symmetric case of above
+combineTypeLists (a:as) ((TDotable argt rt):b:bs)
+	| (isSimple b || (isVar b && bs /= [])) = do
+		unify argt b
+		combineTypeLists (rt:bs) (a:as)
+	| isVar b = do
+		let (args, urt) = reduceDotable (TDotable argt rt)
+		t:ts <- evaluateDots (foldl1 TDot (a:as)) >>= typeToDotList
+		t1 <- unify urt t
+		combineTypeLists (args++ts) [b]
+		return (t1:ts)
+	| isDotable b = do
+		let (argsB, rtB) = reduceDotable b
+		unify argt rtB
+		combineTypeLists (foldr TDotable rt argsB : bs) (a:as)
+
+-- TODO: explain why we can't do the unification (it may be because of
+-- a type error, but may well be because of an unsupported type list).
+combineTypeLists as bs = raiseUnificationError True
+
+
+
+
 -- | The main type unification algorithm. This adds values to the unification 
 -- stack in order to ensure error messages are helpful.
 unify :: Type -> Type -> TypeCheckMonad Type
@@ -177,8 +321,8 @@ unifyNoStk TBool TBool = return TBool
 unifyNoStk TProc TProc = return TProc
 unifyNoStk TEvent TEvent = return TEvent
 unifyNoStk TEventable TEventable = return TEventable
-unifyNoStk TEvent TEventable = return TEventable
-unifyNoStk TEventable TEvent = return TEventable
+unifyNoStk TEvent TEventable = return TEvent
+unifyNoStk TEventable TEvent = return TEvent
 unifyNoStk (TDatatype n1) (TDatatype n2) 
 	| n1 == n2 = return $ TDatatype n1
 
@@ -196,183 +340,41 @@ unifyNoStk (TSet t1) (TSet t2) = do
 unifyNoStk (TTuple ts1) (TTuple ts2) | length ts1 == length ts2 = do
 	ts <- zipWithM unify ts1 ts2
 	return $ TTuple ts
-unifyNoStk (TDotable t1 t2) (TDotable t1' t2') = do
-	a <- compress t2
-	b <- compress t2'
-	case (a,b) of
-		(TDotable argt rt, _) ->
-			unify (TDotable (TDot t1 argt) rt) (TDotable t1' t2')
-		(_, TDotable argt rt) ->
-			unify (TDotable t1 t2) (TDotable (TDot t1' argt) rt)
-		(TEventable, _) 	-> do
-			c <- evalTypeToDotList t1
-			d <- evalTypeToDotList t1'
-			-- NB. zipWithM ignores the possibility one option
-			-- is longer than the other which is what we need
-			argt <- zipWithM unify c d
-			rt <- unify a b
-			return $ TDotable (foldr1 TDot argt) rt
-		(_, TEventable) 	-> do
-			c <- evalTypeToDotList t1
-			d <- evalTypeToDotList t1'
-			argt <- zipWithM unify c d
-			rt <- unify a b
-			return $ TDotable (foldr1 TDot argt) rt
-		_					-> do
-			a <- unify t1 t1'
-			b <- unify t2 t2'
-			return $ TDotable a b
-	where
-		evalTypeToDotList :: Type -> TypeCheckMonad [Type]
-		evalTypeToDotList t = compress t >>= \ t ->
-				case t of
-					TDot t1 t2 -> do
-						(t:ts1) <- evalTypeToDotList t1
-						ts2 <- evalTypeToDotList t2
-						evalTypeList t (ts1++ts2)
-					_	-> return [t]
+
+unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
+	a <- compress a
+	b <- compress b
+	let
+		(argsA, rtA) = (reduceDotable . toNormalForm) a
+		(argsB, rtB) = (reduceDotable . toNormalForm) b
+		evalTypeList' (t:ts) = evalTypeList t ts
+	rt <- unify rtA rtB
+
+	case (rtA, rtB) of
+		(TEventable, TEventable) -> panic "TC: double eventable"
+		(TEventable, _) -> do
+			as <- evalTypeList' argsA
+			bs <- evalTypeList' argsB
+			let as' = map (snd . reduceDotable . toNormalForm) as
+			zipWithM unify as' bs
+			return $ TDotable (foldl1 TDot bs) rt
+		(_, TEventable) -> do
+			as <- evalTypeList' argsA
+			bs <- evalTypeList' argsB
+			let bs' = map (snd . reduceDotable . toNormalForm) bs
+			zipWithM unify as bs'
+			return $ TDotable (foldl1 TDot as) rt
+		(_, _) -> do
+			args <- combineTypeLists argsA argsB
+			return $ TDotable (foldl1 TDot args) rt
 
 unifyNoStk (TDot t1 t2) (TDot t1' t2') = do
-	-- Assumption, argument of TDotable is always simple
-	-- and that result of TDotable is either another TDotable or
-	-- simple.
-	
-	-- Also, we assume that if a type list is of the form 
-	-- [TDotable argt rt, arg] then arg must contribute to argt (though 
-	-- obviously argt could itself by a TDotable). In reality, this means
-	-- that we prohibit definitions such as:
-	--   datatype A = B.{0..1}
-	-- f(x) = B.x
-	-- Intuitively this can be thought of as prohibiting dots usage
-	-- as a functional programming construct.
 	a0 <- typeToDotList (TDot t1 t2)
 	b0 <- typeToDotList (TDot t1' t2')
 	let a = map toNormalForm a0
 	let b = map toNormalForm b0
-	ts <- combine a b
+	ts <- combineTypeLists a b
 	return $ foldl1 TDot ts
-	where
-		isVar :: Type -> Bool
-		isVar (TVar _) = True
-		isVar _ = False
-
-		isDotable :: Type -> Bool
-		isDotable (TDotable _ _) = True
-		isDotable _ = False
-
-		isSimple a = not (isDotable a) && not (isVar a)
-		
-		-- | We convert all TDotable (TDot t1 t2) to 
-		-- TDotable t1 (TDotable t2...). Thus every argument of a TDotable
-		-- is not a TDot.
-		toNormalForm :: Type -> Type
-		toNormalForm (TDotable (TDot t1 t2) rt) = 
-			TDotable t1 (toNormalForm (TDotable t2 rt))
-		toNormalForm x = x
-
-		-- | Takes a 'TDotable' and returns a tuple consisting of:
-		-- the arguments that it takes and the ultimate return type. Note
-		-- that due to the way that TDotables are introduced the return type
-		-- is guaranteed to be simple.
-		reduceDotable :: Type -> ([Type], Type)
-		reduceDotable (TDotable argt rt) = 
-			let (args, urt) = reduceDotable rt in (argt:args, urt)
-		reduceDotable x = ([], x)
-		
-		-- | Takes two type lists and unifies them into one type list.
-		combine :: [Type] -> [Type] -> TypeCheckMonad [Type]
-		combine [] [] = return []
-		
-		-- If either of the front components is a TDot, compute the dot list.
-		combine ((TDot a1 a2):as) bs = do
-			ts <- typeToDotList (TDot a1 a2)
-			combine (ts++as) bs
-		combine as ((TDot b1 b2):bs) = do
-			ts <- typeToDotList (TDot b1 b2)
-			combine as (ts++bs)
-
-		-- If one type list has just one component left then this must be equal
-		-- to the dotted type of the other.
-		combine (a:as) [b] = do
-			t <- unify (foldr1 TDot (a:as)) b
-			return [t]
-		combine [a] (b:bs) = do
-			t <- unify a (foldr1 TDot (b:bs))
-			return [t]
-
-		-- Hence, as /= [], bs /= []
-
-		-- Otherwise, if both arguments are simple, and not equal to TDot,
-		-- then we can just unify them.
-		-- Note, if the first item in the list is a var, and b is not dotable 
-		-- then, providing there is another item after the var, (by the shortest
-		-- match rule) we unify the var and b.
-		combine (a:as) (b:bs) | not (isDotable a) && not (isDotable b) = do
-			t <- unify a b
-			ts <- combine as bs
-			return (t:ts)
-		
-		-- ASSUMPTION: argt is not a TDot, or a TDotable. 
-		
-		-- Otherwise, if the head of one of the lists is dotable then we proceed
-		-- as follows
-		combine ((a0@(TDotable argt rt)):a:as) (b:bs)
-			| (isSimple a || (isVar a && as /= [])) = do
-				-- By assumption a is not a TDot and so either, a is simple and
-				-- hence we unify argt and a or, it is a var. Then, providing 
-				-- as /= [] we can use the shortest match rule to justify 
-				-- matching with just with one component.
-				unify argt a
-				combine (rt:as) (b:bs)
-			| isVar a = do
-				-- as == [] otherwise the above case applies. Hence, we need to 
-				-- set a to be equal to the args necessary to remove all 
-				-- TDotables from the front, plus any extension needed in order
-				-- to make it match (b:bs). Firstly, compute what the ultimate
-				-- return type (urt) and args to get this will be.
-				let (args, urt) = reduceDotable (TDotable argt rt)
-				-- As urt is simple it immediately follows that the length of
-				-- the urt type list is 1. Therefore, even if bs has a var on 
-				-- the end we still want the b:bs type list to be as short as
-				-- possible (and thus don't need to extend it). Hence, we can
-				-- use the evaluateDots function.
-				t:ts <- evaluateDots (foldl1 TDot (b:bs)) >>= typeToDotList
-				-- The first type in this list must be equal to urt
-				t1 <- unify urt t
-				-- We want to set the var a to all the args, plus any extension
-				-- from bs
-				combine (args++ts) [a]
-				return (t1:ts)
-			-- Else, a is not simple, or a var. Hence is a TDotable. 
-			| isDotable a = do
-				-- Compute the ultimate return type of A, and the args to get 
-				-- to it.
-				let (argsA, rtA) = reduceDotable a
-				-- We know rtA has to be the same type as argt
-				unify argt rtA
-				-- Hence, if we can find all the arguments required to produce
-				-- rtA then, we can produce rt. Thus we reduce as follows.
-				combine (foldr TDotable rt argsA : as) (b:bs)
-
-		-- Symmetric case of above
-		combine (a:as) ((TDotable argt rt):b:bs)
-			| (isSimple b || (isVar b && bs /= [])) = do
-				unify argt b
-				combine (rt:bs) (a:as)
-			| isVar b = do
-				let (args, urt) = reduceDotable (TDotable argt rt)
-				t:ts <- evaluateDots (foldl1 TDot (a:as)) >>= typeToDotList
-				t1 <- unify urt t
-				combine (args++ts) [b]
-				return (t1:ts)
-			| isDotable b = do
-				let (argsB, rtB) = reduceDotable b
-				unify argt rtB
-				combine (foldr TDotable rt argsB : bs) (a:as)
-		
-		-- TODO: explain why we can't do the unification (it may be because of
-		-- a type error, but may well be because of an unsupported type list).
-		combine as bs = raiseUnificationError True
 
 -- TDot + TEvent/TEventable/TDatatype/TDotable
 unifyNoStk (TDot t1 t2) (TDatatype n) = do
@@ -390,14 +392,14 @@ unifyNoStk TEvent (TDot t1 t2) = do
 	return TEvent
 
 unifyNoStk (TDot t1 t2) TEventable = do
-	unify (TDotable t2 TEventable) t1
-	return TEventable
+	tl <- unify (TDotable t2 TEventable) t1
+	return $ TDot tl t2
 unifyNoStk TEventable (TDot t1 t2) = do
-	unify (TDotable t2 TEventable) t1
-	return TEventable
+	tl <- unify (TDotable t2 TEventable) t1
+	return $ TDot tl t2
 
 unifyNoStk (TDot t1 t2) (TDotable argt rt) = do
-	unify (TDotable t2 (TDotable argt rt)) t1
+	unify t1 (TDotable t2 (TDotable argt rt))
 	return $ TDotable argt rt
 unifyNoStk (TDotable argt rt) (TDot t1 t2) = do
 	unify (TDotable t2 (TDotable argt rt)) t1

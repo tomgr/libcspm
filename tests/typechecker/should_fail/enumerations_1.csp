@@ -1,0 +1,4 @@
+datatype A = B.Bool.{0..1}
+channel c : A
+
+X = {| c.B.0 |}

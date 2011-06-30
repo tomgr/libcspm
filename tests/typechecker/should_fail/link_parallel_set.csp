@@ -1,0 +1,9 @@
+channel a : Bool
+channel b : Bool
+
+channel c : Int.Bool
+
+P = STOP [a <-> b] STOP
+
+R(i) = STOP
+Q = [c.i <-> c.i+1] i : {0..10} @ R(i)

@@ -1,0 +1,6 @@
+channel a : Bool
+channel b : Bool
+
+channel c : Int.Bool
+
+P = STOP [[ a <- c.true ]]

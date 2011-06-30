@@ -1,0 +1,45 @@
+channel c : {0..1}.{0..1}
+channel d : Bool
+
+test(x,y) = (c.x) == (d.y)
+
+test2(x) = c.x
+
+
+datatype C = D
+
+channel e : Bool.A.Bool
+
+-- Should fail
+--test12 = (B.true) == (B.false)
+--test11 = (B.X) == (B.X)
+
+test10 = B == (X.0)
+
+test3 = (c.0.0.D) == (e.true.B.0.true.D)
+test4 = e.true.B.0.true -> STOP
+
+channel f : A
+channel done
+
+test5(x) = (f.B.x) == (done.done)
+
+
+-- Should fail
+--test9 = e?x : {true.B.0}?y -> test9'(x,y)
+test9 = e?x : {true.B.0}?y -> STOP
+test9'(x,y) = e.x.y -> STOP
+
+datatype A = B.{0..1} | X.{0..1}.{0..1}
+channel dd : A.{true, false}.A
+test14(x) = dd.X.0!x -> STOP
+
+Y = {}
+
+datatype Z = L.Y
+
+h(x) = L.x
+
+g(x) = (L.x) == (L.x)
+
+
