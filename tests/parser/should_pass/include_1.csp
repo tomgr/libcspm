@@ -1,0 +1,8 @@
+include "include_2.csp"
+
+P = 2
+
+Q = 4
+
+
+S = P + Q + R

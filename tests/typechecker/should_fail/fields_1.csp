@@ -1,0 +1,5 @@
+channel a : Int.Int.Int
+channel b : Int.Int
+channel c : Int
+
+P = c$x$y -> P

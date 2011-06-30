@@ -1,0 +1,5 @@
+channel a : Int.Int.Int
+channel b : Int.Int
+channel c : Int
+
+Q = c?x?y -> STOP

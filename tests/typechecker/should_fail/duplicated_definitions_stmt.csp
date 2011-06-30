@@ -1,0 +1,3 @@
+channel a : Int.Int
+
+P = a?x?x -> STOP

@@ -1,0 +1,13 @@
+channel a : Int.Int.Int
+channel b : Int.Int
+channel c : Int
+
+P = c$x -> a$x -> b$x -> let g.h = x within P
+Q = c$x -> a$x$y -> b$x$y -> P
+
+R = c?x -> a?x?y -> b?x?y -> P
+T(y) = c?x -> a?x!0!y -> b?x!y -> P
+
+M(x) = b.x -> c.0 -> a.x.0 -> a.0.x -> STOP
+
+N = b?x.y -> a!x.y.0 -> STOP
