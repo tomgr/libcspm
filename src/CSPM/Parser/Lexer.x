@@ -156,7 +156,7 @@ tokens :-
 	<0>"#"@nl					{ tok THash }
 
 	-- 'Wildcards'
-	<0>$alpha$alphanum*$prime*	{ stok (\s -> TIdent s) }
+	<0>$alpha+$alphanum*$prime*	{ stok (\s -> TIdent s) }
 	<0>@nl$digit+				{ stok (\ s -> TInteger (read s)) }
 
 	-- Must be after names
@@ -209,10 +209,13 @@ tok t (ParserState { fileStack = fps:_ }) len =
 							fileName = f }) = fps
 
 stok :: (String -> Token) -> AlexInput -> Int -> ParseMonad LToken
-stok f (st @ ParserState { fileStack = fps:_ }) len =
-		tok (f (filter (\ c -> c /= '\n') (take len s))) st len
+stok f (st @ ParserState { fileStack = stk }) len = do
+		tok (f (filter (\ c -> c /= '\n') (takeChars len stk))) st len
 	where
-		(FileParserState { input = s }) = fps
+		takeChars 0 _ = ""
+		takeChars len (FileParserState {input = [] }:stk) = takeChars len stk
+		takeChars len (fps@(FileParserState {input = (c:cs) }):stk) = 
+			c:(takeChars (len-1) (fps {input = cs}:stk))
 
 skip input len = getNextToken
 
@@ -247,11 +250,9 @@ nestedComment _ _ = do
 								Just (c,st)   -> go n st
 						c -> go n st
 
-
--- TODO: soak setCurrentStartCode soak
 switchInput :: AlexInput -> Int -> ParseMonad LToken
 switchInput (st @ ParserState { fileStack = fps:_ }) len = 
-		setCurrentStartCode soak >> pushFile file getNextToken
+		pushFile file getNextToken
 	where
 		(FileParserState { input = s }) = fps
 		str = take len s
