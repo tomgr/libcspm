@@ -142,6 +142,7 @@ data Exp =
 data Field = 
 	Output AnExp -- !x
 	| Input AnPat (Maybe AnExp)    -- ?x:A
+	| NonDetInput AnPat (Maybe AnExp) -- $x:A (see P395 UCS)
 	deriving (Eq, Show)
 	
 data Stmt = 
@@ -154,14 +155,6 @@ data InteractiveStmt =
 	Evaluate AnExp
 	| Bind AnDecl
 	deriving Show
-
-{-
-data Component = 
-	Input Name
-	| Output Exp
-	| InputRes Name Exp		-- ?x : {0..1}
-	deriving (Eq, Show)
--}
 	
 -- *************************************************************************
 -- Declarations
@@ -180,19 +173,26 @@ data Decl =
 	| DataType Name [AnDataTypeClause]
 	| NameType Name AnExp
 	deriving (Eq, Show)
+
 -- TODO: annotate
 data Assertion = 
-	Refinement AnExp Model AnExp (Maybe ModelProperty)
+	Refinement AnExp Model AnExp [ModelOption]
  	| PropertyCheck AnExp SemanticProperty (Maybe Model)
 	| BoolAssertion AnExp
 	| ASNot Assertion
 	deriving (Eq, Show)
 		
 data Model = 
-	Traces | Failures | FailuresDivergences | Refusals | Revivals
+	Traces 
+	| Failures 
+	| FailuresDivergences 
+	| Refusals
+	| RefusalsDivergences
+	| Revivals
+	| RevivalsDivergences
 	deriving (Eq, Show)
 	
-data ModelProperty = 
+data ModelOption = 
    	TauPriority AnExp
 	deriving (Eq, Show)
 	   	

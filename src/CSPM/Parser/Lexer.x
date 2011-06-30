@@ -41,34 +41,40 @@ $notid = [[^0-9a-zA-Z_]\(\[$whitechar]
 -- them. However, - and < may either appear in the middle of an expression or
 -- the start of one and thus we do not allow newlines to come between them.
 tokens :-
-	<semantic_property>"tau priority"		{ tok TTauPriority }
-	<semantic_property>"tau priority over"	{ tok TTauPriority }
-	<semantic_property>"deadlock free"		{ tok TDeadlockFree }
-	<semantic_property>"deadlock-free"		{ tok TDeadlockFree }
-	<semantic_property>"livelock free"		{ tok TLivelockFree }
-	<semantic_property>"livelock-free"		{ tok TLivelockFree }
-	<semantic_property>"divergence free"	{ tok TDivergenceFree }
-	<semantic_property>"divergence-free"	{ tok TDivergenceFree }
-	<semantic_property>"deterministic"		{ tok TDeterministic }
-	<semantic_property>@nl"[T]				{ tok TTracesModel }
-	<semantic_property>@nl"[F]				{ tok TFailuresModel }
-	<semantic_property>@nl"[FD]				{ tok TFailuresDivergencesModel }
-	<semantic_property>"]:"					{ begin 0 }
-	<semantic_property>"]"					{ begin 0 }
+	<0>@nl:\[					{ begin sem_prop }
+	<sem_prop>"tau priority"	{ tok TTauPriority }
+	<sem_prop>"tau priority over" { tok TTauPriority }
+	<sem_prop>"deadlock free"	{ tok TDeadlockFree }
+	<sem_prop>"deadlock-free"	{ tok TDeadlockFree }
+	<sem_prop>"livelock free"	{ tok TLivelockFree }
+	<sem_prop>"livelock-free"	{ tok TLivelockFree }
+	<sem_prop>"divergence free"	{ tok TDivergenceFree }
+	<sem_prop>"divergence-free"	{ tok TDivergenceFree }
+	<sem_prop>"deterministic"	{ tok TDeterministic }
+	<sem_prop>@nl"[T]"			{ tok (TModel Traces) }
+	<sem_prop>@nl"[F]"			{ tok (TModel Failures) }
+	<sem_prop>@nl"[FD]"			{ tok (TModel FailuresDivergences) }
+	<sem_prop>@nl"[V]"			{ tok (TModel Revivals) }
+	<sem_prop>@nl"[VD]"			{ tok (TModel RevivalsDivergences) }
+	<sem_prop>@nl"[R]"			{ tok (TModel Refusals) }
+	<sem_prop>@nl"[RD]"			{ tok (TModel RefusalsDivergences) }
+	<sem_prop>"]:"				{ begin 0 }
+	<sem_prop>"]"				{ begin 0 }
 
-	<soak>((\-\-.*\n)|$whitechar)+			{ skip }
-	<soak>""/$not_white						{ begin 0 }
+	<0>@nl"[T="@nl				{ tok (TRefines Traces) }
+	<0>@nl"[F="@nl				{ tok (TRefines Failures) }
+	<0>@nl"[FD="@nl				{ tok (TRefines FailuresDivergences) }
+	<0>@nl"[V="@nl				{ tok (TRefines Revivals) }
+	<0>@nl"[VD="@nl				{ tok (TRefines RevivalsDivergences) }
+	<0>@nl"[R="@nl				{ tok (TRefines Refusals) }
+	<0>@nl"[RD="@nl				{ tok (TRefines RefusalsDivergences) }
+
+	<soak>((\-\-.*\n)|$whitechar)+	{ skip }
+	<soak>""/$not_white			{ begin 0 }
 
 	<0>@white_no_nl				{ skip }
 
-	-- Comments
---	<0>"--".*					{ skip }
 	<0>@nl"{-"					{ nestedComment }
-
-	<0>@nl:\[					{ begin semantic_property }
-	<0>@nl"[T="@nl				{ tok TTraceRefines }
-	<0>@nl"[F="@nl				{ tok TFailuresRefines }
-	<0>@nl"[FD="@nl				{ tok TFailuresDivergencesRefines }
 
 	<0>@nl"false"/$notid		{ tok TFalse }
 	<0>@nl"true"/$notid			{ tok TTrue }
@@ -121,6 +127,7 @@ tokens :-
 	<0>@nl"."@nl				{ tok TDot }
 	<0>@nl"?"@nl				{ tok TQuestionMark }
 	<0>@nl"!"@nl				{ tok TExclamationMark }
+	<0>@nl"$"@nl				{ tok TDollar }
 	<0>@nl"<-"@nl				{ tok TDrawnFrom }
 	<0>@nl"<->"@nl				{ tok TTie }
 	<0>@nl":"@nl				{ tok TColon }

@@ -249,15 +249,17 @@ instance TypeCheckable Assertion () where
 	typeCheck' (PropertyCheck e1 p m) = do
 		ensureIsProc e1
 		return ()
- 	typeCheck' (Refinement e1 m e2 p) = do
+ 	typeCheck' (Refinement e1 m e2 opts) = do
 		ensureIsProc e1
 		ensureIsProc e2
-		case p of
-			Just (TauPriority e3) -> do
-									typeCheckExpect e3 (TSet TEvent)
-									return ()
-			Nothing				-> return ()
- 
+		mapM_ typeCheck opts
+
+instance TypeCheckable ModelOption () where
+	errorContext a = Nothing
+	typeCheck' (TauPriority e) = do
+		typeCheckExpect e (TSet TEvent)
+		return ()
+
 instance TypeCheckable PDataTypeClause (Name, [Type]) where
 	errorContext an = Nothing
 	typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)

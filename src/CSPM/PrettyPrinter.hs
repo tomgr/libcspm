@@ -214,7 +214,7 @@ instance PrettyPrintable Exp where
 	prettyPrint (SequentialComp p1 p2) =
 	prettyPrint (SlidingChoice p1 p2) =
 -}	
---	prettyPrint e = text (show e)
+	prettyPrint e = text (show e)
 
 instance PrettyPrintable Field where
 	prettyPrint (Output exp) = 

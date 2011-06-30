@@ -45,6 +45,7 @@ import Util.Annotated
 	","					{ L _ TComma }
 	"."					{ L _ TDot }
 	"?"					{ L _ TQuestionMark }
+	"$"					{ L _ TDollar }
 	"!"					{ L _ TExclamationMark }
 	".."				{ L _ TDoubleDot }
 	":"					{ L _ TColon }
@@ -74,9 +75,8 @@ import Util.Annotated
 	"divergence free"	{ L _ TDivergenceFree }
 	"deterministic"		{ L _ TDeterministic }
 	"tau priority"		{ L _ TTauPriority }
-	"[T="				{ L _ TTraceRefines }
-	"[F="				{ L _ TFailuresRefines }
-	"[FD="				{ L _ TFailuresDivergencesRefines }
+	refines				{ L _ (TRefines _) }
+	model				{ L _ (TModel _) }
 	
 	"not"				{ L _ TNot }
 	"and"				{ L _ TAnd }
@@ -135,7 +135,7 @@ import Util.Annotated
 %left "[>"
 %left ";"
 %right "&" "->" --GUARD WHERESQ (this is &[)
-%left "?" "!"
+%left "?" "!" "$"
 %right "."	-- TODO: correct?
 %nonassoc ":"
 %left "or"
@@ -146,7 +146,6 @@ import Util.Annotated
 %left "*" "/" "%"
 %left "#"
 %left "^"
---%left PATTERN -- (this is $??)
 %nonassoc "(" ")" "[[" "]]"
 --%nonassoc SCOPE (this is ::)
 
@@ -204,24 +203,18 @@ DeclA :: { PDecl }
 
 Assertion :: { Assertion }
 	:
---	Exp											{ (BoolAssertion $1) }
---	"not" Assertion								{ (ASNot $2) }
-	Exp "[T=" CExp								{ (Refinement $1 Traces $3 Nothing) }
-	| Exp "[F=" CExp							{ (Refinement $1 Failures $3 Nothing) }
-	| Exp "[FD=" CExp							{ (Refinement $1 FailuresDivergences $3 Nothing) }
---	| Exp Model Exp	ModelProperty				{ (Refinement $1 $2 $3 (Just $4)) }
-	| Exp SemanticProperty						{ (PropertyCheck $1 $2 Nothing) }
---	| Exp SemanticProperty Model				{ (PropertyCheck $1 $2 (Just $3)) }
+	CExp refines CExp						{ (Refinement $1 (getRefinesModel $2) $3 []) }
+	| CExp refines CExp ModelOption			{ (Refinement $1 (getRefinesModel $2) $3 [$4]) }
+	| CExp SemanticProperty					{ (PropertyCheck $1 $2 Nothing) }
+	| CExp SemanticProperty model			{ (PropertyCheck $1 $2 (Just (getPropModel $3))) }
 SemanticProperty :: { SemanticProperty }
 	:
 	"deadlock free"								{ DeadlockFreedom }
 	| "livelock free"							{ LivelockFreedom }
 	| "divergence free"							{ LivelockFreedom }
 	| "deterministic"							{ Deterministic }
---Model :: { Model }
---	:
---	semantic_model								{ $1 }
-ModelProperty :: { ModelProperty }
+
+ModelOption :: { ModelOption }
 	:
 	"tau priority" CExp							{ TauPriority $2 }
 
@@ -384,6 +377,8 @@ Field :: { PField }
 	-- For somer eason changing Exp to Pat causes a shift/reduce error, hence we do this
 	"?" Exp							{ AN2 (Input (convPat $2) Nothing) }
 	| "?" Exp ":" Exp				{ AN2 (Input (convPat $2) (Just (checkExp $4))) }
+	| "$" Exp						{ AN2 (NonDetInput (convPat $2) Nothing) }
+	| "$" Exp ":" Exp				{ AN2 (NonDetInput (convPat $2) (Just (checkExp $4))) }
 	| "!" Exp						{ AN2 (Output (checkExp $2)) }
 
 Rename :: { (PExp, PExp) }
@@ -590,6 +585,8 @@ convPat (anExp@ (An a b exp)) =
 -- Helper function to get the contents of tokens
 getInt (L _ (TInteger x)) = x
 getName (L _ (TIdent x)) = x
+getRefinesModel (L _ (TRefines x)) = x
+getPropModel (L _ (TModel x)) = x
 
 class Locatable a where
 	getLoc :: a b -> SrcSpan

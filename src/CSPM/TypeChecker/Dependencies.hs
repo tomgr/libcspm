@@ -221,6 +221,7 @@ instance Dependencies Stmt where
 
 instance Dependencies Field where
 	dependencies' (Input p e) = dependencies e
+	dependencies' (NonDetInput p e) = dependencies e
 	dependencies' (Output e) = dependencies e
 
 instance Dependencies Decl where
@@ -240,12 +241,17 @@ instance Dependencies Decl where
 	dependencies' (Assert a) = dependencies a
 
 instance Dependencies Assertion where
-	dependencies' (Refinement e1 m e2 Nothing) = dependencies [e1, e2]
-	dependencies' (Refinement e1 m e2 (Just (TauPriority e3))) = dependencies [e1, e2, e3]
+	dependencies' (Refinement e1 m e2 opts) = do
+		d1 <- dependencies [e1, e2]
+		d2 <- dependencies opts
+		return $ d1++d2
 	dependencies' (PropertyCheck e1 p m) = dependencies [e1]
 	dependencies' (BoolAssertion e1) = dependencies [e1]
 	dependencies' (ASNot a) = dependencies a
 
+instance Dependencies ModelOption where
+	dependencies' (TauPriority e) = dependencies' e
+	
 instance Dependencies Match where
 	dependencies' (Match ps e) =
 		do
@@ -302,4 +308,5 @@ instance FreeVars Stmt where
 
 instance FreeVars Field where
 	freeVars' (Input p e) = freeVars p
+	freeVars' (NonDetInput p e) = freeVars p
 	freeVars' (Output e) = return []

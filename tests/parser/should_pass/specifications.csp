@@ -1,0 +1,22 @@
+assert STOP [T= STOP
+assert STOP [F= STOP
+-- Revivals refinement
+assert STOP [V= STOP
+-- Refusal Testing
+assert STOP [R= STOP
+
+assert STOP [FD= STOP
+-- Revivals divergences refinement
+assert STOP [VD= STOP
+assert STOP [RD= STOP
+
+assert STOP [T= STOP :[tau priority]: {}
+assert STOP [T= STOP :[tau priority over]:{}
+assert STOP [F= STOP :[tau priority over]: {}
+
+
+assert STOP :[deadlock free [F]]
+assert STOP :[deadlock free [FD]]
+assert STOP :[deterministic [F]]
+assert STOP :[deterministic [FD]]
+assert STOP :[livelock free]

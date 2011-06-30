@@ -281,7 +281,7 @@ typeCheckField :: PField -> (Type -> TypeCheckMonad a) -> TypeCheckMonad a
 typeCheckField field tc = 
 	let
 		errCtxt = hang (text "In the field:") tabWidth (prettyPrint field)
-		check (Input p (Just e)) = do
+		checkInput p e = do
 			t <- typeCheck e
 			fvs <- freeVars p
 			local fvs $ do
@@ -290,9 +290,13 @@ typeCheckField field tc =
 						unify (TSet tp) t
 						return tp)
 				tc tp
-		check (Input p Nothing) = do
+		chkInputNoSet p = do
 			fvs <- freeVars p
 			local fvs (addErrorContext errCtxt (typeCheck p) >>= tc)
+		check (NonDetInput p (Just e)) = checkInput p e
+		check (Input p (Just e)) = checkInput p e
+		check (NonDetInput p Nothing) = chkInputNoSet p
+		check (Input p Nothing) = chkInputNoSet p
 		check (Output e) = addErrorContext errCtxt (typeCheck e) >>= tc
 	in setSrcSpan (loc field) (check (unAnnotate field))
 

@@ -1,5 +1,9 @@
-module CSPM.DataStructures.Tokens where
+module CSPM.DataStructures.Tokens (
+	Token(..), LToken, Model(..),
+)
+where
 
+import CSPM.DataStructures.Syntax (Model(..))
 import Util.Annotated
 import Util.PrettyPrint
 
@@ -9,12 +13,8 @@ data Token =
 	| TTrue
 	| TIdent String
 
-	| TTraceRefines
-	| TFailuresRefines
-	| TFailuresDivergencesRefines
-	| TTracesModel
-	| TFailuresModel
-	| TFailuresDivergencesModel
+	| TRefines Model
+	| TModel Model
 	| TTauPriority
 	| TDeadlockFree
 	| TDivergenceFree
@@ -28,6 +28,7 @@ data Token =
 	| TDot
 	| TExclamationMark
 	| TQuestionMark
+	| TDollar
 	| TPipe
 	| TDoubleDot
 	| TColon
