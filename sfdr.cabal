@@ -48,3 +48,26 @@ Executable sfdri
   
   Build-tools: alex, happy, cpphs
   Hs-Source-Dirs: src
+
+Executable sfdr
+  Main-is: Sfdr/Main.hs
+  
+  Build-depends: 
+    base, 
+    haskell98, 
+    filepath >= 1.2, 
+    array >= 0.3, 
+    containers >= 0.4, 
+    mtl >= 2.0, 
+    pretty >= 1.0,
+    directory >= 1.0,
+    haskeline >= 0.6,
+    graph-wrapper >= 0.2
+  
+  -- Modules not exported by this package.
+  Other-modules:
+    CSPM.Parser.Lexer, 
+    CSPM.Parser.Parser
+  
+  Build-tools: alex, happy, cpphs
+  Hs-Source-Dirs: src
