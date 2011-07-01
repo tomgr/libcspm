@@ -72,6 +72,7 @@ main = do
 		(o,files, []) -> do
 			let opts = foldl (flip id) defaultOptions o
 			case (opts, files) of
+				(_, []) -> putStr $ usageInfo header options
 				(Options { help = True }, files) -> putStr $ usageInfo header options
 				(Options { recursive = True }, dirs) -> mapM_ tryDoDir dirs
 				(_, files) -> mapM_ doFile files
