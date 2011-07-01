@@ -1,0 +1,230 @@
+
+-- compression09.csp
+
+-- This DRAFT file supports various semi-automated compression techniques over
+-- CSP networks for use with FDR.  
+
+-- It it is designed to accompany the author's forthcoming book
+-- "Understanding Concurrency"
+-- and is an updated version of the 1997 file "compresion.csp" that
+-- accompanied "Theory and Practice of Concurrency".
+
+-- Bill Roscoe
+
+-- We assume that networks are presented to us as 
+-- structures comprising process/alphabet pairs arranged in list
+-- arrangements,
+
+-- or (09) as members of the structured datatype
+
+datatype PStruct = PSLeaf.(Proc,Set(Events)) | PSNode.Seq(PStruct)
+
+-- This can only be used with FDR 2.91 and up where processes (Proc) are allowed
+-- as parts of user-defined types.
+
+-- We may (subject to alterations to FDR) be able to support more complex
+-- structured types over processes.
+
+-- The alphabet of any such list is the union of the alphabets of
+-- the component processes:
+
+alphabet(ps) = Union(set(<A | (P,A) <- ps>))
+
+-- The vocabulary of a list is the set of events that are synchronised
+-- between at least two members:
+
+vocabulary(ps) = if #ps<2 then {} else
+                 let A = snd(head(ps))
+		     V = vocabulary(tail(ps))
+		     A' = alphabet(tail(ps))
+		 within
+		     union(V,inter(A,A'))
+
+-- The following is a function 
+-- that composes a process/alphabet list without any
+-- compression:
+
+ListPar(ps) = let N=#ps within
+              || i:{0..N-1} @ [snd(cnth(i,ps))] fst(cnth(i,ps))
+
+-- The most elementary transformation we can do on a network is to
+-- hide all events in individual processes that are neither relevant to
+-- the specification nor are required for higher synchronisation.
+-- The following function takes as its (curried) arguments a compression
+-- function to apply at the leaves, a process/alphabet list to compose
+-- in parallel and a set of events which it is desired to hide (either
+-- because they are genuinely internal events or irrelevant to the spec).
+-- It hides as much as it can in the processes, but does not combine them
+
+CompressLeaves(compress)(ps)(X) = let V = vocabulary(ps) 
+                                    N = #ps
+				    H = diff(X,V)
+				within
+		  <(compress(P\inter(A,H)),diff(A,H)) | (P,A) <- ps>
+
+-- The following uses this to produce a combined process
+
+LeafCompress(compress)(ps)(X) = ListPar(CompressLeaves(compress)(ps)(X))\X
+
+-- It is often advantageous to be able to apply lazy or mixed abstraction
+-- operators in the same sort of way as the above does for hiding.  The
+-- following are two functions that generalize the above: they take a
+-- pair of event-sets (X,S): X is the set we want to abstract and S is
+-- the set of signal events (which need not be a subset of X).  The
+-- result is that inter(X,S) is hidden and diff(X,S) is lazily
+-- abstracted.   Note that you can get the effect of pure hiding (eager
+-- abstraction by setting S=Events) and pure lazy abstraction by setting
+-- S={}.  Note also, however, that if you are trying to lazily abstract
+-- a network with some natural hiding in it, that all these hidden events
+-- should be treated as signals.
+
+LeafMixedAbs(compress)(ps)(X,S) = 
+                           let V = vocabulary(ps) 
+                               N = #ps
+                               D = diff(X,S)
+                               H'= diff(X,V)
+                           within
+		  <(compress((P[|inter(A,D)|] 
+		    compress(CHAOS(inter(A,D))))\inter(A,H')),diff(A,H')) 
+				 | (P,A) <- ps>
+
+-- The substantive function is then:
+
+MixedAbsLeafCompress(compress)(ps)(X,S) = 
+       ListPar(LeafMixedAbs(compress)(ps)(X,S))\X
+
+
+-- The next transformation builds up a list network in the order defined
+-- in the (reverse of) the list, applying a specified compression function
+-- to each partially constructed unit.
+
+InductiveCompress(compress)(ps)(X) = 
+        compress(IComp(compress)(CompressLeaves(compress)(ps)(X))(X))
+
+IComp(compress)(ps)(X) = let  p = head(ps)
+			       P = fst(p)
+			       A = snd(p)
+			       A' = alphabet(ps')
+			       ps' = tail(ps)
+			  within
+                           if #ps == 1 then P\X
+			   else
+			   let Q = IComp(compress)(ps')(diff(X,A))
+                           within
+			       (P[A||A']compress(Q))\inter(X,A)
+
+InductiveMixedAbs(compress)(ps)(X,S) = 
+        compress(IComp(compress)(LeafMixedAbs(compress)(ps)(X,S))(X))
+
+-- Sometimes compressed subnetworks grow to big to make the above
+-- function conveniently applicable.  The following function allows you
+-- to compress each of a list-of-lists of processes, and then
+-- combine them all without trying to compress any further.
+
+StructuredCompress(compress)(pss)(X) =
+                         let N = #pss
+			 as = <alphabet(ps) | ps <- pss>
+			 ss = <Union({inter(cnth(i,as),cnth(j,as)) | 
+				j <- {0..N-1}, j!=i}) | i <- <0..N-1>>  
+			 within
+			 (ListPar(<(compress(
+				 InductiveCompress(compress)(cnth(i,
+					  pss))(diff(X,cnth(i,ss)))
+					     \(diff(X,cnth(i,ss)))),
+					cnth(i,as)) | i <- <0..N-1>>))\X
+
+-- The analogue of ListPar
+
+StructuredPar(pss) =  ListPar(<(ListPar(ps),alphabet(ps)) | ps <- pss>)
+
+-- and the mixed abstraction analogue:
+
+StructuredMixedAbs(compress)(pss)(X,S) =
+                         let N = #pss
+			 as = <alphabet(ps) | ps <- pss>
+			 ss = <Union({inter(cnth(i,as),cnth(j,as)) | 
+				j <- {0..N-1}, j!=i}) | i <- <0..N-1>>  
+			 within
+			 (ListPar(<(compress(
+				 InductiveMixedAbs(compress)(cnth(i,
+					  pss))(diff(X,cnth(i,ss)),S)
+					     \(diff(X,cnth(i,ss)))),
+					cnth(i,as)) | i <- <0..N-1>>))\X
+
+-- The following are some functional programming constructs used above
+
+cnth(i,xs) = if i==0 then head(xs) 
+                    else cnth(i-1,tail(xs))
+        
+fst((x,y)) = x
+snd((x,y)) = y
+
+-- The following function can be useful for partitioning a process list
+-- into roughly equal-sized pieces for structured compression
+
+groupsof(n)(xs) = let xl=#xs within
+                  if xl==0 then <> else
+                  if xl<=n or n==0 then <xs>
+                  else let 
+                         m=if (xl/n)*n==xl then n else (n+1)
+                    within
+                    <take(m)(xs)>^groupsof(n)(drop(m)(xs))
+
+take(n)(xs) = if n==0 then <> else <head(xs)>^take(n-1)(tail(xs))
+
+drop(n)(xs) = if n==0 then xs else drop(n-1)(tail(xs))
+
+-- The following define some similar compression functions for PStruct
+
+
+StructPar(t) = let (P,_) = SPA(t) within P
+
+SPA(PSLeaf.(P,A)) = (P,A)
+
+SPA(PSNode.ts) = let ps = <SPA(t) | t <- ts> 
+                     A = Union(set(<a | (_,a)  <- ps>))
+                  within
+                  (ListPar(ps),A)
+
+PSmap(f,PSLeaf.p) = PSLeaf.(f(p))
+PSmap(f,PSNode.ts) = PSNode.<PSmap(f,t) | t <- ts>
+
+PSvocab(t) = let as = psalphas(t)
+             within
+               Union({inter(cnth(i,as),cnth(j,as)) |
+                              i <- {1..(#as)-1}, j <- {0..i-1}})
+
+psalphas(PSLeaf.(P,A)) = <A>
+psalphas(PSNode.ts) = <A | u <- ts, A <- psalphas(u)>
+--psalphas(PSNode.ts) = <>
+
+CompressPSLeaves(compress)(t)(X) = let V = PSvocab(t)
+                                       H = diff(X,V)
+                                       f((P,A)) = (compress(P\H),A)
+                                   within
+                                   PSmap(f,t)
+
+PSLeafCompress(compress)(t)(X) = let ct = CompressPSLeaves(compress)(t)(X)
+                                 within
+                                 StructPar(ct)\X
+
+psalphabet(PSLeaf.(P,A)) = A
+psalphabet(PSNode.ts) = let AS = <psalphabet(t) | t <- ts>
+                            within Union(set(AS))
+
+
+PSStructCompress(compress) =
+      let G(PSLeaf.(P,A)) = let f(X) = P\X within f
+          G(PSNode.ts) =  \X @
+                             let as = <psalphabet(t) | t <- ts>
+                                 tlv = Union({inter(cnth(i,as),cnth(j,as)) |
+                                              i <- {1..#ts-1}, j <- {0..i-1}})
+
+                                 ps = <(compress(PSStructCompress(compress)(t)(
+                                       inter(psalphabet(t), diff(X,tlv)))), 
+                                       psalphabet(t)) 
+                                       | t <- ts >
+                              within
+                               ListPar(ps)\X
+        within G
+

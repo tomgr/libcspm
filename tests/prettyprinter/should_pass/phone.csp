@@ -1,0 +1,298 @@
+datatype X2 = G.({0,1},{2,3})
+datatype X = F.{0..3}
+datatype SimpleColour = Red | Green | Blue
+Gun = {0..15}
+datatype Y = RGB.Gun.Gun.Gun | Grey.Gun | Black | White
+
+-- Mobile CSP
+-- CSPM coding of the telephone network from Sect 20.3 of
+-- Understanding Concurrent Systems that works by forwarding
+-- channels round a ring network.
+
+-- We can define sets of phones and exchanges, and the binding between them:
+N=4
+
+Phones = {0..N-1}
+
+M = 3
+
+Exchanges = {0..M-1}
+
+Exch(n) = {n%M}
+
+local(x,y) = member(x,Exch(y))
+nonlocal(x,y) = not(member(x,Exch(y)))
+
+-- In this Closed System coding, the mobile channels are permanently
+-- attached at one end to their own phone.
+
+mcnames = Phones
+
+-- This is the set of messages sent between phones once connection is made:
+speech = {0}
+
+-- The coding requires two versions of each channel via which a process
+-- might gain or lose a channel 
+
+-- dirs allows processes to add or subtract a channel from its alphabet.
+-- In this file a process never exports a channel not in its alphabet, so
+-- we do not need the extra dirs Null that a process communicates when it
+-- outputs a channel name that is not in its alphabet.  [In this script we
+-- often wrote Plus when Null might be more natural.]
+
+datatype dirs = Plus | Minus 
+channel mc:mcnames.cmess.dirs
+channel mcp:mcnames.cmess
+
+-- These are the values communicated over the mobile channels.
+
+datatype cmess =  Ring |Confirm | Cancel | Hungup | Pickup.mcnames | Isbusy | Talk.speech | EndC
+
+-- Thanks to FDR's type system we output and input the labels for channels 
+-- (mcnames) rather than the channels themselves.
+
+-- The following function (used for clarity in our coding) represents the
+-- channel permanently connected to a phone.
+
+ch(x) = x  -- each phone uses its own label for its channel
+
+
+-- The events visible/audible to users:
+
+channel lift,  hangup, ringing: Phones
+channel say,hear:Phones.speech
+
+-- Those between phone and exchange (with two versions when they
+--                                   carry a channel)
+
+channel call:Phones.Exchanges.Phones.mcnames.dirs
+channel callp:Phones.Exchanges.Phones.mcnames
+channel called:Phones.Exchanges.mcnames.dirs
+channel calledp:Phones.Exchanges.mcnames
+
+channel dial:Phones.Phones
+
+channel busy:Phones.Exchanges
+
+-- The two versions of the inter-exchange channels
+
+channel ring:Exchanges.Phones.mcnames.dirs
+channel ringp:Exchanges.Phones.mcnames
+
+-- Here is a quiescent phone
+
+Phone(x) = lift.x -> LPhone(x)
+           [] called!x?e?c!Plus -> Ringing(x,c) -- a call comes in
+
+-- A phone with no active call wiht handset lifted
+
+LPhone(x) = 
+   dial.x?y -> (let cing = call.x?e:Exch(x)!y!ch(x)!Plus -> Waiting(x) 
+                       [] busy.x?e -> cing
+               within cing)
+[] hangup.x -> Phone(x)
+[] busy!x?e -> LPhone(x)
+
+-- The phone has received a call, with handset down, so is ringing
+-- If the exchange trues to open another call, it replies it is busy.
+-- The incoming call can be cancelled via Cancel on the imported channel.
+
+Ringing(x,c) = 
+   ringing.x -> Ringing(x,c)
+[] lift.x -> mc.c.Pickup!ch(x).Plus -> 
+      (mc.ch(x).Confirm!Plus -> Incall(x,c)
+      [] mc.ch(x).Hungup!Plus -> mc.c.Cancel.Minus -> CallOver(x))
+[] busy!x?e -> Ringing(x,c)
+[] mc.c.Cancel.Minus -> Phone(x)
+
+-- This is the state where the caller is waiting for connection:
+
+Waiting(x) = 
+   hangup.x -> GetBack(x) 
+[] mc.ch(x).Pickup?c'!Plus -> mc.c'.Confirm!Plus -> Incall(x,c')
+[] mc.ch(x).Isbusy!Plus -> CallOver(x)    -- "busy" or "engaged"
+[] busy!x?e -> Waiting(x)
+
+-- If we have started a call and then hang up, we need to recover the
+-- the other end of our channel
+
+GetBack(x) = 
+   mc.ch(x).Pickup?c!Plus -> mc.c.Hungup!Minus -> 
+                      mc.ch(x).Cancel!Plus -> Phone(x)
+[] mc.ch(x).Cancel!Plus -> Phone(x)
+[] busy!x?e -> GetBack(x)
+
+-- While the call is open the following pair of
+-- states apply.  There are two states to avoid deadlock when both users
+-- talk at once!
+
+Incall(x,c) =  
+   say.x?m -> Incall'(x,c,m) 
+[] mc.ch(x).Talk?m!Plus -> hear.x.m -> Incall(x,c)
+[] hangup.x -> 
+       (mc.c.EndC!Minus -> mc.ch(x).EndC!Plus -> Phone(x)
+        [] mc.ch(x).EndC!Plus -> mc.c.EndC!Minus -> Phone(x))
+[] mc.ch(x).EndC!Plus -> mc.c.EndC!Minus -> CallOver(x)
+[] busy!x?e -> Incall(x,c)
+
+Incall'(x,c,m) =  
+   mc.c.Talk.m.Plus  -> Incall(x,c)
+[] mc.ch(x).Talk?m'!Plus -> hear.x.m' -> Incall'(x,c,m)
+[] hangup.x -> 
+       (mc.c.EndC!Minus -> mc.ch(x).EndC!Plus -> Phone(x)
+        [] mc.ch(x).EndC!Plus -> mc.c.EndC!Minus -> Phone(x))
+[] mc.ch(x).EndC!Plus -> mc.c.EndC!Minus -> CallOver(x)
+[] busy!x?e -> Incall'(x,c,m)
+
+-- The following state applies after a call or busy reply.  It
+-- is just waiting for the user to hang up.
+
+CallOver(x) = hangup.x -> Phone(x)
+           [] busy.x?e -> CallOver(x)
+
+
+-- As explained in the book, we can use any deadlock-free routing algorithm
+-- for our exchanges: here we use the Non-blocking ring from Chapter 4.
+
+-- A node can have 0,1 or 2 messages in.  (A message is the combination of
+-- a channel and the number of the callee's phone.)
+
+-- In addition to the ring and local communications, these nodes
+-- also make use of the communicated channels for call cancellation and
+-- sending back Isbusy to the calling phone when appropriate.
+
+NBX0(n) = ring.n?y?c!Plus -> NBX1(n,(y,c))
+          [] call?x!n?y?c!Plus -> NBX1(n,(y,c))
+
+NBX1(n,(y,c)) = 
+      ring.n?y'?c'!Plus -> NBX2(n,(y,c),(y',c'))
+   [] local(y,n) & (called.y.n.c!Minus -> NBX0(n)
+                    [] busy.y.n -> mc.c!Isbusy!Minus -> NBX0(n) )
+   [] nonlocal(y,n) & ring.(n+1)%M!y!c!Minus -> NBX0(n)
+   [] mc.c.Cancel!Minus -> NBX0(n) 
+
+NBX2(n,(y,c),(y',c')) = 
+    local(y,n) & (called.y.n.c!Minus -> NBX1(n,(y',c'))
+                    [] busy.y.n -> mc.c!Isbusy!Minus -> NBX1(n,(y',c')))
+   [] nonlocal(y,n) & ring.(n+1)%M!y!c!Minus -> NBX1(n,(y',c'))
+   [] mc.c.Cancel!Minus -> NBX1(n,(y',c')) 
+   [] mc.c'.Cancel!Minus -> NBX1(n,(y,c)) 
+
+
+-- Here are the natural INITIAL alphabets of the phones and exchange nodes.
+
+AP(n) = {|busy.n, mc.n, call.n, called.n, ringing.n,dial.n, 
+          lift.n, hangup.n, say.n,hear.n|} 
+AX(n) = {|ring.n, ring.((n+1)%M), call.y.n,called.y.n, busy.y.n | y <- Phones|}
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-- Now we look at the plumbing of our mobile model
+-- The following are respectively the sets of communicable channels/ports...
+VSigma = {| mc |}
+-- ... and of the undirected or primed version....
+VSigmap = {| mcp |}
+-- ... and of that part of the unprimed alphabet that does not move 
+CSigma = {|ring,say,hear,call,called,lift,hangup,dial,busy,ringing|}
+
+-- In the coding of the individual constituent processes, all actions
+-- that can potentially alter a process's alphabet (namely all over a
+-- channel mc.c or another port-carrying channel are labelled with a
+-- member of dirs.  These labels are not synchronised between main processes,
+-- but are for the guidance of the parallel operator. 
+
+-- The following function computes those primed event associated with a
+-- given set of unprimed ones (does not include events that cannot
+-- communicate a port).
+
+prime(A) = Union({{|mcp.n.x | mc.n.x.d <- A|},
+                  {|callp.x.y.c | call.x.y.c.d <- A|},
+                  {|calledp.x.y.c | called.x.y.c.d <- A|},
+                  {|ringp.x.y.c | ring.x.y.c.d <- A|}
+                })
+
+-- Each of the above events can modify a component's alphabet by one
+-- port.  These modifications are calculated:
+
+modify(x,A) = let port(call._._._.c.D) = ({|mc.c|},D)
+                  port(called._._.c.D) = ({|mc.c|},D)
+                  port(ring._._.c.D) = ({|mc.c|},D)
+                  port(mc.c.Pickup.c'.D) = ({|mc.c'|},D)
+                  port(mc.c._.D) = ({|mc.c|},D)
+                  port(x) = ({},Plus)
+                  (pt,dt) = port(x)
+                  within 
+                  if dt == Plus then union(A,pt)
+                  else diff(A,pt)
+
+-- Each main process is run in parallel with a regulator, which is
+-- part of our implementation of the mobile parallel operator.
+
+-- The regulator keeps track of its process's alphabet, and allows all
+-- communicated channels in their primed forms that are not it that alphabet.
+-- Everything that is in the alphabet must be synchronised with the
+-- corresponding process.
+
+AReg = union(VSigma,CSigma)
+
+Reg(A) = ([] x:diff(VSigmap,prime(A)) @ x -> Reg(A))
+         [] ([] x:A @ x -> Reg(modify(x,A)))
+
+-- So the following process combines Reg and P, as a component for the
+-- whole network
+
+MLift(P,A) = (P[|AReg|]Reg(A))[[x <- flatten(x) | x <- union(A,VSigma)]]
+
+-- flatten removes the dirs field of any process that has one: these fields
+-- are not synchronised.
+
+flatten(call.x.y.z.c.D) = callp.x.y.z.c
+flatten(called.x.y.c.D) = calledp.x.y.c
+flatten(mc.c.x.D) = mcp.c.x
+flatten(ring.n.c.x.D) = ringp.n.c.x
+flatten(x) = x
+
+-- In this model we have only made processes agree to the MOBILE ports
+-- they do not have.  We therefore have all processes agree on these
+-- and have ordinary alphabets for the rest of their events.
+
+UAP(n) = union(VSigmap,{flatten(x) | x <- AP(n)})
+UAX(n) = union(VSigmap,{flatten(x) | x <- AX(n)})
+
+ParPhones = || i:Phones @ [UAP(i)] MLift(Phone(i),AP(i))
+ParExchanges = || i:Exchanges @ [UAX(i)] MLift(NBX0(i),AX(i))
+
+Iface = {|mcp, callp, calledp, busy |}
+
+Network = ParPhones [|Iface |] ParExchanges
+
+-- Note there is no hiding at all in the above.
+
+-- The following specifications allow you to see some of this
+-- network's behaviour
+
+-- The following should fail when all phones are at the end of a dead call.
+
+assert Network[|{|hangup|}|]STOP :[deadlock-free]
+
+-- But this should succeed
+
+assert Network :[deadlock-free]
+
+-- The rest of these assertions are there just to find us illustrative
+-- traces.
+
+hungup = {|mcp.n.Hungup | n <- mcnames |}
+endc = {|mcp.n.EndC | n <- mcnames |}
+
+
+assert NEVS(4) [T= Network\diff(Events,hungup)
+assert NEVS(4) [T= Network\diff(Events,endc)
+
+channel dummy 
+
+NEVS'(0) = STOP
+NEVS'(n) = dummy -> NEVS(n-1)
+
+NEVS(n) = NEVS'(n)[[dummy <- x | x <- Events]]
+

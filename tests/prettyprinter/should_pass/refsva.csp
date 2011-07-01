@@ -1,0 +1,145 @@
+-- svaref.csp
+
+-- Bill Roscoe, July 2009 amended October 2010
+
+-- A front-end to svacomp.csp that allows refinement testing between
+-- the behaviours of partial systems.
+
+-- When you may wish to perform refinement checks between shared variable
+-- programs you should include this program, which in turn includes the
+-- main compiler:
+
+include "svacomp.csp"
+
+-- At the time of writing SVA always uses the present file, since it
+-- does not remove any functionality.
+
+-- Refinement is more involved than testing whole threads, because we have to
+-- take into account both the inter- and intra- thread ways our target
+-- code interacts with others.  The logic behind what this file does is
+-- explained in Chapter 19 of Understanding Concurrent Systems.
+
+-- This program expects to support checks of the form
+
+-- assert SeqRefTest(P) [T= SeqRefTest(P)
+-- assert OTRefTest(P) [T= OTRefTest(P)
+-- assert GenRefTest(P) [T= GenRefTest(P)
+
+-- respectively representing refinement checking of a partial
+-- system in sequential, parallel and general contexts.
+
+-- Because of the syntactic structure of SVL programs, the first
+-- and last of these expect P to be Cmd, while the middle one (in order
+-- to allow P to contain parallelism) has P an SCStruct.
+
+
+-- ParReads: includes all locations written by this code segment that
+-- can be read by another thread.  Should be {} for sequential contexts.
+
+-- ParWrites: includes all locations read by this Cmd that can be written
+-- by another thread.  Should be {} for sequential contexts.
+
+-- SeqReads: includes all locations read by this Cmd that might, at the
+-- start of its execution, have been written to some value other than the
+-- standard initialisation. Should be {} for parallel contexts.
+
+-- SeqWrites: includes all locations written by the Cmd that might
+-- be read by some piece of code that runs sequentially after our Cmd.
+-- Should be {} for parallel contexts.
+
+-- ext_atomic: Boolean which is true if other parallel threads might
+-- go into an atomic section in the middle of the code we are testing.
+
+-- These are all the ways in which our program can be influenced by or
+-- influence the execution
+
+
+-- We model external reads and writes much as before, but need to be able
+-- to see the initial state our Cmd P runs from in the trace, and to be able to
+-- see any relevant final values of locations in the trace also.
+
+-- We therefore divide time into three periods: an initial one that established
+-- the initialisation, the main one in which P runs, and a final one in
+-- which the final values of locations in SeqWrites become apparent.
+
+-- This is done by running a modified version of P in which the three
+-- phases are divided by signals, where the external channel -1 is used
+-- for reading and writing all the locations in all the four sets above,
+-- and where which of these actions can happen when is governed by parallel
+-- composition with a regulator process
+
+ExtReads = union(ParReads,SeqReads)
+ExtWrites = union(ParWrites,SeqWrites)
+
+-- The following are the events that an external observer uses to
+-- access locations in the model, or to force it to suspend activity
+-- while the external system goes atomic.
+
+ExtAccesses = Union({
+             {|ivwrite.(-1).x | x <- inter(ExtWrites,ivnames)|},
+             {|iveval.(-1).x | x <- inter(ExtReads,ivnames)|},
+             {|bveval.(-1).x | x <- inter(ExtReads,bvnames)|},
+             {|bvwrite.(-1).x | x <- inter(ExtWrites,bvnames)|},
+             {|start_at.-1,end_at.-1 | ext_atomic|}
+             })
+
+
+channel PStart, PEnd
+
+Signals'= union(Signals,{PStart,PEnd})
+
+H(X) = (SQ.<Sig.PStart,X,Sig.PEnd>,({},{}))
+
+UCM(X) = HierarchCompressedCompile(CSLeaf.H(X))(Union({ExtAccesses,Signals',ISignals,Errors}))
+UCM'(X) = HierarchCompressedCompile(CSLeaf.H(X))(Union({ExtAccesses,Signals',ISignals,Errors,{|start_at,end_at|}}))
+UCM''(X) = HierarchCompressedCompile(CSLeaf.(X,({},{})))(Union({ExtAccesses,Signals',ISignals,Errors,{|start_at,end_at|}}))
+
+GRefReg0 = PStart -> GRefReg1(false)
+          [] ivwrite.-1?x:inter(SeqWrites,ivnames)?_ -> GRefReg0
+          [] bvwrite.-1?x:inter(SeqWrites,bvnames)?_ -> GRefReg0
+
+GRefReg1(ineat) = PEnd -> GRefReg2
+          [] ivwrite.-1?x:inter(ParWrites,ivnames)?_ -> GRefReg1(ineat)
+          [] bvwrite.-1?x:inter(ParWrites,bvnames)?_ -> GRefReg1(ineat)
+          [] iveval.-1?x:inter(ParReads,ivnames)?_ -> GRefReg1(ineat)
+          [] bveval.-1?x:inter(ParReads,bvnames)?_ -> GRefReg1(ineat)
+          [] ext_atomic and (not ineat)&start_at.-1 -> GRefReg1(true)
+          [] ext_atomic and  ineat&end_at.-1 -> GRefReg1(false)
+          [] ([] x:Union({Signals,ISignals}) @ x -> GRefReg1(ineat))
+          [] ([] x:Errors @ x -> STOP)
+
+GRefReg2 =  iveval.-1?x:inter(SeqReads,ivnames)?_ -> GRefReg2
+          [] bveval.-1?x:inter(SeqReads,bvnames)?_ -> GRefReg2
+
+RefRegSync = Union({{|ivwrite.-1,bvwrite.-1,iveval.-1,bveval.-1|},
+                   Signals',ISignals, Errors,
+                    {|start_at.-1,end_at.-1 | ext_atomic|}})
+
+GenRefTest(X) = UCM(X)[|RefRegSync|]GRefReg0 
+
+SRefReg0 = PStart -> SRefReg1
+          [] ivwrite.-1?x:inter(SeqWrites,ivnames)?_ -> SRefReg0
+          [] bvwrite.-1?x:inter(SeqWrites,bvnames)?_ -> SRefReg0
+
+SRefReg1 = PEnd -> SRefReg2
+          [] ([] x:Union({Signals,ISignals}) @ x -> SRefReg1)
+          [] ([] x:Errors @ x -> STOP)
+
+SRefReg2 =  iveval.-1?x:inter(SeqReads,ivnames)?_ -> SRefReg2
+          [] bveval.-1?x:inter(SeqReads,bvnames)?_ -> SRefReg2
+
+SeqRefTest(X) = UCM(X)[|RefRegSync|]SRefReg0 
+
+ParRefReg(ineat) =  ivwrite.-1?x:inter(ParWrites,ivnames)?_ -> ParRefReg(ineat)
+          [] bvwrite.-1?x:inter(ParWrites,bvnames)?_ -> ParRefReg(ineat)
+          [] iveval.-1?x:inter(ParReads,ivnames)?_ -> ParRefReg(ineat)
+          [] bveval.-1?x:inter(ParReads,bvnames)?_ -> ParRefReg(ineat)
+          [] ext_atomic and (not ineat)&start_at.-1 -> ParRefReg(true)
+          [] ext_atomic and  ineat&end_at.-1 -> ParRefReg(false)
+          [] ([] x:Union({Signals,ISignals}) @ x -> ParRefReg(ineat))
+          [] ([] x:Errors @ x -> STOP)
+
+ParRefTest(C) = HierarchCompressedCompile(C) (Union({ExtAccesses,Signals',ISignals,Errors})) [|RefRegSync|]ParRefReg(false)
+
+ParRefTestN(C) = HierarchCompressedCompileN(C) (Union({ExtAccesses,Signals',ISignals,Errors})) [|RefRegSync|]ParRefReg(false)
+

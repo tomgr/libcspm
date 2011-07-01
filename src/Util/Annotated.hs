@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 module Util.Annotated where
 
 import Prelude
@@ -118,7 +119,9 @@ instance Show b => Show (Annotated a b) where
 	show (An _ _ b) = show b
 instance Show a => Show (Located a) where
 	show (L _ a) = show a
-	
+
+instance (PrettyPrintable [b]) => PrettyPrintable [Annotated a b] where
+	prettyPrint ans = prettyPrint (map unAnnotate ans)
 instance (PrettyPrintable b) => PrettyPrintable (Annotated a b) where
 	prettyPrint (An loc typ inner) = prettyPrint inner
 instance (PrettyPrintable a) => PrettyPrintable (Located a) where
