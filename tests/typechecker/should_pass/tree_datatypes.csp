@@ -1,5 +1,5 @@
 datatype IntTree = 
-	Leaf.Int | Node.<IntTree>
+	Leaf.Int | Node.Seq(IntTree)
 
 flatten(Leaf.i) = <i>
 flatten(Node.ts) = concat(<flatten(t) | t <- ts>)

@@ -144,10 +144,6 @@ evalTypeExpression (TDot t1 t2) = do
 	t1' <- evalTypeExpression t1
 	t2' <- evalTypeExpression t2
 	return $ TDot t1' t2'
-evalTypeExpression (TSeq t) = do
-	-- TSeq (TSet t) = TSet (TSeq t)
-	t <- evalTypeExpression t
-	return $ TSeq t
 -- Otherwise, it must be a set.
 evalTypeExpression t = do
 	fv <- freshTypeVar

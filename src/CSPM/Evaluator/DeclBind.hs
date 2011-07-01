@@ -101,4 +101,3 @@ evalTypeExpr :: Value -> ValueSet
 evalTypeExpr (VSet s) = s
 evalTypeExpr (VDot vs) = cartesianProduct VDot (map evalTypeExpr vs)
 evalTypeExpr (VTuple vs) = cartesianProduct VTuple (map evalTypeExpr vs)
-evalTypeExpr (VList [VSet s]) = allSequences s
