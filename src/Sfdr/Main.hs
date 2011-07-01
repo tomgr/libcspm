@@ -1,6 +1,8 @@
+{-# LANGUAGE DoAndIfThenElse #-}
 module Main where
 
 import Control.Monad
+import Control.Monad.Trans
 import Data.List
 import System
 import System.Console.GetOpt
@@ -10,15 +12,30 @@ import System.Exit
 import System.IO
 
 import CSPM
+import CSPM.PrettyPrinter
+import Util.Annotated
 import Util.Exception
+import Util.PrettyPrint
 
-tryDoDir :: String -> IO ()
-tryDoDir path = do
-	r <- doesDirectoryExist path
-	if r then doDir path else doFile path
+ppTest fp = do
+	s <- newCSPMSession
+	unCSPM s $ do
+		ms <- parse (fileParser fp)
+		liftIO $ putStrLn $ show $ prettyPrint ms
 
-doDir :: String -> IO ()
-doDir path = do
+countSuccesses :: [IO Bool] -> IO ()
+countSuccesses tasks = do
+	results <- sequence tasks
+	let 
+		failed = length $ filter id results
+		succeeded = length $ filter id results
+		total = length tasks
+	if failed+succeeded > 1 then do
+		putStrLn $ show succeeded++" files succeeded out of "++show total
+	else return ()
+
+getFilesFromDir :: FilePath -> IO [FilePath]
+getFilesFromDir path = do
 	all <- getDirectoryContents path
 	let all' = [path++"/"++f | f <- all]
 	files <- filterM doesFileExist all'
@@ -26,21 +43,24 @@ doDir path = do
 	let dirs' = 
 		filter (\f -> not $ (isSuffixOf "." f) || (isSuffixOf ".." f)) dirs
 	let files' = filter (isSuffixOf ".csp") files
-	mapM_ doDir [dir | dir <- dirs']
-	mapM_ doFile [file | file <- files']
+	fss <- mapM getFilesFromDir [dir | dir <- dirs']
+	return $ files'++concat fss
 
-doFile :: FilePath -> IO ()
+doFile :: FilePath -> IO Bool
 doFile fp = do
-	putStr ("Checking "++fp++".....")
+	putStr $ "Checking "++fp++"....."
 	s <- newCSPMSession
 	res <- tryM $ unCSPM s $ do
 		ms <- parse (fileParser fp)
 		typeCheck (fileTypeChecker ms)
 		return ()
 	case res of
-		Left e -> putStrLn $ "\n\ESC[1;31m\STX"++(show e)++"\ESC[0m\STX" 
-		Right _ -> putStrLn $ "Ok"
-	return ()
+		Left e -> do
+			putStrLn $ "\n\ESC[1;31m\STX"++(show e)++"\ESC[0m\STX" 
+			return False
+		Right _ -> do
+			putStrLn $ "Ok"
+			return True
 
 data Options = Options {
 		recursive :: Bool,
@@ -74,5 +94,8 @@ main = do
 			case (opts, files) of
 				(_, []) -> putStr $ usageInfo header options
 				(Options { help = True }, files) -> putStr $ usageInfo header options
-				(Options { recursive = True }, dirs) -> mapM_ tryDoDir dirs
-				(_, files) -> mapM_ doFile files
+				(Options { recursive = True }, dirs) -> do
+					tasks <- liftM concat (mapM getFilesFromDir dirs)
+					countSuccesses (map doFile tasks)
+				(_, files) -> 
+					countSuccesses (map doFile files)
