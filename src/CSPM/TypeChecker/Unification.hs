@@ -345,18 +345,31 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
 	a <- compress a
 	b <- compress b
 	let
+		-- Compute the ultimate return types and the arguments required
+		-- to get to this return type
 		(argsA, rtA) = (reduceDotable . toNormalForm) a
 		(argsB, rtB) = (reduceDotable . toNormalForm) b
 		evalTypeList' (t:ts) = evalTypeList t ts
+	-- The return type of the combined dotable must be the unified version
+	-- of the return types
 	rt <- unify rtA rtB
 
 	case (rtA, rtB) of
 		(TEventable, TEventable) -> panic "TC: double eventable"
 		(TEventable, _) -> do
+			-- Firstly, evaluate each type list to reduce it; this means
+			-- that it will not have any terms like TDotable TInt ..., TInt..
 			as <- evalTypeList' argsA
 			bs <- evalTypeList' argsB
+			-- As the left argument is eventable we compute what arguments
+			-- would be required to make it into a TEventable (by computing
+			-- the ultimate return types of each element).
 			let as' = map (snd . reduceDotable . toNormalForm) as
+			-- These must be equal to the argument types that are required to
+			-- reach rtB, hence we unify.
 			zipWithM unify as' bs
+			-- The most general type will have the arguments of bs, rather
+			-- than the arguments of as (bs provide more information).
 			return $ TDotable (foldl1 TDot bs) rt
 		(_, TEventable) -> do
 			as <- evalTypeList' argsA
@@ -365,6 +378,8 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
 			zipWithM unify as bs'
 			return $ TDotable (foldl1 TDot as) rt
 		(_, _) -> do
+			-- If neither is a TEventable then the args must be the same.
+			-- Hence, unify the two argument lists.
 			args <- combineTypeLists argsA argsB
 			return $ TDotable (foldl1 TDot args) rt
 
