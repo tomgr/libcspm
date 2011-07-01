@@ -1,5 +1,5 @@
 module CSPM.Parser (
-	parseFile, parseInteractiveStmt, parseExpression,
+	parseFile, parseInteractiveStmt, parseExpression, parseStringAsFile,
 	
 	ParseMonad, runParser,
 ) 
@@ -22,4 +22,9 @@ parseExpression str =
 parseFile :: String -> ParseMonad [PModule]
 parseFile fname = do
 	decls <- pushFile fname parseFile_
+	return [An Unknown dummyAnnotation (GlobalModule decls)]
+
+parseStringAsFile :: String -> ParseMonad [PModule]
+parseStringAsFile str = do
+	decls <- pushFileContents "<interactive>" str >> parseFile_
 	return [An Unknown dummyAnnotation (GlobalModule decls)]

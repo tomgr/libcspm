@@ -3,9 +3,10 @@ module CSPM (
 	module CSPM.DataStructures.Names,
 	module CSPM.DataStructures.Syntax,
 	module CSPM.DataStructures.Types,
-	CSPMMonad, unCSPM,
+	CSPM, CSPMMonad, unCSPM,
 	CSPMSession, newCSPMSession, getSession, setSession, withSession,
-	parse, interactiveStmtParser, fileParser, expressionParser,
+	parse, stringFileParser, interactiveStmtParser, fileParser, 
+	expressionParser,
 	typeCheck, interactiveStmtTypeChecker, expressionTypeChecker,
 	fileTypeChecker,
 	typeOfExpression,
@@ -77,6 +78,9 @@ fileParser :: String -> Parser [PModule]
 fileParser fp = 
 	let (dir, fname) = splitFileName fp
 	in (dir, P.parseFile fname)
+	
+stringFileParser :: String -> Parser [PModule]
+stringFileParser str = ("", P.parseStringAsFile str)
 
 interactiveStmtParser :: String -> Parser PInteractiveStmt
 interactiveStmtParser str = ("", P.parseInteractiveStmt str)
