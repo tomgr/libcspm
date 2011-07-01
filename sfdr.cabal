@@ -6,9 +6,13 @@ Category:            Concurrency
 Build-type:          Simple
 Cabal-version:       >=1.9.2
 
-Test-Suite cspm-tests
+Executable cspm-tests
   Main-is: Test/Main.hs
-  Type: exitcode-stdio-1.0
+
+  Other-modules:
+    CSPM.Parser.Lexer, 
+    CSPM.Parser.Parser
+  Build-tools: alex, happy, cpphs
   Hs-Source-Dirs: src
   Build-depends: 
     base, 
