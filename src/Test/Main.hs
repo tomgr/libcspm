@@ -6,11 +6,12 @@ import System.FilePath
 
 import CSPM
 import Util.Exception
+import Util.PrettyPrint
 
 main :: IO ()
 main = do
-	files <- getTestFiles
-	results <- mapM (\(fp,shouldPass) -> runTest fp shouldPass) files
+	tests <- runSections
+	results <- sequence tests
 	if and results then exitSuccess else exitFailure
 
 getAndFilterDirectoryContents :: FilePath -> IO [FilePath]
@@ -18,8 +19,8 @@ getAndFilterDirectoryContents fp = do
 	names <- getDirectoryContents fp
 	return $ filter (`notElem` [".", "..", ".DS_Store"]) names
 
-getTestFiles :: IO [(FilePath, Bool)]
-getTestFiles = do
+runSections ::IO [IO Bool]
+runSections = do
 	let testDir = "tests"
 	sections <- getAndFilterDirectoryContents testDir
 	fs <- mapM (\section -> do
@@ -28,21 +29,20 @@ getTestFiles = do
 			shouldFailFiles <- getAndFilterDirectoryContents $ 
 								joinPath [testDir, section, "should_fail"]
 			let 
-				pf = [(joinPath [testDir, section, "should_pass", f] , False) 
-						| f <- shouldPassFiles]
-				ff = [(joinPath [testDir, section, "should_fail", f], True) 
-						| f <- shouldFailFiles]
+				Just test = lookup section testFunctions
+				pf = [runTest (joinPath [testDir, section, "should_pass", f]) 
+						test False | f <- shouldPassFiles]
+				ff = [runTest (joinPath [testDir, section, "should_fail", f]) 
+						test True | f <- shouldFailFiles]
 			return $ pf++ff
 		) sections
 	return $ concat fs
 
-runTest :: FilePath -> Bool -> IO Bool
-runTest fp shouldFail = do
+runTest :: FilePath -> (FilePath -> CSPM a) -> Bool -> IO Bool
+runTest fp test shouldFail = do
 	putStr $ "Running test "++fp++"..."
 	s <- newCSPMSession
-	res <- tryM $ unCSPM s $ do
-		ms <- parse (fileParser fp)
-		typeCheck (fileTypeChecker ms)
+	res <- tryM $ unCSPM s $ test fp
 	let
 		failed :: Maybe SfdrException -> IO Bool
 		failed (Nothing) = do
@@ -58,3 +58,30 @@ runTest fp shouldFail = do
 	case res of 
 		Left e -> if shouldFail then passed else failed (Just e)
 		Right _ -> if shouldFail then failed Nothing else passed
+
+testFunctions = [
+		("parser", parserTest),
+		("typechecker", typeCheckerTest),
+		("prettyprinter", prettyPrinterTest)
+	]
+
+typeCheckerTest :: FilePath -> CSPM ()
+typeCheckerTest fp = do
+	ms <- parse (fileParser fp)
+	typeCheck (fileTypeChecker ms)
+	return ()
+
+parserTest :: FilePath -> CSPM ()
+parserTest fp = do
+	ms <- parse (fileParser fp)
+	-- Force evaluation of the whole of ms. We can't just use seq
+	-- as this would leave thunks in the data structure. Instead we take
+	-- the length of the string representing ms and then compute the length
+	(length (show ms)) `seq` (return ())
+
+prettyPrinterTest :: FilePath -> CSPM ()
+prettyPrinterTest fp = do
+	ms <- parse (fileParser fp)
+	let str = show (prettyPrint ms)
+	ms' <- parse (stringFileParser str)
+	if ms /= ms' then throwException UserError else return ()

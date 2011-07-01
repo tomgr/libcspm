@@ -60,6 +60,7 @@ data SfdrException =
 instance Show SfdrException where
 	show (Panic str) = "Internal inconsitancy error: "++show str
 	show (SourceError ms) = show (prettyPrint ms)
+	show (UserError) = "An unknown error occured."
 
 instance Exception SfdrException
 
