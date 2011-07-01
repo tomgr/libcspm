@@ -165,11 +165,12 @@ instance TypeCheckable Decl [(Name, Type)] where
 		text "In the delcaration of:" <+> prettyPrint n
 	errorContext (NameType n e) = Just $
 		text "In the declaration of:" <+> prettyPrint n
-	-- TODO
-	errorContext (Channel ns es) = Nothing
+	errorContext (Channel ns es) = Just $
+		text "In the declaration of:" <+> list (map prettyPrint ns)
+	errorContext (Assert a) = Just $
+		text "In the assertion:" <+> prettyPrint a
 	errorContext (Transparent ns) = Nothing
 	errorContext (External ns) = Nothing
-	errorContext (Assert a) = Nothing
 	
 	typeCheck' (FunBind n ms) = do
 		ts <- mapM (\ m -> addErrorContext (matchCtxt m) $ typeCheck m) ms
