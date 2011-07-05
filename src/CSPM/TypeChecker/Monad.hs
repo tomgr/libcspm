@@ -18,21 +18,15 @@ module CSPM.TypeChecker.Monad (
 where
 
 import Control.Monad.State
-import Data.Graph
-import Data.IORef
-import Data.Typeable
-import List (nub, (\\), intersect, group, sort)
 import Prelude hiding (lookup)
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Types
 import CSPM.TypeChecker.Environment
 import CSPM.TypeChecker.Exceptions
-import CSPM.PrettyPrinter
 import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
-import Util.Monad
 
 -- *************************************************************************
 -- Type Checker Monad
