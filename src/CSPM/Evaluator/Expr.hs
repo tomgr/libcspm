@@ -15,6 +15,7 @@ import CSPM.Evaluator.PatBind
 import CSPM.Evaluator.Values
 import qualified CSPM.Evaluator.ValueSet as S
 import Util.Annotated
+import Util.Exception
 
 -- In order to keep lazy evaluation working properly only use pattern
 -- matching when you HAVE to know the value. (Hence why we delay pattern
@@ -90,7 +91,7 @@ instance Evaluatable Exp where
 			if matches then
 				addScopeAndBind binds (eval e)
 			else
-				throwException $ PatternMatchException p v
+				throwError $ patternMatchFailureMessage (loc p) p v
 	eval (Let decls e) = do
 		bs <- bindDecls decls
 		addScopeAndBind bs (eval e)

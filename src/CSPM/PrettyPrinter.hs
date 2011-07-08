@@ -108,7 +108,10 @@ instance PrettyPrintable Pat where
 		parens (list (map prettyPrint patterns))
 	prettyPrint (PVar name) = prettyPrint name
 	prettyPrint (PWildCard) = char '_'
-
+	
+	prettyPrint (PCompList _ _ p) = prettyPrint p
+	prettyPrint (PCompDot _ p) = prettyPrint p
+	
 instance PrettyPrintable BinaryBooleanOp where
 	prettyPrint And = text "and"
 	prettyPrint Or = text "or"

@@ -32,7 +32,7 @@ instance Eq Value where
 	VList vs1 == VList vs2 = vs1 == vs2
 	VSet s1 == VSet s2 = s1 == s2
 	
-	v1 == v2 = throwException $ TypeCheckerException "Cannot compare for eq"
+	v1 == v2 = throwError $ typeCheckerFailureMessage "Cannot compare for eq"
 	
 instance Ord Value where
 	compare (VInt i1) (VInt i2) = compare i1 i2
@@ -47,7 +47,7 @@ instance Ord Value where
 	compare (VDataType n vs1) (VDataType n' vs2) = 
 		compare n n' `thenCmp` compare vs1 vs2
 	
-	compare v1 v2 = throwException $ TypeCheckerException "Cannot order"
+	compare v1 v2 = throwError $ typeCheckerFailureMessage "Cannot order"
 
 instance PrettyPrintable Value where
 	prettyPrint (VInt i) = integer i

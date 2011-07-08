@@ -5,6 +5,7 @@ import Control.Monad
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
+import CSPM.Evaluator.Exceptions
 import {-# SOURCE #-} CSPM.Evaluator.Expr
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.PatBind
@@ -14,11 +15,11 @@ import Util.Annotated
 
 bindDecls :: [TCDecl] -> EvaluationMonad [(Name, Value)]
 bindDecls ds = do
-	bss <- mapM (bindDecl . unAnnotate) ds
+	bss <- mapM bindDecl ds
 	return (concat bss)
 
-bindDecl :: Decl -> EvaluationMonad [(Name, Value)]
-bindDecl (FunBind n ms) = do
+bindDecl :: AnDecl -> EvaluationMonad [(Name, Value)]
+bindDecl (an@(An _ _ (FunBind n ms))) = do
 		func <- collectArgs argGroupCount []
 		return [(n, func)]
 	where
@@ -38,22 +39,22 @@ bindDecl (FunBind n ms) = do
 			case rs of
 				((binds, exp):rs) ->
 					addScopeAndBind binds (eval exp)
-				_		-> error ("Non exaustive patterns "++show n)
-					--throwException $ NonExaustivePatterns n
+				_		-> throwError $ 
+					funBindPatternMatchFailureMessage (loc an) n ass
 			where
 				ass = reverse ass_
 		collectArgs n ass =
 			return $ VFunction $ \ vs -> collectArgs (n-1) (vs:ass)
-bindDecl (PatBind p e) = do
+bindDecl (an@(An _ _ (PatBind p e))) = do
 	v <- eval e
 	r <- bind p v
 	case r of 
 		(True, bs) -> return bs
-		(False, _) -> error "pattern match failure"
-bindDecl (Channel ns e) = 
+		(False, _) -> throwError $ patternMatchFailureMessage (loc an) p v
+bindDecl (an@(An _ _ (Channel ns e))) = 
 	-- TODO: check channel values are in es
 	return [(n, VEvent n []) | n <- ns]
-bindDecl (DataType n cs) =
+bindDecl (an@(An _ _ (DataType n cs))) =
 	-- TODO: check data values are in e
 	let
 		bindClause (DataTypeClause nc Nothing) = do
@@ -73,13 +74,13 @@ bindDecl (DataType n cs) =
 		(sets, binds) <- mapAndUnzipM (bindClause . unAnnotate) cs
 		let dt = (n, VSet (unions sets))
 		return $ dt:concat binds
-bindDecl (NameType n e) = do
+bindDecl (an@(An _ _ (NameType n e))) = do
 	v <- eval e
 	return [(n, VSet $ evalTypeExpr v)]
 
-bindDecl (Assert _) = return []
-bindDecl (External ns) = return []
-bindDecl (Transparent ns) = return []
+bindDecl (an@(An _ _ (Assert _))) = return []
+bindDecl (an@(An _ _ (External ns))) = return []
+bindDecl (an@(An _ _ (Transparent ns))) = return []
 
 internalNameForChannel, internalNameForDataTypeClause :: Name -> Name
 internalNameForChannel (Name n) = 

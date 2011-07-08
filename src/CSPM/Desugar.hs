@@ -134,21 +134,21 @@ instance Desugarable Pat where
 			combine (as1, Nothing) (as2, p) = (as1++as2, p)
 			
 			extractCompList :: AnPat -> ([AnPat], Maybe (AnPat, [AnPat]))
-			extractCompList (An _ _ (PCompList ps mp)) = (ps, mp)
+			extractCompList (An _ _ (PCompList ps mp _)) = (ps, mp)
 			extractCompList p = ([], Just (p, []))
 			
 			(start, end) = 
 				combine (extractCompList . desugar $ p1)
 						(extractCompList . desugar $ p2)
-		in PCompList start end
-	desugar (PList ps) = PCompList (map desugar ps) Nothing
+		in PCompList start end (PConcat p1 p2)
+	desugar (PList ps) = PCompList (map desugar ps) Nothing (PList ps)
 	desugar (PDotApp p1 p2) = 
 		let
-			extractDotList (An _ _ (PCompDot ds)) = ds
+			extractDotList (An _ _ (PCompDot ds _)) = ds
 			extractDotList d = [d]
 			ds1 = extractDotList (desugar p1)
 			ds2 = extractDotList (desugar p2)
-		in PCompDot (ds1++ds2)
+		in PCompDot (ds1++ds2) (PDotApp p1 p2)
 	desugar (PDoublePattern p1 p2) =
 		PDoublePattern (desugar p1) (desugar p2)
 	desugar (PLit l) = PLit (desugar l)

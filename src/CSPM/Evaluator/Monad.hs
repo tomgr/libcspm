@@ -4,6 +4,7 @@ module CSPM.Evaluator.Monad where
 import Prelude hiding (lookup)
 
 import CSPM.DataStructures.Names
+import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Environment
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.Exception
@@ -72,13 +73,5 @@ addScopeAndBindM binds =
 		in
 			st')
 
-{-
-addToScope :: [(Name, Value)] -> EvaluationMonad ()
-addToScope binds = do
-	env <- getEnvironment
-	setEnvironment (newLayerAndBind env binds)
-	return ()
--}
-
-
-
+throwError :: ErrorMessage -> a
+throwError err = throwSourceError [err]

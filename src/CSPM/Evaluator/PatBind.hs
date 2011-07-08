@@ -22,10 +22,10 @@ instance Bindable Pat where
 	-- We can decompose any PConcat pattern into three patterns representing:
 	-- Begining (of the form PList), middle (either PWildcard or PVar)
 	-- and end (of the form PList), With both begining and end possible empty
-	bind (PCompList ps Nothing) (VList xs) | length ps == length xs = 
+	bind (PCompList ps Nothing _) (VList xs) | length ps == length xs = 
 		bindAll ps xs
 	-- By desugaring the middle is not a PConcat or a PList
-	bind (PCompList starts (Just (middle, ends))) (VList xs) =
+	bind (PCompList starts (Just (middle, ends)) _) (VList xs) =
 		-- Only match if the list contains sufficient items
 		if not (atLeastLength (length starts + length ends) xs) then 
 			return (False, [])
@@ -39,8 +39,10 @@ instance Bindable Pat where
 			atLeastLength _ [] = False
 			atLeastLength n (x:xs) = atLeastLength (n-1) xs
 			(xsStart, rest) = splitAt (length starts) xs
-			(xsMiddle, xsEnd) = splitAt (length xs - length xsEnd) rest
-	bind (PCompDot ps) (VDot vs) = do
+			(xsMiddle, xsEnd) = 
+				if length ends == 0 then (rest, [])
+				else splitAt (length rest - length ends) rest
+	bind (PCompDot ps _) (VDot vs) = do
 		(b1, nvs1) <- bindAll psInit vsInit
 		(b2, nvs2) <- bind pLast (VDot vsLast)
 		return (b1 && b2, nvs1++nvs2)

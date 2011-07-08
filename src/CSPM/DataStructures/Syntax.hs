@@ -223,6 +223,7 @@ data Pat =
 	| PVar Name
 	| PWildCard
 	
+	-- In all compiled patterns we store the original pattern
 	-- Because of the fact that you can write patterns such as:
 	--  f(<x,y>^xs^<z,p>)
 	--  f(<x,y>)
@@ -232,13 +233,13 @@ data Pat =
 	-- PCompList ps (Just (p, ps')) corresponds to a list
 	-- where it starts with ps (where each p in ps matches exactly one
 	-- component, has a middle of p and and end matching exactly ps'
-	| PCompList [AnPat] (Maybe (AnPat, [AnPat]))
+	| PCompList [AnPat] (Maybe (AnPat, [AnPat])) Pat
 	-- Recall the longest match rule when evaluating this
 	-- How about:
 	-- channel c : A.Int.A
 	-- datatype A = B.Bool
 	-- func(c.B.true.x) =
 	-- func(c.B.false.0.B.x) =
-	| PCompDot [AnPat]
+	| PCompDot [AnPat] Pat
 
 	deriving (Eq, Show)
