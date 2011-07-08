@@ -222,4 +222,23 @@ data Pat =
 	| PTuple [AnPat]
 	| PVar Name
 	| PWildCard
+	
+	-- Because of the fact that you can write patterns such as:
+	--  f(<x,y>^xs^<z,p>)
+	--  f(<x,y>)
+	--  f(xs^<x,y>)
+	-- we need an easy may of matching them. Thus, we compile
+	-- the patterns to a PCompList instead.
+	-- PCompList ps (Just (p, ps')) corresponds to a list
+	-- where it starts with ps (where each p in ps matches exactly one
+	-- component, has a middle of p and and end matching exactly ps'
+	| PCompList [AnPat] (Maybe (AnPat, [AnPat]))
+	-- Recall the longest match rule when evaluating this
+	-- How about:
+	-- channel c : A.Int.A
+	-- datatype A = B.Bool
+	-- func(c.B.true.x) =
+	-- func(c.B.false.0.B.x) =
+	| PCompDot [AnPat]
+
 	deriving (Eq, Show)

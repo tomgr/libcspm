@@ -68,6 +68,7 @@ allSequences s = if empty s then emptySet else
 				app x (VList xs) = VList $ x:xs
 	in LazySet (list 0)
 
+emptySet :: ValueSet
 emptySet = ExplicitSet S.empty
 
 fromList :: [Value] -> ValueSet
@@ -77,6 +78,10 @@ toList :: ValueSet -> [Value]
 toList (ExplicitSet s) = S.toList s
 toList (RangedSet lb ub) = map VInt [lb..ub]
 toList (LazySet xs) = xs
+
+-- | Returns the value iff the set contains one item only
+singletonValue :: ValueSet -> Maybe Value
+singletonValue s = if card s == 1 then Just (head (toList s)) else Nothing
 
 member :: Value -> ValueSet -> Bool
 member v (ExplicitSet s) = S.member v s

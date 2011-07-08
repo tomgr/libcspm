@@ -28,6 +28,7 @@ import qualified CSPM.Evaluator as EV
 import CSPM.Evaluator.Values
 import qualified CSPM.Parser as P
 import qualified CSPM.TypeChecker as TC
+import qualified CSPM.Desugar as DS
 import Util.Annotated
 import Util.PrettyPrint
 
@@ -89,6 +90,7 @@ expressionParser :: String -> Parser PExp
 expressionParser str = ("", P.parseExpression str)
 
 -- TypeChecker API
+-- All the type checkers also perform desugaring
 type TypeChecker a = TC.TypeCheckMonad a
 
 runTypeCheckerInCurrentState :: CSPMMonad m => TC.TypeCheckMonad a -> m a
@@ -101,13 +103,19 @@ typeCheck :: CSPMMonad m => TypeChecker a -> m a
 typeCheck p = runTypeCheckerInCurrentState p
 
 fileTypeChecker :: [PModule] -> TypeChecker [TCModule]
-fileTypeChecker = TC.typeCheckModules
+fileTypeChecker ms = do
+	ms <- TC.typeCheckModules ms
+	return $ DS.desugar ms
 
 interactiveStmtTypeChecker :: PInteractiveStmt -> TypeChecker TCInteractiveStmt
-interactiveStmtTypeChecker = TC.typeCheckInteractiveStmt
+interactiveStmtTypeChecker pstmt = do
+	stmt <- TC.typeCheckInteractiveStmt pstmt
+	return $ DS.desugar stmt
 
 expressionTypeChecker :: PExp -> TypeChecker TCExp
-expressionTypeChecker = TC.typeCheckExp
+expressionTypeChecker exp = do
+	e <- TC.typeCheckExp exp
+	return $ DS.desugar e
 
 -- | Gets the type of the expression in the current context.
 typeOfExpression :: CSPMMonad m => PExp -> m Type
