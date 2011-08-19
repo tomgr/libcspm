@@ -5,7 +5,7 @@ module CSPM.TypeChecker.Unification (
 ) where
 
 import Control.Monad
-import List (nub, (\\), intersect, group, sort)
+import Data.List (nub, (\\), intersect, group, sort)
 import Prelude
 
 import CSPM.DataStructures.Names
