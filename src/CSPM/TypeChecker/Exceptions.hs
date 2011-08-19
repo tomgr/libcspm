@@ -13,7 +13,7 @@ module CSPM.TypeChecker.Exceptions (
 where
 
 import Data.Typeable
-import List (group, sort)
+import Data.List (group, sort)
 import Prelude
 
 import CSPM.DataStructures.Names

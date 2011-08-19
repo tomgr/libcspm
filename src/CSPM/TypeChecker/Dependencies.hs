@@ -3,9 +3,8 @@ module CSPM.TypeChecker.Dependencies
 	(Dependencies, dependencies, namesBoundByDecl, namesBoundByDecl',
 	FreeVars, freeVars, prebindDecl) where
 
-import List (nub, (\\))
-
 import Control.Monad
+import Data.List (nub, (\\))
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
