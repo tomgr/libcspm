@@ -12,8 +12,6 @@ import Util.Exception
 data EvaluationState = 
 	EvaluationState {
 		environment :: Environment
---		channelMap :: Map Name [ValueSet],
---		datatypeClauseMap :: Map Name [ValueSet],
 	}
 	
 type EvaluationMonad = LazyEvalMonad EvaluationState
