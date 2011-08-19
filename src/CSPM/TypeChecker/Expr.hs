@@ -6,7 +6,7 @@ import Control.Monad.Trans
 import Data.List
 
 import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
+import CSPM.DataStructures.Syntax hiding (getType)
 import CSPM.DataStructures.Types
 import CSPM.TypeChecker.Common
 import {-# SOURCE #-} CSPM.TypeChecker.Decl
@@ -40,12 +40,12 @@ instance TypeCheckable PExp Type where
 	errorContext an = Nothing
 	typeCheck' an = do
 		t <- setSrcSpan (loc an) $ typeCheck (inner an)
-		setPType (annotation an) t
+		setPType (snd (annotation an)) t
 		return t
 	typeCheckExpect an texp = do
 		-- The unification is done in typeCheck (inner an)
 		t <- setSrcSpan (loc an) $ typeCheckExpect (inner an) texp
-		setPType (annotation an) t
+		setPType (snd (annotation an)) t
 		return t
 instance TypeCheckable Exp Type where
 	typeCheckExpect obj texp =

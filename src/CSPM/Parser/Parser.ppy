@@ -286,7 +286,7 @@ Exp :: { PExp }
 	ExpA							{% do
 										t <- freshPType
 										let An l _ e = $1
-										return $ An l t e
+										return $ An l (Nothing, t) e
 									}
 -- An annotated expression with a dummy PType - DO NOT USE THIS
 ExpA :: { PExp }
@@ -475,8 +475,8 @@ convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) =
 	in do
 		symbTable <- freshPSymbolTable
 		case lhsexp of
-			App f args	-> return $ An span symbTable (convFunBind lhsexp)
-			_			-> return $ An span symbTable (convPatBind lhs)
+			App f args	-> return $ An span (Nothing, symbTable) (convFunBind lhsexp)
+			_			-> return $ An span (Nothing, symbTable) (convPatBind lhs)
 
 -- | Throws an error if a declaration that is not allowed inside a let 
 -- expression is found.
@@ -617,10 +617,10 @@ annotate2List' ::
 annotate2List' t1 t2 b = annotate2 (last t1) t2 b
 
 annotateWithSymbolTable 
-	:: Annotated PSymbolTable a -> ParseMonad (Annotated PSymbolTable a)
+	:: Annotated (Maybe SymbolTable, PSymbolTable) a -> ParseMonad (Annotated (Maybe SymbolTable, PSymbolTable) a)
 annotateWithSymbolTable (An l _ a) = do
 	symbTable <- freshPSymbolTable
-	return $ An l symbTable a
+	return $ An l (Nothing, symbTable) a
 
 liftLoc :: (Locatable t1, Locatable t2) => t1 a -> b -> t2 b
 liftLoc t1 b = mkLoc (getLoc t1) b

@@ -3,19 +3,31 @@ module CSPM.DataStructures.Syntax where
 import CSPM.DataStructures.Types
 import CSPM.DataStructures.Names
 import Util.Annotated
+import Util.Exception
 
 -- P = post parsing, TC = post typechecking, An = annotated
 type AnModule = Annotated () Module
 -- Declarations may bind multiple names
-type AnDecl = Annotated PSymbolTable Decl
+type AnDecl = Annotated (Maybe SymbolTable, PSymbolTable) Decl
 type AnMatch = Annotated () Match
 type AnPat = Annotated () Pat
-type AnExp = Annotated PType Exp
+type AnExp = Annotated (Maybe Type, PType) Exp
 type AnField = Annotated () Field
 type AnStmt = Annotated () Stmt
 type AnDataTypeClause = Annotated () DataTypeClause
 type AnAssertion = Annotated () Assertion
 type AnInteractiveStmt = Annotated () InteractiveStmt
+
+getType :: Annotated (Maybe Type, PType) a -> Type
+getType an = case fst (annotation an) of
+	Just t -> t
+	Nothing -> panic "Cannot get the type of something that is not typechecked"
+
+getSymbolTable :: Annotated (Maybe SymbolTable, PSymbolTable) a -> SymbolTable
+getSymbolTable an = case fst (annotation an) of
+	Just t -> t
+	Nothing -> panic "Cannot get the symbol table of something that is not typechecked"
+
 
 type PModule = AnModule
 type PDecl = AnDecl
@@ -127,11 +139,11 @@ data Exp =
 
 	-- Replicated Operators
 	| ReplicatedAlphaParallel [AnStmt] AnExp AnExp -- alpha exp is second
-	| ReplicatedInterleave [AnStmt] AnExp 
 	| ReplicatedExternalChoice [AnStmt] AnExp
+	| ReplicatedInterleave [AnStmt] AnExp 
 	| ReplicatedInternalChoice [AnStmt] AnExp
-	| ReplicatedParallel AnExp [AnStmt] AnExp -- alpha exp is first
 	| ReplicatedLinkParallel [(AnExp, AnExp)] [AnStmt] AnExp
+	| ReplicatedParallel AnExp [AnStmt] AnExp -- alpha exp is first
 	
 	-- Used only for parsing
 	| ExpPatWildCard
@@ -206,7 +218,7 @@ data SemanticProperty =
 data DataTypeClause =
 	DataTypeClause Name (Maybe AnExp)
 	deriving (Eq, Show)
-	
+
 data Match =
 	Match [[AnPat]] AnExp
 	deriving (Eq, Show)

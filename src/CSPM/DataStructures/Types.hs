@@ -30,7 +30,7 @@ data Type =
 	| TInt
 	| TBool
 	| TEvent
-	-- Something that can be extended to an event
+	-- Something that can be extended to an event (only used internally)
 	| TEventable
 	| TSet Type
 	| TSeq Type
@@ -48,11 +48,14 @@ data Type =
 
 data TypeVarRef = 
 	TypeVarRef TypeVar [Constraint] PType
-	deriving Eq
+
+instance Eq TypeVarRef where
+	(TypeVarRef tv1 cs1 pt1) == (TypeVarRef tv2 cs2 pt2) = tv1 == tv2
 
 instance Show TypeVarRef where
 	show (TypeVarRef tv cs _) = "TypeVarRef "++show tv ++ show cs
 
+newtype IORefMaybe a = IORefMaybe (Maybe a)
 type SymbolTable = PartialFunction Name TypeScheme
 type PType = IORef (Maybe Type)
 type PSymbolTable = IORef SymbolTable

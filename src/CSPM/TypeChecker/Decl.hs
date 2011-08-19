@@ -10,7 +10,7 @@ import qualified Data.Set as S
 import List (nub, intersect, (\\))
 
 import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
+import CSPM.DataStructures.Syntax hiding (getType)
 import CSPM.DataStructures.Types
 import CSPM.PrettyPrinter
 import CSPM.TypeChecker.BuiltInFunctions
@@ -128,7 +128,7 @@ typeCheckMutualyRecursiveGroup ds = do
 		wasPrebound (Channel _ _ ) = True
 		wasPrebound _ = False
 		
-		annotate nts (An _ psymbtable _) = setPSymbolTable psymbtable nts
+		annotate nts (An _ psymbtable _) = setPSymbolTable (snd psymbtable) nts
 
 -- | Takes a type and returns the inner type, i.e. the type that this
 -- is a set of. For example TSet t1 -> t, TTuple [TSet t1, TSet t2] -> (t1, t2).
