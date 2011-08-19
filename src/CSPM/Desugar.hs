@@ -64,6 +64,7 @@ instance Desugarable Exp where
 	desugar (Let ds e) = Let (desugar ds) (desugar e)
 	desugar (Lit l) = Lit (desugar l)
 	desugar (List es) = List (desugar es)
+	desugar (ListComp es stmts) = ListComp (desugar es) (desugar stmts)
 	desugar (ListEnumFrom e) = ListEnumFrom (desugar e)
 	desugar (ListEnumFromTo e1 e2) = ListEnumFromTo (desugar e1) (desugar e2)
 	desugar (ListLength e) = ListLength (desugar e)
