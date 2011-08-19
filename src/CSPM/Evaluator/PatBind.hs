@@ -65,7 +65,7 @@ instance Bindable Pat where
 	bind (PTuple ps) (VTuple vs) = do
 		-- NB: len ps == len vs by typechecker
 		bindAll ps vs
-	-- Although n may refer to a datatype or a channel this doesn,t
+	-- Although n may refer to a datatype or a channel this doesn't
 	-- matter, we rebind for ease
 	bind (PVar n) v = return (True, [(n, v)])
 	bind PWildCard v = return (True, [])

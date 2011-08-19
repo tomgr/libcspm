@@ -2,7 +2,7 @@
 module Util.Exception (
 	Exception,
 	SfdrException(..),
-	throwException, --tryM, failM,
+	throwException,
 	tryM,
 	panic, throwSourceError,
 	mkErrorMessage, ErrorMessage, ErrorMessages,

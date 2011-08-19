@@ -17,12 +17,6 @@ import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 
-ppTest fp = do
-	s <- newCSPMSession
-	unCSPM s $ do
-		ms <- parse (fileParser fp)
-		liftIO $ putStrLn $ show $ prettyPrint ms
-
 countSuccesses :: [IO Bool] -> IO ()
 countSuccesses tasks = do
 	results <- sequence tasks
