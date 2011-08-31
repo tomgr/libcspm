@@ -166,6 +166,7 @@ data Stmt =
 data InteractiveStmt =
 	Evaluate AnExp
 	| Bind AnDecl
+	| RunAssertion Assertion
 	deriving Show
 	
 -- *************************************************************************

@@ -160,6 +160,7 @@ InteractiveStmt :: { PInteractiveStmt }
 	"let" Exp "=" CExp							{% do
 													d <- convDecl $2 $4 
 													return $ AN2 (Bind d)}
+	| "assert" Assertion						{ AN (RunAssertion $2) }
 	| CExp										{ AN (Evaluate $1) }
 
 Newlines :

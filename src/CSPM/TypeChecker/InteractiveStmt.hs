@@ -21,3 +21,4 @@ instance TypeCheckable InteractiveStmt () where
 	typeCheck' (Bind decl) = typeCheckDecls [decl]
 	typeCheck' (Evaluate exp) = 
 		typeCheck exp >>= evaluateDots >> return ()
+	typeCheck' (RunAssertion a) = typeCheck a >> return ()

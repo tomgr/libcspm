@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 module CSPM.TypeChecker.Compressor(
-	mcompress
+	Compressable, mcompress
 ) where
 
 import CSPM.DataStructures.Types
@@ -150,8 +150,9 @@ instance Compressable Stmt where
 	mcompress (Qualifier e) = return Qualifier $$ mcompress e
 
 instance Compressable InteractiveStmt where
-	mcompress (Evaluate e) = return Evaluate $$ mcompress e
 	mcompress (Bind d) = return Bind $$ mcompress d
+	mcompress (Evaluate e) = return Evaluate $$ mcompress e
+	mcompress (RunAssertion a) = return RunAssertion $$ mcompress a
 	
 instance Compressable Pat where
 	mcompress (PConcat p1 p2) = return PConcat $$ mcompress p1 $$ mcompress p2
@@ -160,7 +161,6 @@ instance Compressable Pat where
 	mcompress (PDoublePattern p1 p2) =
 		return PDoublePattern $$ mcompress p1 $$ mcompress p2
 	mcompress (PLit l) = return PLit $$ mcompress l
-	-- TODO: do we want to do this?
 	mcompress (PParen p) = return PParen $$ mcompress p
 	mcompress (PSet ps) = return PSet $$ mcompress ps
 	mcompress (PTuple ps) = return PTuple $$ mcompress ps
