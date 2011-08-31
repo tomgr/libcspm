@@ -122,7 +122,7 @@ data Exp =
 	| Var QualifiedName
 
 	-- Processes
-	| AlphaParallel AnExp AnExp AnExp AnExp -- Proc Alpha Proc Alpha
+	| AlphaParallel AnExp AnExp AnExp AnExp -- Proc Alpha Alpha Proc
 	| Exception AnExp AnExp AnExp -- Proc Alpha Proc
 	| ExternalChoice AnExp AnExp
 	| GenParallel AnExp AnExp AnExp -- Proc Alpha Proc 
