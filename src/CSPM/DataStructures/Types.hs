@@ -2,7 +2,7 @@ module CSPM.DataStructures.Types where
 
 import Control.Monad.Trans
 import Data.IORef
-import List
+import Data.List
 
 import CSPM.DataStructures.Names
 import Util.PartialFunctions

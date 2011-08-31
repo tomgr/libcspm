@@ -4,9 +4,9 @@ module Main where
 import Control.Monad
 import Control.Monad.Trans
 import Data.List
-import System
 import System.Console.GetOpt
 import System.Directory
+import System.Envrionment
 import System.FilePath
 import System.Exit
 import System.IO

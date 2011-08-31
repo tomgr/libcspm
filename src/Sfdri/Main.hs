@@ -1,8 +1,9 @@
 module Main where
 
-import Char
+import Data.Char
+import Control.Exception (AsyncException(..))
 import Control.Monad.Trans
-import List
+import Data.List
 import Prelude hiding (catch)
 import System.Console.Haskeline
 import System.FilePath

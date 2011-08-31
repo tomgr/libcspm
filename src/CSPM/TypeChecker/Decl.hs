@@ -7,7 +7,7 @@ import Control.Monad.Trans
 import Data.Graph.Wrapper
 import qualified Data.Map as M
 import qualified Data.Set as S
-import List (nub, intersect, (\\))
+import Data.List (nub, intersect, (\\), sortBy)
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax hiding (getType)
