@@ -45,8 +45,8 @@ doFile fp = do
 	putStr $ "Checking "++fp++"....."
 	s <- newCSPMSession
 	res <- tryM $ unCSPM s $ do
-		ms <- parse (fileParser fp)
-		typeCheck (fileTypeChecker ms)
+		ms <- parseFile fp
+		typeCheckFile ms
 		return ()
 	case res of
 		Left e -> do

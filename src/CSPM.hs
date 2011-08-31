@@ -5,13 +5,10 @@ module CSPM (
 	module CSPM.DataStructures.Types,
 	CSPM, CSPMMonad, unCSPM,
 	CSPMSession, newCSPMSession, getSession, setSession, withSession,
-	parse, stringFileParser, interactiveStmtParser, fileParser, 
-	expressionParser,
-	typeCheck, interactiveStmtTypeChecker, expressionTypeChecker,
-	fileTypeChecker,
-	typeOfExpression,
-	loadFile,
-	evaluateExp, evaluateInteractiveStmt,
+	parseStringAsFile, parseFile, parseInteractiveStmt, parseExpression,
+	typeCheckFile, typeCheckInteractiveStmt, typeCheckExpression, ensureExpressionIsOfType,
+	dependenciesOfExp, typeOfExpression,
+	loadFile, evaluateExp, bindDeclaration,
 	getBoundNames,
 )
 where
@@ -70,56 +67,52 @@ instance CSPMMonad CSPM where
 -- General API
 
 -- Parser API
-type Parser a = (String, P.ParseMonad a)
+parse :: CSPMMonad m => FilePath -> P.ParseMonad a -> m a
+parse dir p = liftIO $ P.runParser p dir
 
-parse :: CSPMMonad m => Parser a -> m a
-parse (dir, p) = liftIO $ P.runParser p dir
-
-fileParser :: String -> Parser [PModule]
-fileParser fp = 
+parseFile :: CSPMMonad m => FilePath -> m [PModule]
+parseFile fp =
 	let (dir, fname) = splitFileName fp
-	in (dir, P.parseFile fname)
+	in parse dir (P.parseFile fname)
 	
-stringFileParser :: String -> Parser [PModule]
-stringFileParser str = ("", P.parseStringAsFile str)
+parseStringAsFile :: CSPMMonad m => String -> m [PModule]
+parseStringAsFile str = parse "" (P.parseStringAsFile str)
 
-interactiveStmtParser :: String -> Parser PInteractiveStmt
-interactiveStmtParser str = ("", P.parseInteractiveStmt str)
+parseInteractiveStmt :: CSPMMonad m => String -> m PInteractiveStmt
+parseInteractiveStmt str = parse "" (P.parseInteractiveStmt str)
 
-expressionParser :: String -> Parser PExp
-expressionParser str = ("", P.parseExpression str)
+parseExpression :: CSPMMonad m => String -> m PExp
+parseExpression str = parse "" (P.parseExpression str)
 
 -- TypeChecker API
 -- All the type checkers also perform desugaring
-type TypeChecker a = TC.TypeCheckMonad a
-
 runTypeCheckerInCurrentState :: CSPMMonad m => TC.TypeCheckMonad a -> m a
 runTypeCheckerInCurrentState p = withSession $ \s -> do
 	(a, st) <- liftIO $ TC.runFromStateToState (tcState s) p
 	modifySession (\s -> s { tcState = st })
 	return a
 
-typeCheck :: CSPMMonad m => TypeChecker a -> m a
-typeCheck p = runTypeCheckerInCurrentState p
+typeCheckFile :: CSPMMonad m => [PModule] -> m [TCModule]
+typeCheckFile ms = runTypeCheckerInCurrentState (TC.typeCheck ms >> return (DS.desugar ms))
 
-fileTypeChecker :: [PModule] -> TypeChecker [TCModule]
-fileTypeChecker ms = do
-	ms <- TC.typeCheckModules ms
-	return $ DS.desugar ms
+typeCheckInteractiveStmt :: CSPMMonad m => PInteractiveStmt -> m TCInteractiveStmt
+typeCheckInteractiveStmt pstmt = 
+	runTypeCheckerInCurrentState (TC.typeCheck pstmt >> return (DS.desugar pstmt))
 
-interactiveStmtTypeChecker :: PInteractiveStmt -> TypeChecker TCInteractiveStmt
-interactiveStmtTypeChecker pstmt = do
-	stmt <- TC.typeCheckInteractiveStmt pstmt
-	return $ DS.desugar stmt
+typeCheckExpression :: CSPMMonad m => PExp -> m TCExp
+typeCheckExpression exp = 
+	runTypeCheckerInCurrentState (TC.typeCheck exp >> return (DS.desugar exp))
 
-expressionTypeChecker :: PExp -> TypeChecker TCExp
-expressionTypeChecker exp = do
-	e <- TC.typeCheckExp exp
-	return $ DS.desugar e
+ensureExpressionIsOfType :: CSPMMonad m => Type -> PExp -> m TCExp
+ensureExpressionIsOfType t exp =
+	runTypeCheckerInCurrentState (TC.typeCheckExpect t exp >> return (DS.desugar exp))
 
 -- | Gets the type of the expression in the current context.
 typeOfExpression :: CSPMMonad m => PExp -> m Type
-typeOfExpression = typeCheck . TC.typeOfExp
+typeOfExpression = runTypeCheckerInCurrentState . TC.typeOfExp
+
+dependenciesOfExp :: CSPMMonad m => TCExp -> m [Name]
+dependenciesOfExp e = runTypeCheckerInCurrentState (TC.dependenciesOfExp e)
 
 -- Evaluator API
 runEvaluatorInCurrentState :: CSPMMonad m => EV.EvaluationMonad a -> m a
@@ -132,19 +125,10 @@ runEvaluatorInCurrentState p = withSession $ \s -> do
 getBoundNames :: CSPMMonad m => m [Name]
 getBoundNames = runEvaluatorInCurrentState EV.getBoundNames 
 
--- | Evaluates the stmt in the current context. Extends the context with the
--- variables. Returns a State
-evaluateInteractiveStmt :: CSPMMonad m => TCInteractiveStmt -> m (Maybe Value)
-evaluateInteractiveStmt tcStmt = withSession $ \s -> do
-	case unAnnotate tcStmt of 
-		Evaluate exp -> do
-			val <- evaluateExp exp
-			return $ Just val
-		Bind decl -> do
-			evSt <- runEvaluatorInCurrentState (do
-				EV.addToEnvironment (EV.evaluateDecl decl))
-			modifySession (\s -> s { evState = evSt })
-			return Nothing
+bindDeclaration :: CSPMMonad m => TCDecl -> m ()
+bindDeclaration d = withSession $ \s -> do
+	evSt <- runEvaluatorInCurrentState (EV.addToEnvironment (EV.evaluateDecl d))
+	modifySession (\s -> s { evState = evSt })
 
 -- | Loads the specified file into the evaluators' environment.
 evaluateFile :: CSPMMonad m => [TCModule] -> m [(Name, Value)]

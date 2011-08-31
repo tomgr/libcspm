@@ -68,12 +68,12 @@ testFunctions = [
 typeCheckerTest :: FilePath -> CSPM ()
 typeCheckerTest fp = do
 	ms <- parse (fileParser fp)
-	typeCheck (fileTypeChecker ms)
+	typeCheckFile ms
 	return ()
 
 parserTest :: FilePath -> CSPM ()
 parserTest fp = do
-	ms <- parse (fileParser fp)
+	ms <- parseFile fp
 	-- Force evaluation of the whole of ms. We can't just use seq
 	-- as this would leave thunks in the data structure. Instead we take
 	-- the length of the string representing ms and then compute the length

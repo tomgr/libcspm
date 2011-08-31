@@ -1,5 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
 module CSPM.TypeChecker (
-	typeCheckExp, typeCheckModules, typeCheckInteractiveStmt,
+	typeCheck, typeCheckExpect,
 	typeOfExp, dependenciesOfExp,
 	
 	initTypeChecker,
@@ -13,7 +14,7 @@ import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
 import CSPM.TypeChecker.BuiltInFunctions
-import CSPM.TypeChecker.Common
+import qualified CSPM.TypeChecker.Common as TC
 import CSPM.TypeChecker.Compressor
 import CSPM.TypeChecker.Dependencies
 import CSPM.TypeChecker.Environment
@@ -38,15 +39,11 @@ initTypeChecker = runTypeChecker newTypeInferenceState $ do
 	-- to be overriden.
 	local [] getState
 
-typeCheckExp :: PExp -> TypeCheckMonad TCExp
-typeCheckExp exp = typeCheck exp >> mcompress exp
+typeCheckExpect :: (Compressable a, TC.TypeCheckable a Type) => Type -> a -> TypeCheckMonad a
+typeCheckExpect t exp = TC.typeCheckExpect exp t >> mcompress exp
 
-typeCheckModules :: [PModule] -> TypeCheckMonad [TCModule]
-typeCheckModules  ms = typeCheck ms >> mcompress ms
-
-typeCheckInteractiveStmt :: 
-	PInteractiveStmt -> TypeCheckMonad TCInteractiveStmt
-typeCheckInteractiveStmt stmt = typeCheck stmt >> mcompress stmt
+typeCheck :: (Compressable a, TC.TypeCheckable a b) => a -> TypeCheckMonad a
+typeCheck exp = TC.typeCheck exp >> mcompress exp
 
 typeOfExp :: PExp -> TypeCheckMonad Type
 typeOfExp exp = do
@@ -55,7 +52,7 @@ typeOfExp exp = do
 	mt <- liftIO $ readPType (snd (annotation exp))
 	case mt of 
 		Just t -> evaluateDots t >>= compress
-		Nothing -> typeCheckExp exp >> typeOfExp exp
+		Nothing -> typeCheck exp >> typeOfExp exp
 
 -- | Returns the list of names that this expression depends on
 dependenciesOfExp :: TCExp -> TypeCheckMonad [Name]

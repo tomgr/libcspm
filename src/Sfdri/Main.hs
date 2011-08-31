@@ -37,7 +37,7 @@ interactiveLoop = do
 		case currentPath of
 			Just fp -> last (splitPath fp)
 			Nothing -> ""
-	minput <- getInputLine (prompt ++ "> ")
+	minput <- handleSourceError (Just "") (getInputLine (prompt ++ "> "))
 	case minput of
 		Nothing -> return ()
 		Just input -> do
@@ -74,8 +74,8 @@ processInput expr =
 type CommandFunc = String -> InputT Sfdri Bool
 type Command = (String, CommandFunc, CompletionFunc Sfdri)
 
+builtInCommands :: [Command]
 builtInCommands = [
---	("edit", keepGoing editFile, completeFilename),
 	("load", keepGoing loadFileCommand, completeFilename),
 	("reload", keepGoing reload, noCompletion),
 	("type", keepGoing typeOfExpr, completeExpression),
@@ -138,9 +138,8 @@ quit _ = return False
 
 typeOfExpr :: String ->  InputT Sfdri ()
 typeOfExpr str = do
-	pExpr <- parse (expressionParser str)
-	tcExpr <- typeCheck (expressionTypeChecker pExpr)
-	typ <- typeOfExpression tcExpr
+	pExpr <- parseExpression str
+	typ <- typeOfExpression pExpr
 	outputStrLn $ show $ 
 		text str <+> text "::" <+> prettyPrint typ
 	return ()
@@ -153,8 +152,8 @@ loadFileCommand fname = do
 	lift $ modifyState (\st -> st { currentFilePath = Just fname })
 	-- Handle the error here so that the filepath is remembered (for reloading)
 	handleSourceError () $ do
-		pFile <- parse (fileParser fname)
-		tcFile <- typeCheck (fileTypeChecker pFile)
+		pFile <- parseFile fname
+		tcFile <- typeCheckFile pFile
 		loadFile tcFile
 		outputStrLn $ "Ok, loaded "++fname
 
@@ -165,12 +164,11 @@ reload _ = do
 	case currentPath of
 		Just fp -> loadFileCommand fp
 		Nothing -> return ()
-	
+
 evaluate :: String -> InputT Sfdri ()
 evaluate str = do
-	pStmt <- parse (interactiveStmtParser str)
-	tcStmt <- typeCheck (interactiveStmtTypeChecker pStmt)
-	val <- evaluateInteractiveStmt tcStmt
-	case val of
-		Just v -> outputStrLn $ show $ prettyPrint v
-		Nothing -> return ()
+	pStmt <- parseInteractiveStmt str
+	tcStmt <- typeCheckInteractiveStmt pStmt
+	case (unAnnotate tcStmt) of
+		Bind d -> bindDeclaration d
+		Evaluate e -> evaluateExp e >>= outputStrLn . show . prettyPrint
