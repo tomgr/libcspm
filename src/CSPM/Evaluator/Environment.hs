@@ -1,6 +1,6 @@
 module CSPM.Evaluator.Environment (
-	module Util.HierarchicalMap,
-	Environment,
+    module Util.HierarchicalMap,
+    Environment,
 ) where
 
 import qualified Data.Map as M

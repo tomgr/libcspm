@@ -9,13 +9,13 @@ import CSPM.TypeChecker.Monad
 import Util.Annotated
 
 instance TypeCheckable [PModule] () where
-	errorContext _ = Nothing
-	typeCheck' ([m]) = typeCheck m
+    errorContext _ = Nothing
+    typeCheck' ([m]) = typeCheck m
 
 instance TypeCheckable PModule () where
-	errorContext _ = Nothing
-	typeCheck' an =  setSrcSpan (loc an) $ typeCheck' (inner an)
+    errorContext _ = Nothing
+    typeCheck' an =  setSrcSpan (loc an) $ typeCheck' (inner an)
 
 instance TypeCheckable Module () where
-	errorContext _ = Nothing
-	typeCheck' (GlobalModule ds) = typeCheckDecls ds
+    errorContext _ = Nothing
+    typeCheck' (GlobalModule ds) = typeCheckDecls ds

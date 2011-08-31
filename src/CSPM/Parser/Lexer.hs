@@ -56,28 +56,28 @@ strip = lstrip . rstrip
 -- | Same as 'strip', but applies only to the left side of the string.
 lstrip :: String -> String
 lstrip s = case s of
-	[] -> []
-	(x:xs) -> if elem x wschars then lstrip xs else s
+    [] -> []
+    (x:xs) -> if elem x wschars then lstrip xs else s
 
 -- | Same as 'strip', but applies only to the right side of the string.
 rstrip :: String -> String
 rstrip = reverse . lstrip . reverse
 
 openseq token inp len = 
-	do
-		--cs <- getSequenceStack
-		--setSequenceStack (0:cs)
-		tok token inp len
+    do
+        --cs <- getSequenceStack
+        --setSequenceStack (0:cs)
+        tok token inp len
 closeseq token inp len = 
-	do
-		--(c:cs) <- getSequenceStack
-		--setSequenceStack cs
-		tok token inp len
+    do
+        --(c:cs) <- getSequenceStack
+        --setSequenceStack cs
+        tok token inp len
 
 gt :: AlexInput -> Int -> ParseMonad LToken
 gt inp len = do
-	(c:cs) <- getSequenceStack
-	tok (if c > 0 then TCloseSeq else TGt) inp len
+    (c:cs) <- getSequenceStack
+    tok (if c > 0 then TCloseSeq else TGt) inp len
 
 soakTok :: Token -> AlexInput -> Int -> ParseMonad LToken
 soakTok t inp len = setCurrentStartCode soak >> tok t inp len
@@ -85,63 +85,63 @@ soakTok t inp len = setCurrentStartCode soak >> tok t inp len
 -- TODO: don't count whitespace in the tokens
 tok :: Token -> AlexInput -> Int -> ParseMonad LToken
 tok t (ParserState { fileStack = fps:_ }) len =
-		return $ L (SrcSpanOneLine f lineno colno (colno+len)) t
-	where
-		(FileParserState { tokenizerPos = FilePosition offset lineno colno, 
-							fileName = f }) = fps
+        return $ L (SrcSpanOneLine f lineno colno (colno+len)) t
+    where
+        (FileParserState { tokenizerPos = FilePosition offset lineno colno, 
+                            fileName = f }) = fps
 
 stok :: (String -> Token) -> AlexInput -> Int -> ParseMonad LToken
 stok f (st @ ParserState { fileStack = stk }) len = do
-		tok (f (filter (\ c -> c /= '\n') (takeChars len stk))) st len
-	where
-		takeChars 0 _ = ""
-		takeChars len (FileParserState {input = [] }:stk) = takeChars len stk
-		takeChars len (fps@(FileParserState {input = (c:cs) }):stk) = 
-			c:(takeChars (len-1) (fps {input = cs}:stk))
+        tok (f (filter (\ c -> c /= '\n') (takeChars len stk))) st len
+    where
+        takeChars 0 _ = ""
+        takeChars len (FileParserState {input = [] }:stk) = takeChars len stk
+        takeChars len (fps@(FileParserState {input = (c:cs) }):stk) = 
+            c:(takeChars (len-1) (fps {input = cs}:stk))
 
 skip input len = getNextToken
 
 nestedComment :: AlexInput -> Int -> ParseMonad LToken
 nestedComment _ _ = do
-	st <- getParserState
-	go 1 st
-	where 
-		err :: ParseMonad a
-		err = do
-			FileParserState { 
-				fileName = fname, 
-				tokenizerPos = pos, 
-				currentStartCode = sc } <- getTopFileParserState
-			throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
-		go :: Int -> AlexInput -> ParseMonad LToken
-		go 0 st = do setParserState st; getNextToken
-		go n st = do
-			case alexGetChar st of
-				Nothing  -> err
-				Just (c,st) -> do
-					case c of
-						'-' -> do
-							case alexGetChar st of
-								Nothing			 -> err
-								Just ('\125',st) -> go (n-1) st
-								Just (c,st)      -> go n st
-						'\123' -> do
-							case alexGetChar st of
-								Nothing		  -> err
-								Just ('-',st) -> go (n+1) st
-								Just (c,st)   -> go n st
-						c -> go n st
+    st <- getParserState
+    go 1 st
+    where 
+        err :: ParseMonad a
+        err = do
+            FileParserState { 
+                fileName = fname, 
+                tokenizerPos = pos, 
+                currentStartCode = sc } <- getTopFileParserState
+            throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
+        go :: Int -> AlexInput -> ParseMonad LToken
+        go 0 st = do setParserState st; getNextToken
+        go n st = do
+            case alexGetChar st of
+                Nothing  -> err
+                Just (c,st) -> do
+                    case c of
+                        '-' -> do
+                            case alexGetChar st of
+                                Nothing          -> err
+                                Just ('\125',st) -> go (n-1) st
+                                Just (c,st)      -> go n st
+                        '\123' -> do
+                            case alexGetChar st of
+                                Nothing       -> err
+                                Just ('-',st) -> go (n+1) st
+                                Just (c,st)   -> go n st
+                        c -> go n st
 
 switchInput :: AlexInput -> Int -> ParseMonad LToken
 switchInput (st @ ParserState { fileStack = fps:_ }) len = 
-		pushFile file getNextToken
-	where
-		(FileParserState { input = s }) = fps
-		str = take len s
-		quotedFname = strip (drop (length "include") str)
-		file = calcFile (drop 1 quotedFname)
-		calcFile ('\"':cs) = ""
-		calcFile (c:cs) = c:calcFile cs
+        pushFile file getNextToken
+    where
+        (FileParserState { input = s }) = fps
+        str = take len s
+        quotedFname = strip (drop (length "include") str)
+        file = calcFile (drop 1 quotedFname)
+        calcFile ('\"':cs) = ""
+        calcFile (c:cs) = c:calcFile cs
 
 type AlexInput = ParserState
 
@@ -154,33 +154,33 @@ alexInputPrevChar (ParserState { fileStack = fps:_ })= previousChar fps
 alexGetChar :: AlexInput -> Maybe (Char,AlexInput)
 alexGetChar (ParserState { fileStack = [] }) = Nothing
 alexGetChar (st @ (ParserState { fileStack = fps:fpss })) = gc fps
-	where
-		gc (fps @ (FileParserState { input = [] })) = 
-			alexGetChar (st { fileStack = fpss })
-		gc (fps @ (FileParserState { tokenizerPos = p, input = (c:s) })) =
-				p' `seq` Just (c, st')
-			where
-				p' = movePos p c
-				fps' = fps { input = s, tokenizerPos = p', previousChar = c }
-				st' = st { fileStack = fps':fpss }
+    where
+        gc (fps @ (FileParserState { input = [] })) = 
+            alexGetChar (st { fileStack = fpss })
+        gc (fps @ (FileParserState { tokenizerPos = p, input = (c:s) })) =
+                p' `seq` Just (c, st')
+            where
+                p' = movePos p c
+                fps' = fps { input = s, tokenizerPos = p', previousChar = c }
+                st' = st { fileStack = fps':fpss }
 
 getNextToken :: ParseMonad LToken
 getNextToken = do
-	FileParserState { 
-		fileName = fname, 
-		tokenizerPos = pos, 
-		currentStartCode = sc } <- getTopFileParserState
-	st <- getParserState
-	case alexScan st sc of
-		AlexEOF -> return $ L Unknown TEOF
-		AlexError st' -> 
-			throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
-		AlexSkip st' len -> do
-			setParserState st'
-			getNextToken
-		AlexToken st' len action -> do
-			setParserState st'
-			action st len
+    FileParserState { 
+        fileName = fname, 
+        tokenizerPos = pos, 
+        currentStartCode = sc } <- getTopFileParserState
+    st <- getParserState
+    case alexScan st sc of
+        AlexEOF -> return $ L Unknown TEOF
+        AlexError st' -> 
+            throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
+        AlexSkip st' len -> do
+            setParserState st'
+            getNextToken
+        AlexToken st' len action -> do
+            setParserState st'
+            action st len
 
 getNextTokenWrapper :: (LToken -> ParseMonad a) -> ParseMonad a
 getNextTokenWrapper cont = getNextToken >>= cont
@@ -339,8 +339,8 @@ alexIndexInt32OffAddr (AlexA# arr) off =
   narrow32Int# i
   where
    i    = word2Int# ((b3 `uncheckedShiftL#` 24#) `or#`
-		     (b2 `uncheckedShiftL#` 16#) `or#`
-		     (b1 `uncheckedShiftL#` 8#) `or#` b0)
+             (b2 `uncheckedShiftL#` 16#) `or#`
+             (b1 `uncheckedShiftL#` 8#) `or#` b0)
    b3   = int2Word# (ord# (indexCharOffAddr# arr (off' +# 3#)))
    b2   = int2Word# (ord# (indexCharOffAddr# arr (off' +# 2#)))
    b1   = int2Word# (ord# (indexCharOffAddr# arr (off' +# 1#)))
@@ -379,30 +379,30 @@ alexScan input (I# (sc))
 
 alexScanUser user input (I# (sc))
   = case alex_scan_tkn user input 0# input sc AlexNone of
-	(AlexNone, input') ->
-		case alexGetChar input of
-			Nothing -> 
+    (AlexNone, input') ->
+        case alexGetChar input of
+            Nothing -> 
 
 
 
-				   AlexEOF
-			Just _ ->
+                   AlexEOF
+            Just _ ->
 
 
 
-				   AlexError input'
+                   AlexError input'
 
-	(AlexLastSkip input'' len, _) ->
-
-
-
-		AlexSkip input'' len
-
-	(AlexLastAcc k input''' len, _) ->
+    (AlexLastSkip input'' len, _) ->
 
 
 
-		AlexToken input''' len k
+        AlexSkip input'' len
+
+    (AlexLastAcc k input''' len, _) ->
+
+
+
+        AlexToken input''' len k
 
 
 -- Push the input through the DFA, remembering the most recent accepting
@@ -411,7 +411,7 @@ alexScanUser user input (I# (sc))
 alex_scan_tkn user orig_input len input s last_acc =
   input `seq` -- strict in the input
   let 
-	new_acc = check_accs (alex_accept `quickIndex` (I# (s)))
+    new_acc = check_accs (alex_accept `quickIndex` (I# (s)))
   in
   new_acc `seq`
   case alexGetChar input of
@@ -420,34 +420,34 @@ alex_scan_tkn user orig_input len input s last_acc =
 
 
 
-	let
-		(base) = alexIndexInt32OffAddr alex_base s
-		((I# (ord_c))) = ord c
-		(offset) = (base +# ord_c)
-		(check)  = alexIndexInt16OffAddr alex_check offset
-		
-		(new_s) = if (offset >=# 0#) && (check ==# ord_c)
-			  then alexIndexInt16OffAddr alex_table offset
-			  else alexIndexInt16OffAddr alex_deflt s
-	in
-	case new_s of 
-	    -1# -> (new_acc, input)
-		-- on an error, we want to keep the input *before* the
-		-- character that failed, not after.
-    	    _ -> alex_scan_tkn user orig_input (len +# 1#) 
-			new_input new_s new_acc
+    let
+        (base) = alexIndexInt32OffAddr alex_base s
+        ((I# (ord_c))) = ord c
+        (offset) = (base +# ord_c)
+        (check)  = alexIndexInt16OffAddr alex_check offset
+        
+        (new_s) = if (offset >=# 0#) && (check ==# ord_c)
+              then alexIndexInt16OffAddr alex_table offset
+              else alexIndexInt16OffAddr alex_deflt s
+    in
+    case new_s of 
+        -1# -> (new_acc, input)
+        -- on an error, we want to keep the input *before* the
+        -- character that failed, not after.
+            _ -> alex_scan_tkn user orig_input (len +# 1#) 
+            new_input new_s new_acc
 
   where
-	check_accs [] = last_acc
-	check_accs (AlexAcc a : _) = AlexLastAcc a input (I# (len))
-	check_accs (AlexAccSkip : _)  = AlexLastSkip  input (I# (len))
-	check_accs (AlexAccPred a predx : rest)
-	   | predx user orig_input (I# (len)) input
-	   = AlexLastAcc a input (I# (len))
-	check_accs (AlexAccSkipPred predx : rest)
-	   | predx user orig_input (I# (len)) input
-	   = AlexLastSkip input (I# (len))
-	check_accs (_ : rest) = check_accs rest
+    check_accs [] = last_acc
+    check_accs (AlexAcc a : _) = AlexLastAcc a input (I# (len))
+    check_accs (AlexAccSkip : _)  = AlexLastSkip  input (I# (len))
+    check_accs (AlexAccPred a predx : rest)
+       | predx user orig_input (I# (len)) input
+       = AlexLastAcc a input (I# (len))
+    check_accs (AlexAccSkipPred predx : rest)
+       | predx user orig_input (I# (len)) input
+       = AlexLastSkip input (I# (len))
+    check_accs (_ : rest) = check_accs rest
 
 data AlexLastAcc a
   = AlexNone
@@ -477,11 +477,11 @@ alexPrevCharIsOneOf arr _ input _ _ = arr ! alexInputPrevChar input
 --alexRightContext :: Int -> AlexAccPred _
 alexRightContext (I# (sc)) user _ _ input = 
      case alex_scan_tkn user input 0# input sc AlexNone of
-	  (AlexNone, _) -> False
-	  _ -> True
-	-- TODO: there's no need to find the longest
-	-- match when checking the right context, just
-	-- the first match will do.
+      (AlexNone, _) -> False
+      _ -> True
+    -- TODO: there's no need to find the longest
+    -- match when checking the right context, just
+    -- the first match will do.
 
 -- used by wrappers
 iUnbox (I# (i)) = i

@@ -11,8 +11,8 @@ thenCmp x _ = x
 
 expandPathIO :: String -> IO String
 expandPathIO ('~':'/':d) = do
-	tilde <- getHomeDirectory -- will fail if HOME not defined
-	return $ joinPath [tilde, d]
+    tilde <- getHomeDirectory -- will fail if HOME not defined
+    return $ joinPath [tilde, d]
 expandPathIO other = return other
 
 trim :: String -> String

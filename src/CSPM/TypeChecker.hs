@@ -1,11 +1,11 @@
 {-# LANGUAGE FlexibleContexts #-}
 module CSPM.TypeChecker (
-	typeCheck, typeCheckExpect,
-	typeOfExp, dependenciesOfExp,
-	
-	initTypeChecker,
-	TypeCheckMonad, TypeInferenceState,
-	runTypeChecker, runFromStateToState,
+    typeCheck, typeCheckExpect,
+    typeOfExp, dependenciesOfExp,
+    
+    initTypeChecker,
+    TypeCheckMonad, TypeInferenceState,
+    runTypeChecker, runFromStateToState,
 ) where
 
 import Control.Monad.Trans
@@ -26,18 +26,18 @@ import CSPM.TypeChecker.Unification
 import Util.Annotated
 
 runFromStateToState :: TypeInferenceState -> TypeCheckMonad a -> 
-			IO (a, TypeInferenceState)
+            IO (a, TypeInferenceState)
 runFromStateToState st prog = runTypeChecker st $ do
-	r <- prog
-	s <- getState
-	return (r, s)
+    r <- prog
+    s <- getState
+    return (r, s)
 
 initTypeChecker :: IO TypeInferenceState
 initTypeChecker = runTypeChecker newTypeInferenceState $ do
-	injectBuiltInFunctions
-	-- Add a blank level in the environment to allow built in functions
-	-- to be overriden.
-	local [] getState
+    injectBuiltInFunctions
+    -- Add a blank level in the environment to allow built in functions
+    -- to be overriden.
+    local [] getState
 
 typeCheckExpect :: (Compressable a, TC.TypeCheckable a Type) => Type -> a -> TypeCheckMonad a
 typeCheckExpect t exp = TC.typeCheckExpect exp t >> mcompress exp
@@ -47,12 +47,12 @@ typeCheck exp = TC.typeCheck exp >> mcompress exp
 
 typeOfExp :: PExp -> TypeCheckMonad Type
 typeOfExp exp = do
-	-- See if has been type checked, if so, return type,
-	-- else type check
-	mt <- liftIO $ readPType (snd (annotation exp))
-	case mt of 
-		Just t -> evaluateDots t >>= compress
-		Nothing -> typeCheck exp >> typeOfExp exp
+    -- See if has been type checked, if so, return type,
+    -- else type check
+    mt <- liftIO $ readPType (snd (annotation exp))
+    case mt of 
+        Just t -> evaluateDots t >>= compress
+        Nothing -> typeCheck exp >> typeOfExp exp
 
 -- | Returns the list of names that this expression depends on
 dependenciesOfExp :: TCExp -> TypeCheckMonad [Name]

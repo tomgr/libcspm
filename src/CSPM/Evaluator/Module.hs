@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 module CSPM.Evaluator.Module (
-	bindModules, bindModule,
+    bindModules, bindModule,
 ) 
 where
 
@@ -18,4 +18,4 @@ bindModules ms = liftM concat (mapM bindModule ms)
 
 bindModule :: TCModule -> EvaluationMonad [(Name, Value)]
 bindModule an = case unAnnotate an of
-	GlobalModule ds -> bindDecls ds
+    GlobalModule ds -> bindDecls ds

@@ -3,9 +3,9 @@ module CSPM.DataStructures.Names where
 import Data.Typeable
 
 data Name = 
-	Name String
-	| InternalName String
-	deriving (Eq, Ord, Typeable, Show)
+    Name String
+    | InternalName String
+    deriving (Eq, Ord, Typeable, Show)
 
 isInternal :: Name -> Bool
 isInternal (Name _) = False
@@ -15,5 +15,5 @@ mkInternalName :: String -> Name
 mkInternalName = InternalName
 
 data QualifiedName =
-	UnQual Name
-	deriving (Eq, Show)
+    UnQual Name
+    deriving (Eq, Show)

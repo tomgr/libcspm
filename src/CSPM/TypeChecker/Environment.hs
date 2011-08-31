@@ -1,6 +1,6 @@
 module CSPM.TypeChecker.Environment (
-	module Util.HierarchicalMap,
-	Environment
+    module Util.HierarchicalMap,
+    Environment
 )
 where
 

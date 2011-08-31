@@ -1,5 +1,5 @@
 module CSPM.DataStructures.Tokens (
-	Token(..), LToken, Model(..),
+    Token(..), LToken, Model(..),
 )
 where
 
@@ -8,99 +8,99 @@ import Util.Annotated
 import Util.PrettyPrint
 
 data Token = 
-	TInteger Integer
-	| TFalse
-	| TTrue
-	| TIdent String
+    TInteger Integer
+    | TFalse
+    | TTrue
+    | TIdent String
 
-	| TRefines Model
-	| TModel Model
-	| TTauPriority
-	| TDeadlockFree
-	| TDivergenceFree
-	| TLivelockFree
-	| TDeterministic
+    | TRefines Model
+    | TModel Model
+    | TTauPriority
+    | TDeadlockFree
+    | TDivergenceFree
+    | TLivelockFree
+    | TDeterministic
 
-	| TNewLine
-	| TDefineEqual
+    | TNewLine
+    | TDefineEqual
 
-	| TComma
-	| TDot
-	| TExclamationMark
-	| TQuestionMark
-	| TDollar
-	| TPipe
-	| TDoubleDot
-	| TColon
-	| TDrawnFrom
-	| TTie -- "<->"
+    | TComma
+    | TDot
+    | TExclamationMark
+    | TQuestionMark
+    | TDollar
+    | TPipe
+    | TDoubleDot
+    | TColon
+    | TDrawnFrom
+    | TTie -- "<->"
 
-	| TDoubleAt
-	| TWildCard
+    | TDoubleAt
+    | TWildCard
 
-	| TIf
-	| TThen
-	| TElse
-	| TLet
-	| TWithin
-	| TBackSlash
-	| TLambdaDot
-	| TChannel
-	| TAssert
-	| TDataType
-	| TExternal
-	| TTransparent
-	| TNameType
+    | TIf
+    | TThen
+    | TElse
+    | TLet
+    | TWithin
+    | TBackSlash
+    | TLambdaDot
+    | TChannel
+    | TAssert
+    | TDataType
+    | TExternal
+    | TTransparent
+    | TNameType
 
-	| TSemiColon
-	| TGuard
+    | TSemiColon
+    | TGuard
 
-	| TNot
-	| TAnd
-	| TOr
-	| TEq
-	| TNotEq
-	| TLtEq
-	| TGtEq
-	| TLt
-	| TGt
-	| TPlus
-	| TMinus
-	| TTimes
-	| TDivide
-	| TMod
-	| TCloseSeq
-	| TEmptySeq
+    | TNot
+    | TAnd
+    | TOr
+    | TEq
+    | TNotEq
+    | TLtEq
+    | TGtEq
+    | TLt
+    | TGt
+    | TPlus
+    | TMinus
+    | TTimes
+    | TDivide
+    | TMod
+    | TCloseSeq
+    | TEmptySeq
 
-	| TConcat
-	| THash
+    | TConcat
+    | THash
 
-	| TLParen
-	| TRParen
-	| TLBrace
-	| TRBrace
-	| TLPipeBrace
-	| TRPipeBrace
-	| TLDoubleSqBracket
-	| TRDoubleSqBracket
-	| TLPipeSqBracket
-	| TRPipeSqBracket
-	| TLSqBracket
-	| TRSqBracket 
-	
-	| TExtChoice
-	| TIntChoice
-	| TInterleave
-	| TPrefix
-	| TInterrupt
-	| TSlidingChoice
-	| TRException
-	| TParallel
+    | TLParen
+    | TRParen
+    | TLBrace
+    | TRBrace
+    | TLPipeBrace
+    | TRPipeBrace
+    | TLDoubleSqBracket
+    | TRDoubleSqBracket
+    | TLPipeSqBracket
+    | TRPipeSqBracket
+    | TLSqBracket
+    | TRSqBracket 
+    
+    | TExtChoice
+    | TIntChoice
+    | TInterleave
+    | TPrefix
+    | TInterrupt
+    | TSlidingChoice
+    | TRException
+    | TParallel
 
-	| TEOF
-	deriving (Eq, Show)
-	
+    | TEOF
+    deriving (Eq, Show)
+    
 type LToken = Located Token
 
 instance PrettyPrintable Token where
-	prettyPrint e = text (show e)
+    prettyPrint e = text (show e)

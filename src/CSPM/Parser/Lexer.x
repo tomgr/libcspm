@@ -41,135 +41,135 @@ $notid = [[^0-9a-zA-Z_]\(\[$whitechar]
 -- them. However, - and < may either appear in the middle of an expression or
 -- the start of one and thus we do not allow newlines to come between them.
 tokens :-
-	<0>@nl:\[					{ begin sem_prop }
-	<sem_prop>"tau priority"	{ tok TTauPriority }
-	<sem_prop>"tau priority over" { tok TTauPriority }
-	<sem_prop>"deadlock free"	{ tok TDeadlockFree }
-	<sem_prop>"deadlock-free"	{ tok TDeadlockFree }
-	<sem_prop>"livelock free"	{ tok TLivelockFree }
-	<sem_prop>"livelock-free"	{ tok TLivelockFree }
-	<sem_prop>"divergence free"	{ tok TDivergenceFree }
-	<sem_prop>"divergence-free"	{ tok TDivergenceFree }
-	<sem_prop>"deterministic"	{ tok TDeterministic }
-	<sem_prop>@nl"[T]"			{ tok (TModel Traces) }
-	<sem_prop>@nl"[F]"			{ tok (TModel Failures) }
-	<sem_prop>@nl"[FD]"			{ tok (TModel FailuresDivergences) }
-	<sem_prop>@nl"[V]"			{ tok (TModel Revivals) }
-	<sem_prop>@nl"[VD]"			{ tok (TModel RevivalsDivergences) }
-	<sem_prop>@nl"[R]"			{ tok (TModel Refusals) }
-	<sem_prop>@nl"[RD]"			{ tok (TModel RefusalsDivergences) }
-	<sem_prop>"]:"				{ begin 0 }
-	<sem_prop>"]"				{ begin 0 }
+    <0>@nl:\[                   { begin sem_prop }
+    <sem_prop>"tau priority"    { tok TTauPriority }
+    <sem_prop>"tau priority over" { tok TTauPriority }
+    <sem_prop>"deadlock free"   { tok TDeadlockFree }
+    <sem_prop>"deadlock-free"   { tok TDeadlockFree }
+    <sem_prop>"livelock free"   { tok TLivelockFree }
+    <sem_prop>"livelock-free"   { tok TLivelockFree }
+    <sem_prop>"divergence free" { tok TDivergenceFree }
+    <sem_prop>"divergence-free" { tok TDivergenceFree }
+    <sem_prop>"deterministic"   { tok TDeterministic }
+    <sem_prop>@nl"[T]"          { tok (TModel Traces) }
+    <sem_prop>@nl"[F]"          { tok (TModel Failures) }
+    <sem_prop>@nl"[FD]"         { tok (TModel FailuresDivergences) }
+    <sem_prop>@nl"[V]"          { tok (TModel Revivals) }
+    <sem_prop>@nl"[VD]"         { tok (TModel RevivalsDivergences) }
+    <sem_prop>@nl"[R]"          { tok (TModel Refusals) }
+    <sem_prop>@nl"[RD]"         { tok (TModel RefusalsDivergences) }
+    <sem_prop>"]:"              { begin 0 }
+    <sem_prop>"]"               { begin 0 }
 
-	<0>@nl"[T="@nl				{ tok (TRefines Traces) }
-	<0>@nl"[F="@nl				{ tok (TRefines Failures) }
-	<0>@nl"[FD="@nl				{ tok (TRefines FailuresDivergences) }
-	<0>@nl"[V="@nl				{ tok (TRefines Revivals) }
-	<0>@nl"[VD="@nl				{ tok (TRefines RevivalsDivergences) }
-	<0>@nl"[R="@nl				{ tok (TRefines Refusals) }
-	<0>@nl"[RD="@nl				{ tok (TRefines RefusalsDivergences) }
+    <0>@nl"[T="@nl              { tok (TRefines Traces) }
+    <0>@nl"[F="@nl              { tok (TRefines Failures) }
+    <0>@nl"[FD="@nl             { tok (TRefines FailuresDivergences) }
+    <0>@nl"[V="@nl              { tok (TRefines Revivals) }
+    <0>@nl"[VD="@nl             { tok (TRefines RevivalsDivergences) }
+    <0>@nl"[R="@nl              { tok (TRefines Refusals) }
+    <0>@nl"[RD="@nl             { tok (TRefines RefusalsDivergences) }
 
-	<soak>((\-\-.*\n)|$whitechar)+	{ skip }
-	<soak>""/$not_white			{ begin 0 }
+    <soak>((\-\-.*\n)|$whitechar)+  { skip }
+    <soak>""/$not_white         { begin 0 }
 
-	<0>@white_no_nl				{ skip }
+    <0>@white_no_nl             { skip }
 
-	<0>@nl"{-"					{ nestedComment }
+    <0>@nl"{-"                  { nestedComment }
 
-	<0>@nl"false"/$notid		{ tok TFalse }
-	<0>@nl"true"/$notid			{ tok TTrue }
+    <0>@nl"false"/$notid        { tok TFalse }
+    <0>@nl"true"/$notid         { tok TTrue }
 
-	<0>"include".*$whitechar*\n	{ switchInput }
+    <0>"include".*$whitechar*\n { switchInput }
 
-	-- Process Syntax
-	<0>@nl"[]"@nl				{ tok TExtChoice }
-	<0>@nl"|~|"@nl				{ tok TIntChoice }
-	<0>@nl"|||"@nl				{ tok TInterleave }
-	<0>@nl"/\"@nl				{ tok TInterrupt }
-	<0>@nl"->"@nl				{ tok TPrefix }
-	<0>@nl"[>"@nl				{ tok TSlidingChoice }
-	<0>@nl"|>"@nl				{ tok TRException }
-	<0>@nl"||"@nl				{ tok TParallel }
-	<0>@nl";"@nl				{ tok TSemiColon }
-	<0>@nl"&"@nl				{ tok TGuard }
+    -- Process Syntax
+    <0>@nl"[]"@nl               { tok TExtChoice }
+    <0>@nl"|~|"@nl              { tok TIntChoice }
+    <0>@nl"|||"@nl              { tok TInterleave }
+    <0>@nl"/\"@nl               { tok TInterrupt }
+    <0>@nl"->"@nl               { tok TPrefix }
+    <0>@nl"[>"@nl               { tok TSlidingChoice }
+    <0>@nl"|>"@nl               { tok TRException }
+    <0>@nl"||"@nl               { tok TParallel }
+    <0>@nl";"@nl                { tok TSemiColon }
+    <0>@nl"&"@nl                { tok TGuard }
 
-	-- Boolean Operators
-	<0>@nl"and"/$notid			{ soakTok TAnd }
-	<0>@nl"or"/$notid			{ soakTok TOr }
-	<0>@nl"not"/$notid			{ soakTok TNot }
-	<0>@nl"=="@nl				{ tok TEq }
-	<0>@nl"!="@nl				{ tok TNotEq }
-	<0>@nl"<="@nl				{ tok TLtEq }
-	<0>@nl">="@nl				{ tok TGtEq }
-	-- We need a empty sequence token since the parser will not execute the
-	<0>"<"$whitechar*">"		{ tok TEmptySeq }
-	<0>"<"@nl					{ tok TLt }
-	<0>@nl">"					{ gt }
+    -- Boolean Operators
+    <0>@nl"and"/$notid          { soakTok TAnd }
+    <0>@nl"or"/$notid           { soakTok TOr }
+    <0>@nl"not"/$notid          { soakTok TNot }
+    <0>@nl"=="@nl               { tok TEq }
+    <0>@nl"!="@nl               { tok TNotEq }
+    <0>@nl"<="@nl               { tok TLtEq }
+    <0>@nl">="@nl               { tok TGtEq }
+    -- We need a empty sequence token since the parser will not execute the
+    <0>"<"$whitechar*">"        { tok TEmptySeq }
+    <0>"<"@nl                   { tok TLt }
+    <0>@nl">"                   { gt }
 
-	-- Parenthesis
-	<0>"("@nl					{ openseq TLParen }
-	<0>@nl")"					{ closeseq TRParen }
-	<0>"{|"@nl					{ openseq TLPipeBrace }
-	<0>@nl"|}"					{ closeseq TRPipeBrace }
-	<0>"{"@nl					{ openseq TLBrace }
-	<0>@nl"}"					{ closeseq TRBrace }
-	<0>@nl"[["@nl				{ openseq TLDoubleSqBracket }
-	<0>@nl"]]"					{ closeseq TRDoubleSqBracket }
-	<0>@nl"[|"@nl				{ openseq TLPipeSqBracket }
-	<0>@nl"|]"@nl				{ closeseq TRPipeSqBracket }
-	<0>@nl"["@nl				{ tok TLSqBracket }
-	<0>@nl"]"@nl				{ tok TRSqBracket }
+    -- Parenthesis
+    <0>"("@nl                   { openseq TLParen }
+    <0>@nl")"                   { closeseq TRParen }
+    <0>"{|"@nl                  { openseq TLPipeBrace }
+    <0>@nl"|}"                  { closeseq TRPipeBrace }
+    <0>"{"@nl                   { openseq TLBrace }
+    <0>@nl"}"                   { closeseq TRBrace }
+    <0>@nl"[["@nl               { openseq TLDoubleSqBracket }
+    <0>@nl"]]"                  { closeseq TRDoubleSqBracket }
+    <0>@nl"[|"@nl               { openseq TLPipeSqBracket }
+    <0>@nl"|]"@nl               { closeseq TRPipeSqBracket }
+    <0>@nl"["@nl                { tok TLSqBracket }
+    <0>@nl"]"@nl                { tok TRSqBracket }
 
-	-- General Symbols
-	<0>@nl"|"@nl				{ tok TPipe }
-	<0>@nl","@nl				{ tok TComma }
-	<0>@nl".."@nl				{ tok TDoubleDot }
-	<0>@nl"."@nl				{ tok TDot }
-	<0>@nl"?"@nl				{ tok TQuestionMark }
-	<0>@nl"!"@nl				{ tok TExclamationMark }
-	<0>@nl"$"@nl				{ tok TDollar }
-	<0>@nl"<-"@nl				{ tok TDrawnFrom }
-	<0>@nl"<->"@nl				{ tok TTie }
-	<0>@nl":"@nl				{ tok TColon }
+    -- General Symbols
+    <0>@nl"|"@nl                { tok TPipe }
+    <0>@nl","@nl                { tok TComma }
+    <0>@nl".."@nl               { tok TDoubleDot }
+    <0>@nl"."@nl                { tok TDot }
+    <0>@nl"?"@nl                { tok TQuestionMark }
+    <0>@nl"!"@nl                { tok TExclamationMark }
+    <0>@nl"$"@nl                { tok TDollar }
+    <0>@nl"<-"@nl               { tok TDrawnFrom }
+    <0>@nl"<->"@nl              { tok TTie }
+    <0>@nl":"@nl                { tok TColon }
 
-	<0>@nl"@@"@nl				{ tok TDoubleAt }
+    <0>@nl"@@"@nl               { tok TDoubleAt }
 
-	-- Program Structure
-	<0>@nl"="@nl				{ tok TDefineEqual }
-	<0>@nl"if"/$notid			{ soakTok TIf }
-	<0>@nl"then"/$notid			{ soakTok TThen }
-	<0>@nl"else"/$notid			{ soakTok TElse }
-	<0>@nl"let"/$notid			{ soakTok TLet }
-	<0>@nl"within"/$notid		{ soakTok TWithin }
-	<0>"channel"/$notid			{ soakTok TChannel }
-	<0>"assert"/$notid			{ soakTok TAssert }
-	<0>"datatype"/$notid		{ soakTok TDataType }
-	<0>"external"/$notid		{ soakTok TExternal }
-	<0>"transparent"/$notid		{ soakTok TTransparent }
-	<0>"nametype"/$notid		{ soakTok TNameType }
+    -- Program Structure
+    <0>@nl"="@nl                { tok TDefineEqual }
+    <0>@nl"if"/$notid           { soakTok TIf }
+    <0>@nl"then"/$notid         { soakTok TThen }
+    <0>@nl"else"/$notid         { soakTok TElse }
+    <0>@nl"let"/$notid          { soakTok TLet }
+    <0>@nl"within"/$notid       { soakTok TWithin }
+    <0>"channel"/$notid         { soakTok TChannel }
+    <0>"assert"/$notid          { soakTok TAssert }
+    <0>"datatype"/$notid        { soakTok TDataType }
+    <0>"external"/$notid        { soakTok TExternal }
+    <0>"transparent"/$notid     { soakTok TTransparent }
+    <0>"nametype"/$notid        { soakTok TNameType }
 
-	<0>@nl"\"@nl				{ tok TBackSlash }
-	<0>@nl"@"@nl				{ tok TLambdaDot }
+    <0>@nl"\"@nl                { tok TBackSlash }
+    <0>@nl"@"@nl                { tok TLambdaDot }
 
-	-- Arithmetic
-	<0>@nl"+"@nl				{ tok TPlus }
-	<0>"-"@nl					{ tok TMinus }
-	<0>@nl"*"@nl				{ tok TTimes }
-	<0>@nl"/"@nl				{ tok TDivide }
-	<0>@nl"%"@nl				{ tok TMod }
+    -- Arithmetic
+    <0>@nl"+"@nl                { tok TPlus }
+    <0>"-"@nl                   { tok TMinus }
+    <0>@nl"*"@nl                { tok TTimes }
+    <0>@nl"/"@nl                { tok TDivide }
+    <0>@nl"%"@nl                { tok TMod }
 
-	-- Sequence Symbols
-	<0>@nl"^"@nl				{ tok TConcat }
-	<0>"#"@nl					{ tok THash }
+    -- Sequence Symbols
+    <0>@nl"^"@nl                { tok TConcat }
+    <0>"#"@nl                   { tok THash }
 
-	-- 'Wildcards'
-	<0>$alpha+$alphanum*$prime*	{ stok (\s -> TIdent s) }
-	<0>@nl$digit+				{ stok (\ s -> TInteger (read s)) }
+    -- 'Wildcards'
+    <0>$alpha+$alphanum*$prime* { stok (\s -> TIdent s) }
+    <0>@nl$digit+               { stok (\ s -> TInteger (read s)) }
 
-	-- Must be after names
-	<0>@nl"_"@nl				{ tok TWildCard }
+    -- Must be after names
+    <0>@nl"_"@nl                { tok TWildCard }
 
-	<0>@nltok					{ tok TNewLine }
+    <0>@nltok                   { tok TNewLine }
 
 {
 wschars :: String
@@ -181,28 +181,28 @@ strip = lstrip . rstrip
 -- | Same as 'strip', but applies only to the left side of the string.
 lstrip :: String -> String
 lstrip s = case s of
-	[] -> []
-	(x:xs) -> if elem x wschars then lstrip xs else s
+    [] -> []
+    (x:xs) -> if elem x wschars then lstrip xs else s
 
 -- | Same as 'strip', but applies only to the right side of the string.
 rstrip :: String -> String
 rstrip = reverse . lstrip . reverse
 
 openseq token inp len = 
-	do
-		--cs <- getSequenceStack
-		--setSequenceStack (0:cs)
-		tok token inp len
+    do
+        --cs <- getSequenceStack
+        --setSequenceStack (0:cs)
+        tok token inp len
 closeseq token inp len = 
-	do
-		--(c:cs) <- getSequenceStack
-		--setSequenceStack cs
-		tok token inp len
+    do
+        --(c:cs) <- getSequenceStack
+        --setSequenceStack cs
+        tok token inp len
 
 gt :: AlexInput -> Int -> ParseMonad LToken
 gt inp len = do
-	(c:cs) <- getSequenceStack
-	tok (if c > 0 then TCloseSeq else TGt) inp len
+    (c:cs) <- getSequenceStack
+    tok (if c > 0 then TCloseSeq else TGt) inp len
 
 soakTok :: Token -> AlexInput -> Int -> ParseMonad LToken
 soakTok t inp len = setCurrentStartCode soak >> tok t inp len
@@ -210,63 +210,63 @@ soakTok t inp len = setCurrentStartCode soak >> tok t inp len
 -- TODO: don't count whitespace in the tokens
 tok :: Token -> AlexInput -> Int -> ParseMonad LToken
 tok t (ParserState { fileStack = fps:_ }) len =
-		return $ L (SrcSpanOneLine f lineno colno (colno+len)) t
-	where
-		(FileParserState { tokenizerPos = FilePosition offset lineno colno, 
-							fileName = f }) = fps
+        return $ L (SrcSpanOneLine f lineno colno (colno+len)) t
+    where
+        (FileParserState { tokenizerPos = FilePosition offset lineno colno, 
+                            fileName = f }) = fps
 
 stok :: (String -> Token) -> AlexInput -> Int -> ParseMonad LToken
 stok f (st @ ParserState { fileStack = stk }) len = do
-		tok (f (filter (\ c -> c /= '\n') (takeChars len stk))) st len
-	where
-		takeChars 0 _ = ""
-		takeChars len (FileParserState {input = [] }:stk) = takeChars len stk
-		takeChars len (fps@(FileParserState {input = (c:cs) }):stk) = 
-			c:(takeChars (len-1) (fps {input = cs}:stk))
+        tok (f (filter (\ c -> c /= '\n') (takeChars len stk))) st len
+    where
+        takeChars 0 _ = ""
+        takeChars len (FileParserState {input = [] }:stk) = takeChars len stk
+        takeChars len (fps@(FileParserState {input = (c:cs) }):stk) = 
+            c:(takeChars (len-1) (fps {input = cs}:stk))
 
 skip input len = getNextToken
 
 nestedComment :: AlexInput -> Int -> ParseMonad LToken
 nestedComment _ _ = do
-	st <- getParserState
-	go 1 st
-	where 
-		err :: ParseMonad a
-		err = do
-			FileParserState { 
-				fileName = fname, 
-				tokenizerPos = pos, 
-				currentStartCode = sc } <- getTopFileParserState
-			throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
-		go :: Int -> AlexInput -> ParseMonad LToken
-		go 0 st = do setParserState st; getNextToken
-		go n st = do
-			case alexGetChar st of
-				Nothing  -> err
-				Just (c,st) -> do
-					case c of
-						'-' -> do
-							case alexGetChar st of
-								Nothing			 -> err
-								Just ('\125',st) -> go (n-1) st
-								Just (c,st)      -> go n st
-						'\123' -> do
-							case alexGetChar st of
-								Nothing		  -> err
-								Just ('-',st) -> go (n+1) st
-								Just (c,st)   -> go n st
-						c -> go n st
+    st <- getParserState
+    go 1 st
+    where 
+        err :: ParseMonad a
+        err = do
+            FileParserState { 
+                fileName = fname, 
+                tokenizerPos = pos, 
+                currentStartCode = sc } <- getTopFileParserState
+            throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
+        go :: Int -> AlexInput -> ParseMonad LToken
+        go 0 st = do setParserState st; getNextToken
+        go n st = do
+            case alexGetChar st of
+                Nothing  -> err
+                Just (c,st) -> do
+                    case c of
+                        '-' -> do
+                            case alexGetChar st of
+                                Nothing          -> err
+                                Just ('\125',st) -> go (n-1) st
+                                Just (c,st)      -> go n st
+                        '\123' -> do
+                            case alexGetChar st of
+                                Nothing       -> err
+                                Just ('-',st) -> go (n+1) st
+                                Just (c,st)   -> go n st
+                        c -> go n st
 
 switchInput :: AlexInput -> Int -> ParseMonad LToken
 switchInput (st @ ParserState { fileStack = fps:_ }) len = 
-		pushFile file getNextToken
-	where
-		(FileParserState { input = s }) = fps
-		str = take len s
-		quotedFname = strip (drop (length "include") str)
-		file = calcFile (drop 1 quotedFname)
-		calcFile ('\"':cs) = ""
-		calcFile (c:cs) = c:calcFile cs
+        pushFile file getNextToken
+    where
+        (FileParserState { input = s }) = fps
+        str = take len s
+        quotedFname = strip (drop (length "include") str)
+        file = calcFile (drop 1 quotedFname)
+        calcFile ('\"':cs) = ""
+        calcFile (c:cs) = c:calcFile cs
 
 type AlexInput = ParserState
 
@@ -279,33 +279,33 @@ alexInputPrevChar (ParserState { fileStack = fps:_ })= previousChar fps
 alexGetChar :: AlexInput -> Maybe (Char,AlexInput)
 alexGetChar (ParserState { fileStack = [] }) = Nothing
 alexGetChar (st @ (ParserState { fileStack = fps:fpss })) = gc fps
-	where
-		gc (fps @ (FileParserState { input = [] })) = 
-			alexGetChar (st { fileStack = fpss })
-		gc (fps @ (FileParserState { tokenizerPos = p, input = (c:s) })) =
-				p' `seq` Just (c, st')
-			where
-				p' = movePos p c
-				fps' = fps { input = s, tokenizerPos = p', previousChar = c }
-				st' = st { fileStack = fps':fpss }
+    where
+        gc (fps @ (FileParserState { input = [] })) = 
+            alexGetChar (st { fileStack = fpss })
+        gc (fps @ (FileParserState { tokenizerPos = p, input = (c:s) })) =
+                p' `seq` Just (c, st')
+            where
+                p' = movePos p c
+                fps' = fps { input = s, tokenizerPos = p', previousChar = c }
+                st' = st { fileStack = fps':fpss }
 
 getNextToken :: ParseMonad LToken
 getNextToken = do
-	FileParserState { 
-		fileName = fname, 
-		tokenizerPos = pos, 
-		currentStartCode = sc } <- getTopFileParserState
-	st <- getParserState
-	case alexScan st sc of
-		AlexEOF -> return $ L Unknown TEOF
-		AlexError st' -> 
-			throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
-		AlexSkip st' len -> do
-			setParserState st'
-			getNextToken
-		AlexToken st' len action -> do
-			setParserState st'
-			action st len
+    FileParserState { 
+        fileName = fname, 
+        tokenizerPos = pos, 
+        currentStartCode = sc } <- getTopFileParserState
+    st <- getParserState
+    case alexScan st sc of
+        AlexEOF -> return $ L Unknown TEOF
+        AlexError st' -> 
+            throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
+        AlexSkip st' len -> do
+            setParserState st'
+            getNextToken
+        AlexToken st' len action -> do
+            setParserState st'
+            action st len
 
 getNextTokenWrapper :: (LToken -> ParseMonad a) -> ParseMonad a
 getNextTokenWrapper cont = getNextToken >>= cont

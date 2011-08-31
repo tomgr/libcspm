@@ -23,29 +23,29 @@ invert f = [(a,b) | (b,a) <- f]
 
 apply :: Eq a => PartialFunction a b -> a -> b
 apply f x =
-	let
-		pos = [b | (a,b) <- f, a == x]
-	in
-		if length pos == 0 then 
-			panic ("Partial function applied to value outside of domain")
-		else head pos
-		
+    let
+        pos = [b | (a,b) <- f, a == x]
+    in
+        if length pos == 0 then 
+            panic ("Partial function applied to value outside of domain")
+        else head pos
+        
 applyRelation :: Eq a => PartialFunction a b -> a -> [b]
 applyRelation f x = [b | (a,b) <- f, a == x]
 
 safeApply :: Eq a => PartialFunction a b -> a -> Maybe b
 safeApply f x =
-	let
-		pos = [b | (a,b) <- f, a == x]
-	in
-		if length pos == 0 then Nothing
-		else Just (head pos)
+    let
+        pos = [b | (a,b) <- f, a == x]
+    in
+        if length pos == 0 then Nothing
+        else Just (head pos)
 
 composeFunctions :: 
-	(Eq a, Eq b) => PartialFunction b c -> PartialFunction a b -> 
-					PartialFunction a c
+    (Eq a, Eq b) => PartialFunction b c -> PartialFunction a b -> 
+                    PartialFunction a c
 composeFunctions f g = 
-	[(a, apply f b) | (a,b) <- g]
+    [(a, apply f b) | (a,b) <- g]
 
 mapPF :: Eq a => PartialFunction a b -> [a] -> [b]
 mapPF f xs = [apply f x | x <- xs]

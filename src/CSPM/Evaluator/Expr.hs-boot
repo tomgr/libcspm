@@ -7,8 +7,8 @@ import CSPM.Evaluator.ValueSet
 import Util.Annotated
 
 class Evaluatable a where
-	eval :: a -> EvaluationMonad Value
-	
+    eval :: a -> EvaluationMonad Value
+    
 instance Evaluatable a => Evaluatable (Annotated b a)
 instance Evaluatable Exp
 

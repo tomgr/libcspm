@@ -11,22 +11,22 @@ import CSPM
 import Util.Exception
 
 data SfdriState = SfdriState {
-		settingsDirectory :: FilePath,
-		cspmSession :: CSPMSession,
-		currentFilePath :: Maybe FilePath
-	}
+        settingsDirectory :: FilePath,
+        cspmSession :: CSPMSession,
+        currentFilePath :: Maybe FilePath
+    }
 
 initSfdriState :: IO SfdriState
 initSfdriState = do
-	settingsDirectory <- getAppUserDataDirectory "sfdr"
-	createDirectoryIfMissing True $ joinPath [settingsDirectory, "interactive"]
-	sess <- newCSPMSession
-	return $ SfdriState settingsDirectory sess Nothing
+    settingsDirectory <- getAppUserDataDirectory "sfdr"
+    createDirectoryIfMissing True $ joinPath [settingsDirectory, "interactive"]
+    sess <- newCSPMSession
+    return $ SfdriState settingsDirectory sess Nothing
 
 resetCSPM :: Sfdri ()
 resetCSPM = do
-	sess <- liftIO $ newCSPMSession
-	modify (\st -> st { cspmSession = sess })
+    sess <- liftIO $ newCSPMSession
+    modify (\st -> st { cspmSession = sess })
 
 type Sfdri = StateT SfdriState IO
 
@@ -40,8 +40,8 @@ modifyState :: (SfdriState -> SfdriState) -> Sfdri ()
 modifyState = modify
 
 instance CSPMMonad Sfdri where
-	getSession = gets cspmSession
-	setSession s = modify (\ st -> st { cspmSession = s })
+    getSession = gets cspmSession
+    setSession s = modify (\ st -> st { cspmSession = s })
 
 instance CSPMMonad (InputT Sfdri) where
   setSession = lift . setSession

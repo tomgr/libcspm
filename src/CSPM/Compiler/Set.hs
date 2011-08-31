@@ -1,16 +1,16 @@
 module CSPM.Compiler.Set ( 
-	Set,
-	null,
-	member,
-	empty,
-	unions,
-	union,
-	difference,
-	fromList, 
-	toList,
-	unionMap,
-	split,
-	subseteq,
+    Set,
+    null,
+    member,
+    empty,
+    unions,
+    union,
+    difference,
+    fromList, 
+    toList,
+    unionMap,
+    split,
+    subseteq,
 ) where
 
 import Data.List ((\\), nub)
