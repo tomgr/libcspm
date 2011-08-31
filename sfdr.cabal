@@ -17,7 +17,6 @@ Executable cspm-tests
   Hs-Source-Dirs: src
   Build-depends: 
     base, 
-    haskell98, 
     filepath >= 1.2, 
     array >= 0.3, 
     containers >= 0.4, 
