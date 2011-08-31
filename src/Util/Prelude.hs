@@ -17,3 +17,6 @@ expandPathIO other = return other
 
 trim :: String -> String
 trim = f . f where f = reverse . dropWhile isSpace
+
+cartProduct :: [[a]] -> [[a]]
+cartProduct = sequence
