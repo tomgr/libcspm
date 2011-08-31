@@ -98,7 +98,7 @@ lineBreakers = " \t\n"
 expressionBreakers :: [Char]
 expressionBreakers = 
 	lineBreakers 
-	++ "+/%*?!(),;[]{}"
+	++ "+/%*?!$.(),;[]{}\\|"
 
 wrapCompleter :: [Char] -> (String -> Sfdri [String]) -> CompletionFunc Sfdri
 wrapCompleter breakers fun = completeWord Nothing breakers
