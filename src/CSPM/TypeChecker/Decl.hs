@@ -85,7 +85,7 @@ typeCheckDecls decls = do
 		typeCheckGroups (g:gs) b = do
 			err <- tryAndRecover (do
 				typeCheckMutualyRecursiveGroup (typeInferenceGroup (S.toList g))
-				return False --(gs,b)
+				return False
 				) (return True)
 			if not err then typeCheckGroups gs b
 			-- Else, continue type checking but remove all declaration groups
@@ -101,11 +101,18 @@ typeCheckDecls decls = do
 -- functions that are mutually recursive should be included otherwise the
 -- types could end up being less general.
 typeCheckMutualyRecursiveGroup :: [PDecl] -> TypeCheckMonad ()
-typeCheckMutualyRecursiveGroup ds = do
-	-- We only create variables for non datatype declarations as the others
-	-- were prebound in prebindDataType
+typeCheckMutualyRecursiveGroup ds' = do
+	-- TODO: fix temporary hack
+	let 
+		cmp x y = case (unAnnotate x, unAnnotate y) of
+			(DataType _ _, DataType _ _) -> EQ
+			(DataType _ _, _) -> LT
+			(_, DataType _ _) -> GT
+			(_, _) -> EQ
+		ds = sortBy cmp ds'
 	fvs <- liftM nub (concatMapM namesBoundByDecl 
-				(filter (not . wasPrebound . unAnnotate) ds))
+						(filter (not . wasPrebound . unAnnotate) ds))
+
 	ftvs <- replicateM (length fvs) freshTypeVar
 	zipWithM setType fvs (map (ForAll []) ftvs)
 	
@@ -116,7 +123,7 @@ typeCheckMutualyRecursiveGroup ds = do
 	nts <- generaliseGroup fvs (map typeCheck ds)
 	-- Add the type of each declaration (if one exists to each declaration)
 	zipWithM annotate nts ds
-	
+
 	-- Compress all the types we have inferred here (they should never be 
 	-- touched again)
 	mapM_ (\ n -> do

@@ -15,6 +15,7 @@ import CSPM.TypeChecker.Exceptions
 import CSPM.TypeChecker.Monad
 import Util.Exception
 import Util.Monad
+import Util.PrettyPrint
 
 -- | Return the free type variables (and their constraints) for all 'TypeVar's 
 -- that occur in 'Type'.
@@ -456,9 +457,15 @@ raiseUnificationError isDotError = do
 applySubstitution :: TypeVarRef -> Type -> TypeCheckMonad Type
 applySubstitution (tvref @ (TypeVarRef tv _ _)) typ = do
 	t' <- compress typ
-	errorIfFalseM (liftM not (occurs tv typ)) 
+	b <- occurs tv typ
+	(b, t) <- if b then do
+			t <- evaluateDots t'
+			b <- occurs tv t
+			return (b,t)
+		else return (b, typ)
+	errorIfFalse (not b)
 		(infiniteUnificationMessage (TVar tvref) t')
-	writeTypeRef tvref typ
+	writeTypeRef tvref t
 	return typ
 
 -- | Applies a subtitution directly to the type. This is used in

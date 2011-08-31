@@ -1,0 +1,11 @@
+agents = {Ground, Sq.<Ground>.Ground}
+
+datatype fact = 
+	Sq.Seq(fact).agents
+	| Summary.agents
+	| Ground
+
+nth(0, m) = head(m)
+nth(i, m) = nth(i-1, tail(m))
+
+fails(X) = { Sq.m.Ground, nth(0,m) | Sq.m <- X }
