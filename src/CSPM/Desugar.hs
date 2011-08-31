@@ -3,7 +3,10 @@ module CSPM.Desugar where
 
 import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
+import CSPM.PrettyPrinter
 import Util.Annotated
+import Util.Exception
+import Util.PrettyPrint
 
 class Desugarable a where
 	desugar :: a -> a
@@ -71,8 +74,10 @@ instance Desugarable Exp where
 	desugar (MathsBinaryOp op e1 e2) = 
 		MathsBinaryOp op (desugar e1) (desugar e2)
 	desugar (MathsUnaryOp op e) = MathsUnaryOp op (desugar e)
-	-- TODO: do we want to do this?
-	desugar (Paren e) = unAnnotate (desugar e)
+	-- We don't remove the Paren as people may pretty print a desugared
+	-- expression, which would then not have parenthesis needed to
+	-- remove ambiguity
+	desugar (Paren e) = Paren (desugar e)
 	desugar (Set es) = Set (desugar es)
 	desugar (SetComp es stmts) = SetComp (desugar es) (desugar stmts)
 	desugar (SetEnum es) = SetEnum (desugar es)
@@ -125,9 +130,10 @@ instance Desugarable Stmt where
 	desugar (Qualifier e) = Qualifier (desugar e)
 
 instance Desugarable InteractiveStmt where
-	desugar (Evaluate e) = Evaluate (desugar e)
 	desugar (Bind d) = Bind (desugar d)
-	
+	desugar (Evaluate e) = Evaluate (desugar e)
+	desugar (RunAssertion a) = RunAssertion (desugar a)
+
 instance Desugarable Pat where
 	desugar (PConcat p1 p2) = 
 		let
@@ -153,10 +159,18 @@ instance Desugarable Pat where
 	desugar (PDoublePattern p1 p2) =
 		PDoublePattern (desugar p1) (desugar p2)
 	desugar (PLit l) = PLit (desugar l)
-	-- TODO: do we want to do this?
-	desugar (PParen p) = unAnnotate (desugar p)
+	-- We don't remove the Paren as people may pretty print a desugared
+	-- expression, which would then not have parenthesis needed to
+	-- remove ambiguity
+	desugar (PParen p) = PParen (desugar p)
+	desugar (PSet []) = PSet []
 	desugar (PSet [p]) = PSet [desugar p]
-	-- TODO: throw error for PSet longer
+	desugar (PSet ps) = throwSourceError [mkErrorMessage l err]
+		where
+			-- TODO: get a proper location for the whole
+			-- pattern
+			l = loc (head ps)
+			err = prettyPrint (PSet ps) <+> text "is not a valid set pattern as set patterns may only match at most one element"
 	desugar (PTuple ps) = PTuple (map desugar ps)
 	desugar (PVar n) = PVar n
 	desugar (PWildCard) = PWildCard
