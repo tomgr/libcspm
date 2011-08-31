@@ -26,6 +26,7 @@ builtInFunctions =
 		cspm_Seq [VSet s] = S.allSequences s
 		cspm_seq [VSet s] = S.toList s
 		
+		
 		cspm_length [VList xs] = VInt $ (toInteger (length xs))
 		cspm_null [VList xs] = VBool $ null xs
 		cspm_head [VList xs] = head xs
@@ -67,18 +68,26 @@ builtInFunctions =
 			(csp_stop_id, csp_stop),
 			(csp_skip_id, PPrefix Tick (PProcCall csp_stop_id (Just csp_stop)))
 			]
+		
 		csp_skip_id = procId (Name "SKIP") []
 		csp_stop_id = procId (Name "STOP") []
 		csp_stop = PExternalChoice []
 		
-		mkProc (s,p) = (Name s, VProc p)
+		mkProc (s, p) = (Name s, VProc p)
 		
+		cspm_true = ("true", VBool True)
+		cspm_false = ("false", VBool False)
+		
+		patterns = [cspm_true, cspm_false]
+		
+		mkPattern (s, v) = (Name s, v)
 	in
 		map mkFunc (
 			map (\ (n, f) -> (n, VSet . f)) set_funcs
 			++ map (\ (n, f) -> (n, VList . f)) seq_funcs
 			++ other_funcs)
 		++ map mkProc procs
+		++ map mkPattern patterns
 
 injectBuiltInFunctions :: EvaluationMonad a -> EvaluationMonad a
 injectBuiltInFunctions = addScopeAndBind builtInFunctions
