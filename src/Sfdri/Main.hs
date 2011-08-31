@@ -45,11 +45,15 @@ interactiveLoop = do
 			if c then interactiveLoop else return ()
 
 handleSourceError :: a -> InputT Sfdri a -> InputT Sfdri a
-handleSourceError v prog = prog `catch` (handle v)
+handleSourceError v prog = (prog `catch` handle v) `catch` handleInt v
 	where
 		handle :: a -> SfdrException -> InputT Sfdri a
 		handle v e = do
 			printError (show e)
+			return v
+		handleInt :: a -> AsyncException -> InputT Sfdri a 
+		handleInt v UserInterrupt = do
+			printError "Interrupted"
 			return v
 
 printError :: String -> InputT Sfdri ()
