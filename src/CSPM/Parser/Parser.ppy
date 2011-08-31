@@ -374,7 +374,7 @@ ExpA :: { PExp }
 
 Field :: { PField }
 	:
-	-- For somer eason changing Exp to Pat causes a shift/reduce error, hence we do this
+	-- For somer reason changing Exp to Pat causes a shift/reduce error, hence we do this
 	"?" Exp							{ AN2 (Input (convPat $2) Nothing) }
 	| "?" Exp ":" Exp				{ AN2 (Input (convPat $2) (Just (checkExp $4))) }
 	| "$" Exp						{ AN2 (NonDetInput (convPat $2) Nothing) }
