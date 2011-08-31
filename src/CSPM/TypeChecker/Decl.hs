@@ -158,11 +158,11 @@ instance TypeCheckable Decl [(Name, Type)] where
 	errorContext (FunBind n ms) = Just $ 
 		-- This will only be helpful if the equations don't match in
 		-- type
-		text "In the delcaration of:" <+> prettyPrint n
+		text "In the declaration of:" <+> prettyPrint n
 	errorContext (p@(PatBind pat exp)) = Just $
 		hang (text "In a pattern binding:") tabWidth (prettyPrint p)
 	errorContext (DataType n cs) = Just $
-		text "In the delcaration of:" <+> prettyPrint n
+		text "In the declaration of:" <+> prettyPrint n
 	errorContext (NameType n e) = Just $
 		text "In the declaration of:" <+> prettyPrint n
 	errorContext (Channel ns es) = Just $
