@@ -4,13 +4,14 @@ import Control.Monad
 import qualified Data.Set as S
 
 import CSPM.Evaluator.Values
+import qualified CSPM.Compiler.Events as CE
+import qualified CSPM.Compiler.Set as CS
 import Util.Exception
 import Util.PrettyPrint hiding (empty)
 
 data ValueSet = 
 	Integers -- Set of all integers
 	| Processes -- Set of all processes
-	| Events -- Set of all events
 	| ExplicitSet (S.Set Value)
 	| IntSetFrom Integer -- {lb..}
 	| RangedSet Integer Integer -- {lb..ub}
@@ -19,40 +20,44 @@ data ValueSet =
 instance Eq ValueSet where
 	Integers == Integers = True
 	Processes == Processes = True
-	Events == Events = True
 	IntSetFrom lb1 == IntSetFrom lb2 = lb1 == lb2
 	RangedSet lb1 ub1 == RangedSet lb2 ub2 = lb1 == lb2 && ub1 == ub2
 	ExplicitSet s1 == ExplicitSet s2 = s1 == s2
-	
+
 	ExplicitSet s == RangedSet lb ub = s == S.fromList (map VInt [lb..ub])
 	RangedSet lb ub == ExplicitSet s = s == S.fromList (map VInt [lb..ub])
-	
-	ExplicitSet s == Events = panic "TODO: events equality"
-	Events == ExplicitSet s = panic "TODO: events equality"
+	-- TODO: complete
 	
 	_ == _ = panic "Cannot compare sets"
 	
 instance Ord ValueSet where
 	compare (ExplicitSet s1) (ExplicitSet s2) = compare s1 s2
+	-- TODO: complete
 
 instance PrettyPrintable ValueSet where
-	prettyPrint (RangedSet lb1 lb2) = 
-		braces (integer lb1 <> text "..." <> integer lb2)
+	prettyPrint Integers = text "Integers"
+	prettyPrint Processes = text "Proc"
+	prettyPrint (IntSetFrom lb) = braces (integer lb <> text "...")
+	prettyPrint (RangedSet lb ub) = 
+		braces (integer lb <> text "..." <> integer ub)
 	prettyPrint (ExplicitSet s) =
 		braces (list (map prettyPrint $ S.toList s))
-
+	prettyPrint (LazySet vs) =
+		braces (list (map prettyPrint vs))
+	-- TODO: complete
+	
 instance Show ValueSet where
 	show = show . prettyPrint
-
 
 -- | Produces a ValueSet of the carteisan product of several ValueSets, 
 -- using 'vc' to convert each sequence of values into a single value.
 cartesianProduct :: ([Value] -> Value) -> [ValueSet] -> ValueSet
 cartesianProduct vc = fromList . map vc . sequence . map toList
 
+-- | Returns the powerset of a ValueSet. This requires
 powerset :: ValueSet -> ValueSet
-powerset = ExplicitSet . S.fromList . map (VSet . fromList) 
-			. filterM (\x -> [True, False]) . toList
+powerset = fromList . map (VSet . fromList) . 
+			filterM (\x -> [True, False]) . toList
 
 -- | Returns the set of all sequences over the input set
 allSequences :: ValueSet -> ValueSet
@@ -68,16 +73,21 @@ allSequences s = if empty s then emptySet else
 				app x (VList xs) = VList $ x:xs
 	in LazySet (list 0)
 
+-- | The empty set
 emptySet :: ValueSet
 emptySet = ExplicitSet S.empty
 
+-- | Converts a list to a set
 fromList :: [Value] -> ValueSet
 fromList = ExplicitSet . S.fromList
 
+-- | Converts a set to list.
 toList :: ValueSet -> [Value]
 toList (ExplicitSet s) = S.toList s
 toList (RangedSet lb ub) = map VInt [lb..ub]
+toList (IntSetFrom lb) = map VInt [lb..]
 toList (LazySet xs) = xs
+-- TODO: rest
 
 -- | Returns the value iff the set contains one item only
 singletonValue :: ValueSet -> Maybe Value
@@ -88,16 +98,13 @@ member v (ExplicitSet s) = S.member v s
 member (VInt i) Integers = True
 member (VInt i) (IntSetFrom lb) = i >= lb
 member (VInt i) (RangedSet lb ub) = i >= lb && i <= ub
---member (VEvent _) Events = True
 member v (LazySet xs) = v `elem` xs
 
 card :: ValueSet -> Integer
 card (ExplicitSet s) = toInteger (S.size s)
 card (RangedSet lb ub) = ub-lb+1
-card (Events) = panic "card(Events) Not implemented"
 
 empty :: ValueSet -> Bool
-empty Events = panic "empty(Events) Not implemented"
 empty Processes = panic "empty(Processes) Not implemented"
 empty (ExplicitSet s) = S.null s
 empty (IntSetFrom lb) = False
@@ -158,3 +165,7 @@ difference (IntSetFrom lb) Integers = ExplicitSet S.empty
 --	elseExplicitSet empty
 --difference (RangedSet lb2 ub2) (IntSetFrom lb1) | lb1 <= ub2 =
 difference x y | x == y = ExplicitSet S.empty 
+
+
+valueSetToEventSet :: ValueSet -> CE.EventSet
+valueSetToEventSet = CS.fromList . map valueEventToEvent . toList

@@ -1,5 +1,11 @@
-module CSPM.Evaluator.Values where
+module CSPM.Evaluator.Values (
+	Value(..), Proc(..), Event(..),
+	procId,
+	valueEventToEvent,
+) where
 
+import CSPM.Compiler.Events
+import CSPM.Compiler.Processes
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.Evaluator.Exceptions
@@ -21,6 +27,7 @@ data Value =
 	| VList [Value]
 	| VSet ValueSet
 	| VFunction ([Value] -> EvaluationMonad Value)
+	| VProc Proc
 
 instance Eq Value where
 	VInt i1 == VInt i2 = i1 == i2
@@ -42,8 +49,8 @@ instance Ord Value where
 	
 	-- These are only ever used for the internal set implementation
 	compare (VDot vs1) (VDot vs2) = compare vs1 vs2
-	-- TODO
---	compare (VEvent n vs1) (VEvent n' vs2) = 
+	compare (VEvent n vs1) (VEvent n' vs2) =
+		compare n n' `thenCmp` compare vs1 vs2
 	compare (VDataType n vs1) (VDataType n' vs2) = 
 		compare n n' `thenCmp` compare vs1 vs2
 	
@@ -60,6 +67,15 @@ instance PrettyPrintable Value where
 	prettyPrint (VList vs) = angles (list $ map prettyPrint vs)
 	prettyPrint (VSet s) = prettyPrint s
 	prettyPrint (VFunction _) = text "<function>"
+	prettyPrint (VProc p) = prettyPrint p
 
 instance Show Value where
 	show v = show (prettyPrint v)
+
+-- TODO take acount of let within statements
+procId :: Name -> [[Value]] -> String
+procId n vss = show $
+	prettyPrint n <> hcat (map (parens . list) (map (map prettyPrint) vss))
+
+valueEventToEvent :: Value -> Event
+valueEventToEvent (ev@(VEvent _ _)) = UserEvent (show (prettyPrint ev))

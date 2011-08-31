@@ -1,7 +1,10 @@
 {-# LANGUAGE TypeSynonymInstances #-}
-module CSPM.Evaluator.DeclBind (bindDecls) where
+module CSPM.Evaluator.DeclBind (
+	bindDecls, valuesForChannel, valuesForDataTypeClause,
+) where
 
 import Control.Monad
+import Data.Maybe
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
@@ -37,8 +40,13 @@ bindDecl (an@(An _ _ (FunBind n ms))) = do
 				rs :: [([(Name, Value)], TCExp)]
 				rs = [(bs, e) | ((True, bs), e) <- bss]
 			case rs of
-				((binds, exp):rs) ->
-					addScopeAndBind binds (eval exp)
+				((binds, exp):_) ->
+					addScopeAndBind binds (do
+						v <- eval exp
+						case v of
+							VProc p -> 
+								return $ VProc $ PProcCall (procId n ass) (Just p)
+							_ -> return v)
 				_		-> throwError $ 
 					funBindPatternMatchFailureMessage (loc an) n ass
 			where
@@ -51,9 +59,15 @@ bindDecl (an@(An _ _ (PatBind p e))) = do
 	case r of 
 		(True, bs) -> return bs
 		(False, _) -> throwError $ patternMatchFailureMessage (loc an) p v
-bindDecl (an@(An _ _ (Channel ns e))) = 
+bindDecl (an@(An _ _ (Channel ns me))) = do
 	-- TODO: check channel values are in es
-	return [(n, VEvent n []) | n <- ns]
+	vs <- case me of 
+		Nothing -> return []
+		Just e -> do
+			v <- eval e
+			return $ evalTypeExprToList v
+	return $ [(n, VEvent n []) | n <- ns]++
+			[(internalNameForChannel n, VTuple (map VSet vs)) | n <- ns]
 bindDecl (an@(An _ _ (DataType n cs))) =
 	-- TODO: check data values are in e
 	let
@@ -62,14 +76,11 @@ bindDecl (an@(An _ _ (DataType n cs))) =
 					(internalNameForDataTypeClause nc, VTuple [])])
 		bindClause (DataTypeClause nc (Just e)) = do
 			v <- eval e
-			let sets = conv v
+			let sets = evalTypeExprToList v
 			let setOfValues = cartesianProduct (VDataType nc) sets
 			let binds = [(nc, VDataType nc []),
 				(internalNameForDataTypeClause nc, VTuple (map VSet sets))]
 			return (setOfValues, binds)
-			where
-				conv (VDot vs) = map evalTypeExpr vs
-				conv v = [evalTypeExpr v]
 	in do
 		(sets, binds) <- mapAndUnzipM (bindClause . unAnnotate) cs
 		let dt = (n, VSet (unions sets))
@@ -102,3 +113,7 @@ evalTypeExpr :: Value -> ValueSet
 evalTypeExpr (VSet s) = s
 evalTypeExpr (VDot vs) = cartesianProduct VDot (map evalTypeExpr vs)
 evalTypeExpr (VTuple vs) = cartesianProduct VTuple (map evalTypeExpr vs)
+
+evalTypeExprToList :: Value -> [ValueSet]
+evalTypeExprToList (VDot vs) = map evalTypeExpr vs
+evalTypeExprToList v = [evalTypeExpr v]

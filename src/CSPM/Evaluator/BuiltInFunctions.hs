@@ -2,10 +2,11 @@ module CSPM.Evaluator.BuiltInFunctions where
 
 import Control.Monad
 
+import qualified CSPM.Compiler.Set as CS
 import CSPM.DataStructures.Names
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
-import CSPM.Evaluator.ValueSet as S
+import qualified CSPM.Evaluator.ValueSet as S
 import Util.Exception
 
 builtInFunctions :: [(Name, Value)]
@@ -31,6 +32,13 @@ builtInFunctions =
 		cspm_tail [VList xs] = tail xs
 		cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
 		cspm_elem [v, VList vs] = VBool $ v `elem` vs
+		csp_chaos [VSet a] = VProc $ PProcCall n (Just p)
+			where
+				n = procId (Name "CHAOS") [[VSet a]]
+				evSet = S.valueSetToEventSet a
+				branches = [PPrefix ev (PProcCall n Nothing) | ev <- CS.toList evSet]
+				stopProc = PProcCall (procId (Name "STOP") []) (Just csp_stop)
+				p = PInternalChoice (stopProc:branches)
 		
 		-- | Functions that return sets
 		set_funcs = [
@@ -50,15 +58,27 @@ builtInFunctions =
 			("length", cspm_length), ("null", cspm_null), 
 			("head", cspm_head), ("elem", cspm_elem),
 			("member", cspm_member), ("card", cspm_card),
-			("empty", cspm_empty)
+			("empty", cspm_empty), ("CHAOS", csp_chaos)
 			]
 		
 		mkFunc (s, f) = (Name s, VFunction (\ vs -> return (f vs)))
+		
+		procs = [
+			(csp_stop_id, csp_stop),
+			(csp_skip_id, PPrefix Tick (PProcCall csp_stop_id (Just csp_stop)))
+			]
+		csp_skip_id = procId (Name "SKIP") []
+		csp_stop_id = procId (Name "STOP") []
+		csp_stop = PExternalChoice []
+		
+		mkProc (s,p) = (Name s, VProc p)
+		
 	in
 		map mkFunc (
 			map (\ (n, f) -> (n, VSet . f)) set_funcs
 			++ map (\ (n, f) -> (n, VList . f)) seq_funcs
 			++ other_funcs)
+		++ map mkProc procs
 
 injectBuiltInFunctions :: EvaluationMonad a -> EvaluationMonad a
 injectBuiltInFunctions = addScopeAndBind builtInFunctions
