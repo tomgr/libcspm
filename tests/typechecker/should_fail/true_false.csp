@@ -1,2 +1,0 @@
--- FDR aliases True/False to true/false
-X = if True then False else true
