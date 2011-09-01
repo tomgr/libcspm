@@ -152,9 +152,12 @@ data Exp =
     deriving (Eq, Show)
 
 data Field = 
-    Output AnExp -- !x
-    | Input AnPat (Maybe AnExp)    -- ?x:A
-    | NonDetInput AnPat (Maybe AnExp) -- $x:A (see P395 UCS)
+    -- | !x
+    Output AnExp
+    -- | ?x:A
+    | Input AnPat (Maybe AnExp)
+    -- | $x:A (see P395 UCS)
+    | NonDetInput AnPat (Maybe AnExp)
     deriving (Eq, Show)
     
 data Stmt = 
