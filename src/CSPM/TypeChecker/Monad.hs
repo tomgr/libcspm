@@ -14,6 +14,8 @@ module CSPM.TypeChecker.Monad (
     
     raiseMessageAsError, raiseMessagesAsError, panic,
     manyErrorsIfFalse, errorIfFalseM, errorIfFalse, tryAndRecover, failM,
+    
+    addDataTypeOrChannel, isDataTypeOrChannel,
 )
 where
 
@@ -34,8 +36,11 @@ import Util.PrettyPrint
 type ErrorContext = Doc
 
 data TypeInferenceState = TypeInferenceState {
-        -- | map from names to arbitrary types
+        -- | The type environment, which is a map from names to types.
         environment :: Environment,
+        -- | List of names that correspond to channels and
+        -- datatypes - used when detecting dependencies.
+        dataTypesAndChannels :: [Name],
         -- | Next TypeVar to be allocated
         nextTypeId :: Int,
         -- | Location of the current AST element - used for error
@@ -56,6 +61,7 @@ data TypeInferenceState = TypeInferenceState {
 newTypeInferenceState :: TypeInferenceState
 newTypeInferenceState = TypeInferenceState {
         environment = new,
+        dataTypesAndChannels = [],
         nextTypeId = 0,
         srcSpan = Unknown,
         errorContexts = [],
@@ -99,6 +105,16 @@ local ns m =
         setEnvironment (popLayer env)
 
         return res
+
+addDataTypeOrChannel :: Name -> TypeCheckMonad ()
+addDataTypeOrChannel n = modify (\ st -> st { 
+        dataTypesAndChannels = n:dataTypesAndChannels st
+    })
+
+isDataTypeOrChannel :: Name -> TypeCheckMonad Bool
+isDataTypeOrChannel n = do
+    ns <- gets dataTypesAndChannels
+    return $ n `elem` ns
 
 getErrorContexts :: TypeCheckMonad [ErrorContext]
 getErrorContexts = gets errorContexts

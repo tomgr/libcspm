@@ -52,7 +52,7 @@ typeCheckDecls decls = do
     -- We prebind the datatypes and channels as they can be matched on in 
     -- patterns (and thus, given a var in a pattern we can't decide if it
     -- is free or a dependency otherwise).
-    mapM_ prebindDecl (map unAnnotate decls)
+    mapM_ registerChannelsAndDataTypes (map unAnnotate decls)
 
     -- Map from decl id -> [decl id] meaning decl id depends on the list of
     -- ids
@@ -96,7 +96,24 @@ typeCheckDecls decls = do
     
     -- Start type checking the groups
     typeCheckGroups sccs False
-    
+
+-- This method heavily affects the DataType clause of typeCheckDecl.
+-- If any changes are made here changes will need to be made to typeCheckDecl
+-- too
+
+-- We have to prebind all datatype clauses and channel names so
+-- that we can identify when a particular pattern uses these clauses and
+-- channels. We do this by injecting them into the symbol table earlier
+-- than normal.
+registerChannelsAndDataTypes :: Decl -> TypeCheckMonad ()
+registerChannelsAndDataTypes (DataType n cs) = do
+    mapM_ (\ c -> case unAnnotate c of
+            DataTypeClause n' _ -> addDataTypeOrChannel n'
+        ) cs
+registerChannelsAndDataTypes (Channel ns _) = 
+    mapM_ addDataTypeOrChannel ns
+registerChannelsAndDataTypes _ = return ()
+
 -- | Type checks a group of certainly mutually recursive functions. Only 
 -- functions that are mutually recursive should be included otherwise the
 -- types could end up being less general.
@@ -110,8 +127,7 @@ typeCheckMutualyRecursiveGroup ds' = do
             (_, DataType _ _) -> GT
             (_, _) -> EQ
         ds = sortBy cmp ds'
-    fvs <- liftM nub (concatMapM namesBoundByDecl 
-                        (filter (not . wasPrebound . unAnnotate) ds))
+    fvs <- liftM nub (concatMapM namesBoundByDecl ds)
 
     ftvs <- replicateM (length fvs) freshTypeVar
     zipWithM setType fvs (map (ForAll []) ftvs)
@@ -130,11 +146,7 @@ typeCheckMutualyRecursiveGroup ds' = do
         t <- getType n
         t' <- compressTypeScheme t
         setType n t') fvs
-    where
-        wasPrebound (DataType _ _ ) = True
-        wasPrebound (Channel _ _ ) = True
-        wasPrebound _ = False
-        
+    where        
         annotate nts (An _ psymbtable _) = setPSymbolTable (snd psymbtable) nts
 
 -- | Takes a type and returns the inner type, i.e. the type that this
@@ -208,7 +220,9 @@ instance TypeCheckable Decl [(Name, Type)] where
     -- prebound.
     typeCheck' (Channel ns Nothing) = do
         -- We now unify the each type to be a TEvent
-        mapM (\ n -> setType n (ForAll [] TEvent)) ns
+        mapM (\ n -> do
+            ForAll [] t <- getType n
+            unify TEvent t) ns
         -- (Now getType n for any n in ns will return TEvent)
         return [(n, TEvent) | n <- ns]
     typeCheck' (Channel ns (Just e)) = do
@@ -216,34 +230,41 @@ instance TypeCheckable Decl [(Name, Type)] where
         valueType <- evalTypeExpression t
         dotList <- typeToDotList valueType
         let t = foldr TDotable TEvent dotList
-        mapM (\ n -> setType n (ForAll [] t)) ns
+        mapM (\ n -> do
+            ForAll [] t' <- getType n
+            unify t' t) ns
         return $ [(n, t) | n <- ns]
     typeCheck' (DataType n clauses) = do
         nts <- mapM (\ clause -> do
+            let 
+                n' = case unAnnotate clause of
+                        DataTypeClause x _ -> x
+            ForAll [] t <- getType n'
             (n', ts) <- typeCheck clause
-            let t = foldr TDotable (TDatatype n) ts
-            -- The type of n' is currently TPrebound
-            setType n' (ForAll [] t)
+            let texp = foldr TDotable (TDatatype n) ts
+            t <- unify texp t
             return (n', t)
             ) clauses
-        -- We have already set the type of n in prebindDataType
         ForAll [] t <- getType n
-        return $ (n,t):nts
+        t' <- unify t (TSet (TDatatype n))
+        return $ (n, t'):nts
     typeCheck' (NameType n e) = do
         t <- typeCheck e
         valueType <- evalTypeExpression t
         return [(n, TSet valueType)]
     typeCheck' (Transparent ns) = do
         mapM_ (\ (n@(Name s)) -> do
-            t <- applyPFOrError (transparentFunctionNotRecognised n) 
+            texp <- applyPFOrError (transparentFunctionNotRecognised n) 
                                 transparentFunctions s
-            setType n (ForAll [] t)) ns
+            ForAll [] t <- getType n
+            unify texp t) ns
         return []
     typeCheck' (External ns) = do
         mapM_ (\ (n@(Name s)) -> do
-            t <- applyPFOrError (externalFunctionNotRecognised n) 
+            texp <- applyPFOrError (externalFunctionNotRecognised n) 
                                 externalFunctions s
-            setType n (ForAll [] t)) ns
+            ForAll [] t <- getType n
+            unify texp t) ns
         return []
     typeCheck' (Assert a) = typeCheck a >> return []
 

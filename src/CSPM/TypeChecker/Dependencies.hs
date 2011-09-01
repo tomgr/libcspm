@@ -1,7 +1,8 @@
 {-# LANGUAGE FlexibleInstances #-}
-module CSPM.TypeChecker.Dependencies 
-    (Dependencies, dependencies, namesBoundByDecl, namesBoundByDecl',
-    FreeVars, freeVars, prebindDecl) where
+module CSPM.TypeChecker.Dependencies (
+    Dependencies, dependencies, namesBoundByDecl, namesBoundByDecl',
+    FreeVars, freeVars
+) where
 
 import Control.Monad
 import Data.List (nub, (\\))
@@ -21,13 +22,6 @@ import Util.Monad
 -- Clearly these depend on each other heavily as a name is free iff
 -- it is not a dependency.
 
-isDatatypeOrChannel :: Type -> Bool
-isDatatypeOrChannel TPrebound = True
-isDatatypeOrChannel (TDotable argt rt) = isDatatypeOrChannel rt
-isDatatypeOrChannel (TDatatype n) = True
-isDatatypeOrChannel (TEvent) = True
-isDatatypeOrChannel _ = False
-
 namesBoundByDecl :: AnDecl -> TypeCheckMonad [Name]
 namesBoundByDecl =  namesBoundByDecl' . unAnnotate
 namesBoundByDecl' (FunBind n ms) = return [n]
@@ -42,31 +36,6 @@ namesBoundByDecl' (NameType n e) = return [n]
 namesBoundByDecl' (External ns) = return ns
 namesBoundByDecl' (Transparent ns) = return ns
 namesBoundByDecl' (Assert _) = return []
-
--- This method heavily affects the DataType clause of typeCheckDecl.
--- If any changes are made here changes will need to be made to typeCheckDecl
--- too
-
--- We have to prebind all datatype clauses and channel names so
--- that we can identify when a particular pattern uses these clauses and
--- channels. We do this by injecting them into the symbol table earlier
--- than normal.
-prebindDecl :: Decl -> TypeCheckMonad ()
-prebindDecl (DataType n cs) =
-    let
-        prebindDataTypeClause (DataTypeClause n' _) = 
-            setType n' (ForAll [] TPrebound)
-        clauseNames = [n' | DataTypeClause n' _ <- map unAnnotate cs]
-        namesToLocations = [(n', loc) | (An loc _ (DataTypeClause n' _)) <- cs]
-    in do
-        manyErrorsIfFalse (noDups clauseNames) 
-            (duplicatedDefinitionsMessage namesToLocations)
-        mapM_ (prebindDataTypeClause . unAnnotate) cs
-        -- n is the set of all TDatatype 
-        setType n (ForAll [] (TSet (TDatatype n)))
-prebindDecl (Channel ns _) = 
-    mapM_ (\n -> setType n (ForAll [] TPrebound)) ns
-prebindDecl _ = return ()
 
 class Dependencies a where
     dependencies :: a -> TypeCheckMonad [Name]
@@ -83,13 +52,8 @@ instance Dependencies a => Dependencies (Annotated b a) where
 
 instance Dependencies Pat where
     dependencies' (PVar n) = do
-        res <- safeGetType n
-        case res of
-            Just (ForAll _ t) -> 
-                -- Therefore, it could be something we prebind, i.e.
-                -- a channel or a datatype
-                if isDatatypeOrChannel t then return [n] else return []
-            Nothing -> return []    -- var is not bound
+        res <- isDataTypeOrChannel n
+        return $ if res then [n] else []
     dependencies' (PConcat p1 p2) = do
         fvs1 <- dependencies' p1
         fvs2 <- dependencies' p2
@@ -278,13 +242,8 @@ instance FreeVars a => FreeVars (Annotated b a) where
 
 instance FreeVars Pat where
     freeVars' (PVar n) = do
-        res <- safeGetType n
-        case res of
-            Just (ForAll _ t) -> 
-                -- See typeCheck (PVar) for a discussion of why
-                -- we only do this
-                if isDatatypeOrChannel t then return [] else return [n]
-            Nothing -> return [n]   -- var is not bound
+        res <- isDataTypeOrChannel n
+        return $ if res then [] else [n]
     freeVars' (PConcat p1 p2) = do
         fvs1 <- freeVars' p1
         fvs2 <- freeVars' p2

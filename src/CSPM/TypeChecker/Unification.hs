@@ -40,7 +40,6 @@ freeTypeVars' TBool = return []
 freeTypeVars' TEvent = return []
 freeTypeVars' TEventable = return []
 freeTypeVars' TProc = return []
-freeTypeVars' TPrebound = return []
 
 -- | Generalise the types of the declarations. The parameter 'names' gives the 
 -- names that were bound by all the declarations that we are interested in. This

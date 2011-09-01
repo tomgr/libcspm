@@ -42,8 +42,6 @@ data Type =
     -- with an a to yield something of type b
     | TDotable Type Type
     | TDatatype Name
-    -- This only appears temporarily to say that a value has been prebound
-    | TPrebound
     deriving (Eq, Show)
 
 data TypeVarRef = 
