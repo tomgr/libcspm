@@ -30,9 +30,9 @@ runFromStateToState :: TypeInferenceState -> TypeCheckMonad a ->
             IO (a, [ErrorMessage], TypeInferenceState)
 runFromStateToState st prog = runTypeChecker st $ do
     r <- prog
-    s <- getState
     ws <- getWarnings
     resetWarnings
+    s <- getState
     return (r, ws, s)
 
 initTypeChecker :: IO TypeInferenceState
