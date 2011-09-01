@@ -64,9 +64,10 @@ generaliseGroup names tsm = do
         deffvs <- freeTypeVars t
         -- All the free variables that were actually bound by this declaration 
         -- (rather than some other declaration in the environment).
-        let unboundVars = 
-            filter (\ (fv, cs) -> not (fv `elem` map fst envfvs)) deffvs
-        let ts = ForAll unboundVars t
+        let 
+            unboundVars = 
+                filter (\ (fv, cs) -> not (fv `elem` map fst envfvs)) deffvs
+            ts = ForAll unboundVars t
         setType n ts
         return (n, ts)) nts) ts
 

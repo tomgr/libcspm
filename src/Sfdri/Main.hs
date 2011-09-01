@@ -33,8 +33,8 @@ runSfdriInput = do
 interactiveLoop :: InputT Sfdri ()
 interactiveLoop = do
     currentPath <- lift $ getState currentFilePath
-    let prompt = 
-        case currentPath of
+    let 
+        prompt = case currentPath of
             Just fp -> last (splitPath fp)
             Nothing -> ""
     minput <- handleSourceError (Just "") (getInputLine (prompt ++ "> "))

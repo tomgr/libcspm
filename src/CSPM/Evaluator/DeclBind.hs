@@ -76,10 +76,11 @@ bindDecl (an@(An _ _ (DataType n cs))) =
                     (internalNameForDataTypeClause nc, VTuple [])])
         bindClause (DataTypeClause nc (Just e)) = do
             v <- eval e
-            let sets = evalTypeExprToList v
-            let setOfValues = cartesianProduct (VDataType nc) sets
-            let binds = [(nc, VDataType nc []),
-                (internalNameForDataTypeClause nc, VTuple (map VSet sets))]
+            let 
+                sets = evalTypeExprToList v
+                setOfValues = cartesianProduct (VDataType nc) sets
+                binds = [(nc, VDataType nc []),
+                    (internalNameForDataTypeClause nc, VTuple (map VSet sets))]
             return (setOfValues, binds)
     in do
         (sets, binds) <- mapAndUnzipM (bindClause . unAnnotate) cs
