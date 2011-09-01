@@ -77,17 +77,19 @@ builtInFunctions =
         
         cspm_true = ("true", VBool True)
         cspm_false = ("false", VBool False)
+        cspm_True = ("True", VBool True)
+        cspm_False = ("False", VBool False)
         
-        patterns = [cspm_true, cspm_false]
+        constants = [cspm_true, cspm_false, cspm_True, cspm_False]
         
-        mkPattern (s, v) = (Name s, v)
+        mkConstant (s, v) = (Name s, v)
     in
         map mkFunc (
             map (\ (n, f) -> (n, VSet . f)) set_funcs
             ++ map (\ (n, f) -> (n, VList . f)) seq_funcs
             ++ other_funcs)
         ++ map mkProc procs
-        ++ map mkPattern patterns
+        ++ map mkConstant constants
 
 injectBuiltInFunctions :: EvaluationMonad a -> EvaluationMonad a
 injectBuiltInFunctions = addScopeAndBind builtInFunctions

@@ -5,7 +5,8 @@ module Util.Exception (
     throwException,
     tryM,
     panic, throwSourceError,
-    mkErrorMessage, ErrorMessage, ErrorMessages,
+    mkErrorMessage, mkWarningMessage, 
+    ErrorMessage, ErrorMessages,
 )
 where
 
@@ -28,9 +29,18 @@ data ErrorMessage =
         -- | The message
         message :: Doc
     }
+    | WarningMessage {
+        -- | Used for sorting into order
+        location :: SrcSpan,
+        -- | The message
+        message :: Doc
+    }
 
 mkErrorMessage :: SrcSpan -> Doc -> ErrorMessage
 mkErrorMessage l d = ErrorMessage l d
+
+mkWarningMessage :: SrcSpan -> Doc -> ErrorMessage
+mkWarningMessage l d = WarningMessage l (text "Warning" <> colon <+> d)
 
 instance Eq ErrorMessage where
     m1 == m2 = location m1 == location m2
@@ -40,8 +50,8 @@ instance Ord ErrorMessage where
 instance PrettyPrintable ErrorMessages where
     prettyPrint ms = vcat . punctuate (text "\n") . map prettyPrint . sort $ ms
 instance PrettyPrintable ErrorMessage where
-    prettyPrint (ErrorMessage l m) = 
-        hang (prettyPrint l <> colon) 4 m
+    prettyPrint m = 
+        hang (prettyPrint (location m) <> colon) 4 (message m)
 
 instance Show ErrorMessage where
     show m = show (prettyPrint m)

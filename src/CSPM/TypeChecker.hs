@@ -24,13 +24,16 @@ import CSPM.TypeChecker.Module
 import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Unification
 import Util.Annotated
+import Util.Exception
 
 runFromStateToState :: TypeInferenceState -> TypeCheckMonad a -> 
-            IO (a, TypeInferenceState)
+            IO (a, [ErrorMessage], TypeInferenceState)
 runFromStateToState st prog = runTypeChecker st $ do
     r <- prog
     s <- getState
-    return (r, s)
+    ws <- getWarnings
+    resetWarnings
+    return (r, ws, s)
 
 initTypeChecker :: IO TypeInferenceState
 initTypeChecker = runTypeChecker newTypeInferenceState $ do

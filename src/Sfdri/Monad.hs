@@ -8,6 +8,7 @@ import System.FilePath
 
 import CSPM
 import Util.Exception
+import Util.PrettyPrint
 
 data SfdriState = SfdriState {
         settingsDirectory :: FilePath,
@@ -41,7 +42,13 @@ modifyState = modify
 instance CSPMMonad Sfdri where
     getSession = gets cspmSession
     setSession s = modify (\ st -> st { cspmSession = s })
+    handleWarnings = panic "Cannot handle warnings here in a pure Sfdri Monad"
 
 instance CSPMMonad (InputT Sfdri) where
-  setSession = lift . setSession
-  getSession = lift getSession
+    setSession = lift . setSession
+    getSession = lift getSession
+    handleWarnings ms = printError $ show $ prettyPrint ms
+
+printError :: String -> InputT Sfdri ()
+printError s = outputStrLn $ "\ESC[1;31m\STX"++s++"\ESC[0m\STX" 
+

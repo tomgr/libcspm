@@ -8,6 +8,7 @@ import Data.List
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax hiding (getType)
 import CSPM.DataStructures.Types
+import CSPM.TypeChecker.BuiltInFunctions
 import CSPM.TypeChecker.Common
 import {-# SOURCE #-} CSPM.TypeChecker.Decl
 import CSPM.TypeChecker.Dependencies
@@ -16,6 +17,7 @@ import CSPM.TypeChecker.Pat
 import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Unification
 import Util.Annotated
+import Util.Exception
 import Util.List
 import Util.Monad
 import Util.PrettyPrint
@@ -158,6 +160,12 @@ instance TypeCheckable Exp Type where
         ts <- mapM typeCheck es
         return $ TTuple ts
     typeCheck' (Var (UnQual n)) = do
+        -- TODO: if someone overloads a deprecated function then
+        -- this will still report it - we need a slightly more
+        -- sophisticated scheme.
+        if isDeprecated n then 
+            addWarning (deprecatedNameUsed n (replacementForDeprecatedName n))
+        else return ()
         t <- getType n
         instantiate t
 

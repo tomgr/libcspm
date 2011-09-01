@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 module CSPM.TypeChecker.Exceptions (
-    Error,
+    Error, Warning,
     varNotInScopeMessage,
     infiniteUnificationMessage,
     unificationErrorMessage,
@@ -9,6 +9,7 @@ module CSPM.TypeChecker.Exceptions (
     constraintUnificationErrorMessage,
     transparentFunctionNotRecognised,
     externalFunctionNotRecognised,
+    deprecatedNameUsed,
 )
 where
 
@@ -26,6 +27,7 @@ import Util.PartialFunctions
 import Util.PrettyPrint
 
 type Error = Doc
+type Warning = Doc
 
 varNotInScopeMessage :: Name -> Error
 varNotInScopeMessage n = prettyPrint n <+> text "is not in scope"
@@ -84,3 +86,10 @@ externalFunctionNotRecognised :: Name -> Error
 externalFunctionNotRecognised n = 
     text "The external function" <+> prettyPrint n <+> 
     text "is not recognised."
+
+deprecatedNameUsed :: Name -> Maybe Name -> Error
+deprecatedNameUsed n Nothing = 
+    prettyPrint n <+> text "is deprecated."
+deprecatedNameUsed n (Just replacement) = 
+    prettyPrint n <+> text "is deprecated - use" <+>
+    prettyPrint replacement <+> text "instead."

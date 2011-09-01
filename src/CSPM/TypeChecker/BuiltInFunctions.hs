@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
 module CSPM.TypeChecker.BuiltInFunctions(
     injectBuiltInFunctions, externalFunctions, transparentFunctions,
-    builtInNames
+    builtInNames, isDeprecated, replacementForDeprecatedName,
 ) where
 
 import CSPM.DataStructures.Types
@@ -11,9 +11,6 @@ import CSPM.DataStructures.Names
 import Util.Exception
 import Util.PartialFunctions
 
--- ************************************************************************
--- Built in function types
--- *************************************************************************
 sets :: [Type -> (String, [Type], Type)]
 sets = 
     let
@@ -64,8 +61,11 @@ typeConstructors =
         cspm_Events = ("Events", TSet TEvent)
         cspm_true = ("true", TBool)
         cspm_false = ("false", TBool)
+        cspm_True = ("True", TBool)
+        cspm_False = ("False", TBool)        
     in  
-        [cspm_Int, cspm_Bool, cspm_Proc, cspm_Events, cspm_true, cspm_false]
+        [cspm_Int, cspm_Bool, cspm_Proc, cspm_Events, cspm_true, 
+        cspm_false, cspm_True, cspm_False]
 
 injectBuiltInFunctions :: TypeCheckMonad ()
 injectBuiltInFunctions =
@@ -109,3 +109,14 @@ builtInNames =
         ++ map extract sets
     where
         extract f = let (a,_,_) = f (panic "Dummy type var evaluated") in a
+
+deprecatedNames :: [String]
+deprecatedNames = ["True", "False"]
+
+replacementForDeprecatedName :: Name -> Maybe Name
+replacementForDeprecatedName (Name "True") = Just $ Name $ "true"
+replacementForDeprecatedName (Name "False") = Just $ Name $ "false"
+replacementForDeprecatedName _ = Nothing
+
+isDeprecated :: Name -> Bool
+isDeprecated (Name s) = s `elem` deprecatedNames

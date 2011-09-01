@@ -56,9 +56,6 @@ handleSourceError v prog = (prog `catch` handle v) `catch` handleInt v
             printError "Interrupted"
             return v
 
-printError :: String -> InputT Sfdri ()
-printError s = outputStrLn $ "\ESC[1;31m\STX"++s++"\ESC[0m\STX" 
-
 processInput :: String -> InputT Sfdri Bool
 processInput (':':str) = do
     let (cmd,rest) = break isSpace str
@@ -154,7 +151,7 @@ loadFileCommand fname = do
     handleSourceError () $ do
         pFile <- parseFile fname
         tcFile <- typeCheckFile pFile
-        loadFile tcFile
+        bindFile tcFile
         outputStrLn $ "Ok, loaded "++fname
 
 reload :: String -> InputT Sfdri ()

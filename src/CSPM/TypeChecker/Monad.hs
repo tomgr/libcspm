@@ -11,6 +11,7 @@ module CSPM.TypeChecker.Monad (
     getSrcSpan, setSrcSpan,
     getUnificationStack, addUnificationPair,
     getInError, setInError,
+    resetWarnings, getWarnings, addWarning,
     
     raiseMessageAsError, raiseMessagesAsError, panic,
     manyErrorsIfFalse, errorIfFalseM, errorIfFalse, tryAndRecover, failM,
@@ -51,6 +52,8 @@ data TypeInferenceState = TypeInferenceState {
         errorContexts :: [ErrorContext],
         -- | Errors that have occured
         errors :: [ErrorMessage],
+        -- | List of warnings that have occured
+        warnings :: [ErrorMessage],
         -- | Stack of attempted unifications - the current one
         -- is at the front. In the form (expected, actual).
         unificationStack :: [(Type, Type)],
@@ -66,6 +69,7 @@ newTypeInferenceState = TypeInferenceState {
         srcSpan = Unknown,
         errorContexts = [],
         errors = [],
+        warnings = [],
         unificationStack = [],
         inError = False
     }
@@ -132,6 +136,18 @@ getErrors = gets errors
 
 addErrors :: [ErrorMessage] -> TypeCheckMonad ()
 addErrors es = modify (\ st -> st { errors = es++(errors st) })
+
+getWarnings :: TypeCheckMonad [ErrorMessage]
+getWarnings = gets warnings
+
+resetWarnings :: TypeCheckMonad ()
+resetWarnings = modify (\st -> st { warnings = [] })
+
+addWarning :: Warning -> TypeCheckMonad ()
+addWarning w = do
+    src <- getSrcSpan
+    let m = mkWarningMessage src w
+    modify (\ st -> st { warnings = m:(warnings st) })
 
 getInError :: TypeCheckMonad Bool
 getInError = gets inError
