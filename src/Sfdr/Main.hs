@@ -13,11 +13,12 @@ import System.IO
 
 import CSPM
 import CSPM.PrettyPrinter
+import Sfdr.Monad
 import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 
-countSuccesses :: [IO Bool] -> IO ()
+countSuccesses :: [Sfdr Bool] -> Sfdr ()
 countSuccesses tasks = do
     results <- sequence tasks
     let 
@@ -25,7 +26,7 @@ countSuccesses tasks = do
         succeeded = length $ filter id results
         total = length tasks
     if failed+succeeded > 1 then do
-        putStrLn $ show succeeded++" files succeeded out of "++show total
+        liftIO $ putStrLn $ show succeeded++" files succeeded out of "++show total
     else return ()
 
 getFilesFromDir :: FilePath -> IO [FilePath]
@@ -41,21 +42,27 @@ getFilesFromDir path = do
     fss <- mapM getFilesFromDir [dir | dir <- dirs']
     return $ files'++concat fss
 
-doFile :: FilePath -> IO Bool
+doFile :: FilePath -> Sfdr Bool
 doFile fp = do
-    putStr $ "Checking "++fp++"....."
-    s <- newCSPMSession
-    res <- tryM $ unCSPM s $ do
+    liftIO $ putStr $ "Checking "++fp++"....."
+    res <- tryM $ do
         ms <- parseFile fp
         typeCheckFile ms
         return ()
+    ws <- getState lastWarnings
+    resetCSPM
     case res of
         Left e -> do
-            putStrLn $ "\n\ESC[1;31m\STX"++(show e)++"\ESC[0m\STX" 
+            printError ("\n"++show e)
             return False
         Right _ -> do
-            putStrLn $ "Ok"
+            liftIO $ putStrLn $ "Ok"
+            if ws /= [] then printError (show (prettyPrint ws))
+            else return ()
             return True
+
+printError :: String -> Sfdr ()
+printError s = liftIO $ putStrLn $ "\ESC[1;31m\STX"++s++"\ESC[0m\STX"
 
 data Options = Options {
         recursive :: Bool,
@@ -80,17 +87,21 @@ header :: String
 header = "Usage: sfdr [OPTION...] files..."
 
 main :: IO ()
-main = do 
+main = do
     args <- getArgs
-    case getOpt RequireOrder options args of
-        (_,_,e:es) -> putStr $ concat (e:es) ++ usageInfo header options
-        (o,files, []) -> do
-            let opts = foldl (flip id) defaultOptions o
-            case (opts, files) of
-                (_, []) -> putStr $ usageInfo header options
-                (Options { help = True }, files) -> putStr $ usageInfo header options
-                (Options { recursive = True }, dirs) -> do
-                    tasks <- liftM concat (mapM getFilesFromDir dirs)
-                    countSuccesses (map doFile tasks)
-                (_, files) -> 
-                    countSuccesses (map doFile files)
+    st <- initSfdrState
+    runSfdr st $ 
+        case getOpt RequireOrder options args of
+            (_,_,e:es) -> liftIO $ putStr $ concat (e:es) ++ usageInfo header options
+            (o,files, []) -> do
+                let opts = foldl (flip id) defaultOptions o
+                case (opts, files) of
+                    (_, []) -> 
+                        liftIO $ putStr $ usageInfo header options
+                    (Options { help = True }, files) -> 
+                        liftIO $ putStr $ usageInfo header options
+                    (Options { recursive = True }, dirs) -> do
+                        tasks <- mapM (liftIO . getFilesFromDir) dirs
+                        countSuccesses (map doFile (concat tasks))
+                    (_, files) -> 
+                        countSuccesses (map doFile files)
