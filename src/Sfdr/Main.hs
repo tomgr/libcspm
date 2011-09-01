@@ -6,7 +6,7 @@ import Control.Monad.Trans
 import Data.List
 import System.Console.GetOpt
 import System.Directory
-import System.Envrionment
+import System.Environment
 import System.FilePath
 import System.Exit
 import System.IO
@@ -34,9 +34,10 @@ getFilesFromDir path = do
     let all' = [path++"/"++f | f <- all]
     files <- filterM doesFileExist all'
     dirs <- filterM doesDirectoryExist all'
-    let dirs' = 
-        filter (\f -> not $ (isSuffixOf "." f) || (isSuffixOf ".." f)) dirs
-    let files' = filter (isSuffixOf ".csp") files
+    let 
+        dirs' = filter (\f -> not $ (isSuffixOf "." f) 
+                                    || (isSuffixOf ".." f)) dirs
+        files' = filter (isSuffixOf ".csp") files
     fss <- mapM getFilesFromDir [dir | dir <- dirs']
     return $ files'++concat fss
 

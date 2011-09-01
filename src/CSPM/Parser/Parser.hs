@@ -5,7 +5,7 @@ module CSPM.Parser.Parser (
 ) 
 where
 
-import Char
+import Data.Char
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax

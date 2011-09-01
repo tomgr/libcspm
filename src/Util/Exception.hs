@@ -12,7 +12,7 @@ where
 import Control.Exception
 import Control.Monad.State
 import Data.Typeable
-import List
+import Data.List
 import Prelude hiding (catch)
 
 import {-# SOURCE #-} Util.Annotated

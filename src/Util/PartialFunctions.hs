@@ -1,6 +1,6 @@
 module Util.PartialFunctions where
 
-import List (nub)
+import Data.List (nub)
 
 import Util.Exception
 
