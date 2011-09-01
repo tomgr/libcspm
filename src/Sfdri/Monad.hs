@@ -5,7 +5,6 @@ import Control.Monad.State
 import System.Console.Haskeline
 import System.Directory
 import System.FilePath
-import qualified System.Console.Haskeline as Haskeline
 
 import CSPM
 import Util.Exception
