@@ -67,7 +67,7 @@ testFunctions = [
 
 typeCheckerTest :: FilePath -> CSPM ()
 typeCheckerTest fp = do
-    ms <- parse (fileParser fp)
+    ms <- parseFile fp
     typeCheckFile ms
     return ()
 
@@ -81,7 +81,7 @@ parserTest fp = do
 
 prettyPrinterTest :: FilePath -> CSPM ()
 prettyPrinterTest fp = do
-    ms <- parse (fileParser fp)
+    ms <- parseFile fp
     let str = show (prettyPrint ms)
-    ms' <- parse (stringFileParser str)
+    ms' <- parseStringAsFile str
     if ms /= ms' then throwException UserError else return ()
