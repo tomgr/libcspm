@@ -105,6 +105,7 @@ transparentFunctions = [
     ("tau_loop_factor", TFunction [TProc] TProc),
     ("model_compress", TFunction [TProc] TProc),
     ("explicate", TFunction [TProc] TProc),
+    ("wbisim", TFunction [TProc] TProc),
     ("chase", TFunction [TProc] TProc)
     ]
 
