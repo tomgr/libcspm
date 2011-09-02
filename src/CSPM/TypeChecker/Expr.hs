@@ -238,7 +238,7 @@ instance TypeCheckable Exp Type where
         t1 <- typeCheck e1
         let 
             tcfs [] tsfields = do
-                unify (TDot t1 (foldr1 TDot (reverse tsfields))) TEvent
+                unify TEvent (TDot t1 (foldr1 TDot (reverse tsfields)))
                 ensureIsProc e2
             tcfs (f:fs) tsfields =
                 typeCheckField f (\ t -> tcfs fs (t:tsfields))
@@ -266,7 +266,7 @@ instance TypeCheckable Exp Type where
     typeCheck' (ReplicatedAlphaParallel stmts alpha proc) =
         typeCheckReplicatedOp stmts $ do
             t1 <- typeCheck alpha
-            unify t1 (TSet TEvent)
+            unify (TSet TEvent) t1
             ensureIsProc proc
     typeCheck' (ReplicatedParallel alpha stmts proc) =
         typeCheckReplicatedOp stmts $ do
