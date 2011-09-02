@@ -1,4 +1,5 @@
 {
+{-# LANGUAGE DoAndIfThenElse #-}
 {-# OPTIONS_GHC -fno-warn-lazy-unlifted-bindings #-}
 module CSPM.Parser.Lexer where
 
@@ -79,7 +80,7 @@ tokens :-
     <0>@nl"false"/$notid        { tok TFalse }
     <0>@nl"true"/$notid         { tok TTrue }
 
-    <0>"include".*$whitechar*\n { switchInput }
+    <0>"include"$white_no_nl+.*\n { switchInput }
 
     -- Process Syntax
     <0>@nl"[]"@nl               { tok TExtChoice }
@@ -218,13 +219,14 @@ tok t (ParserState { fileStack = fps:_ }) len =
 stok :: (String -> Token) -> AlexInput -> Int -> ParseMonad LToken
 stok f (st @ ParserState { fileStack = stk }) len = do
         tok (f (filter (\ c -> c /= '\n') (takeChars len stk))) st len
-    where
-        takeChars 0 _ = ""
-        takeChars len (FileParserState {input = [] }:stk) = takeChars len stk
-        takeChars len (fps@(FileParserState {input = (c:cs) }):stk) = 
-            c:(takeChars (len-1) (fps {input = cs}:stk))
 
 skip input len = getNextToken
+
+takeChars :: Int -> [FileParserState] -> String
+takeChars 0 _ = ""
+takeChars len (FileParserState {input = [] }:stk) = takeChars len stk
+takeChars len (fps@(FileParserState {input = (c:cs) }):stk) = 
+    c:(takeChars (len-1) (fps {input = cs}:stk))
 
 nestedComment :: AlexInput -> Int -> ParseMonad LToken
 nestedComment _ _ = do
@@ -258,15 +260,29 @@ nestedComment _ _ = do
                         c -> go n st
 
 switchInput :: AlexInput -> Int -> ParseMonad LToken
-switchInput (st @ ParserState { fileStack = fps:_ }) len = 
-        pushFile file getNextToken
-    where
-        (FileParserState { input = s }) = fps
-        str = take len s
+switchInput st len = do
+    FileParserState { 
+        fileName = fname, 
+        tokenizerPos = pos, 
+        currentStartCode = sc } <- getTopFileParserState
+    let
+        str = takeChars len (fileStack st)
         quotedFname = strip (drop (length "include") str)
-        file = calcFile (drop 1 quotedFname)
+        
+        hasStartQuote ('\"':cs) = True
+        hasStartQuote _ = False
+
+        hasEndQuote [] = False
+        hasEndQuote ('\"':cs) = True
+        hasEndQuote (c:cs) = hasEndQuote cs
+        
+        file = calcFile (tail quotedFname)
         calcFile ('\"':cs) = ""
         calcFile (c:cs) = c:calcFile cs
+
+    if not (hasStartQuote quotedFname) || not (hasEndQuote (tail quotedFname)) then
+        throwSourceError [invalidIncludeErrorMessage (filePositionToSrcLoc fname pos)]
+    else pushFile file getNextToken
 
 type AlexInput = ParserState
 

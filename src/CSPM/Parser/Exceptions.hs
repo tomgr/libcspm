@@ -2,6 +2,7 @@ module CSPM.Parser.Exceptions (
     invalidPatternErrorMessage,
     invalidDeclarationErrorMessage,
     invalidExpressionErrorMessage,
+    invalidIncludeErrorMessage,
     lexicalErrorMessage,
     parseErrorMessage,
     fileAccessErrorMessage,
@@ -28,6 +29,10 @@ invalidDeclarationErrorMessage d = mkErrorMessage (loc d) $
 invalidExpressionErrorMessage :: PExp -> ErrorMessage
 invalidExpressionErrorMessage e = mkErrorMessage (loc e) $
     hang (prettyPrint e) tabWidth (text "is not a valid expression")
+
+invalidIncludeErrorMessage :: SrcSpan -> ErrorMessage
+invalidIncludeErrorMessage srcspan = 
+    mkErrorMessage srcspan (text "Invalid include directive")
 
 lexicalErrorMessage :: SrcSpan -> ErrorMessage
 lexicalErrorMessage srcspan = mkErrorMessage srcspan (text "Lexical error")
