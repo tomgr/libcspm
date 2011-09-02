@@ -1,6 +1,7 @@
 module CSPM.TypeChecker.Monad (
     readTypeRef, writeTypeRef, freshTypeVar, freshTypeVarWithConstraints,
-    getType, safeGetType, setType,
+    getType, safeGetType, setType, 
+    isDeprecated, isTypeUnsafe, markAsDeprecated, markTypeAsUnsafe,
     compress, compressTypeScheme, 
     
     TypeCheckMonad, runTypeChecker, 
@@ -25,7 +26,7 @@ import Prelude hiding (lookup)
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Types
-import CSPM.TypeChecker.Environment
+import qualified CSPM.TypeChecker.Environment as Env
 import CSPM.TypeChecker.Exceptions
 import Util.Annotated
 import Util.Exception
@@ -38,7 +39,7 @@ type ErrorContext = Doc
 
 data TypeInferenceState = TypeInferenceState {
         -- | The type environment, which is a map from names to types.
-        environment :: Environment,
+        environment :: Env.Environment,
         -- | List of names that correspond to channels and
         -- datatypes - used when detecting dependencies.
         dataTypesAndChannels :: [Name],
@@ -63,7 +64,7 @@ data TypeInferenceState = TypeInferenceState {
     
 newTypeInferenceState :: TypeInferenceState
 newTypeInferenceState = TypeInferenceState {
-        environment = new,
+        environment = Env.new,
         dataTypesAndChannels = [],
         nextTypeId = 0,
         srcSpan = Unknown,
@@ -90,10 +91,10 @@ runTypeChecker st prog = do
 getState :: TypeCheckMonad TypeInferenceState
 getState = gets id
 
-getEnvironment :: TypeCheckMonad Environment
+getEnvironment :: TypeCheckMonad Env.Environment
 getEnvironment = gets environment
 
-setEnvironment :: Environment -> TypeCheckMonad ()
+setEnvironment :: Env.Environment -> TypeCheckMonad ()
 setEnvironment env = modify (\ st -> st { environment = env })
 
 local :: [Name] -> TypeCheckMonad a -> TypeCheckMonad a
@@ -101,12 +102,13 @@ local ns m =
     do
         env <- getEnvironment
         newArgs <- replicateM (length ns) freshTypeVar
-        setEnvironment (newLayerAndBind env (zip ns (map (ForAll []) newArgs)))
+        let symbs = map (Env.mkSymbolInformation . ForAll []) newArgs
+        setEnvironment (Env.newLayerAndBind env (zip ns symbs))
         
         res <- m
         
         env <- getEnvironment
-        setEnvironment (popLayer env)
+        setEnvironment (Env.popLayer env)
 
         return res
 
@@ -265,26 +267,63 @@ freshTypeVarWithConstraints cs =
         ioRef <- freshPType
         return $ TVar (TypeVarRef (TypeVar nextId) cs ioRef)
 
--- | Get the type of 'n' and through an exception if it doesn't exist.
-getType :: Name -> TypeCheckMonad TypeScheme
-getType n = do
+getSymbolInformation :: Name -> TypeCheckMonad Env.SymbolInformation
+getSymbolInformation n = do
     env <- gets environment
     -- Force evaluation of lookup n
     -- If we don't do this the error is deferred until later
-    case maybeLookup env n of
-        Just ts -> return ts
+    case Env.maybeLookup env n of
+        Just symb -> return symb
         Nothing -> raiseMessagesAsError [varNotInScopeMessage n]
+
+-- | Get the type of 'n' and throw an exception if it doesn't exist.
+getType :: Name -> TypeCheckMonad TypeScheme
+getType n = do
+    symb <- getSymbolInformation n
+    return $ Env.typeScheme symb
 
 -- | Get the type of 'n' if it exists, othewise return Nothing.
 safeGetType :: Name -> TypeCheckMonad (Maybe TypeScheme)
 safeGetType n = do
     env <- gets environment
-    return $ maybeLookup env n
+    case Env.maybeLookup env n of
+        Just symb   -> return $ Just $ Env.typeScheme symb
+        Nothing     -> return Nothing
     
 -- | Sets the type of n to be t in the current scope only. No unification is 
 -- performed.
 setType :: Name -> TypeScheme -> TypeCheckMonad ()
-setType n t = getEnvironment >>= (\ env -> setEnvironment (update env n t))
+setType n t = do
+    env <- getEnvironment
+    let 
+        symb = case Env.maybeLookupInTopLayer env n of
+            Just symb -> symb { Env.typeScheme = t }
+            Nothing -> Env.mkSymbolInformation t
+    setSymbolInformation n symb
+
+setSymbolInformation :: Name -> Env.SymbolInformation -> TypeCheckMonad ()
+setSymbolInformation n symb = do
+    env <- getEnvironment
+    setEnvironment (Env.update env n symb)
+
+isDeprecated :: Name -> TypeCheckMonad Bool
+isDeprecated n = do
+    symb <- getSymbolInformation n
+    return $ Env.isDeprecated symb
+
+isTypeUnsafe :: Name -> TypeCheckMonad Bool
+isTypeUnsafe n = do
+    symb <- getSymbolInformation n
+    return $ Env.isTypeUnsafe symb
+
+markAsDeprecated :: Name -> TypeCheckMonad ()
+markAsDeprecated n = do
+    symb <- getSymbolInformation n
+    setSymbolInformation n (symb { Env.isDeprecated = True })
+markTypeAsUnsafe :: Name -> TypeCheckMonad ()
+markTypeAsUnsafe n = do
+    symb <- getSymbolInformation n
+    setSymbolInformation n (symb { Env.isTypeUnsafe = True })
 
 -- | Apply compress to the type of a type scheme.
 compressTypeScheme :: TypeScheme -> TypeCheckMonad TypeScheme

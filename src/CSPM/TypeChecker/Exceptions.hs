@@ -10,6 +10,7 @@ module CSPM.TypeChecker.Exceptions (
     transparentFunctionNotRecognised,
     externalFunctionNotRecognised,
     deprecatedNameUsed,
+    unsafeNameUsed,
 )
 where
 
@@ -93,3 +94,9 @@ deprecatedNameUsed n Nothing =
 deprecatedNameUsed n (Just replacement) = 
     prettyPrint n <+> text "is deprecated - use" <+>
     prettyPrint replacement <+> text "instead."
+
+unsafeNameUsed :: Name -> Error
+unsafeNameUsed n =
+    text "The invocation of" <+> prettyPrint n 
+        <+> text "has not been type-checked."
+    <+> text "Therefore, a runtime type error may occur here."

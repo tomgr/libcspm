@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
 module CSPM.TypeChecker.BuiltInFunctions(
     injectBuiltInFunctions, externalFunctions, transparentFunctions,
-    builtInNames, isDeprecated, replacementForDeprecatedName,
+    builtInNames, replacementForDeprecatedName,
 ) where
 
 import CSPM.DataStructures.Types
@@ -25,7 +25,7 @@ sets =
         cspm_set fv = ("set", [TSeq fv], TSet fv)
         cspm_Set fv = ("Set", [TSet fv], TSet (TSet fv))
         cspm_Seq fv = ("Seq", [TSet fv], TSet (TSeq fv))
-        cspm_seq fv = ("seq", [TSet fv], TSeq fv)   
+        cspm_seq fv = ("seq", [TSet fv], TSeq fv)
     in
         [cspm_union, cspm_inter, cspm_diff, cspm_Union, cspm_Inter,
                 cspm_member, cspm_card, cspm_empty, cspm_set, cspm_Set,
@@ -42,15 +42,16 @@ seqs =
     in
         [cspm_length, cspm_null, cspm_head, cspm_tail, cspm_concat,
                 cspm_elem]
-                
+
 builtInProcs :: [(String, Type)]
 builtInProcs =
     let
         cspm_STOP = ("STOP", TProc)
         cspm_SKIP = ("SKIP", TProc)
         cspm_CHAOS = ("CHAOS", TFunction [TSet TEvent] TProc)
+        cspm_prioritise = ("prioritise", TFunction [TProc, TSeq (TSet TEvent)] TProc)
     in
-        [cspm_STOP, cspm_SKIP, cspm_CHAOS]
+        [cspm_STOP, cspm_SKIP, cspm_CHAOS, cspm_prioritise]
 
 typeConstructors :: [(String, Type)]
 typeConstructors =
@@ -76,6 +77,10 @@ injectBuiltInFunctions =
                 let (n, args, ret) = func fv
                 let t = ForAll [(tv, cs)] (TFunction args ret)
                 setType (Name n) t
+        mkUnsafeFuncType s = do
+            fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints []
+            fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints []
+            setType (Name s) (ForAll [(tv1, []), (tv2, [])] (TFunction [fv1] fv2))
         mkPatternType func =
             do 
                 let (n, t) = func
@@ -85,6 +90,9 @@ injectBuiltInFunctions =
         mapM_ (mkFuncType [Eq]) sets
         mapM_ mkPatternType typeConstructors
         mapM_ mkPatternType builtInProcs
+        mapM_ mkUnsafeFuncType unsafeFunctionNames
+        mapM_ (markAsDeprecated . Name) deprecatedNames
+        mapM_ (markTypeAsUnsafe . Name) unsafeFunctionNames
 
 externalFunctions :: PartialFunction String Type
 externalFunctions = []
@@ -107,8 +115,12 @@ builtInNames =
         ++ map fst typeConstructors
         ++ map extract seqs
         ++ map extract sets
+        ++ unsafeFunctionNames
     where
         extract f = let (a,_,_) = f (panic "Dummy type var evaluated") in a
+
+unsafeFunctionNames :: [String]
+unsafeFunctionNames = ["productions", "extensions"]
 
 deprecatedNames :: [String]
 deprecatedNames = ["True", "False"]
@@ -117,6 +129,3 @@ replacementForDeprecatedName :: Name -> Maybe Name
 replacementForDeprecatedName (Name "True") = Just $ Name $ "true"
 replacementForDeprecatedName (Name "False") = Just $ Name $ "false"
 replacementForDeprecatedName _ = Nothing
-
-isDeprecated :: Name -> Bool
-isDeprecated (Name s) = s `elem` deprecatedNames

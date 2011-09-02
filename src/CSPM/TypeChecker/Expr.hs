@@ -160,12 +160,14 @@ instance TypeCheckable Exp Type where
         ts <- mapM typeCheck es
         return $ TTuple ts
     typeCheck' (Var (UnQual n)) = do
-        -- TODO: if someone overloads a deprecated function then
-        -- this will still report it - we need a slightly more
-        -- sophisticated scheme.
-        if isDeprecated n then 
+        b <- isDeprecated n
+        if b then 
             addWarning (deprecatedNameUsed n (replacementForDeprecatedName n))
         else return ()
+        b <- isTypeUnsafe n
+        if b then addWarning (unsafeNameUsed n)
+        else return ()
+        
         t <- getType n
         instantiate t
 

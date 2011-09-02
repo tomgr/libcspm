@@ -38,6 +38,10 @@ maybeLookup (HierarchicalMap (m:ms)) k =
         Just v -> Just v
         Nothing -> maybeLookup (HierarchicalMap ms) k
 
+maybeLookupInTopLayer :: (Show k, Typeable k, Ord k) => HierarchicalMap k a -> k -> Maybe a
+maybeLookupInTopLayer (HierarchicalMap []) k = Nothing
+maybeLookupInTopLayer (HierarchicalMap (m:ms)) k = M.lookup k m
+
 popLayer :: Ord a => HierarchicalMap a b -> HierarchicalMap a b
 popLayer (HierarchicalMap (m:ms)) = HierarchicalMap ms
 

@@ -57,7 +57,9 @@ generaliseGroup names tsm = do
     -- Get all the free variables that are currently in the environment that 
     -- were not bound by any of this group.
     envfvs <- (liftM nub . concatMapM freeTypeVars)
-            [t | (n, (ForAll _ t)) <- flatten env, not (n `elem` names)]
+            [t | (n, SymbolInformation { 
+                        typeScheme = ForAll _ t 
+                }) <- flatten env, not (n `elem` names)]
     mapM (\ nts -> mapM (\ (n,t) -> do
         -- The free vars in this type
         deffvs <- freeTypeVars t
