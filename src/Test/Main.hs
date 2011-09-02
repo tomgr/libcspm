@@ -19,7 +19,13 @@ main :: IO ()
 main = do
     tests <- runSections
     results <- sequence tests
-    if and results then exitSuccess else exitFailure
+    let
+        failureCount = length results - successCount
+        successCount = length (filter id results)
+    putStrLn $ show $ 
+        int failureCount <+> text "failures" 
+        <+> int successCount <+> text "passes"
+    if failureCount == 0 then exitSuccess else exitFailure
 
 getAndFilterDirectoryContents :: FilePath -> IO [FilePath]
 getAndFilterDirectoryContents fp = do
@@ -79,6 +85,7 @@ runTest fp test expectedResult = do
         Right [] -> if shouldPass then passed else failed Nothing
         Right ws -> if shouldWarn then passed else failed (Just (prettyPrint ws))
         _ -> failed (Just (text "Internal Error"))
+
 testFunctions = [
         ("parser", parserTest),
         ("typechecker", typeCheckerTest),
