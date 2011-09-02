@@ -4,6 +4,7 @@ module CSPM.DataStructures.Tokens (
 where
 
 import CSPM.DataStructures.Syntax (Model(..))
+import CSPM.PrettyPrinter
 import Util.Annotated
 import Util.PrettyPrint
 
@@ -98,9 +99,101 @@ data Token =
     | TParallel
 
     | TEOF
-    deriving (Eq, Show)
+    deriving Eq
     
 type LToken = Located Token
 
+instance Show Token where
+    show t = show (prettyPrint t)
+
 instance PrettyPrintable Token where
-    prettyPrint e = text (show e)
+    prettyPrint (TInteger i) = integer i
+    prettyPrint TFalse = text "false"
+    prettyPrint TTrue = text "true"
+    prettyPrint (TIdent s) = text s
+
+    prettyPrint (TRefines m) = char '[' <> prettyPrint m <> char '='
+    prettyPrint (TModel m) = char '[' <> prettyPrint m <> char ']'
+    prettyPrint TTauPriority = text "tau priority"
+    prettyPrint TDeadlockFree = text "deadlock free"
+    prettyPrint TDivergenceFree = text "divergence free"
+    prettyPrint TLivelockFree = text "livelock free"
+    prettyPrint TDeterministic = text "deterministic"
+
+    prettyPrint TNewLine = text "<newline>"
+    prettyPrint TDefineEqual = char '='
+
+    prettyPrint TComma = char ','
+    prettyPrint TDot = char '.'
+    prettyPrint TExclamationMark = char '!'
+    prettyPrint TQuestionMark = char '?'
+    prettyPrint TDollar = char '$'
+    prettyPrint TPipe = char '|'
+    prettyPrint TDoubleDot = text ".."
+    prettyPrint TColon = char ':'
+    prettyPrint TDrawnFrom = text "<-"
+    prettyPrint TTie = text "<->"
+
+    prettyPrint TDoubleAt = text "@@"
+    prettyPrint TWildCard = char '_'
+
+    prettyPrint TIf = text "if"
+    prettyPrint TThen = text "then"
+    prettyPrint TElse = text "else"
+    prettyPrint TLet = text "let"
+    prettyPrint TWithin = text "within"
+    prettyPrint TBackSlash = char '\\'
+    prettyPrint TLambdaDot = char '@'
+    prettyPrint TChannel = text "channel"
+    prettyPrint TAssert = text "assert"
+    prettyPrint TDataType = text "datatype"
+    prettyPrint TExternal = text "external"
+    prettyPrint TTransparent = text "transparent"
+    prettyPrint TNameType = text "nametype"
+
+    prettyPrint TSemiColon = char ';'
+    prettyPrint TGuard = char '&'
+
+    prettyPrint TNot = text "not"
+    prettyPrint TAnd = text "and"
+    prettyPrint TOr = text "or"
+    prettyPrint TEq = text "=="
+    prettyPrint TNotEq = text "!="
+    prettyPrint TLtEq = text "<="
+    prettyPrint TGtEq = text ">="
+    prettyPrint TLt = char '<'
+    prettyPrint TGt = char '>'
+    prettyPrint TPlus = char '+'
+    prettyPrint TMinus = char '-'
+    prettyPrint TTimes = char '*'
+    prettyPrint TDivide = char '/'
+    prettyPrint TMod = char '%'
+    prettyPrint TCloseSeq = char '<'
+    prettyPrint TEmptySeq = text "<>"
+
+    prettyPrint TConcat = char '^'
+    prettyPrint THash = char '#'
+
+    prettyPrint TLParen = char '('
+    prettyPrint TRParen = char ')'
+    prettyPrint TLBrace = char '{'
+    prettyPrint TRBrace = char '}'
+    prettyPrint TLPipeBrace = text "{|"
+    prettyPrint TRPipeBrace = text "|}"
+    prettyPrint TLDoubleSqBracket = text "[["
+    prettyPrint TRDoubleSqBracket = text "]]"
+    prettyPrint TLPipeSqBracket = text "[|"
+    prettyPrint TRPipeSqBracket = text "|]"
+    prettyPrint TLSqBracket = text "["
+    prettyPrint TRSqBracket = text "]"
+    
+    prettyPrint TExtChoice = text "[]"
+    prettyPrint TIntChoice = text "|~|"
+    prettyPrint TInterleave = text "|||"
+    prettyPrint TPrefix = text "->"
+    prettyPrint TInterrupt = text "/\\"
+    prettyPrint TSlidingChoice = text "[>"
+    prettyPrint TRException = text "|>"
+    prettyPrint TParallel = text "||"
+
+    prettyPrint TEOF = text "EOF"
