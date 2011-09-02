@@ -33,7 +33,19 @@ checkFunctionCall func args expectedTypes = do
                             <+> text "argument of")
                             tabWidth (func <> comma) )
                     tabWidth (text "namely" <+> prettyPrint arg)
-            ) (unify texp tact)
+            ) (do
+                -- When we computer the type of the function we evaluated all
+                -- dots in the arguments. Therefore, here we can evaluate the
+                -- dots and remove them all.
+                tact <- evaluateDots tact
+                -- We also evaluate the dots in the expected type. This is done
+                -- because during type checking of a recursive function we may
+                -- have not yet have evaluated its dots.
+                texp <- evaluateDots texp
+                -- We must disallow symmetric unification here as we don't want
+                -- to allow patterns such as:
+                --     x.y = B
+                disallowSymmetricUnification (unify texp tact))
     -- NB. the argument counts must already be correct
     mapM unifyArg as
     return ()

@@ -1,0 +1,10 @@
+datatype Z = B.{0..1} | C.Z.Z | D.Z
+
+channel c : Z.Z
+
+z = union({c.B.0.B.0}, {| c.B |})
+
+f(x,y) = x == y
+
+subs(x,y,D.e) = if (D.e)==y then x else D.subs(x,y,e)
+subs(x,y,C.n.m) = if (C.n.m)==y then x else C.subs(x,y,n).subs(x,y,m)

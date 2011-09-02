@@ -1,0 +1,7 @@
+datatype Z = B.{0..1}
+
+channel c : Z
+
+b = c.B
+
+P = b.0 -> STOP

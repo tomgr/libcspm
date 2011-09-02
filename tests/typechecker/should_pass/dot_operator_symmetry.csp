@@ -1,0 +1,8 @@
+datatype A = EE.{0..1} | FF
+channel cc : A
+
+func(x,y) = if true then EE.0 else FF
+
+func2(x,y) = if true then EE.x else FF.y
+
+func3(x,y) = x.y

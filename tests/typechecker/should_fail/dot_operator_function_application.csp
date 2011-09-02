@@ -1,0 +1,5 @@
+datatype Z = B.{0..1}
+	
+g(x.y) = y
+
+z = g(B)

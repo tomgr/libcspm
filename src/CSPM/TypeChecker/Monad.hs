@@ -11,6 +11,7 @@ module CSPM.TypeChecker.Monad (
     ErrorContext, addErrorContext, getErrorContexts,
     getSrcSpan, setSrcSpan,
     getUnificationStack, addUnificationPair,
+    symmetricUnificationAllowed, disallowSymmetricUnification,
     getInError, setInError,
     resetWarnings, getWarnings, addWarning,
     
@@ -59,7 +60,8 @@ data TypeInferenceState = TypeInferenceState {
         -- is at the front. In the form (expected, actual).
         unificationStack :: [(Type, Type)],
         -- | Are we currently in an error state
-        inError :: Bool
+        inError :: Bool,
+        symUnificationAllowed :: Bool
     }
     
 newTypeInferenceState :: TypeInferenceState
@@ -72,7 +74,8 @@ newTypeInferenceState = TypeInferenceState {
         errors = [],
         warnings = [],
         unificationStack = [],
-        inError = False
+        inError = False,
+        symUnificationAllowed = True
     }
 
 type TypeCheckMonad = StateT TypeInferenceState IO
@@ -185,6 +188,17 @@ addUnificationPair tp p = do
     modify (\ st -> st { unificationStack = stk })
     return a
 
+symmetricUnificationAllowed :: TypeCheckMonad Bool
+symmetricUnificationAllowed = gets symUnificationAllowed
+
+disallowSymmetricUnification :: TypeCheckMonad a -> TypeCheckMonad a
+disallowSymmetricUnification prog = do
+    b <- symmetricUnificationAllowed
+    modify (\st -> st { symUnificationAllowed = False })
+    v <- prog
+    modify (\st -> st { symUnificationAllowed = b })
+    return v
+    
 -- Error handling
 
 -- | Report the error if first parameter is False.

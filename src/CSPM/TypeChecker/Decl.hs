@@ -212,7 +212,10 @@ instance TypeCheckable Decl [(Name, Type)] where
         -- Then we make the decision that x should be of type Int.Int.
         tpat <- evaluateDots tpat
         texp <- evaluateDots texp
-        unify texp tpat
+        -- We must disallow symmetric unification here as we don't want
+        -- to allow patterns such as:
+        --     x.y = B
+        disallowSymmetricUnification (unify texp tpat)
         ns <- namesBoundByDecl' (PatBind pat exp)
         ts <- mapM getType ns
         return $ zip ns [t | ForAll _ t <- ts]
