@@ -12,23 +12,33 @@ import Text.PrettyPrint.HughesPJ
 
 class PrettyPrintable a where
     prettyPrint :: a -> Doc
-    
+
+-- | The width, in spaces, of a tab character.
+tabWidth :: Int    
 tabWidth = 4
+
+-- | Indent a document by `tabWidth` characters, on each line
+-- (uses `nest`).
+tabIndent :: Doc -> Doc
 tabIndent = nest tabWidth
 
+-- | Surrounds a `Doc` with '<' and '>'.
 angles :: Doc -> Doc
 angles d = char '<' <> d <> char '>'
 
+-- | Surrounds a `Doc` with '|'.
 bars :: Doc -> Doc
 bars d = char '|' <> d <> char '|'
 
+-- | Separates a list of `Doc`s by '.'.
 dotSep :: [Doc] -> Doc
 dotSep docs = fcat (punctuate (text ".") docs)
 
+-- | Separates a list of `Doc`s by ','.
 list :: [Doc] -> Doc
-list docs = 
-    fsep (punctuate (text ",") docs)
+list docs = fsep (punctuate (text ",") docs)
 
+-- | Converts a number into 'first', 'second' etc.
 speakNth :: Int -> Doc
 speakNth 1 = text "first"
 speakNth 2 = text "second"
