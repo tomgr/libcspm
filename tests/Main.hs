@@ -5,7 +5,7 @@ import System.Exit (exitFailure, exitSuccess)
 import System.FilePath
 
 import CSPM
-import Test.Monad
+import Monad
 import Util.Exception
 import Util.PrettyPrint
 

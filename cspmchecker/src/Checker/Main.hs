@@ -13,7 +13,7 @@ import System.IO
 
 import CSPM
 import CSPM.PrettyPrinter
-import Sfdr.Monad
+import Monad
 import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint

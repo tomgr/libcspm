@@ -9,7 +9,7 @@ import System.Console.Haskeline
 import System.FilePath
 
 import CSPM
-import Sfdri.Monad
+import Monad
 import Util.Annotated
 import Util.Exception
 import Util.Monad

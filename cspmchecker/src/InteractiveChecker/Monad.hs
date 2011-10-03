@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
-module Sfdri.Monad where
+module Monad where
 
 import Control.Monad.State
 import System.Console.Haskeline

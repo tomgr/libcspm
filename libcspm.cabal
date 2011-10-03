@@ -1,73 +1,102 @@
-Name:                sfdr
-License:             BSD3
-Version:             0.1
-Author:              Thomas Gibson-Robinson
-Maintainer:          thomas.gibsonrobinson+sfdr@gmail.com
-Category:            Concurrency
-Build-type:          Simple
-Cabal-version:       >=1.9.2
+Name: libcspm
+License: BSD3
+License-File: LICENSE.txt
+Copyright: (c) 2011 Thomas Gibson-Robinson
+Author: Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com>
+Maintainer: Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com>
+Bug-reports: https://github.com/tomgr/libcspm/issues
+Category: Concurrency
+Build-type: Simple
+Cabal-version: >=1.9.2
+Synopsis: A library providing a parser, type checker and (experimental) evaluator for machine CSP.
 
-Executable cspm-tests
-  Main-is: Test/Main.hs
+Source-Repository head
+  type:     git
+  location: https://github.com/tomgr/libcspm
+  
+Version: 0.1
+Source-repository this
+  type:     git
+  location: https://github.com/tomgr/libcspm
+  tag:      0.1
 
-  Other-modules:
-    CSPM.Parser.Lexer, 
-    CSPM.Parser.Parser
-  Build-tools: alex, happy, cpphs
-  Hs-Source-Dirs: src
-  Build-depends: 
-    base, 
-    filepath >= 1.2, 
-    array >= 0.3, 
-    containers >= 0.4, 
-    mtl >= 2.0, 
-    pretty >= 1.0,
-    directory >= 1.0,
-    haskeline >= 0.6,
-    graph-wrapper >= 0.2
-  
-Executable sfdri
-  Main-is: Sfdri/Main.hs
-  
-  Build-depends: 
-    base, 
-    haskell98, 
-    filepath >= 1.2, 
-    array >= 0.3, 
-    containers >= 0.4, 
-    mtl >= 2.0, 
-    pretty >= 1.0,
-    directory >= 1.0,
-    haskeline >= 0.6,
-    graph-wrapper >= 0.2
-  
-  -- Modules not exported by this package.
-  Other-modules:
-    CSPM.Parser.Lexer, 
-    CSPM.Parser.Parser
-  
-  Build-tools: alex, happy, cpphs
-  Hs-Source-Dirs: src
+Library
+    Build-Depends:
+        base, 
+        filepath >= 1.2, 
+        array >= 0.3, 
+        containers >= 0.4, 
+        mtl >= 2.0, 
+        pretty >= 1.0,
+        directory >= 1.0,
+        graph-wrapper >= 0.2
 
-Executable sfdr
-  Main-is: Sfdr/Main.hs
-  
-  Build-depends: 
-    base, 
-    haskell98, 
-    filepath >= 1.2, 
-    array >= 0.3, 
-    containers >= 0.4, 
-    mtl >= 2.0, 
-    pretty >= 1.0,
-    directory >= 1.0,
-    haskeline >= 0.6,
-    graph-wrapper >= 0.2
-  
-  -- Modules not exported by this package.
-  Other-modules:
-    CSPM.Parser.Lexer, 
-    CSPM.Parser.Parser
-  
-  Build-tools: alex, happy, cpphs
-  Hs-Source-Dirs: src
+    Exposed-Modules:
+        CSPM,
+        CSPM.Compiler.Events,
+        CSPM.Compiler.Map,
+        CSPM.Compiler.Processes,
+        CSPM.Compiler.Set,
+        CSPM.DataStructures.Names,
+        CSPM.DataStructures.Syntax,
+        CSPM.DataStructures.Tokens,
+        CSPM.DataStructures.Types,
+        CSPM.Desugar,
+        CSPM.Evaluator,
+        CSPM.Evaluator.BuiltInFunctions,
+        CSPM.Evaluator.DeclBind,
+        CSPM.Evaluator.Environment,
+        CSPM.Evaluator.Exceptions,
+        CSPM.Evaluator.Expr,
+        CSPM.Evaluator.Module,
+        CSPM.Evaluator.Monad,
+        CSPM.Evaluator.PatBind,
+        CSPM.Evaluator.Values,
+        CSPM.Evaluator.ValueSet
+        CSPM.Parser,
+        CSPM.Parser.Exceptions,
+        CSPM.Parser.Lexer,
+        CSPM.Parser.Monad,
+        CSPM.Parser.Parser,
+        CSPM.PrettyPrinter,
+        CSPM.TypeChecker,
+        CSPM.TypeChecker.BuiltInFunctions,
+        CSPM.TypeChecker.Common,
+        CSPM.TypeChecker.Compressor,
+        CSPM.TypeChecker.Decl,
+        CSPM.TypeChecker.Dependencies,
+        CSPM.TypeChecker.Environment,
+        CSPM.TypeChecker.Exceptions,
+        CSPM.TypeChecker.Expr,
+        CSPM.TypeChecker.InteractiveStmt,
+        CSPM.TypeChecker.Module,
+        CSPM.TypeChecker.Monad,
+        CSPM.TypeChecker.Pat,
+        CSPM.TypeChecker.Unification,
+        Util.Annotated,
+        Util.Exception,
+        Util.HierarchicalMap,
+        Util.List,
+        Util.Monad,
+        Util.PartialFunctions,
+        Util.Prelude,
+        Util.PrettyPrint
+        
+    Hs-Source-Dirs: src
+    
+    Extensions: DoAndIfThenElse
+
+Test-Suite unit-tests
+    Type: exitcode-stdio-1.0
+    Main-is: Main.hs
+
+    Extensions: DoAndIfThenElse
+    
+    Hs-Source-Dirs: tests
+    
+    Build-depends: 
+        base,
+        libcspm,
+        filepath >= 1.2, 
+        mtl >= 2.0,
+        directory >= 1.0

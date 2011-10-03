@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
-module Test.Monad where
+module Monad where
 
 import Control.Monad.State
 
