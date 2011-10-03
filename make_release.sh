@@ -72,7 +72,7 @@ popd >/dev/null
 git stage cspmchecker/cspmchecker.cabal
 git stage libcspm.cabal
 git commit -m "Updating version number for release"
-git tag add $GITTAG
+git tag $GITTAG
 
 cabal upload dist/libcspm-$VERSION.tar.gz
 pushd cspmchecker
