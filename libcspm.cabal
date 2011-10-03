@@ -84,7 +84,10 @@ Library
         Util.PartialFunctions,
         Util.Prelude,
         Util.PrettyPrint
-        
+    
+    Other-Modules:
+        Paths_libcspm
+    
     Hs-Source-Dirs: src
     
     Extensions: DoAndIfThenElse

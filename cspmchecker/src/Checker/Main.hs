@@ -11,6 +11,9 @@ import System.FilePath
 import System.Exit
 import System.IO
 
+import qualified Paths_cspmchecker as C
+import Data.Version (showVersion)
+
 import CSPM
 import CSPM.PrettyPrinter
 import Monad
@@ -66,15 +69,20 @@ printError s = liftIO $ putStrLn $ "\ESC[1;31m\STX"++s++"\ESC[0m\STX"
 
 data Options = Options {
         recursive :: Bool,
-        help :: Bool
+        help :: Bool,
+        printVersion :: Bool
     }
 defaultOptions = Options { 
         recursive = False, 
-        help = False 
+        help = False,
+        printVersion = False
     }
 
 options :: [OptDescr (Options -> Options)]
 options = [
+    Option ['v'] ["version"] 
+        (NoArg (\o -> o { printVersion = True }))
+        "Print out the version number",
     Option ['r'] ["recursive"] 
         (NoArg (\o -> o { recursive = True })) 
         "If the input file is a directory, check all files contained in all subdirectories",
@@ -90,18 +98,22 @@ main :: IO ()
 main = do
     args <- getArgs
     st <- initSfdrState
-    runSfdr st $ 
-        case getOpt RequireOrder options args of
-            (_,_,e:es) -> liftIO $ putStr $ concat (e:es) ++ usageInfo header options
-            (o,files, []) -> do
-                let opts = foldl (flip id) defaultOptions o
-                case (opts, files) of
-                    (_, []) -> 
-                        liftIO $ putStr $ usageInfo header options
-                    (Options { help = True }, files) -> 
-                        liftIO $ putStr $ usageInfo header options
-                    (Options { recursive = True }, dirs) -> do
-                        tasks <- mapM (liftIO . getFilesFromDir) dirs
-                        countSuccesses (map doFile (concat tasks))
-                    (_, files) -> 
-                        countSuccesses (map doFile files)
+    runSfdr st $ case getOpt RequireOrder options args of
+        (_,_,e:es) -> liftIO $ putStr $ show $ concat (e:es) ++ usageInfo header options
+        (o,files, []) -> do
+            let opts = foldl (flip id) defaultOptions o
+            case (opts, files) of
+                (Options { printVersion = True }, []) ->
+                    liftIO $ putStrLn $ show $ 
+                        text "cspmchecker version" <+> text (showVersion C.version)
+                        $$
+                        text "using libcspm version" <+> text (showVersion getLibCSPMVersion)
+                (Options { help = True }, []) -> 
+                    liftIO $ putStr $ usageInfo header options
+                (Options { recursive = True }, dirs) -> do
+                    tasks <- mapM (liftIO . getFilesFromDir) dirs
+                    countSuccesses (map doFile (concat tasks))
+                (_, []) -> 
+                    liftIO $ putStr $ usageInfo header options
+                (_, files) -> 
+                    countSuccesses (map doFile files)

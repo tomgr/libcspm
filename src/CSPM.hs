@@ -18,11 +18,14 @@ module CSPM (
     -- * Evaluator API
     evaluateExp, 
     bindFile, bindDeclaration, getBoundNames,
+    -- * Misc functions
+    getLibCSPMVersion
 )
 where
 
 import Control.Monad.State
 import Control.Monad.Trans
+import Data.Version
 import System.FilePath
 import System.IO
 
@@ -34,6 +37,7 @@ import CSPM.Evaluator.Values
 import qualified CSPM.Parser as P
 import qualified CSPM.TypeChecker as TC
 import qualified CSPM.Desugar as DS
+import Paths_libcspm (version)
 import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
@@ -185,3 +189,7 @@ evaluateFile ms = runEvaluatorInCurrentState (EV.evaluateFile ms)
 -- | Evaluates the expression in the current context.
 evaluateExp :: CSPMMonad m => TCExp -> m Value
 evaluateExp e = runEvaluatorInCurrentState (EV.evaluateExp e)
+
+-- | Return the version of libcspm that is being used.
+getLibCSPMVersion :: Version
+getLibCSPMVersion = version
