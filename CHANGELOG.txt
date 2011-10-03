@@ -1,0 +1,5 @@
+0.1.1 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> 2011-11-03
+    * Fix the build of cspmchecker.
+
+0.1 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> 2011-11-03
+    * Initial Release.
