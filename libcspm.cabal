@@ -10,7 +10,7 @@ Category: Concurrency
 Build-type: Simple
 Cabal-version: >=1.9.2
 Synopsis: A library providing a parser, type checker and evaluator for CSPM.
-Version: 0.1
+Version: 0.1.1
 Extra-source-files: 
     README.md,
     CHANGELOG.txt
@@ -22,7 +22,7 @@ Source-Repository head
 Source-repository this
     type:     git
     location: https://github.com/tomgr/libcspm
-    tag:      0.1
+    tag: release-0.1.1
 
 Library
     Build-Depends:
