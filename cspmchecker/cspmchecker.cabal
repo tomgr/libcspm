@@ -24,26 +24,28 @@ Source-repository this
     tag:      0.1
   
 Executable cspmchecker
-  Main-is: Main.hs
-  
-  Build-depends: 
-    base >= 4 && < 5,
-    libcspm,
-    filepath >= 1.2,
-    mtl >= 2.0,
-    directory >= 1.0
+    Main-is: Main.hs
+    Other-modules: Monad
     
-  Hs-Source-Dirs: src/Checker
+    Build-depends: 
+        base >= 4 && < 5,
+        libcspm,
+        filepath >= 1.2,
+        mtl >= 2.0,
+        directory >= 1.0
+    
+    Hs-Source-Dirs: src/Checker
 
 --Executable cspmcheckeri
---  Main-is: Main.hs
+--    Main-is: Main.hs
+--    Other-modules: Monad
 --  
---  Build-depends: 
---    base >= 4 && < 5,
---    libcspm,
---    filepath >= 1.2, 
---    mtl >= 2.0,
---    directory >= 1.0,
---    haskeline >= 0.6
+--    Build-depends: 
+--        base >= 4 && < 5,
+--        libcspm,
+--        filepath >= 1.2, 
+--        mtl >= 2.0,
+--        directory >= 1.0,
+--        haskeline >= 0.6
 --  
---  Hs-Source-Dirs: src/InteractiveChecker
+--    Hs-Source-Dirs: src/InteractiveChecker
