@@ -34,15 +34,15 @@ Executable cspmchecker
     
   Hs-Source-Dirs: src/Checker
 
-Executable cspmcheckeri
-  Main-is: Main.hs
-  
-  Build-depends: 
-    base,
-    libcspm,
-    filepath >= 1.2, 
-    mtl >= 2.0,
-    directory >= 1.0,
-    haskeline >= 0.6
-  
-  Hs-Source-Dirs: src/InteractiveChecker
+--Executable cspmcheckeri
+--  Main-is: Main.hs
+--  
+--  Build-depends: 
+--    base,
+--    libcspm,
+--    filepath >= 1.2, 
+--    mtl >= 2.0,
+--    directory >= 1.0,
+--    haskeline >= 0.6
+--  
+--  Hs-Source-Dirs: src/InteractiveChecker
