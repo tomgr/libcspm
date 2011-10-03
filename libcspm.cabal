@@ -5,11 +5,11 @@ Copyright: (c) 2011 Thomas Gibson-Robinson
 Author: Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com>
 Maintainer: Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com>
 Bug-reports: https://github.com/tomgr/libcspm/issues
-Homepage: http://tomgr.github.com/libcspm/
+Homepage: https://github.com/tomgr/libcspm
 Category: Concurrency
 Build-type: Simple
 Cabal-version: >=1.9.2
-Synopsis: A library providing a parser, type checker and (experimental) evaluator for machine CSP.
+Synopsis: A library providing a parser, type checker and evaluator for CSPM.
 Version: 0.1
 
 Source-Repository head
@@ -23,7 +23,7 @@ Source-repository this
 
 Library
     Build-Depends:
-        base, 
+        base >= 4 && < 5,
         filepath >= 1.2, 
         array >= 0.3, 
         containers >= 0.4, 

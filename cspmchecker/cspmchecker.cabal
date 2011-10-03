@@ -5,11 +5,11 @@ Copyright: (c) 2011 Thomas Gibson-Robinson
 Author: Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com>
 Maintainer: Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com>
 Bug-reports: https://github.com/tomgr/libcspm/issues
-Homepage: http://tomgr.github.com/libcspm/
+Homepage: https://github.com/tomgr/libcspm
 Category: Concurrency
 Build-type: Simple
 Cabal-version: >=1.9.2
-Synopsis: Provides a command line type checker for CSPM files.
+Synopsis: A command line type checker for CSPM files.
 Version: 0.1
 
 Source-Repository head
@@ -27,7 +27,7 @@ Executable cspmchecker
   Main-is: Main.hs
   
   Build-depends: 
-    base, 
+    base >= 4 && < 5,
     libcspm,
     filepath >= 1.2,
     mtl >= 2.0,
@@ -39,7 +39,7 @@ Executable cspmchecker
 --  Main-is: Main.hs
 --  
 --  Build-depends: 
---    base,
+--    base >= 4 && < 5,
 --    libcspm,
 --    filepath >= 1.2, 
 --    mtl >= 2.0,
