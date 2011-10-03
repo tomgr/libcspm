@@ -50,7 +50,7 @@ Documentation of the type system is forthcoming.
 Usage of libcspm
 ----------------
 
-See http://tomgr.github.com/libcspm/doc/libcspm/index.html for documentation.
+See http://hackage.haskell.org/package/libcspm for documentation.
 
 Testing
 -------

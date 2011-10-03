@@ -11,6 +11,8 @@ Build-type: Simple
 Cabal-version: >=1.9.2
 Synopsis: A library providing a parser, type checker and evaluator for CSPM.
 Version: 0.1
+Extra-source-files: 
+    README.md 
 
 Source-Repository head
     type:     git
