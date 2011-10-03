@@ -1,12 +1,26 @@
 Name: cspmchecker
 License: BSD3
 License-File: LICENSE.txt
-Version: 0.1
+Copyright: (c) 2011 Thomas Gibson-Robinson
 Author: Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com>
 Maintainer: Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com>
+Bug-reports: https://github.com/tomgr/libcspm/issues
 Category: Concurrency
 Build-type: Simple
 Cabal-version: >=1.9.2
+Synopsis: Provides a command line type checker for CSPM files.
+Version: 0.1
+
+Source-Repository head
+    type:     git
+    location: git://github.com/tomgr/libcspm.git
+    subdir:   cspmchecker
+
+Source-repository this
+    type:     git
+    location: git://github.com/tomgr/libcspm.git
+    subdir:   cspmchecker
+    tag:      0.1
   
 Executable cspmchecker
   Main-is: Main.hs
@@ -14,14 +28,9 @@ Executable cspmchecker
   Build-depends: 
     base, 
     libcspm,
-    filepath >= 1.2, 
-    array >= 0.3, 
-    containers >= 0.4, 
-    mtl >= 2.0, 
-    pretty >= 1.0,
-    directory >= 1.0,
-    haskeline >= 0.6,
-    graph-wrapper >= 0.2
+    filepath >= 1.2,
+    mtl >= 2.0,
+    directory >= 1.0
     
   Hs-Source-Dirs: src/Checker
 
@@ -31,14 +40,9 @@ Executable cspmcheckeri
   Build-depends: 
     base,
     libcspm,
-    haskell98, 
     filepath >= 1.2, 
-    array >= 0.3, 
-    containers >= 0.4, 
-    mtl >= 2.0, 
-    pretty >= 1.0,
+    mtl >= 2.0,
     directory >= 1.0,
-    haskeline >= 0.6,
-    graph-wrapper >= 0.2
+    haskeline >= 0.6
   
   Hs-Source-Dirs: src/InteractiveChecker
