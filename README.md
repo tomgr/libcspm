@@ -2,7 +2,7 @@ libcspm
 ========
 
 This library provides a [FDR](http://www.fsel.com/software.html)-compliant
-parser, type checker and (evaluator) for machine CSP files.
+parser, type checker and (experimental) evaluator for machine CSP files.
 
 There is also a program, `cspmchecker`, that makes use of this library to
 provide command line type checking.
@@ -10,7 +10,11 @@ provide command line type checking.
 Installation
 ------------
 
-The following commands will install `libcspm`.
+The simplest method is to install via [Hackage](http://hackage.haskell.org/).
+`cabal install cspmchecker` will install cspmchecker and its dependencies.
+
+Otherwise, if you obtain a source distribution then the following commands 
+will install `libcspm`.
 
     cabal configure
     cabal build
@@ -42,6 +46,11 @@ the files. Any error messages will be printed out. For example:
         In the expression: (ack == bit)
 
 Documentation of the type system is forthcoming.
+
+Usage of libcspm
+----------------
+
+See http://tomgr.github.com/libcspm/doc/libcspm/index.html for documentation.
 
 Testing
 -------

@@ -5,6 +5,7 @@ Copyright: (c) 2011 Thomas Gibson-Robinson
 Author: Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com>
 Maintainer: Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com>
 Bug-reports: https://github.com/tomgr/libcspm/issues
+Homepage: http://tomgr.github.com/libcspm/
 Category: Concurrency
 Build-type: Simple
 Cabal-version: >=1.9.2
