@@ -84,7 +84,7 @@ options = [
     ]
 
 header :: String
-header = "Usage: sfdr [OPTION...] files..."
+header = "Usage: cspmchecker [OPTION...] files..."
 
 main :: IO ()
 main = do
