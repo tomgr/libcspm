@@ -76,7 +76,7 @@ git tag $GITTAG
 
 cabal upload dist/libcspm-$VERSION.tar.gz
 pushd cspmchecker
-    cabal upload --check dist/cspmchecker-$VERSION.tar.gz
+    cabal upload dist/cspmchecker-$VERSION.tar.gz
 popd
 
 git push
