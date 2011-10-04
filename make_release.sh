@@ -13,36 +13,15 @@ if [ "$version_response" != "yes" ]; then
     exit 1
 fi
 
-require_clean_work_tree () {
-    git rev-parse --verify HEAD >/dev/null || exit 1
-    git update-index -q --ignore-submodules --refresh
-    err=0
+git status
 
-    if ! git diff-files --quiet --ignore-submodules
-    then
-        echo >&2 "Cannot $1: You have unstaged changes."
-        err=1
-    fi
+echo "Did git status contain pending changes?"
+read version_response
 
-    if ! git diff-index --cached --quiet --ignore-submodules HEAD --
-    then
-        if [ $err = 0 ]
-        then
-            echo >&2 "Cannot $1: Your index contains uncommitted changes."
-        else
-            echo >&2 "Additionally, your index contains uncommitted changes."
-        fi
-        err=1
-    fi
-
-    if [ $err = 1 ]
-    then
-        test -n "$2" && echo >&2 "$2"
-        exit 1
-    fi
-}
-
-require_clean_work_tree
+if [ "$version_response" != "yes" ]; then
+    echo "Commit them"
+    exit 1
+fi
 
 sed -i".old" -e "s/Version:.*/Version: $VERSION/g" libcspm.cabal 
 sed -i".old" -e "s/tag:.*/tag: $GITTAG/g" libcspm.cabal
@@ -66,6 +45,7 @@ pushd cspmchecker >/dev/null
     cabal upload --check dist/cspmchecker-$VERSION.tar.gz
 popd >/dev/null
 
+git stage make_release.sh
 git stage cspmchecker/cspmchecker.cabal
 git stage libcspm.cabal
 git commit -m "Updating version number for release"
