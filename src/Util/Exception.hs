@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, TypeSynonymInstances #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances #-}
 module Util.Exception (
     Exception,
     LibCSPMException(..),

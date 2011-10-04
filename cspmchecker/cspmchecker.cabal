@@ -27,6 +27,8 @@ Executable cspmchecker
     Main-is: Main.hs
     Other-modules: Monad
     
+    Extensions: DoAndIfThenElse
+
     Build-depends: 
         base >= 4 && < 5,
         libcspm >= 0.1.1,

@@ -1,4 +1,3 @@
-{-# LANGUAGE DoAndIfThenElse #-}
 module Main where
 
 import Control.Monad

@@ -12,12 +12,13 @@ module CSPM.Parser.Monad (
 )
 where
 
+import Control.Exception
 import Control.Monad.State
 import Data.Typeable
-import Prelude
+import Prelude hiding (catch)
 import System.FilePath
 import System.IO
-import System.IO.Error
+import System.IO.Error hiding (catch)
 
 import CSPM.DataStructures.Tokens
 import CSPM.Parser.Exceptions
@@ -95,15 +96,16 @@ modifyTopFileParserState stf =
                         st { fileStack = (stf fs):fss })
 
 pushFile :: String -> ParseMonad a -> ParseMonad a
-pushFile fname prog =
-    do
-        dirname <- gets rootDir     
-        let filename = combine dirname fname
-        str <- liftIO $ catch (readFile filename) (\err ->
-            throwSourceError [fileAccessErrorMessage filename])
-        pushFileContents filename str
-        x <- prog
-        return x
+pushFile fname prog = do
+    dirname <- gets rootDir     
+    let 
+        filename = combine dirname fname
+        handle :: IOException -> a
+        handle err = throwSourceError [fileAccessErrorMessage filename]
+    str <- liftIO $ catch (readFile filename) handle
+    pushFileContents filename str
+    x <- prog
+    return x
 
 pushFileContents :: String -> String -> ParseMonad ()
 pushFileContents filename input = 

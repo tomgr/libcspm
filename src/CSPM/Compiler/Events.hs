@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 module CSPM.Compiler.Events (
     Event(..),
     EventSet

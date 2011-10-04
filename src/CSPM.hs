@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances, DoAndIfThenElse #-}
+{-# LANGUAGE FlexibleInstances #-}
 module CSPM (
     module CSPM.DataStructures.Names,
     module CSPM.DataStructures.Syntax,

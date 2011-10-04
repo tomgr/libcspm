@@ -1,5 +1,4 @@
 {
-{-# LANGUAGE DoAndIfThenElse #-}
 {-# OPTIONS_GHC -fno-warn-lazy-unlifted-bindings #-}
 module CSPM.Parser.Lexer where
 

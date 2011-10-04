@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 module CSPM.TypeChecker.Pat () where
 
 import CSPM.DataStructures.Syntax hiding (getType)

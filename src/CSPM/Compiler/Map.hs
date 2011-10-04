@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 module CSPM.Compiler.Map ( 
     Map,
     lookup,
