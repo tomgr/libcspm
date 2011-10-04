@@ -15,7 +15,7 @@ fi
 
 git status
 
-echo "Did git status contain pending changes?"
+echo "Did git status contain pending changes? Nb. this script will commit make_release.sh (with the new version number)."
 read version_response
 
 if [ "$version_response" != "yes" ]; then
@@ -29,6 +29,7 @@ rm libcspm.cabal.old
 
 sed -i".old" -e "s/Version:.*/Version: $VERSION/g" cspmchecker/cspmchecker.cabal 
 sed -i".old" -e "s/tag:.*/tag: $GITTAG/g" cspmchecker/cspmchecker.cabal
+sed -i".old" -e "s/libcspm >= .*,/libcspm >= $VERSION,/g" cspmchecker/cspmchecker.cabal 
 rm cspmchecker/cspmchecker.cabal.old
 
 cabal clean
