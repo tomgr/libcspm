@@ -7,33 +7,33 @@ import CSPM
 import Util.Exception
 import Util.PrettyPrint
 
-data SfdrState = SfdrState {
+data CheckerState = CheckerState {
         cspmSession :: CSPMSession,
         lastWarnings :: [ErrorMessage]
     }
 
-initSfdrState :: IO SfdrState
-initSfdrState = do
+initCheckerState :: IO CheckerState
+initCheckerState = do
     sess <- newCSPMSession
-    return $ SfdrState sess []
+    return $ CheckerState sess []
 
-resetCSPM :: Sfdr ()
+resetCSPM :: Checker ()
 resetCSPM = do
     sess <- liftIO $ newCSPMSession
     modify (\st -> st { cspmSession = sess, lastWarnings = [] })
 
-type Sfdr = StateT SfdrState IO
+type Checker = StateT CheckerState IO
 
-runSfdr :: SfdrState -> Sfdr a -> IO a
-runSfdr st a = runStateT a st >>= return . fst
+runChecker :: CheckerState -> Checker a -> IO a
+runChecker st a = runStateT a st >>= return . fst
 
-getState :: (SfdrState -> a) -> Sfdr a
+getState :: (CheckerState -> a) -> Checker a
 getState = gets
 
-modifyState :: (SfdrState -> SfdrState) -> Sfdr ()
+modifyState :: (CheckerState -> CheckerState) -> Checker ()
 modifyState = modify
 
-instance CSPMMonad Sfdr where
+instance CSPMMonad Checker where
     getSession = gets cspmSession
     setSession s = modify (\ st -> st { cspmSession = s })
     handleWarnings ws = modify (\ st -> st { lastWarnings = ws })

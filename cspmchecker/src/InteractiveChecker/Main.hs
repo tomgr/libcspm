@@ -18,19 +18,19 @@ import Util.PrettyPrint
 
 main :: IO ()
 main = do
-    st <- initSfdriState
-    runSfdri st runSfdriInput
+    st <- initICheckerState
+    runIChecker st runICheckerInput
 
-runSfdriInput :: Sfdri ()
-runSfdriInput = do
+runICheckerInput :: IChecker ()
+runICheckerInput = do
     settingsDir <- getState settingsDirectory
-    let settings = setComplete sfdriComplete $ defaultSettings {
+    let settings = setComplete ICheckerComplete $ defaultSettings {
             historyFile = Just $ 
                 joinPath [settingsDir, "interactive", "prompt_history"]
         }
     runInputT settings interactiveLoop
 
-interactiveLoop :: InputT Sfdri ()
+interactiveLoop :: InputT IChecker ()
 interactiveLoop = do
     currentPath <- lift $ getState currentFilePath
     let 
@@ -44,19 +44,19 @@ interactiveLoop = do
             c <- handleSourceError True (processInput input)
             if c then interactiveLoop else return ()
 
-handleSourceError :: a -> InputT Sfdri a -> InputT Sfdri a
+handleSourceError :: a -> InputT IChecker a -> InputT IChecker a
 handleSourceError v prog = (prog `catch` handle v) `catch` handleInt v
     where
-        handle :: a -> SfdrException -> InputT Sfdri a
+        handle :: a -> LibCSPMException -> InputT IChecker a
         handle v e = do
             printError (show e)
             return v
-        handleInt :: a -> AsyncException -> InputT Sfdri a 
+        handleInt :: a -> AsyncException -> InputT IChecker a 
         handleInt v UserInterrupt = do
             printError "Interrupted"
             return v
 
-processInput :: String -> InputT Sfdri Bool
+processInput :: String -> InputT IChecker Bool
 processInput (':':str) = do
     let (cmd,rest) = break isSpace str
     case getCommand cmd of
@@ -68,8 +68,8 @@ processInput expr =
     if dropWhile isSpace expr == "" then return True
     else keepGoing evaluate expr
 
-type CommandFunc = String -> InputT Sfdri Bool
-type Command = (String, CommandFunc, CompletionFunc Sfdri)
+type CommandFunc = String -> InputT IChecker Bool
+type Command = (String, CommandFunc, CompletionFunc IChecker)
 
 builtInCommands :: [Command]
 builtInCommands = [
@@ -97,12 +97,12 @@ expressionBreakers =
     lineBreakers 
     ++ "+/%*?!$.(),;[]{}\\|"
 
-wrapCompleter :: [Char] -> (String -> Sfdri [String]) -> CompletionFunc Sfdri
+wrapCompleter :: [Char] -> (String -> IChecker [String]) -> CompletionFunc IChecker
 wrapCompleter breakers fun = completeWord Nothing breakers
     $ fmap (map simpleCompletion) . fmap sort . fun
 
-sfdriComplete :: CompletionFunc Sfdri
-sfdriComplete line@(left,_) =
+ICheckerComplete :: CompletionFunc IChecker
+ICheckerComplete line@(left,_) =
     case firstWord of
         ':':cmd | null rest -> completeCommand line
                 | otherwise -> (lookupCompleter cmd) line
@@ -114,26 +114,26 @@ sfdriComplete line@(left,_) =
                 Just (_,_,c) -> c
                 Nothing -> noCompletion
 
-completeCommand :: CompletionFunc Sfdri
+completeCommand :: CompletionFunc IChecker
 completeCommand = wrapCompleter lineBreakers $ 
     \str -> case str of
         ':':cmd -> return (map (\ (s,_,_) -> ':':s) (getCommands cmd))
         _       -> return []
 
-completeExpression :: CompletionFunc Sfdri
+completeExpression :: CompletionFunc IChecker
 completeExpression = wrapCompleter expressionBreakers $ \str -> do
     ns <- getBoundNames
     return [s | Name s <- ns, str `isPrefixOf` s]
     
 -- Commands
 
-keepGoing :: (String -> InputT Sfdri a) -> String -> InputT Sfdri Bool
+keepGoing :: (String -> InputT IChecker a) -> String -> InputT IChecker Bool
 keepGoing prog str = prog str >> return True
 
-quit :: String -> InputT Sfdri Bool
+quit :: String -> InputT IChecker Bool
 quit _ = return False
 
-typeOfExpr :: String ->  InputT Sfdri ()
+typeOfExpr :: String ->  InputT IChecker ()
 typeOfExpr str = do
     pExpr <- parseExpression str
     typ <- typeOfExpression pExpr
@@ -141,7 +141,7 @@ typeOfExpr str = do
         text str <+> text "::" <+> prettyPrint typ
     return ()
 
-loadFileCommand :: String -> InputT Sfdri ()
+loadFileCommand :: String -> InputT IChecker ()
 loadFileCommand fname = do
     fname <- liftIO $ expandPathIO (trim fname)
     -- Reset the context
@@ -154,7 +154,7 @@ loadFileCommand fname = do
         bindFile tcFile
         outputStrLn $ "Ok, loaded "++fname
 
-reload :: String -> InputT Sfdri ()
+reload :: String -> InputT IChecker ()
 reload _ = do
     lift resetCSPM
     currentPath <- lift $ getState currentFilePath
@@ -162,7 +162,7 @@ reload _ = do
         Just fp -> loadFileCommand fp
         Nothing -> return ()
 
-evaluate :: String -> InputT Sfdri ()
+evaluate :: String -> InputT IChecker ()
 evaluate str = do
     pStmt <- parseInteractiveStmt str
     tcStmt <- typeCheckInteractiveStmt pStmt

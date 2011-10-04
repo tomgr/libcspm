@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable, TypeSynonymInstances #-}
 module Util.Exception (
     Exception,
-    SfdrException(..),
+    LibCSPMException(..),
     throwException,
     tryM,
     panic, throwSourceError,
@@ -56,8 +56,8 @@ instance PrettyPrintable ErrorMessage where
 instance Show ErrorMessage where
     show m = show (prettyPrint m)
 
--- | Exceptions that cause Sfdr to abort whatever it is doing. 
-data SfdrException =
+-- | Exceptions that cause LibCSPM to abort whatever it is doing. 
+data LibCSPMException =
     -- | An unexpected internal error
     Panic String
     -- | An error in the user's input occured
@@ -67,12 +67,12 @@ data SfdrException =
     | UserError
     deriving Typeable
 
-instance Show SfdrException where
+instance Show LibCSPMException where
     show (Panic str) = "Internal inconsitancy error: "++show str
     show (SourceError ms) = show (prettyPrint ms)
     show (UserError) = "An unknown error occured."
 
-instance Exception SfdrException
+instance Exception LibCSPMException
 
 throwSourceError :: ErrorMessages -> a
 throwSourceError = throwException . SourceError
@@ -85,7 +85,7 @@ throwException = throw
  
 -- | A class to allow catching of SourceErrors in arbitrary monads.
 class Monad m => MonadIOException m where
-    tryM :: (MonadIOException m) => m a -> m (Either SfdrException a)
+    tryM :: (MonadIOException m) => m a -> m (Either LibCSPMException a)
     
 instance MonadIOException IO where
     tryM prog = do

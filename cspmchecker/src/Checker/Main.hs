@@ -21,7 +21,7 @@ import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 
-countSuccesses :: [Sfdr Bool] -> Sfdr ()
+countSuccesses :: [Checker Bool] -> Checker ()
 countSuccesses tasks = do
     results <- sequence tasks
     let 
@@ -45,7 +45,7 @@ getFilesFromDir path = do
     fss <- mapM getFilesFromDir [dir | dir <- dirs']
     return $ files'++concat fss
 
-doFile :: FilePath -> Sfdr Bool
+doFile :: FilePath -> Checker Bool
 doFile fp = do
     liftIO $ putStr $ "Checking "++fp++"....."
     res <- tryM $ do
@@ -64,7 +64,7 @@ doFile fp = do
             else return ()
             return True
 
-printError :: String -> Sfdr ()
+printError :: String -> Checker ()
 printError s = liftIO $ putStrLn $ "\ESC[1;31m\STX"++s++"\ESC[0m\STX"
 
 data Options = Options {
@@ -97,8 +97,8 @@ header = "Usage: cspmchecker [OPTION...] files..."
 main :: IO ()
 main = do
     args <- getArgs
-    st <- initSfdrState
-    runSfdr st $ case getOpt RequireOrder options args of
+    st <- initCheckerState
+    runChecker st $ case getOpt RequireOrder options args of
         (_,_,e:es) -> liftIO $ putStr $ show $ concat (e:es) ++ usageInfo header options
         (o,files, []) -> do
             let opts = foldl (flip id) defaultOptions o
