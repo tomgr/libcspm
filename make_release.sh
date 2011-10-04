@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-VERSION=0.1.1
+VERSION=0.1.2
 
 GITTAG="release-$VERSION"
 
