@@ -35,14 +35,14 @@ rm cspmchecker/cspmchecker.cabal.old
 cabal clean
 cabal configure
 cabal build
-cabal sdist
+runhaskell Setup.hs sdist
 cabal upload --check dist/libcspm-$VERSION.tar.gz
 
 pushd cspmchecker >/dev/null
     cabal clean
     cabal configure
     cabal build
-    cabal sdist
+    runhaskell Setup.hs sdist
     cabal upload --check dist/cspmchecker-$VERSION.tar.gz
 popd >/dev/null
 
