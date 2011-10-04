@@ -1,8 +1,5 @@
 #!/bin/bash -e
 
-# First, make sure the version has been changed in the .cabal files
-# Also, make sure to tag it using git (and then update the .cabal files).
-
 VERSION=0.1.1
 
 GITTAG="release-$VERSION"
