@@ -27,6 +27,7 @@ Source-repository this
 Library
     Build-Depends:
         base >= 4 && < 5,
+        bytestring >= 0.9,
         filepath >= 1.2, 
         array >= 0.3, 
         containers >= 0.4, 

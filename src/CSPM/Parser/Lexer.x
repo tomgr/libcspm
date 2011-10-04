@@ -2,7 +2,9 @@
 {-# OPTIONS_GHC -fno-warn-lazy-unlifted-bindings #-}
 module CSPM.Parser.Lexer where
 
+import Data.ByteString.Internal (c2w)
 import Data.List
+import Data.Word
 
 import Control.Monad.Trans
 import CSPM.DataStructures.Tokens
@@ -291,6 +293,15 @@ begin sc' st len = setCurrentStartCode sc' >> getNextToken
 alexInputPrevChar :: AlexInput -> Char
 alexInputPrevChar (ParserState { fileStack = fps:_ })= previousChar fps
 
+-- For compatibility with Alex 3
+alexGetByte :: AlexInput -> Maybe (Word8,AlexInput)
+alexGetByte inp = 
+    case alexGetChar inp of 
+        Nothing -> Nothing
+        Just (c, inp') -> 
+            -- Truncate the char to the first byte
+            Just (c2w c, inp')
+    
 alexGetChar :: AlexInput -> Maybe (Char,AlexInput)
 alexGetChar (ParserState { fileStack = [] }) = Nothing
 alexGetChar (st @ (ParserState { fileStack = fps:fpss })) = gc fps
