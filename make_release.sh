@@ -37,6 +37,7 @@ cabal configure
 cabal build
 runhaskell Setup.hs sdist
 cabal upload --check dist/libcspm-$VERSION.tar.gz
+cabal install
 
 pushd cspmchecker >/dev/null
     cabal clean
