@@ -1,3 +1,8 @@
+0.1.2 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> 2011-11-04
+    * Fix building with GHC 7.2 and Alex 3.
+    * Remove the last few remaining mentions to sfdr (the old name for
+      cspmchecker).
+
 0.1.1 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> 2011-11-03
     * Fix the build of cspmchecker.
 
