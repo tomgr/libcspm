@@ -3,19 +3,39 @@ module Util.PrettyPrint (
     PrettyPrintable (prettyPrint),
     tabWidth,
     tabIndent,
+    shortDouble,
+    commaSeparatedInt,
     angles, bars, list, dotSep,
     speakNth
 )
 where 
 
+import Numeric
+import Text.Printf
 import Text.PrettyPrint.HughesPJ
 
 class PrettyPrintable a where
     prettyPrint :: a -> Doc
 
 -- | The width, in spaces, of a tab character.
-tabWidth :: Int    
+tabWidth :: Int
 tabWidth = 4
+
+-- | Pretty prints an integer and separates it into groups of 3, separated by
+-- commas.
+commaSeparatedInt :: Int -> Doc
+commaSeparatedInt =
+    let
+        breakIntoGroupsOf3 (c1:c2:c3:c4:cs) = 
+            [c3,c2,c1] : breakIntoGroupsOf3 (c4:cs)
+        breakIntoGroupsOf3 cs = [reverse cs]
+    in 
+    fcat . punctuate comma . reverse . map text 
+        . breakIntoGroupsOf3 . reverse . show
+
+-- | Show a double `d` printing only `places` places after the decimal place.
+shortDouble :: Int -> Double -> Doc
+shortDouble places d = text (showGFloat (Just places) d "")
 
 -- | Indent a document by `tabWidth` characters, on each line
 -- (uses `nest`).
