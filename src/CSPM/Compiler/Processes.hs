@@ -45,11 +45,11 @@ data Proc =
     | PInterrupt Proc Proc
     | PInterleave [Proc]
     -- TODO | PLinkParallel EventMap [Proc]
+    | POperator ProcOperator Proc
     | PPrefix Event Proc
     -- TODO | PRename EventMap Proc
     | PSequentialComp Proc Proc
     | PSlidingChoice Proc Proc
-    | POperator ProcOperator Proc
     | PProcCall ProcName (Maybe Proc)
 
 instance PrettyPrintable Proc where
