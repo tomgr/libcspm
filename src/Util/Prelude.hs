@@ -1,4 +1,11 @@
-module Util.Prelude where
+-- | Various miscellaneous functions utility functions.
+module Util.Prelude (
+    thenCmp,
+    expandPathIO,
+    trim,
+    cartProduct,
+)
+where
 
 import Data.Char
 import Prelude
@@ -10,6 +17,7 @@ import System.FilePath
 thenCmp :: Ordering -> Ordering -> Ordering
 thenCmp EQ x = x
 thenCmp x _ = x
+{-# INLINE thenCmp #-}
 
 -- | Given a file path, if the first character is a ~ then
 -- expands the ~ to the users' home directory.
@@ -23,6 +31,6 @@ expandPathIO other = return other
 trim :: String -> String
 trim = f . f where f = reverse . dropWhile isSpace
 
--- | Compute the cartesian product of a list of lists.
+-- | Compute the Cartesian product of a list of lists.
 cartProduct :: [[a]] -> [[a]]
 cartProduct = sequence

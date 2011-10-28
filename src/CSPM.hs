@@ -3,6 +3,7 @@ module CSPM (
     module CSPM.DataStructures.Names,
     module CSPM.DataStructures.Syntax,
     module CSPM.DataStructures.Types,
+    module CSPM.Evaluator.Values,
     -- * CSPM Monad
     CSPMSession, newCSPMSession,
     CSPMMonad,
@@ -42,14 +43,14 @@ import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 
--- | A `CSPMSession` represents the internal states of all the various
+-- | A 'CSPMSession' represents the internal states of all the various
 -- components.
 data CSPMSession = CSPMSession {
         tcState :: TC.TypeInferenceState,
         evState :: EV.EvaluationState
     }
 
--- | Create a new `CSPMSession`.
+-- | Create a new 'CSPMSession'.
 newCSPMSession :: MonadIO m => m CSPMSession
 newCSPMSession = do
     -- Get the type checker environment with the built in functions already
@@ -59,29 +60,33 @@ newCSPMSession = do
     return $ CSPMSession tcState evState
 
 -- | The CSPMMonad is the main monad in which all functions must be called.
--- Whilst there is a build in representation (see `CSPM`) it is recommended
--- that you define an instance of CSPMMonad over whatever monad you use.
+-- Whilst there is a build in representation (see 'CSPM') it is recommended
+-- that you define an instance of 'CSPMMonad' over whatever monad you use.
 class (MonadIO m) => CSPMMonad m where
     getSession :: m CSPMSession
     setSession :: CSPMSession -> m ()
     handleWarnings :: [ErrorMessage] -> m ()
-    
+
+-- | Executes an operation giving it access to the current 'CSPMSession'.
 withSession :: CSPMMonad m => (CSPMSession -> m a) -> m a
 withSession f = getSession >>= f
 
+-- | Modifies the session using the given function.
 modifySession :: CSPMMonad m => (CSPMSession -> CSPMSession) -> m ()
 modifySession f = do
     s <- getSession
     setSession (f s)
 
-reportWarnings :: CSPMMonad m => m(a, [ErrorMessage]) -> m a
+-- | Given a program that can return warnings, runs the program and raises
+-- any warnings found using 'handleWarnings'.
+reportWarnings :: CSPMMonad m => m (a, [ErrorMessage]) -> m a
 reportWarnings prog = withSession $ \ sess -> do
     (v, ws) <- prog
     if ws == [] then return ()
     else handleWarnings ws
     return v
 
--- A basic implementation
+-- | A basic implementation of 'CSPMMonad', using the 'StateT' monad.
 type CSPM = StateT CSPMSession IO
 
 unCSPM :: CSPMSession -> CSPM a -> IO (a, CSPMSession)
@@ -103,15 +108,15 @@ parseFile fp =
     in parse dir (P.parseFile fname)
 
 -- | Parses a string, treating it as though it were a file. Throws a 
--- `SourceError` on any parse error.
+-- 'SourceError' on any parse error.
 parseStringAsFile :: CSPMMonad m => String -> m [PModule]
 parseStringAsFile str = parse "" (P.parseStringAsFile str)
 
--- | Parses an `InteractiveStmt`. Throws a `SourceError` on any parse error.
+-- | Parses a 'PInteractiveStmt'. Throws a 'SourceError' on any parse error.
 parseInteractiveStmt :: CSPMMonad m => String -> m PInteractiveStmt
 parseInteractiveStmt str = parse "" (P.parseInteractiveStmt str)
 
--- | Parses an `Exp`. Throws a `SourceError` on any parse error.
+-- | Parses an 'Exp'. Throws a 'SourceError' on any parse error.
 parseExpression :: CSPMMonad m => String -> m PExp
 parseExpression str = parse "" (P.parseExpression str)
 
@@ -123,24 +128,28 @@ runTypeCheckerInCurrentState p = withSession $ \s -> do
     modifySession (\s -> s { tcState = st })
     return (a, ws)
 
--- | Type checks a file, also desugaring it. Throws a `SourceError`
--- if an error is encountered and will call handleWarnings 
+-- | Type checks a file, also desugaring and annotating it. Throws a 
+-- 'SourceError' if an error is encountered and will call 'handleWarnings' on 
+-- any warnings. This also performs desugaraing.
 typeCheckFile :: CSPMMonad m => [PModule] -> m [TCModule]
 typeCheckFile ms = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheck ms
     return $ DS.desugar ms
 
--- | Type checks a `InteractiveStmt`.
+-- | Type checks a 'PInteractiveStmt'.
 typeCheckInteractiveStmt :: CSPMMonad m => PInteractiveStmt -> m TCInteractiveStmt
 typeCheckInteractiveStmt pstmt = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheck pstmt
     return $ DS.desugar pstmt
 
+-- | Type checkes a 'PExp', returning the desugared and annotated version.
 typeCheckExpression :: CSPMMonad m => PExp -> m TCExp
 typeCheckExpression exp = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheck exp
     return $ DS.desugar exp
 
+-- | Given a 'Type', ensures that the 'PExp' is of that type. It returns the
+-- annoated and desugared expression.
 ensureExpressionIsOfType :: CSPMMonad m => Type -> PExp -> m TCExp
 ensureExpressionIsOfType t exp = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheckExpect t exp
@@ -151,6 +160,7 @@ typeOfExpression :: CSPMMonad m => PExp -> m Type
 typeOfExpression exp = 
     reportWarnings $ runTypeCheckerInCurrentState (TC.typeOfExp exp)
 
+-- | Returns the 'Name's that the given type checked expression depends on.
 dependenciesOfExp :: CSPMMonad m => TCExp -> m [Name]
 dependenciesOfExp e = 
     reportWarnings $ runTypeCheckerInCurrentState (TC.dependenciesOfExp e)

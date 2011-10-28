@@ -36,9 +36,12 @@ data ErrorMessage =
         message :: Doc
     }
 
+-- | Given a 'SrcSpan' and a pretty printed 'Doc' returns an 'ErrorMessage'.
 mkErrorMessage :: SrcSpan -> Doc -> ErrorMessage
 mkErrorMessage l d = ErrorMessage l d
 
+-- | Constructs a warning from a 'SrcSpan' and a pretty printed 'Doc',
+-- prepending "Warning: " to the 'Doc'.
 mkWarningMessage :: SrcSpan -> Doc -> ErrorMessage
 mkWarningMessage l d = WarningMessage l (text "Warning" <> colon <+> d)
 
@@ -74,12 +77,15 @@ instance Show LibCSPMException where
 
 instance Exception LibCSPMException
 
+-- | Throw an error message as a 'SourceError'.
 throwSourceError :: ErrorMessages -> a
 throwSourceError = throwException . SourceError
 
+-- | Given a string causes a 'Panic' to be thrown.
 panic :: String -> a
 panic = throwException . Panic
 
+-- | Throws an arbitrary 'Exception'.
 throwException :: Exception e => e -> a
 throwException = throw
  

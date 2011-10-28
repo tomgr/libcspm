@@ -6,11 +6,11 @@ import Data.Typeable
 import Prelude hiding (lookup)
 import Util.Exception
 
-data Ord a => HierarchicalMap a b = 
+data HierarchicalMap a b = 
     HierarchicalMap [M.Map a b]
     deriving Show
 
-data (Ord a, Show a, Typeable a) => HierarchicalMapException a = 
+data HierarchicalMapException a = 
     ValueNotFoundException a
     deriving (Show, Typeable)
 
