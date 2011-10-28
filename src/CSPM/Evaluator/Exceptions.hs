@@ -24,7 +24,15 @@ funBindPatternMatchFailureMessage l n vss = mkErrorMessage l $
     hang (text "Pattern match failure whilst attempting to evaluate:") tabWidth
         (prettyPrint n <> 
             hcat (map (\ vs -> parens (list (map prettyPrint vs))) vss))
-        
+
+replicatedInternalChoiceOverEmptySetMessage :: SrcSpan -> Exp -> ErrorMessage
+replicatedInternalChoiceOverEmptySetMessage l p = mkErrorMessage l $
+    hang (
+        hang (text "The set expression in"<>colon) tabWidth 
+            (prettyPrint p)
+    ) tabWidth
+    (text "evaluated to the empty set. However, replicated internal choice is not defined for the empty set.")
+
 typeCheckerFailureMessage :: String -> ErrorMessage
 typeCheckerFailureMessage s =
     mkErrorMessage Unknown $

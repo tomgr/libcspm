@@ -16,6 +16,9 @@ import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import Util.Annotated
 
+-- | Given a list of declarations, returns a sequence of names bounds to
+-- values that can be passed to 'addScopeAndBind' in order to bind them in
+-- the current scope.
 bindDecls :: [TCDecl] -> EvaluationMonad [(Name, Value)]
 bindDecls ds = do
     bss <- mapM bindDecl ds
@@ -100,11 +103,16 @@ internalNameForChannel (Name n) =
 internalNameForDataTypeClause (Name n) = 
     mkInternalName ("VALUE_TUPLE_DT_CLAUSE_"++n)
 
+-- | Given a channel name returns a list of sets of values, one for each 
+-- component of the channel. For example, if the channel took two components
+-- A and {0..1} then this would return [A, {0..1}].
 valuesForChannel :: Name -> EvaluationMonad [ValueSet]
 valuesForChannel n = do
     VTuple vs <- lookupVar (internalNameForChannel n)
     return $ map (\(VSet s) -> s) vs
 
+-- | Given a datatype clause name returns the sets of values, like 
+-- 'valuesForChannel' does, but for channels.
 valuesForDataTypeClause :: Name -> EvaluationMonad [ValueSet]
 valuesForDataTypeClause n = do
     VTuple vs <- lookupVar (internalNameForDataTypeClause n)

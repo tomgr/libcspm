@@ -41,11 +41,13 @@ instance Evaluatable Exp where
             And -> 
                 let 
                     VBool b1 = v1
+                    -- This is lazy, only pattern matches if b2 is required.
                     VBool b2 = v2
                 in return $ VBool (b1 && b2)
             Or -> 
                 let 
                     VBool b1 = v1
+                    -- This is lazy, only pattern matches if b2 is required.
                     VBool b2 = v2
                 in return $ VBool (b1 || b2)
             Equals -> return $ VBool (v1 == v2)
@@ -208,7 +210,7 @@ instance Evaluatable Exp where
                 let s = chanVs!!component
                 ps <- evalInputField vs fs p s
                 return $ PInternalChoice ps
-                
+-- TODO: the semantics of $ are not currently correct                
             -- Takes a proc and combines nested [] and |~|
             simplify :: Proc -> Proc
 -- TODO: error over PInternalChoice []
