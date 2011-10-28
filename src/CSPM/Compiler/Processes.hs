@@ -1,30 +1,55 @@
+-- | This module provides the input data structure to the compiler.
 module CSPM.Compiler.Processes (
-    Proc(..), ProcName
+    Proc(..), 
+    ProcOperator(..), 
+    ProcName
 ) where
 
+import qualified Data.Set.ListSet as S
 import CSPM.Compiler.Events
 import Util.PrettyPrint
 
 type ProcName = String
 
+-- | An operator that can be applied to processes.
+data ProcOperator =
+    Chase 
+    | Diamond 
+    | Explicate 
+    | Normalize 
+    | ModelCompress
+    | StrongBisim 
+    | TauLoopFactor 
+    | WeakBisim
+
+instance PrettyPrintable ProcOperator where
+    prettyPrint Chase = text "chase"
+    prettyPrint Diamond = text "diamond"
+    prettyPrint Explicate = text "explicate"
+    prettyPrint Normalize = text "normal"
+    prettyPrint ModelCompress = text "model_compress"
+    prettyPrint StrongBisim = text "sbisim"
+    prettyPrint TauLoopFactor = text "tau_loop_factor"
+    prettyPrint WeakBisim = text "wbisim"
+
+-- | A compiled process. Note this is an infinite data structure (due to
+-- PProcCall) as this makes compilation easy (we can easily chase
+-- dependencies).
 data Proc =
-    PAlphaParallel [(EventSet, Proc)]
-    | PException Proc EventSet Proc
+    PAlphaParallel [(S.Set Event, Proc)]
+    | PException Proc (S.Set Event) Proc
     | PExternalChoice [Proc]
-    | PGenParallel EventSet [Proc]
-    | PHide Proc EventSet
+    | PGenParallel (S.Set Event) [Proc]
+    | PHide Proc (S.Set Event)
     | PInternalChoice [Proc]
     | PInterrupt Proc Proc
     | PInterleave [Proc]
+    -- TODO | PLinkParallel EventMap [Proc]
     | PPrefix Event Proc
+    -- TODO | PRename EventMap Proc
     | PSequentialComp Proc Proc
     | PSlidingChoice Proc Proc
-    -- TODO:
-    -- | PLinkParallel EventMap [Proc]
-    -- | PRename EventMap Proc
-    -- | POperator ProcOperator Proc
-    -- where:
-    -- data ProcOperator = Normalise | Explicate | StrongBisim | TauLoopFactor | Diamond | ModelCompress
+    | POperator ProcOperator Proc
     | PProcCall ProcName (Maybe Proc)
 
 instance PrettyPrintable Proc where
@@ -45,8 +70,11 @@ instance PrettyPrintable Proc where
         sep (punctuate (text " |~|") (map prettyPrint ps))
     prettyPrint (PInterleave ps) =
         sep (punctuate (text " |||") (map prettyPrint ps))
+    -- TODO | PLinkParallel EventMap [Proc]
+    -- TODO | POperator ProcOperator Proc
     prettyPrint (PPrefix e p) =
         prettyPrint e <+> text "->" <+> prettyPrint p
+    -- TODO | PRename EventMap Proc
     prettyPrint (PSequentialComp p1 p2) =
         prettyPrint p1 <+> text "->" <+> prettyPrint p2
     prettyPrint (PSlidingChoice p1 p2) =

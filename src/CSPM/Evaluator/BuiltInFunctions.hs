@@ -2,7 +2,7 @@ module CSPM.Evaluator.BuiltInFunctions where
 
 import Control.Monad
 
-import qualified CSPM.Compiler.Set as CS
+import qualified Data.Set.ListSet as CS
 import CSPM.DataStructures.Names
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
@@ -54,6 +54,18 @@ builtInFunctions =
             ("seq", cspm_seq), ("tail", cspm_tail), ("concat", cspm_concat)
             ]
         
+        -- | Functions that mutate processes (like compression functions).
+        proc_operators = [
+            ("chase", Chase),
+            ("diamond", Diamond),
+            ("explicate", Explicate),
+            ("normal", Normalize),
+            ("model_compress", ModelCompress),
+            ("sbisim", StrongBisim),
+            ("tau_loop_factor", TauLoopFactor),
+            ("wbisim", WeakBisim)
+            ]
+        
         -- | Functions that return something else
         other_funcs = [
             ("length", cspm_length), ("null", cspm_null), 
@@ -87,6 +99,8 @@ builtInFunctions =
         map mkFunc (
             map (\ (n, f) -> (n, VSet . f)) set_funcs
             ++ map (\ (n, f) -> (n, VList . f)) seq_funcs
+            ++ map (\ (n, po) -> 
+                        (n,\[VProc p]-> VProc $ POperator po p)) proc_operators
             ++ other_funcs)
         ++ map mkProc procs
         ++ map mkConstant constants
