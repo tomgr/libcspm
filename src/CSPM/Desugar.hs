@@ -170,7 +170,7 @@ instance Desugarable Pat where
             -- TODO: get a proper location for the whole
             -- pattern
             l = loc (head ps)
-            err = prettyPrint (PSet ps) <+> text "is not a valid set pattern as set patterns may only match at most one element"
+            err = prettyPrint (PSet ps) <+> text "is not a valid set pattern as set patterns may only match at most one element."
     desugar (PTuple ps) = PTuple (map desugar ps)
     desugar (PVar n) = PVar n
     desugar (PWildCard) = PWildCard
