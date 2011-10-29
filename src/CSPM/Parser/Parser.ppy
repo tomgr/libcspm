@@ -6,7 +6,7 @@ where
 
 -- To generate the corresponding .hs file run the following commands
 -- cpp -P src/CSPM/Parser/Parser.ppy > src/CSPM/Parser/Parser.y
--- happy --ghc --coerce --arrays src/CSPM/Parser/Parser.y
+-- happy --ghc --coerce --array src/CSPM/Parser/Parser.y
 -- rm src/CSPM/Parser/Parser.y
 
 import Data.Char
