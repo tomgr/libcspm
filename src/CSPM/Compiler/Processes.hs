@@ -5,6 +5,7 @@ module CSPM.Compiler.Processes (
     ProcName
 ) where
 
+import qualified Data.Map.ListMap as M
 import qualified Data.Set.ListSet as S
 import CSPM.Compiler.Events
 import Util.PrettyPrint
@@ -44,10 +45,13 @@ data Proc =
     | PInternalChoice [Proc]
     | PInterrupt Proc Proc
     | PInterleave [Proc]
-    -- TODO | PLinkParallel EventMap [Proc]
+    -- Map from event of left process, to event of right that it synchronises
+    -- with. (Left being p1, Right being p2 ps ps).
+    | PLinkParallel (M.Map Event Event) [Proc]
     | POperator ProcOperator Proc
     | PPrefix Event Proc
-    -- TODO | PRename EventMap Proc
+    -- Map from Old -> New event
+    | PRename (M.Relation Event Event) Proc
     | PSequentialComp Proc Proc
     | PSlidingChoice Proc Proc
     | PProcCall ProcName (Maybe Proc)
@@ -71,10 +75,16 @@ instance PrettyPrintable Proc where
     prettyPrint (PInterleave ps) =
         sep (punctuate (text " |||") (map prettyPrint ps))
     -- TODO | PLinkParallel EventMap [Proc]
-    -- TODO | POperator ProcOperator Proc
+    prettyPrint (POperator op p) = 
+        prettyPrint op <> parens (prettyPrint p)
     prettyPrint (PPrefix e p) =
         prettyPrint e <+> text "->" <+> prettyPrint p
-    -- TODO | PRename EventMap Proc
+    prettyPrint (PRename evm p) =
+        prettyPrint p <> text "[[" 
+        <> list (map (\ (evOld, evNew) -> 
+                            prettyPrint evOld <+> text "<-" 
+                            <+> prettyPrint evNew) evm) 
+        <> text "]]"
     prettyPrint (PSequentialComp p1 p2) =
         prettyPrint p1 <+> text "->" <+> prettyPrint p2
     prettyPrint (PSlidingChoice p1 p2) =

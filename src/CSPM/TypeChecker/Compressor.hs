@@ -108,8 +108,9 @@ instance Compressable Exp where
         return ReplicatedInternalChoice $$ mcompress stmts $$ mcompress e
     mcompress (ReplicatedParallel stmts e1 e2) =
         return ReplicatedParallel $$ mcompress stmts $$ mcompress e1 $$ mcompress e2
-    mcompress (ReplicatedLinkParallel ties stmts e) =
-        return ReplicatedLinkParallel $$ mcompress ties $$ mcompress stmts $$ mcompress e
+    mcompress (ReplicatedLinkParallel ties tiesStmts stmts e) =
+        return ReplicatedLinkParallel $$ mcompress ties $$ mcompress tiesStmts 
+                                        $$ mcompress stmts $$ mcompress e
 
     mcompress a = panic (show a)
 instance Compressable Module where

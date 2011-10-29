@@ -117,8 +117,9 @@ instance Desugarable Exp where
         ReplicatedInternalChoice (desugar stmts) (desugar e)
     desugar (ReplicatedParallel stmts e1 e2) =
         ReplicatedParallel (desugar stmts) (desugar e1) (desugar e2)
-    desugar (ReplicatedLinkParallel ties stmts e) =
-        ReplicatedLinkParallel (desugar ties) (desugar stmts) (desugar e)
+    desugar (ReplicatedLinkParallel ties tiesStmts stmts e) =
+        ReplicatedLinkParallel (desugar ties) (desugar tiesStmts) 
+                                (desugar stmts) (desugar e)
     
 instance Desugarable Field where
     desugar (Output e) = Output (desugar e)

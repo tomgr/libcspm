@@ -225,8 +225,9 @@ instance PrettyPrintable Exp where
         ppRepOp (text "|||") stmts (prettyPrint e)
     prettyPrint (ReplicatedInternalChoice stmts e) = 
         ppRepOp (text "|~|") stmts (prettyPrint e)
-    prettyPrint (ReplicatedLinkParallel ties stmts e) =
-        ppRepOp (brackets (list (map ppTie ties))) stmts (prettyPrint e)
+    prettyPrint (ReplicatedLinkParallel ties tiesStmts stmts e) =
+        ppRepOp (brackets (ppComp' (map ppTie ties) tiesStmts)) 
+                stmts (prettyPrint e)
     prettyPrint (ReplicatedParallel alpha stmts e) =
         ppRepOp (brackets (bars (prettyPrint alpha))) stmts (prettyPrint e)
     

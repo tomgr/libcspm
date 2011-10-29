@@ -17,6 +17,8 @@ import CSPM.Evaluator.Values
 import qualified CSPM.Evaluator.ValueSet as S
 import Util.Annotated
 import Util.Exception
+import Util.Monad
+import Util.Prelude
 import Util.PrettyPrint
 
 -- In order to keep lazy evaluation working properly only use pattern
@@ -269,9 +271,15 @@ instance Evaluatable Exp where
     eval (Interleave e1 e2) = do
         ps <- evalProcs [e1, e2]
         return $ VProc $ PInterleave ps
--- TODO
---  eval (LinkParallel e1 ties stmts e2)
---  eval (Rename e1 ties stmts) = 
+    eval (LinkParallel e1 ties stmts e2) = do
+        p1 <- evalProc e1
+        p2 <- evalProc e2
+        ts <- evalTies stmts ties
+        return $ VProc $ PLinkParallel ts [p1, p2]
+    eval (Rename e1 ties stmts) = do
+        p1 <- evalProc e1
+        ts <- evalTies stmts ties
+        return $ VProc $ PRename ts p1
     eval (SequentialComp e1 e2) = do
         p1 <- evalProc e1
         p2 <- evalProc e2
@@ -296,8 +304,10 @@ instance Evaluatable Exp where
     eval (ReplicatedInternalChoice stmts e) = do
         ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e])
         return $ VProc $ PInternalChoice ps
--- TODO
---  eval (ReplicatedLinkParallel e1 ties stmts e2) =
+    eval (ReplicatedLinkParallel ties tiesStmts stmts e) = do
+        ts <- evalTies tiesStmts ties
+        ps <- evalStmts (\(VList vs) -> vs) stmts (evalProcs [e])
+        return $ VProc $ PLinkParallel ts ps
     eval (ReplicatedParallel e1 stmts e2) = do
         VSet s <- eval e1
         ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e2])
@@ -311,6 +321,23 @@ evalProc :: Evaluatable a => a -> EvaluationMonad Proc
 evalProc a = eval a >>= \v -> case v of
     VProc x -> return x
     _       -> panic "Type checker error"
+
+evalTies :: [AnStmt] -> [(AnExp, AnExp)] -> EvaluationMonad [(Event, Event)]
+evalTies stmts ties = do
+    tss <- evalStmts (\(VSet s) -> S.toList s) stmts (mapM evalTie ties)
+    return $ concat tss
+    where
+        extendTie (evOld, evNew) ex = 
+            (extendEvent evOld ex, extendEvent evNew ex)
+        tieToEvent (ev, ev') = (valueEventToEvent ev, valueEventToEvent ev')
+        evalTie (eOld, eNew) = do
+            evOld <- eval eOld
+            evNew <- eval eNew
+            -- Obviously evOld and evNew could be channels, or prefixes
+            -- of events so we compute the extensions.
+            -- TODO: this assumes extensions evOld <= extensions evNew
+            exsOld <- extensions evOld
+            return $ map (tieToEvent . extendTie (evOld, evNew)) exsOld
 
 -- | Evaluates the statements, evaluating `prog` for each possible 
 -- assingment to the generators that satisfies the qualifiers.
@@ -336,8 +363,17 @@ evalStmts extract anStmts prog =
 
 -- | Takes a VEvent and then computes all events that this is a prefix of.
 completeEvent :: Value -> EvaluationMonad S.ValueSet
-completeEvent (VEvent n vs) = do
+completeEvent (ev@(VEvent n vs)) = do
+    exs <- extensions (VEvent n vs)
+    return $ S.fromList (map (extendEvent ev) exs)
+
+extendEvent :: Value -> [Value] -> Value
+extendEvent (VEvent n vs) exs = VEvent n (vs++exs)
+
+-- Takes a VEvent ev and then computes all x such that ev.x is a full event.
+extensions :: Value -> EvaluationMonad [[Value]]
+extensions (VEvent n vs) = do
     chanVs <- valuesForChannel n
     let remainingComponents = drop (length vs) chanVs
-    if length remainingComponents == 0 then return $ S.fromList [VEvent n vs]
-    else return $ S.cartesianProduct (\vs' -> VEvent n (vs++vs')) remainingComponents
+    if length remainingComponents == 0 then return $ [[]]
+    else return $ cartProduct (map S.toList remainingComponents)

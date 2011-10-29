@@ -284,12 +284,13 @@ instance TypeCheckable Exp Type where
         typeCheckReplicatedOp stmts $ do
             typeCheckExpect alpha (TSet TEvent)
             ensureIsProc proc
-    typeCheck' (ReplicatedLinkParallel ties stmts proc) = 
-        typeCheckStmts TSeq stmts $ do
+    typeCheck' (ReplicatedLinkParallel ties tiesStmts stmts proc) = do
+        typeCheckStmts TSet tiesStmts $ do
             let (as, bs) = unzip ties
             ast <- mapM ensureIsChannel as
             zipWithM typeCheckExpect bs ast
-            ensureIsProc proc
+        typeCheckStmts TSeq stmts (ensureIsProc proc)
+        return $ TProc
     typeCheck' (ReplicatedInterleave stmts e1) =
         typeCheckReplicatedOp stmts (ensureIsProc e1)
     typeCheck' (ReplicatedExternalChoice stmts e1) =

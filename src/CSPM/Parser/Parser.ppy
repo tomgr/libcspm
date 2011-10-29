@@ -376,7 +376,7 @@ ExpA :: { PExp }
     | "|~|" StmtCommaList "@" Exp   { AN2 (ReplicatedInternalChoice $2 $4) }
     | "||" StmtCommaList "@" "[" Exp "]" Exp { AN2 (ReplicatedAlphaParallel $2 $5 $7) }
     | "[|" Exp "|]" StmtCommaList "@" Exp { AN2 (ReplicatedParallel $2 $4 $6) }
-    | "[" TieList1 "]" StmtCommaList "@" Exp { AN2 (ReplicatedLinkParallel $2 $4 $6) }
+    | "[" TieList1 OptStmtList "]" StmtCommaList "@" Exp { AN2 (ReplicatedLinkParallel $2 $3 $5 $7) }
 
 Field :: { PField }
     :
@@ -553,8 +553,8 @@ checkExp (anExp@(An a b exp)) =
         check (ReplicatedInternalChoice stmts e1) = ReplicatedInternalChoice stmts (checkExp e1)
         check (ReplicatedParallel e1 stmts e2) = 
             ReplicatedParallel (checkExp e1) stmts (checkExp e2)
-        check (ReplicatedLinkParallel ties stmts e) = 
-            ReplicatedLinkParallel ties stmts (checkExp e)
+        check (ReplicatedLinkParallel ties tiesStmts stmts e) = 
+            ReplicatedLinkParallel ties tiesStmts stmts (checkExp e)
         
         check x = throwSourceError [invalidExpressionErrorMessage anExp]
     in

@@ -156,8 +156,10 @@ instance Dependencies Exp where
         dependenciesStmts stmts [e1]
     dependencies' (ReplicatedInternalChoice stmts e1) = 
         dependenciesStmts stmts [e1]
-    dependencies' (ReplicatedLinkParallel ties stmts e) =
-        dependenciesStmts stmts (e:es++es')
+    dependencies' (ReplicatedLinkParallel ties tiesStmts stmts e) = do
+        d1 <- dependenciesStmts tiesStmts (es++es')
+        d2 <- dependenciesStmts stmts e
+        return $ d1++d2
         where  (es, es') = unzip ties
     dependencies' (ReplicatedParallel e1 stmts e2) = dependenciesStmts stmts [e1,e2]
     
