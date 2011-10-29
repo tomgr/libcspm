@@ -122,7 +122,11 @@ data Exp =
     | Var QualifiedName
 
     -- Processes
-    | AlphaParallel AnExp AnExp AnExp AnExp -- Proc Alpha Alpha Proc
+    | AlphaParallel 
+        AnExp -- ^ Process 1
+        AnExp -- ^ Alphabet of process 1
+        AnExp -- ^ Alphabet of process 2
+        AnExp -- ^ Process 2
     | Exception AnExp AnExp AnExp -- Proc Alpha Proc
     | ExternalChoice AnExp AnExp
     | GenParallel AnExp AnExp AnExp -- Proc Alpha Proc 
@@ -131,9 +135,9 @@ data Exp =
     | InternalChoice AnExp AnExp
     | Interrupt AnExp AnExp
     | Interleave AnExp AnExp
-    | LinkParallel AnExp [(AnExp, AnExp)] [AnStmt] AnExp -- Exp, tied chans, generators, second
+    | LinkParallel AnExp [(AnExp, AnExp)] [AnStmt] AnExp -- Exp, tied chans (old, new), generators, second
     | Prefix AnExp [AnField] AnExp
-    | Rename AnExp [(AnExp, AnExp)] [AnStmt]
+    | Rename AnExp [(AnExp, AnExp)] [AnStmt] -- (old, new)
     | SequentialComp AnExp AnExp -- P; Q
     | SlidingChoice AnExp AnExp
 
