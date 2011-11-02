@@ -15,8 +15,9 @@ builtInFunctions =
         cspm_union [VSet s1, VSet s2] = S.union s1 s2
         cspm_inter [VSet s1, VSet s2] = S.intersection s1 s2
         cspm_diff [VSet s1, VSet s2] = S.difference s1 s2
-        cspm_Union ss = S.unions (map (\ (VSet s) -> s) ss)
-        cspm_Inter ss = S.intersections (map (\ (VSet s) -> s) ss)
+        cspm_Union [VSet s] = S.unions (map (\ (VSet s) -> s) (S.toList s))
+        cspm_Inter [VSet s] = 
+            S.intersections (map (\ (VSet s) -> s) (S.toList s))
         cspm_member [v, VSet s] = VBool $ S.member v s
         cspm_card [VSet s] = VInt $ S.card s
         cspm_empty [VSet s] = VBool $ S.empty s
