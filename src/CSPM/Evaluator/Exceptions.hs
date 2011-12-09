@@ -19,6 +19,12 @@ patternMatchFailureMessage l pat v =
                 (prettyPrint v))
             tabWidth (text "does not match the pattern" <+> prettyPrint pat)
 
+headEmptyList :: ErrorMessage
+headEmptyList = mkErrorMessage Unknown $ text "Attempt to take head of empty list."
+
+tailEmptyList :: ErrorMessage
+tailEmptyList = mkErrorMessage Unknown $ text "Attempt to take tail of empty list."
+
 funBindPatternMatchFailureMessage :: SrcSpan -> Name -> [[Value]] -> ErrorMessage
 funBindPatternMatchFailureMessage l n vss = mkErrorMessage l $
     hang (text "Pattern match failure whilst attempting to evaluate:") tabWidth

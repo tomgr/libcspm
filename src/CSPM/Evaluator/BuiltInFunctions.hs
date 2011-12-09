@@ -4,6 +4,7 @@ import Control.Monad
 
 import qualified CSPM.Compiler.Set as CS
 import CSPM.DataStructures.Names
+import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
 import qualified CSPM.Evaluator.ValueSet as S
@@ -30,8 +31,10 @@ builtInFunctions =
         
         cspm_length [VList xs] = VInt $ (toInteger (length xs))
         cspm_null [VList xs] = VBool $ null xs
-        cspm_head [VList xs] = head xs
-        cspm_tail [VList xs] = tail xs
+        cspm_head [VList []] = throwError headEmptyList
+        cspm_head [VList (x:xs)] = x
+        cspm_tail [VList []] = throwError tailEmptyList
+        cspm_tail [VList (x:xs)] = xs
         cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
         cspm_elem [v, VList vs] = VBool $ v `elem` vs
         csp_chaos [VSet a] = VProc $ PProcCall n (Just p)
