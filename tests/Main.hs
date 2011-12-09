@@ -37,8 +37,10 @@ getAndFilterDirectoryContents fp = do
 
 runSections ::IO [IO Bool]
 runSections = do
-    let testDir = "tests"
-    sections <- getAndFilterDirectoryContents testDir
+    let 
+        testDir = "tests"
+        sections = ["parser", "prettyprinter", "typechecker", "evaluator"]
+    
     fs <- mapM (\section -> do
             shouldPassFiles <- getAndFilterDirectoryContents $ 
                                 joinPath [testDir, section, "should_pass"]
