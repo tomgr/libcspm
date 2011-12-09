@@ -148,7 +148,7 @@ instance Evaluatable Exp where
     eval (SetEnumFromTo e1 e2) = do
         VInt lb <- eval e1
         VInt ub <- eval e2
-        return $ VSet (S.RangedSet lb ub)
+        return $ VSet (S.fromList (map VInt [lb..ub]))
     eval (Tuple es) = mapM eval es >>= return . VTuple
     eval (Var (UnQual n)) = do
         v <- lookupVar n
@@ -323,12 +323,11 @@ evalStmts extract anStmts prog =
             if b then evStmts stmts else return []
         evStmts (Generator p e:stmts) = do
             v <- eval e
-            let vs = extract v
             vss <- mapM (\v -> do
                 (matches, binds) <- bind p v
                 if matches then 
                     addScopeAndBind binds (evStmts stmts)
-                else return []) vs
+                else return []) (extract v)
             return $ concat vss
     in
         evStmts (map unAnnotate anStmts)

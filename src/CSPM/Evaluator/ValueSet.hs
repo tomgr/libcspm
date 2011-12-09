@@ -109,7 +109,7 @@ empty Processes = panic "empty(Processes) Not implemented"
 empty (ExplicitSet s) = S.null s
 empty (IntSetFrom lb) = False
 empty (Integers) = False
-empty (RangedSet lb ub) = False
+empty (RangedSet lb ub) = lb > ub
 empty (LazySet xs) =
     case xs of
         x:_ -> False
@@ -136,6 +136,7 @@ union (IntSetFrom lb1) (RangedSet lb2 ub2) | lb1 <= ub2 =
 union (RangedSet lb2 ub2) (IntSetFrom lb1) | lb1 <= ub2 =
      IntSetFrom (min lb1 lb2)
 union x y | x == y =  x
+-- TODO: complete
 
 intersection :: ValueSet -> ValueSet -> ValueSet
 intersection (ExplicitSet s1) (ExplicitSet s2) =
@@ -150,6 +151,7 @@ intersection (IntSetFrom lb1) (RangedSet lb2 ub2) =
 intersection (RangedSet lb2 ub2) (IntSetFrom lb1) | lb1 <= ub2 =
     intersection (IntSetFrom lb1) (RangedSet lb2 ub2)
 inter x y | x == y =  x
+-- TODO: complete
 
 difference :: ValueSet -> ValueSet -> ValueSet
 difference (ExplicitSet s1) (ExplicitSet s2) =
@@ -165,7 +167,8 @@ difference (IntSetFrom lb) Integers = ExplicitSet S.empty
 --  elseExplicitSet empty
 --difference (RangedSet lb2 ub2) (IntSetFrom lb1) | lb1 <= ub2 =
 difference x y | x == y = ExplicitSet S.empty 
-
+-- TODO: complete
+-- TODO: maybe remove rangedset
 
 valueSetToEventSet :: ValueSet -> CE.EventSet
 valueSetToEventSet = CS.fromList . map valueEventToEvent . toList
