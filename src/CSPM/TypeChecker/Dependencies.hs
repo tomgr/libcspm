@@ -159,7 +159,9 @@ instance Dependencies Exp where
     dependencies' (ReplicatedLinkParallel ties tiesStmts stmts e) = do
         d1 <- dependenciesStmts tiesStmts (es++es')
         d2 <- dependenciesStmts stmts e
-        return $ d1++d2
+        -- The ties may depend on variables bound by stmts too
+        fvsstmts <- freeVars stmts
+        return $ (d1 \\ fvsstmts)++d2
         where  (es, es') = unzip ties
     dependencies' (ReplicatedParallel e1 stmts e2) = dependenciesStmts stmts [e1,e2]
     
