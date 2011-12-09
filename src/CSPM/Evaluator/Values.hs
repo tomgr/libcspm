@@ -1,5 +1,5 @@
 module CSPM.Evaluator.Values (
-    Value(..), Proc(..), Event(..),
+    Value(..), Proc(..), ProcOperator(..), Event(..),
     procId,
     valueEventToEvent,
 ) where

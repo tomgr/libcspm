@@ -170,5 +170,5 @@ difference x y | x == y = ExplicitSet S.empty
 -- TODO: complete
 -- TODO: maybe remove rangedset
 
-valueSetToEventSet :: ValueSet -> CE.EventSet
+valueSetToEventSet :: ValueSet -> CS.Set CE.Event
 valueSetToEventSet = CS.fromList . map valueEventToEvent . toList
