@@ -11,3 +11,5 @@ testListComp2 = <(x2,y) | x <- <1>, x2 <- <2>, y <- <3>> == <(2,3)>
 
 testTailOfShort = tail(<2>) == <>
 testHeadOfShort = head(<2>) == 2
+
+testConcat = concat(<<1>, <2>>) == <1,2>
