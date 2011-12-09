@@ -115,11 +115,21 @@ prettyPrinterTest fp = do
     ms' <- parseStringAsFile str
     if ms /= ms' then throwException UserError else return ()
 
+disallowErrors :: Test a -> Test a
+disallowErrors a = do
+    res <- tryM a
+    case res of
+        Left e -> panic $ show $ text "Test failed at an unexpected point:"
+                    $$ tabIndent (text (show e))
+        Right v -> return v
+
 evaluatorTest :: FilePath -> Test ()
 evaluatorTest fp = do
-    ms <- parseFile fp
-    tms <- typeCheckFile ms
-    bindFile tms
+    tms <- disallowErrors (do
+        ms <- parseFile fp
+        tms <- typeCheckFile ms
+        bindFile tms
+        return tms)
     mapM_ (\ (GlobalModule ds) ->
         -- Extract all declarations of the form "test...", which should be of
         -- patterns of type :: Bool
@@ -128,8 +138,9 @@ evaluatorTest fp = do
                 PatBind p _ -> do
                     case unAnnotate p of
                         PVar (n @ ((Name s @ ('t':'e':'s':'t':_)))) -> do
-                            e <- parseExpression s
-                            tce <- ensureExpressionIsOfType TBool e
+                            tce <- disallowErrors (do
+                                e <- parseExpression s
+                                ensureExpressionIsOfType TBool e)
                             VBool b <- evaluateExp tce
                             case b of
                                 True -> return ()
@@ -143,4 +154,3 @@ evaluatorTest fp = do
                 _ -> return ()
             ) (map unAnnotate ds)
         ) (map unAnnotate tms)
-    
