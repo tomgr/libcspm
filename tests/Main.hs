@@ -6,6 +6,7 @@ import System.FilePath
 
 import CSPM
 import Monad
+import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 
@@ -89,7 +90,8 @@ runTest fp test expectedResult = do
 testFunctions = [
         ("parser", parserTest),
         ("typechecker", typeCheckerTest),
-        ("prettyprinter", prettyPrinterTest)
+        ("prettyprinter", prettyPrinterTest),
+        ("evaluator", evaluatorTest)
     ]
 
 typeCheckerTest :: FilePath -> Test ()
@@ -112,3 +114,33 @@ prettyPrinterTest fp = do
     let str = show (prettyPrint ms)
     ms' <- parseStringAsFile str
     if ms /= ms' then throwException UserError else return ()
+
+evaluatorTest :: FilePath -> Test ()
+evaluatorTest fp = do
+    ms <- parseFile fp
+    tms <- typeCheckFile ms
+    bindFile tms
+    mapM_ (\ (GlobalModule ds) ->
+        -- Extract all declarations of the form "test...", which should be of
+        -- patterns of type :: Bool
+        mapM_ (\ d ->
+            case d of 
+                PatBind p _ -> do
+                    case unAnnotate p of
+                        PVar (n @ ((Name s @ ('t':'e':'s':'t':_)))) -> do
+                            e <- parseExpression s
+                            tce <- ensureExpressionIsOfType TBool e
+                            VBool b <- evaluateExp tce
+                            case b of
+                                True -> return ()
+                                False -> 
+                                    throwSourceError [
+                                        mkErrorMessage (loc p) 
+                                            (prettyPrint n <+> text "was false")
+                                        ]
+
+                        _ -> return ()
+                _ -> return ()
+            ) (map unAnnotate ds)
+        ) (map unAnnotate tms)
+    
