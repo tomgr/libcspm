@@ -19,6 +19,8 @@ import Util.PrettyPrint
 main :: IO ()
 main = do
     st <- initICheckerState
+    -- Ensure the output is not buffered
+    hSetBuffering stdout NoBuffering
     runIChecker st runICheckerInput
 
 runICheckerInput :: IChecker ()
