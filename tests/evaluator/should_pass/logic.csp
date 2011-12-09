@@ -1,0 +1,9 @@
+testBooleanEquality1 = true == true
+testBooleanEquality2 = true != false
+testBooleanOr = (true or false) == true
+testBooleanAnd = (true and false) == false
+testBooleanNegation1 = not true == false
+testBooleanNegation2 = true == not false
+
+testIfStatement1 = (if true then 12 else 1) == 12
+testIfStatement2 = (if false then 1 else 12) == 12

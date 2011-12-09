@@ -1,0 +1,7 @@
+testSetEquality1 = {1} != {}
+
+testRangeSets1 = {1..-1} == {}
+testRangeSets2 = {(-1)..1} == {(-1),0,1}
+
+testSetComp1 = {x | x <- {0..1}, y <- {1..2}} == {0..1}
+testSetComp2 = {(x,y) | x <- {0..1}, y <- {1..2}} == {(0,1),(0,2),(1,1),(1,2)}

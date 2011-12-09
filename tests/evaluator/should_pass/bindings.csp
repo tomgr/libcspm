@@ -1,0 +1,18 @@
+-- Tests that the environment has been implemented correctly, essentially.
+
+-- Two mutually recursive functions
+f(x) = g(x)
+
+g(0) = f(11)
+g(x) = x
+
+testTopLevelMutualRecursion = f(0) == 11
+
+-- Let expressions
+testLetExpression = 
+    let
+        f(x) = g(x)
+
+        g(0) = f(12)
+        g(x) = x
+    within f(0) == 12

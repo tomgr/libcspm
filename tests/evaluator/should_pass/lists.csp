@@ -1,0 +1,13 @@
+testList1 = <1,2> == <1..2>
+testList2 = <1,3,5,7> == <1,3,5,7>
+
+testLazyList1 = head(<1..>) == 1
+testLazyList2 = head(<x | x <- <0..>, x%2 == 1>) == 1
+testLazyList3 = head(tail(<x | x <- <0..>, x%2 == 1>)) == 3
+testLazyList4 = head(tail(tail(<x | x <- <0..>, x%2 == 1>))) == 5
+
+testListComp1 = <(x,y) | x <- <1>, y <- <2>> == <(1,2)>
+testListComp2 = <(x2,y) | x <- <1>, x2 <- <2>, y <- <3>> == <(2,3)>
+
+testTailOfShort = tail(<2>) == <>
+testHeadOfShort = head(<2>) == 2
