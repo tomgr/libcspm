@@ -1,0 +1,14 @@
+datatype IntTree = 
+    Leaf.Int | Node.Seq(IntTree)
+
+flatten(Leaf.i) = <i>
+flatten(Node.ts) = concat(<flatten(t) | t <- ts>)
+
+combine(t1)(t2) = Node.<t1,t2>
+
+testFlatten1 = 
+    flatten(Node.<Leaf.0, Leaf.1, Node.<Leaf.2, Leaf.0>>) == <0,1,2,0>
+testFlatten2 = 
+    flatten(Node.<Node.<Leaf.0, Node.<Leaf.1>, Node.<>>, Node.<Leaf.2, Leaf.0>>) == <0,1,2,0>
+
+testCombine1 = combine(Leaf.0)(Leaf.1) == (Node.<Leaf.0, Leaf.1>)

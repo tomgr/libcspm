@@ -7,3 +7,27 @@ testBooleanNegation2 = true == not false
 
 testIfStatement1 = (if true then 12 else 1) == 12
 testIfStatement2 = (if false then 1 else 12) == 12
+
+testNumericOrd1 = 1 < 2
+testNumericOrd2 = 2 > 1
+testNumericOrd3 = 2 >= 1
+testNumericOrd4 = 2 >= 2
+testNumericOrd5 = 1 <= 2
+testNumericOrd6 = 1 < 2
+
+testSeqEq = <1,1> == <1,1>
+
+testSeqOrd1 = not (<1> < <2>)
+testSeqOrd2 = not (<1,2> < <2,1>)
+testSeqOrd3 = not (<2,1> > <1,2>)
+testSeqOrd4 = <1> < <1,2>
+testSeqOrd5 = <1> <= <1,2>
+testSeqOrd6 = not (<1> < <1>)
+testSeqOrd7 = not (<1> > <1>)
+testSeqOrd8 = <1> >= <1>
+testSeqOrd9 = <1,2> > <1>
+
+testTuple = (1,1) == (1,1)
+
+testTupleOrd1 = (1,2) < (2,1)
+testTupleOrd2 = (2,1) > (1,2)

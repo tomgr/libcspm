@@ -1,0 +1,6 @@
+channel a
+channel b : Int
+
+test1 = a != (b.0)
+test2 = (b.1) != (b.0)
+test3 = (b.2) != (b.0)
