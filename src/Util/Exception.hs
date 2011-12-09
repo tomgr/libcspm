@@ -71,7 +71,7 @@ data LibCSPMException =
     deriving Typeable
 
 instance Show LibCSPMException where
-    show (Panic str) = "Internal inconsitancy error: "++show str
+    show (Panic str) = "Internal inconsitancy error: "++str
     show (SourceError ms) = show (prettyPrint ms)
     show (UserError) = "An unknown error occured."
 
