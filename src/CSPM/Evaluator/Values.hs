@@ -41,8 +41,10 @@ instance Eq Value where
     
     v1 == v2 = throwError $ typeCheckerFailureMessage "Cannot compare for eq"
     
+-- TODO: compare this to bill's book, some of this loos wrong
 instance Ord Value where
     compare (VInt i1) (VInt i2) = compare i1 i2
+    compare (VBool b1) (VBool b2) = compare b1 b2
     compare (VTuple vs1) (VTuple vs2) = compare vs1 vs2
     compare (VList vs1) (VList vs2) = compare vs1 vs2
     compare (VSet s1) (VSet s2) = compare s1 s2
@@ -53,8 +55,9 @@ instance Ord Value where
         compare n n' `thenCmp` compare vs1 vs2
     compare (VDataType n vs1) (VDataType n' vs2) = 
         compare n n' `thenCmp` compare vs1 vs2
-    
-    compare v1 v2 = throwError $ typeCheckerFailureMessage "Cannot order"
+
+    compare v1 v2 = throwError $ typeCheckerFailureMessage $
+        "Cannot order "++show v1++" "++show v2
 
 instance PrettyPrintable Value where
     prettyPrint (VInt i) = integer i
