@@ -72,7 +72,7 @@ bindDecl (an@(An _ _ (DataType n cs))) =
     -- TODO: check data values are in e
     let
         bindClause (DataTypeClause nc Nothing) = do
-            return (emptySet, [(nc, VDataType nc []), 
+            return (fromList [VDataType nc []], [(nc, VDataType nc []), 
                     (internalNameForDataTypeClause nc, VTuple [])])
         bindClause (DataTypeClause nc (Just e)) = do
             v <- eval e
@@ -116,5 +116,5 @@ evalTypeExpr (VDot vs) = cartesianProduct VDot (map evalTypeExpr vs)
 evalTypeExpr (VTuple vs) = cartesianProduct VTuple (map evalTypeExpr vs)
 
 evalTypeExprToList :: Value -> [ValueSet]
-evalTypeExprToList (VDot vs) = map evalTypeExpr vs
+evalTypeExprToList (VDot vs) = concatMap evalTypeExprToList vs
 evalTypeExprToList v = [evalTypeExpr v]
