@@ -2,7 +2,7 @@ module CSPM.Evaluator.BuiltInFunctions where
 
 import Control.Monad
 
-import qualified Data.Set.ListSet as CS
+import qualified CSPM.Compiler.Set as CS
 import CSPM.DataStructures.Names
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values

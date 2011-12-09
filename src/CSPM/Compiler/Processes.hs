@@ -5,8 +5,8 @@ module CSPM.Compiler.Processes (
     ProcName
 ) where
 
-import qualified Data.Map.ListMap as M
-import qualified Data.Set.ListSet as S
+import qualified CSPM.Compiler.Map as M
+import qualified CSPM.Compiler.Set as S
 import CSPM.Compiler.Events
 import Util.PrettyPrint
 
