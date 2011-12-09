@@ -98,7 +98,7 @@ testFunctions = [
 
 typeCheckerTest :: FilePath -> Test ()
 typeCheckerTest fp = do
-    ms <- parseFile fp
+    ms <- disallowErrors (parseFile fp)
     typeCheckFile ms
     return ()
 
@@ -112,7 +112,7 @@ parserTest fp = do
 
 prettyPrinterTest :: FilePath -> Test ()
 prettyPrinterTest fp = do
-    ms <- parseFile fp
+    ms <- disallowErrors (parseFile fp)
     let str = show (prettyPrint ms)
     ms' <- parseStringAsFile str
     if ms /= ms' then throwException UserError else return ()
