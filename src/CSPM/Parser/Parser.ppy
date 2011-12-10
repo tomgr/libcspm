@@ -275,12 +275,7 @@ BegSeq
                                 }
 EndSeq
     :
-    "close_seq"                 {% do
-                                    modifyTopFileParserState (
-                                        \ st @ (FileParserState { sequenceStack = (c:cs) }) -> 
-                                            st { sequenceStack = (c-1):cs })
-                                    return $1
-                                }
+    "close_seq"                     { $1 }
 
 -- A checked expression (that will not contain any patterns)
 CExp :: { PExp }

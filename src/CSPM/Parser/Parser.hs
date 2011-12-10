@@ -865,16 +865,12 @@ happyReduction_50 (happy_x_1 `HappyStk`
                                     return happy_var_1)}
 	) (\r -> happyReturn (happyIn28 r))
 
-happyReduce_51 = happyMonadReduce 1# 23# happyReduction_51
-happyReduction_51 (happy_x_1 `HappyStk`
-	happyRest) tk
-	 = happyThen (case happyOutTok happy_x_1 of { happy_var_1 -> 
-	( do
-                                    modifyTopFileParserState (
-                                        \ st @ (FileParserState { sequenceStack = (c:cs) }) -> 
-                                            st { sequenceStack = (c-1):cs })
-                                    return happy_var_1)}
-	) (\r -> happyReturn (happyIn29 r))
+happyReduce_51 = happySpecReduce_1  23# happyReduction_51
+happyReduction_51 happy_x_1
+	 =  case happyOutTok happy_x_1 of { happy_var_1 -> 
+	happyIn29
+		 (happy_var_1
+	)}
 
 happyReduce_52 = happySpecReduce_1  24# happyReduction_52
 happyReduction_52 happy_x_1

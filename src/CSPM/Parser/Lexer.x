@@ -192,19 +192,22 @@ rstrip = reverse . lstrip . reverse
 
 openseq token inp len = 
     do
-        --cs <- getSequenceStack
-        --setSequenceStack (0:cs)
+        cs <- getSequenceStack
+        setSequenceStack (0:cs)
         tok token inp len
 closeseq token inp len = 
     do
-        --(c:cs) <- getSequenceStack
-        --setSequenceStack cs
+        (c:c1:cs) <- getSequenceStack
+        setSequenceStack (c+c1:cs)
         tok token inp len
 
 gt :: AlexInput -> Int -> ParseMonad LToken
 gt inp len = do
     (c:cs) <- getSequenceStack
-    tok (if c > 0 then TCloseSeq else TGt) inp len
+    if c > 0 then do
+        setSequenceStack (c-1:cs)
+        tok TCloseSeq inp len
+    else tok TGt inp len
 
 soakTok :: Token -> AlexInput -> Int -> ParseMonad LToken
 soakTok t inp len = setCurrentStartCode soak >> tok t inp len
