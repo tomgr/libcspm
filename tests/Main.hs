@@ -8,6 +8,7 @@ import CSPM
 import Monad
 import Util.Annotated
 import Util.Exception
+import Util.Monad
 import Util.PrettyPrint
 
 data RunResult = 
@@ -33,7 +34,14 @@ getAndFilterDirectoryContents fp = do
     b <- doesDirectoryExist fp
     if not b then return [] else do
         names <- getDirectoryContents fp
-        return $ filter (`notElem` [".", "..", ".DS_Store"]) names
+        let ns = filter (`notElem` [".", "..", ".DS_Store"]) names
+        concatMapM (\n -> do
+            let fp' = joinPath [fp, n]
+            b <- doesDirectoryExist fp'
+            if b then do
+                ns <- getAndFilterDirectoryContents fp'
+                return [joinPath [n, n'] | n' <- ns]
+            else return [n]) ns
 
 runSections ::IO [IO Bool]
 runSections = do
