@@ -1,0 +1,8 @@
+--testHead = head(<1>) == 1
+--testTail = tail(<1>) == <>
+--testLength = length(<1,2,3>) == 3
+--testNull1 = null(<>) == true
+testNull2 = null(<>)
+--testConcat = concat(<<1>, <2>>) == <1,2>
+--testElem = elem(1, <1>)
+--testMember = member(0, {})

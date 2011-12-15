@@ -5,3 +5,23 @@ testRangeSets2 = {(-1)..1} == {(-1),0,1}
 
 testSetComp1 = {x | x <- {0..1}, y <- {1..2}} == {0..1}
 testSetComp2 = {(x,y) | x <- {0..1}, y <- {1..2}} == {(0,1),(0,2),(1,1),(1,2)}
+
+testSetsOfSets0 = { {} } == { {} }
+testSetsOfSets1 = member({}, { {} })
+testSetsOfSets2 = member({1..5}, { {1..5} })
+testSetsOfSets3 = member({1..5}, { {1..5}, {2..10} })
+testSetsOfSets4 = not member({1..6}, { {1..5}, {2..10} })
+testSetsOfSets5 = member(0, {0})
+
+testInfiniteSet0 = {0..} != {1..}
+testInfiniteSet1 = {0..} == {0..}
+
+testInfiniteSet2 = member(0, {0..})
+
+testInfiniteSet3 = member(100, {0..})
+testInfiniteSet4 = member(12515, {0..})
+testInfiniteSet5 = not member(-1, {0..})
+testInfiniteSet6 = not member(-1, union({0..}, {1..}))
+
+testInfiniteSetUnion1 = member(1, union({0..}, {1..}))
+testInfiniteSetUnion2 = not member(-1, union({0..}, {1..}))
