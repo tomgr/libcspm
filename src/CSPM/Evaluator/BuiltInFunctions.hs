@@ -31,9 +31,9 @@ builtInFunctions =
         
         cspm_length [VList xs] = VInt $ (toInteger (length xs))
         cspm_null [VList xs] = VBool $ null xs
-        cspm_head [VList []] = throwError headEmptyList
+        cspm_head [VList []] = throwError headEmptyListMessage
         cspm_head [VList (x:xs)] = x
-        cspm_tail [VList []] = throwError tailEmptyList
+        cspm_tail [VList []] = throwError tailEmptyListMessage
         cspm_tail [VList (x:xs)] = xs
         cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
         cspm_elem [v, VList vs] = VBool $ v `elem` vs

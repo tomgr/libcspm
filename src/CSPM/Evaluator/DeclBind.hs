@@ -50,18 +50,32 @@ bindDecl (an@(An _ _ (FunBind n ms))) = do
                             VProc p -> 
                                 return $ VProc $ PProcCall (procId n ass) (Just p)
                             _ -> return v)
-                _       -> throwError $ 
-                    funBindPatternMatchFailureMessage (loc an) n ass
+                _       -> -- throwError $ 
+                    -- funBindPatternMatchFailureMessage (loc an) n ass
+                        do
+                            x <- mapM (\ (Match pss e) -> do
+                                        r <- zipWithM bindAll pss ass
+                                        let b = and (map fst r)
+                                        let binds = concatMap snd r
+                                        return (pss, ass, b, binds)
+                                    ) mss
+                            error $ show (ass) ++ "\n" ++ show x
             where
                 ass = reverse ass_
         collectArgs n ass =
             return $ VFunction $ \ vs -> collectArgs (n-1) (vs:ass)
 bindDecl (an@(An _ _ (PatBind p e))) = do
+    v <- freshVar
+    return $ (v, eval e):extractors p
     v <- eval e
     r <- bind p v
-    case r of 
-        (True, bs) -> return bs
-        (False, _) -> throwError $ patternMatchFailureMessage (loc an) p v
+--    case r of 
+        --(True, bs) -> return bs
+        --(False, _) -> throwError $ patternMatchFailureMessage (loc an) p v
+    where
+        --extractors :: Pat -> [(Name, EvaluationMonad Value)]
+        extractors (PVar n) expath = 
+            [(n, expath )]
 bindDecl (an@(An _ _ (Channel ns me))) = do
     -- TODO: check channel values are in es
     vs <- case me of 
@@ -69,20 +83,20 @@ bindDecl (an@(An _ _ (Channel ns me))) = do
         Just e -> do
             v <- eval e
             return $ evalTypeExprToList v
-    return $ [(n, VEvent n []) | n <- ns]++
+    return $ [(n, VChannel n) | n <- ns]++
             [(internalNameForChannel n, VTuple (map VSet vs)) | n <- ns]
 bindDecl (an@(An _ _ (DataType n cs))) =
     -- TODO: check data values are in e
     let
         bindClause (DataTypeClause nc Nothing) = do
-            return (fromList [VDataType nc []], [(nc, VDataType nc []), 
+            return (fromList [VDataType nc], [(nc, VDataType nc), 
                     (internalNameForDataTypeClause nc, VTuple [])])
         bindClause (DataTypeClause nc (Just e)) = do
             v <- eval e
             let 
                 sets = evalTypeExprToList v
-                setOfValues = cartesianProduct (VDataType nc) sets
-                binds = [(nc, VDataType nc []),
+                setOfValues = cartesianProduct (\vs -> VDot ((VDataType nc):vs)) sets
+                binds = [(nc, VDataType nc),
                     (internalNameForDataTypeClause nc, VTuple (map VSet sets))]
             return (setOfValues, binds)
     in do

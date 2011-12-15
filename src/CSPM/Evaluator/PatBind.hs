@@ -13,7 +13,7 @@ import Util.Exception
 
 -- Bind :: Pattern, value -> (Matches Pattern, Values to Bind
 class Bindable a where
-    bind :: a -> Value -> EvaluationMonad (Bool, [(Name, Value)])
+    bind :: a -> Value -> (Bool, [(Name, Value)])
 
 instance Bindable a => Bindable (Annotated b a) where
     bind (An _ _ a) v = bind a v
@@ -28,12 +28,13 @@ instance Bindable Pat where
     bind (PCompList starts (Just (middle, ends)) _) (VList xs) =
         -- Only match if the list contains sufficient items
         if not (atLeastLength (length starts + length ends) xs) then 
-            return (False, [])
-        else do
-            (b1, nvs1) <- bindAll starts xsStart
-            (b2, nvs2) <- bindAll ends xsEnd
-            (b3, nvs3) <- bind middle (VList xsMiddle)
-            return (b1 && b2 && b3, nvs1++nvs2++nvs3)
+            (False, [])
+        else
+            let
+                (b1, nvs1) = bindAll starts xsStart
+                (b2, nvs2) = bindAll ends xsEnd
+                (b3, nvs3) = bind middle (VList xsMiddle)
+            in (b1 && b2 && b3, nvs1++nvs2++nvs3)
         where
             atLeastLength 0 _ = True
             atLeastLength _ [] = False
@@ -42,37 +43,44 @@ instance Bindable Pat where
             (xsMiddle, xsEnd) = 
                 if length ends == 0 then (rest, [])
                 else splitAt (length rest - length ends) rest
-    bind (PCompDot ps _) (VDot vs) = do
-        (b1, nvs1) <- bindAll psInit vsInit
-        (b2, nvs2) <- bind pLast (VDot vsLast)
-        return (b1 && b2, nvs1++nvs2)
-        where
+    bind (PCompDot ps _) (VDot vs) =
+        let 
             (psInit, pLast) = initLast ps
             (vsInit, vsLast) = splitAt (length psInit) vs
+            lastValue [x] = x
+            lastValue vs = VDot vs
             initLast :: [a] -> ([a], a)
             initLast [a] = ([],a)
             initLast (a:as) = let (bs,b) = initLast as in (a:bs,b)
-    bind (PDoublePattern p1 p2) v = do
-        (m1, b1) <- bind p1 v
-        (m2, b2) <- bind p2 v
-        return $ (m1 && m2, b1++b2)
-    bind (PLit (Int i1)) (VInt i2) | i1 == i2 = return (True, [])
-    bind (PLit (Bool b1)) (VBool b2) | b1 == b2 = return (True, [])
+
+            (b1, nvs1) = bindAll psInit vsInit
+            (b2, nvs2) = bind pLast (lastValue vsLast)
+        in (b1 && b2, nvs1++nvs2)
+    bind (PDoublePattern p1 p2) v =
+        let
+            (m1, b1) = bind p1 v
+            (m2, b2) = bind p2 v
+        in (m1 && m2, b1++b2)
+    bind (PLit (Int i1)) (VInt i2) | i1 == i2 = (True, [])
+    bind (PLit (Bool b1)) (VBool b2) | b1 == b2 = (True, [])
     bind (PSet [p]) (VSet s) = 
         case singletonValue s of
             Just v  -> bind p v
-            Nothing -> return (False, [])
+            Nothing -> (False, [])
     bind (PTuple ps) (VTuple vs) = do
         -- NB: len ps == len vs by typechecker
         bindAll ps vs
-    -- Although n may refer to a datatype or a channel this doesn't
-    -- matter, we rebind for ease
-    bind (PVar n) v = return (True, [(n, v)])
-    bind PWildCard v = return (True, [])
-    bind _ _ = return (False, [])
+-- TODO, the following two cases are wrong, consider calling f(x) = x
+-- with f(done). ARGH.
+--    bind (PVar n) (VChannel n') = return (n == n', []) 
+--    bind (PVar n) (VDataType n') = return (n == n', [])
+    -- Must just be a normal variable
+    bind (PVar n) v = (True, [(n, v)])
+    bind PWildCard v = (True, [])
+    bind _ _ = (False, [])
 
-bindAll :: Bindable a => [a] -> [Value]
-            -> EvaluationMonad (Bool, [(Name, Value)])
-bindAll ps xs = do
-    rs <- zipWithM bind ps xs
-    return (and (map fst rs), concat (map snd rs))
+bindAll :: Bindable a => [a] -> [Value] -> (Bool, [(Name, Value)])
+bindAll ps xs =
+    let
+        rs = zipWithM bind ps xs
+    in (and (map fst rs), concat (map snd rs))

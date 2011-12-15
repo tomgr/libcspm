@@ -52,12 +52,12 @@ instance Evaluatable Exp where
                     -- This is lazy, only pattern matches if b2 is required.
                     VBool b2 = v2
                 in return $ VBool (b1 || b2)
-            Equals -> return $ VBool (v1 == v2)
-            NotEquals -> return $ VBool (v1 /= v2)
-            LessThan -> return $ VBool (v1 < v2)
-            GreaterThan -> return $ VBool (v1 > v2)
-            LessThanEq -> return $ VBool (v1 <= v2)
-            GreaterThanEq -> return $ VBool (v1 >= v2)
+            Equals -> return $ VBool (compareValues v1 v2 == Just EQ)
+            NotEquals -> return $ VBool (compareValues v1 v2 /= Just EQ)
+            LessThan -> return $ VBool (compareValues v1 v2 == Just LT)
+            GreaterThan -> return $ VBool (compareValues v1 v2 == Just GT)
+            LessThanEq -> return $ VBool (compareValues v1 v2 `elem` [Just LT, Just EQ])
+            GreaterThanEq -> return $ VBool (compareValues v1 v2 `elem` [Just GT, Just EQ])
     eval (BooleanUnaryOp op e) = do
         VBool b <- eval e
         case op of
@@ -80,14 +80,6 @@ instance Evaluatable Exp where
             v1 <- eval e1
             v2 <- eval e2
             return $ combineDots v1 v2
-        where
-            combineDots (VDot vs1) (VDot vs2) = VDot (vs1++vs2)
-            combineDots (VDot vs) y = VDot (vs++[y])
-            combineDots (VEvent n vs1) (VDot vs2) = VEvent n (vs1++vs2)
-            combineDots (VEvent n vs1) x = VEvent n (vs1++[x])
-            combineDots (VDataType n vs1) (VDot vs2) = VDataType n (vs1++vs2)
-            combineDots (VDataType n vs1) x = VDataType n (vs1++[x])
-            combineDots v1 v2 = VDot [v1, v2]
     eval (If e1 e2 e3) = do
         VBool b <- eval e1
         if b then eval e2 else eval e3
@@ -163,7 +155,7 @@ instance Evaluatable Exp where
     -- This is the most complicated process because it is actually a shorthand
     -- for external choice and internal choice.
     eval (Prefix e1 fs e2) = do
-        VEvent n vs1 <- eval e1
+        ev <- eval e1
         let
             normalizeEvent [] = []
             normalizeEvent ((VDot vs1):vs2) = normalizeEvent (vs1++vs2)
@@ -184,7 +176,7 @@ instance Evaluatable Exp where
             evalFields :: [Value] -> [Field] -> EvaluationMonad Proc
             evalFields vs [] = do
                 p <- evalProc e2
-                return $ PPrefix (valueEventToEvent (VEvent n vs)) p
+                return $ PPrefix (valueEventToEvent ev) p
             evalFields vs (Output e:fs) = do
                 v <- eval e
                 evalFields (vs++normalizeEvent [v]) fs
@@ -196,10 +188,11 @@ instance Evaluatable Exp where
             evalFields vs (Input p Nothing:fs) = do
                 -- Calculate which component this is
                 let component = length vs
-                chanVs <- valuesForChannel n
-                let s = chanVs!!component
-                ps <- evalInputField vs fs p s
-                return $ PExternalChoice ps
+                error "unsupported case"
+                --chanVs <- valuesForChannel n
+                --let s = chanVs!!component
+                --ps <- evalInputField vs fs p s
+                --return $ PExternalChoice ps
             
             evalFields vs (NonDetInput p (Just e):fs) = do
                 VSet s <- eval e
@@ -208,10 +201,11 @@ instance Evaluatable Exp where
             evalFields vs (NonDetInput p Nothing:fs) = do
                 -- Calculate which component this is
                 let component = length vs
-                chanVs <- valuesForChannel n
-                let s = chanVs!!component
-                ps <- evalInputField vs fs p s
-                return $ PInternalChoice ps
+                error "unsupported case"
+                ----chanVs <- valuesForChannel n
+                ----let s = chanVs!!component
+                ----ps <- evalInputField vs fs p s
+                --return $ PInternalChoice ps
 -- TODO: the semantics of $ are not currently correct                
             -- Takes a proc and combines nested [] and |~|
             simplify :: Proc -> Proc
@@ -231,6 +225,10 @@ instance Evaluatable Exp where
 
             simplify p = p
             
+    -- TODO: is this right?
+            vs1 = case ev of
+                    VDot vs -> vs
+                    _ -> [ev]
         p <- evalFields vs1 (map unAnnotate fs)
         return $ VProc $ simplify p
 
@@ -363,17 +361,17 @@ evalStmts extract anStmts prog =
 
 -- | Takes a VEvent and then computes all events that this is a prefix of.
 completeEvent :: Value -> EvaluationMonad S.ValueSet
-completeEvent (ev@(VEvent n vs)) = do
-    exs <- extensions (VEvent n vs)
+completeEvent ev = do
+    exs <- extensions ev
     return $ S.fromList (map (extendEvent ev) exs)
 
 extendEvent :: Value -> [Value] -> Value
-extendEvent (VEvent n vs) exs = VEvent n (vs++exs)
+extendEvent ev exs = combineDots ev (VDot exs)
 
 -- Takes a VEvent ev and then computes all x such that ev.x is a full event.
 extensions :: Value -> EvaluationMonad [[Value]]
-extensions (VEvent n vs) = do
-    chanVs <- valuesForChannel n
-    let remainingComponents = drop (length vs) chanVs
-    if length remainingComponents == 0 then return $ [[]]
-    else return $ cartProduct (map S.toList remainingComponents)
+extensions ev = error "not implemented"
+    --chanVs <- valuesForChannel n
+    --let remainingComponents = drop (length vs) chanVs
+    --if length remainingComponents == 0 then return $ [[]]
+    --else return $ cartProduct (map S.toList remainingComponents)

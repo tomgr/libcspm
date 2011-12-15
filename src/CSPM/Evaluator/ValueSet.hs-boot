@@ -10,3 +10,4 @@ instance Ord ValueSet
 instance PrettyPrintable ValueSet
 
 toList :: ValueSet -> [Value]
+compareValueSets :: ValueSet -> ValueSet -> Maybe Ordering

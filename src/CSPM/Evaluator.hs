@@ -45,6 +45,5 @@ getBoundNames :: EvaluationMonad [Name]
 getBoundNames = 
     getEnvironment >>= return . filter (not . isInternal) . map fst . flatten
 
-addToEnvironment 
-    :: EvaluationMonad [(Name, Value)] -> EvaluationMonad EvaluationState
+addToEnvironment :: [(Name, EvaluationMonad Value)] -> EvaluationMonad EvaluationState
 addToEnvironment bs = addScopeAndBindM bs getState

@@ -58,18 +58,26 @@ lookupVar n = do
     -- catch it
     env <- getEnvironment
     return $ lookup env n
-    
-addScopeAndBind :: [(Name, Value)] -> EvaluationMonad a -> EvaluationMonad a
-addScopeAndBind bs = addScopeAndBindM $ return bs
 
-addScopeAndBindM :: EvaluationMonad [(Name, Value)] -> EvaluationMonad a -> EvaluationMonad a
-addScopeAndBindM binds = 
-    modify (\st -> let
-            bs = runEvaluator st' binds
-            env' = newLayerAndBind (environment st) bs
-            st' = st { environment = env' }
-        in
-            st')
+-- | Implements non-recursive lets.
+addScopeAndBind :: [(Name, Value)] -> EvaluationMonad a -> EvaluationMonad a
+addScopeAndBind bs = addScopeAndBindM [(n, return v) | (n, v) <- bs]
+
+-- | Implements recursive lets.
+addScopeAndBindM :: [(Name, EvaluationMonad Value)] -> EvaluationMonad a -> EvaluationMonad a
+addScopeAndBindM binds prog = do
+    st <- getState
+    let
+        env' = newLayerAndBind (environment st) bs
+        st' = st { environment = env' }
+        bs = [(n, runEvaluator st' v) | v <- binds]
+    modify (\_ -> st') prog
 
 throwError :: ErrorMessage -> a
 throwError err = throwSourceError [err]
+
+-- the problem here is that in order to get st', we need env', which requires
+-- bs. However, bs requires st', which is not a problem intself if something
+-- is lazy, but if binds does a lookup in the environment (which it does)
+-- then this will break it?
+
