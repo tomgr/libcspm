@@ -20,13 +20,6 @@ data RunResult =
         
 main :: IO ()
 main = do
-    --s <- initTestState
-    --runTestM s $ do
-    --    ms <- parseFile "tests/prettyprinter/should_pass/zbullyr.csp"
-    --    --pms <- CSPM.renameFile ms
-    --    liftIO $ putStrLn $ show (prettyPrint ms)
-    --return ()
-
     tests <- runSections
     results <- sequence tests
     let
