@@ -34,7 +34,8 @@ Library
         mtl >= 2.0, 
         pretty >= 1.0,
         directory >= 1.0,
-        graph-wrapper >= 0.2
+        graph-wrapper >= 0.2,
+        value-supply >= 0.6
 
     Exposed-Modules:
         CSPM,
