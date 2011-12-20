@@ -3,6 +3,8 @@ module CSPM.DataStructures.Types where
 import Control.Monad.Trans
 import Data.IORef
 import Data.List
+import Data.Supply
+import System.IO.Unsafe
 
 import CSPM.DataStructures.Names
 import Util.PartialFunctions
@@ -52,6 +54,29 @@ instance Eq TypeVarRef where
 
 instance Show TypeVarRef where
     show (TypeVarRef tv cs _) = "TypeVarRef "++show tv ++ show cs
+
+typeVarSupply :: IORef (Supply Int)
+typeVarSupply = unsafePerformIO (do
+    s <- newNumSupply
+    newIORef s)
+
+takeTypeVarFromSupply :: MonadIO m => m TypeVar
+takeTypeVarFromSupply = do
+    s <- liftIO $ readIORef typeVarSupply
+    let (s1, s2) = split2 s
+    liftIO $ writeIORef typeVarSupply s2
+    return $ TypeVar $ supplyValue s1
+
+freshTypeVar :: MonadIO m => m Type
+freshTypeVar = freshTypeVarWithConstraints []
+
+freshTypeVarWithConstraints :: MonadIO m => [Constraint] -> m Type
+freshTypeVarWithConstraints cs = do
+    tv <- takeTypeVarFromSupply
+    ioRef <- freshPType
+    return $ TVar (TypeVarRef tv cs ioRef)
+
+
 
 newtype IORefMaybe a = IORefMaybe (Maybe a)
 type SymbolTable = PartialFunction Name TypeScheme
