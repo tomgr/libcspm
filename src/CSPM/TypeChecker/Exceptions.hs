@@ -1,14 +1,10 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 module CSPM.TypeChecker.Exceptions (
     Error, Warning,
-    varNotInScopeMessage,
     infiniteUnificationMessage,
     unificationErrorMessage,
-    duplicatedDefinitionsMessage,
     incorrectArgumentCountMessage,
     constraintUnificationErrorMessage,
-    transparentFunctionNotRecognised,
-    externalFunctionNotRecognised,
     deprecatedNameUsed,
     unsafeNameUsed,
 )
@@ -29,9 +25,6 @@ import Util.PrettyPrint
 
 type Error = Doc
 type Warning = Doc
-
-varNotInScopeMessage :: Name -> Error
-varNotInScopeMessage n = prettyPrint n <+> text "is not in scope"
 
 incorrectArgumentCountMessage :: Doc -> Int -> Int -> Error
 incorrectArgumentCountMessage func expected actual = 
@@ -64,29 +57,6 @@ constraintUnificationErrorMessage :: Constraint -> Type -> Error
 constraintUnificationErrorMessage c t = 
     hang (hang (text "The type") tabWidth (prettyPrint t)) tabWidth
         (text "does not have the constraint" <+> prettyPrint c)
-
-duplicatedDefinitionsMessage :: [(Name, SrcSpan)] -> [Error]
-duplicatedDefinitionsMessage ns = duplicatedDefinitionsMessage' $
-    let
-        names = map fst ns
-        dupNames = (map head . filter (\ g -> length g > 1) . group . sort) names
-    in [(n, applyRelation ns n) | n <- dupNames]
-
-duplicatedDefinitionsMessage' :: [(Name, [SrcSpan])] -> [Error]
-duplicatedDefinitionsMessage' nlocs = 
-    map (\ (n, spans) ->
-        hang (text "The variable" <+> prettyPrint n 
-                <+> text "has multiple definitions at" <> colon) tabWidth
-            (vcat (map prettyPrint spans))) nlocs
-
-transparentFunctionNotRecognised :: Name -> Error
-transparentFunctionNotRecognised n =
-    text "The transparent function" <+> prettyPrint n <+> 
-    text "is not recognised."
-externalFunctionNotRecognised :: Name -> Error
-externalFunctionNotRecognised n = 
-    text "The external function" <+> prettyPrint n <+> 
-    text "is not recognised."
 
 deprecatedNameUsed :: Name -> Maybe Name -> Error
 deprecatedNameUsed n Nothing = 

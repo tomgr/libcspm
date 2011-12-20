@@ -45,8 +45,7 @@ typeCheckDecls decls = do
         namesToLocations = [(n, loc d) | (d, ns) <- namesBoundByDecls, n <- ns]
 
     -- Throw an error if a name is defined multiple times
-    manyErrorsIfFalse (noDups boundVars) 
-        (duplicatedDefinitionsMessage namesToLocations)
+    when (not (noDups boundVars)) $ panic "Duplicates found after renaming."
 
     -- We prebind the datatypes and channels as they can be matched on in 
     -- patterns (and thus, given a var in a pattern we can't decide if it

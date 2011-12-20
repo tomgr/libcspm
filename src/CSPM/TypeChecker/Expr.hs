@@ -245,8 +245,8 @@ instance TypeCheckable (Exp Name) Type where
             namesToLocations = 
                 [(n, loc f) | (f, fvs) <- fvsByField, n <- fvs]
         -- Throw an error if a name is defined multiple times
-        manyErrorsIfFalse (noDups fvs) 
-            (duplicatedDefinitionsMessage namesToLocations)
+        when (not (noDups fvs)) (panic "Dupes found in prefix after renaming.")
+
         t1 <- typeCheck e1
         let 
             tcfs [] tsfields = do
@@ -357,8 +357,7 @@ typeCheckStmts typc stmts tc = do
             namesToLocations = 
                 [(n, loc f) | (f, fvs) <- fvsByStmt, n <- fvs]
         -- Throw an error if a name is defined multiple times
-        manyErrorsIfFalse (noDups fvs) 
-            (duplicatedDefinitionsMessage namesToLocations)
+        when (not (noDups fvs)) (panic "Dupes found in stmts after renaming.")
         check stmts
     where
         check [] = tc

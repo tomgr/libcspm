@@ -1,6 +1,6 @@
 module CSPM.TypeChecker.Monad (
     readTypeRef, writeTypeRef, freshTypeVar, freshTypeVarWithConstraints,
-    getType, safeGetType, setType, 
+    getType, setType, 
     isTypeUnsafe, markTypeAsUnsafe, 
     replacementForDeprecatedName, isDeprecated, markAsDeprecated,
     compress, compressTypeScheme, 
@@ -275,21 +275,13 @@ getSymbolInformation n = do
     -- If we don't do this the error is deferred until later
     case Env.maybeLookup env n of
         Just symb -> return symb
-        Nothing -> raiseMessagesAsError [varNotInScopeMessage n]
+        Nothing -> panic "Name not found after renaming."
 
 -- | Get the type of 'n' and throw an exception if it doesn't exist.
 getType :: Name -> TypeCheckMonad TypeScheme
 getType n = do
     symb <- getSymbolInformation n
     return $ Env.typeScheme symb
-
--- | Get the type of 'n' if it exists, othewise return Nothing.
-safeGetType :: Name -> TypeCheckMonad (Maybe TypeScheme)
-safeGetType n = do
-    env <- gets environment
-    case Env.maybeLookup env n of
-        Just symb   -> return $ Just $ Env.typeScheme symb
-        Nothing     -> return Nothing
     
 -- | Sets the type of n to be t in the current scope only. No unification is 
 -- performed.
