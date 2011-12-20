@@ -253,12 +253,14 @@ renamePattern nm ap =
 checkDuplicates :: FreeVars a => [Annotated b a] -> RenamerMonad ()
 checkDuplicates aps = do
     fvss <- mapM freeVars aps
+
     let 
-        fvs = concat fvss
+        fvs = sort (concat fvss)
         gfvs = group fvs
         duped = filter (\l -> length l > 1) gfvs
         nameLocMap = 
             concatMap (\(ns, d) -> [(n, loc d) | n <- ns])  (zip fvss aps)
+    
     if duped /= [] then
         throwSourceError (map (mkErrorMessage Unknown) (duplicatedDefinitionsMessage nameLocMap))
     else return ()
@@ -496,7 +498,7 @@ instance FreeVars (Decl UnRenamedName) where
     freeVars (External ns) = return ns
     freeVars (Channel ns _) = return ns
     freeVars (DataType n cs) = 
-        return $ n:[n | DataTypeClause n _ <- map unAnnotate cs]
+        return $ n:[n' | DataTypeClause n' _ <- map unAnnotate cs]
     freeVars (FunBind n _) = return [n]
     freeVars (NameType n _) = return [n]
     freeVars (PatBind p _) = freeVars p
