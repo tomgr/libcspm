@@ -274,7 +274,7 @@ ppComp es stmts = ppComp' (map prettyPrint es) stmts
 ppComp' :: PrettyPrintable id => [Doc] -> [AnStmt id] -> Doc
 ppComp' es stmts = 
     hang (list es) tabWidth
-        (if stmts /= [] then char '|' <+> list (map prettyPrint stmts)
+        (if length stmts > 0 then char '|' <+> list (map prettyPrint stmts)
         else empty)
         
 ppBinOp :: Doc -> Doc -> Doc -> Doc
