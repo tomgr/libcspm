@@ -1,7 +1,8 @@
 module CSPM.TypeChecker.Monad (
     readTypeRef, writeTypeRef, freshTypeVar, freshTypeVarWithConstraints,
     getType, safeGetType, setType, 
-    isDeprecated, isTypeUnsafe, markAsDeprecated, markTypeAsUnsafe,
+    isTypeUnsafe, markTypeAsUnsafe, 
+    replacementForDeprecatedName, isDeprecated, markAsDeprecated,
     compress, compressTypeScheme, 
     
     TypeCheckMonad, runTypeChecker, 
@@ -44,8 +45,6 @@ data TypeInferenceState = TypeInferenceState {
         -- | List of names that correspond to channels and
         -- datatypes - used when detecting dependencies.
         dataTypesAndChannels :: [Name],
-        -- | Next TypeVar to be allocated
-        nextTypeId :: Int,
         -- | Location of the current AST element - used for error
         -- pretty printing
         srcSpan :: SrcSpan,
@@ -68,7 +67,6 @@ newTypeInferenceState :: TypeInferenceState
 newTypeInferenceState = TypeInferenceState {
         environment = Env.new,
         dataTypesAndChannels = [],
-        nextTypeId = 0,
         srcSpan = Unknown,
         errorContexts = [],
         errors = [],
@@ -106,12 +104,12 @@ local ns m =
         env <- getEnvironment
         newArgs <- replicateM (length ns) freshTypeVar
         let symbs = map (Env.mkSymbolInformation . ForAll []) newArgs
-        setEnvironment (Env.newLayerAndBind env (zip ns symbs))
+        setEnvironment (Env.bind env (zip ns symbs))
         
         res <- m
-        
+    
         env <- getEnvironment
-        setEnvironment (Env.popLayer env)
+        setEnvironment (foldr (flip Env.delete) env ns)
 
         return res
 
@@ -270,17 +268,6 @@ readTypeRef (TypeVarRef tv cs ioref) =
 writeTypeRef :: TypeVarRef -> Type -> TypeCheckMonad ()
 writeTypeRef (TypeVarRef tv cs ioref) t = setPType ioref t
 
-freshTypeVar :: TypeCheckMonad Type
-freshTypeVar = freshTypeVarWithConstraints []
-
-freshTypeVarWithConstraints :: [Constraint] -> TypeCheckMonad Type
-freshTypeVarWithConstraints cs =
-    do
-        nextId <- gets nextTypeId
-        modify (\s -> s { nextTypeId = nextId+1 })
-        ioRef <- freshPType
-        return $ TVar (TypeVarRef (TypeVar nextId) cs ioRef)
-
 getSymbolInformation :: Name -> TypeCheckMonad Env.SymbolInformation
 getSymbolInformation n = do
     env <- gets environment
@@ -309,11 +296,9 @@ safeGetType n = do
 setType :: Name -> TypeScheme -> TypeCheckMonad ()
 setType n t = do
     env <- getEnvironment
-    let 
-        symb = case Env.maybeLookupInTopLayer env n of
-            Just symb -> symb { Env.typeScheme = t }
-            Nothing -> Env.mkSymbolInformation t
-    setSymbolInformation n symb
+    case Env.maybeLookup env n of
+        Just symb -> setSymbolInformation n (symb { Env.typeScheme = t })
+        Nothing -> setSymbolInformation n (Env.mkSymbolInformation t)
 
 setSymbolInformation :: Name -> Env.SymbolInformation -> TypeCheckMonad ()
 setSymbolInformation n symb = do
@@ -330,14 +315,22 @@ isTypeUnsafe n = do
     symb <- getSymbolInformation n
     return $ Env.isTypeUnsafe symb
 
-markAsDeprecated :: Name -> TypeCheckMonad ()
-markAsDeprecated n = do
+markAsDeprecated :: Name -> Maybe Name -> TypeCheckMonad ()
+markAsDeprecated n repl = do
     symb <- getSymbolInformation n
-    setSymbolInformation n (symb { Env.isDeprecated = True })
+    setSymbolInformation n (symb { 
+        Env.isDeprecated = True, 
+        Env.deprecationReplacement = repl
+    })
 markTypeAsUnsafe :: Name -> TypeCheckMonad ()
 markTypeAsUnsafe n = do
     symb <- getSymbolInformation n
     setSymbolInformation n (symb { Env.isTypeUnsafe = True })
+
+replacementForDeprecatedName :: Name -> TypeCheckMonad (Maybe Name)
+replacementForDeprecatedName n = do
+    symb <- getSymbolInformation n
+    return $ Env.deprecationReplacement symb
 
 -- | Apply compress to the type of a type scheme.
 compressTypeScheme :: TypeScheme -> TypeCheckMonad TypeScheme

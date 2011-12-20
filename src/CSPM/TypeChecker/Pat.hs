@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 module CSPM.TypeChecker.Pat () where
 
+import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax hiding (getType)
 import CSPM.DataStructures.Types
 import CSPM.TypeChecker.Common
@@ -9,12 +10,12 @@ import CSPM.TypeChecker.Unification
 import Util.Annotated
 import Util.PrettyPrint
     
-instance TypeCheckable PPat Type where
+instance TypeCheckable TCPat Type where
     errorContext an = Nothing
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
     typeCheckExpect an typ =
         setSrcSpan (loc an) (typeCheckExpect (inner an) typ)
-instance TypeCheckable Pat Type where
+instance TypeCheckable (Pat Name) Type where
     typeCheckExpect obj texp =
         case errorContext obj of
             Just c -> addErrorContext c m
@@ -43,8 +44,6 @@ instance TypeCheckable Pat Type where
     typeCheck' (PLit lit) = typeCheck lit
     typeCheck' (PParen p1) = typeCheck p1
     typeCheck' (PSet ps) = do
--- TODO: add to desugarer
---      errorIfFalse (length ps <= 1) (InvalidSetPattern ps)
         t <- ensureAreEqual ps
         ensureHasConstraint Eq t
         return $ TSet t

@@ -27,7 +27,7 @@ import Util.PartialFunctions
 import Util.PrettyPrint
 
 -- | Type check a list of possibly mutually recursive functions
-typeCheckDecls :: [PDecl] -> TypeCheckMonad ()
+typeCheckDecls :: [TCDecl] -> TypeCheckMonad ()
 typeCheckDecls decls = do
     namesBoundByDecls <- mapM (\ decl -> do
         namesBound <- namesBoundByDecl decl
@@ -104,7 +104,7 @@ typeCheckDecls decls = do
 -- that we can identify when a particular pattern uses these clauses and
 -- channels. We do this by injecting them into the symbol table earlier
 -- than normal.
-registerChannelsAndDataTypes :: Decl -> TypeCheckMonad ()
+registerChannelsAndDataTypes :: Decl Name -> TypeCheckMonad ()
 registerChannelsAndDataTypes (DataType n cs) = do
     mapM_ (\ c -> case unAnnotate c of
             DataTypeClause n' _ -> addDataTypeOrChannel n'
@@ -116,7 +116,7 @@ registerChannelsAndDataTypes _ = return ()
 -- | Type checks a group of certainly mutually recursive functions. Only 
 -- functions that are mutually recursive should be included otherwise the
 -- types could end up being less general.
-typeCheckMutualyRecursiveGroup :: [PDecl] -> TypeCheckMonad ()
+typeCheckMutualyRecursiveGroup :: [TCDecl] -> TypeCheckMonad ()
 typeCheckMutualyRecursiveGroup ds' = do
     -- TODO: fix temporary hack
     let 
@@ -168,11 +168,11 @@ evalTypeExpression t = do
     unify t (TSet fv)
     return fv
 
-instance TypeCheckable PDecl [(Name, Type)] where
+instance TypeCheckable TCDecl [(Name, Type)] where
     errorContext an = Nothing
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
 
-instance TypeCheckable Decl [(Name, Type)] where
+instance TypeCheckable (Decl Name) [(Name, Type)] where
     errorContext (FunBind n ms) = Just $ 
         -- This will only be helpful if the equations don't match in
         -- type
@@ -254,23 +254,11 @@ instance TypeCheckable Decl [(Name, Type)] where
         t <- typeCheck e
         valueType <- evalTypeExpression t
         return [(n, TSet valueType)]
-    typeCheck' (Transparent ns) = do
-        mapM_ (\ (n@(Name s)) -> do
-            texp <- applyPFOrError (transparentFunctionNotRecognised n) 
-                                transparentFunctions s
-            ForAll [] t <- getType n
-            unify texp t) ns
-        return []
-    typeCheck' (External ns) = do
-        mapM_ (\ (n@(Name s)) -> do
-            texp <- applyPFOrError (externalFunctionNotRecognised n) 
-                                externalFunctions s
-            ForAll [] t <- getType n
-            unify texp t) ns
-        return []
+    typeCheck' (Transparent ns) = return []
+    typeCheck' (External ns) = return []
     typeCheck' (Assert a) = typeCheck a >> return []
 
-instance TypeCheckable Assertion () where
+instance TypeCheckable (Assertion Name) () where
     errorContext a = Just $ 
         hang (text "In the assertion" <> colon) tabWidth (prettyPrint a)
     typeCheck' (PropertyCheck e1 p m) = do
@@ -281,17 +269,17 @@ instance TypeCheckable Assertion () where
         ensureIsProc e2
         mapM_ typeCheck opts
 
-instance TypeCheckable ModelOption () where
+instance TypeCheckable (ModelOption Name) () where
     errorContext a = Nothing
     typeCheck' (TauPriority e) = do
         typeCheckExpect e (TSet TEvent)
         return ()
 
-instance TypeCheckable PDataTypeClause (Name, [Type]) where
+instance TypeCheckable TCDataTypeClause (Name, [Type]) where
     errorContext an = Nothing
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
 
-instance TypeCheckable DataTypeClause (Name, [Type]) where
+instance TypeCheckable (DataTypeClause Name) (Name, [Type]) where
     errorContext c = Just $
         hang (text "In the data type clause" <> colon) tabWidth 
             (prettyPrint c)
@@ -303,10 +291,10 @@ instance TypeCheckable DataTypeClause (Name, [Type]) where
         dotList <- typeToDotList valueType
         return (n', dotList)
 
-instance TypeCheckable PMatch Type where
+instance TypeCheckable TCMatch Type where
     errorContext an = Nothing
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
-instance TypeCheckable Match Type where
+instance TypeCheckable (Match Name) Type where
     -- We create the error context in FunBind as that has access
     -- to the name
     errorContext (Match groups exp) = Nothing
@@ -331,10 +319,3 @@ instance TypeCheckable Match Type where
                 ) pats) groups
 
             return $ foldr (\ targs tr -> TFunction targs tr) tr tgroups
-
-applyPFOrError 
-    :: Eq a => Error -> PartialFunction a b -> a -> TypeCheckMonad b
-applyPFOrError err pf a = 
-    case safeApply pf a of
-        Just a -> return a
-        Nothing -> raiseMessageAsError err

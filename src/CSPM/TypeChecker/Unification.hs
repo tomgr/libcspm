@@ -59,7 +59,7 @@ generaliseGroup names tsm = do
     envfvs <- (liftM nub . concatMapM freeTypeVars)
             [t | (n, SymbolInformation { 
                         typeScheme = ForAll _ t 
-                }) <- flatten env, not (n `elem` names)]
+                }) <- toList env, not (n `elem` names)]
     mapM (\ nts -> mapM (\ (n,t) -> do
         -- The free vars in this type
         deffvs <- freeTypeVars t

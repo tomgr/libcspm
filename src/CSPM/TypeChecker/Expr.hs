@@ -22,7 +22,7 @@ import Util.List
 import Util.Monad
 import Util.PrettyPrint
 
-checkFunctionCall :: Doc -> [PExp] -> [Type] -> TypeCheckMonad ()
+checkFunctionCall :: Doc -> [TCExp] -> [Type] -> TypeCheckMonad ()
 checkFunctionCall func args expectedTypes = do
     actTypes <- mapM typeCheck args
     let
@@ -50,7 +50,7 @@ checkFunctionCall func args expectedTypes = do
     mapM unifyArg as
     return ()
 
-instance TypeCheckable PExp Type where
+instance TypeCheckable TCExp Type where
     errorContext an = Nothing
     typeCheck' an = do
         t <- setSrcSpan (loc an) $ typeCheck (inner an)
@@ -61,7 +61,7 @@ instance TypeCheckable PExp Type where
         t <- setSrcSpan (loc an) $ typeCheckExpect (inner an) texp
         setPType (snd (annotation an)) t
         return t
-instance TypeCheckable Exp Type where
+instance TypeCheckable (Exp Name) Type where
     typeCheckExpect obj texp =
         case errorContext obj of
             Just c -> addErrorContext c m
@@ -171,14 +171,14 @@ instance TypeCheckable Exp Type where
     typeCheck' (Tuple es) = do
         ts <- mapM typeCheck es
         return $ TTuple ts
-    typeCheck' (Var (UnQual n)) = do
+    typeCheck' (Var n) = do
         b <- isDeprecated n
-        if b then 
-            addWarning (deprecatedNameUsed n (replacementForDeprecatedName n))
-        else return ()
+        when b $ do
+            r <- replacementForDeprecatedName n
+            addWarning (deprecatedNameUsed n r)
+        
         b <- isTypeUnsafe n
-        if b then addWarning (unsafeNameUsed n)
-        else return ()
+        when b $ addWarning (unsafeNameUsed n)
         
         t <- getType n
         instantiate t
@@ -301,7 +301,7 @@ instance TypeCheckable Exp Type where
     typeCheck' x = panic ("No case for type checking a "++show x)
 
 
-typeCheckField :: PField -> (Type -> TypeCheckMonad a) -> TypeCheckMonad a
+typeCheckField :: TCField -> (Type -> TypeCheckMonad a) -> TypeCheckMonad a
 typeCheckField field tc = 
     let
         errCtxt = hang (text "In the field:") tabWidth (prettyPrint field)
@@ -326,7 +326,7 @@ typeCheckField field tc =
 
 -- | The first argument is a type constructor, which given a type, returns
 -- that type encapsulate in some other type.
-typeCheckStmt :: (Type -> Type) -> PStmt -> TypeCheckMonad a -> TypeCheckMonad a
+typeCheckStmt :: (Type -> Type) -> TCStmt -> TypeCheckMonad a -> TypeCheckMonad a
 typeCheckStmt typc stmt tc = 
     let
         errCtxt = hang (text "In the statement of a comprehension:") tabWidth
@@ -347,7 +347,7 @@ typeCheckStmt typc stmt tc =
 
 -- | Type check a series of statements. For each statement a new scope is added
 -- to ensure that clauses only depend on variables already bound.
-typeCheckStmts :: (Type -> Type) -> [AnStmt] -> TypeCheckMonad a -> TypeCheckMonad a
+typeCheckStmts :: (Type -> Type) -> [TCStmt] -> TypeCheckMonad a -> TypeCheckMonad a
 typeCheckStmts typc stmts tc = do
         fvsByStmt <- mapM (\stmt -> do
                 fvs <- freeVars stmt
@@ -365,5 +365,5 @@ typeCheckStmts typc stmts tc = do
         check (stmt:stmts) = typeCheckStmt typc stmt (check stmts)
 
 -- | Shortcut for replicated operators
-typeCheckReplicatedOp :: [AnStmt] -> TypeCheckMonad a -> TypeCheckMonad a
+typeCheckReplicatedOp :: [TCStmt] -> TypeCheckMonad a -> TypeCheckMonad a
 typeCheckReplicatedOp = typeCheckStmts TSet

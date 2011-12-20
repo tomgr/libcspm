@@ -22,7 +22,7 @@ import Util.Monad
 -- Clearly these depend on each other heavily as a name is free iff
 -- it is not a dependency.
 
-namesBoundByDecl :: AnDecl -> TypeCheckMonad [Name]
+namesBoundByDecl :: AnDecl Name -> TypeCheckMonad [Name]
 namesBoundByDecl =  namesBoundByDecl' . unAnnotate
 namesBoundByDecl' (FunBind n ms) = return [n]
 namesBoundByDecl' (PatBind p ms) = freeVars p
@@ -50,7 +50,7 @@ instance Dependencies a => Dependencies (Maybe a) where
 instance Dependencies a => Dependencies (Annotated b a) where
     dependencies' (An _ _ inner) = dependencies inner
 
-instance Dependencies Pat where
+instance Dependencies (Pat Name) where
     dependencies' (PVar n) = do
         res <- isDataTypeOrChannel n
         return $ if res then [n] else []
@@ -70,7 +70,7 @@ instance Dependencies Pat where
         fvs2 <- dependencies' p2
         return $ fvs1++fvs2
     
-instance Dependencies Exp where
+instance Dependencies (Exp Name) where
     dependencies' (App e es) = dependencies' (e:es)
     dependencies' (BooleanBinaryOp _ e1 e2) = dependencies' [e1,e2]
     dependencies' (BooleanUnaryOp _ e) = dependencies' e
@@ -118,7 +118,7 @@ instance Dependencies Exp where
     dependencies' (SetEnumFromTo e1 e2) = dependencies' [e1,e2]
     dependencies' (SetEnum es) = dependencies' es
     dependencies' (Tuple es) = dependencies' es
-    dependencies' (Var (UnQual n)) = return [n]
+    dependencies' (Var n) = return [n]
     
     -- Processes
     dependencies' (AlphaParallel e1 e2 e3 e4) = dependencies' [e1,e2,e3,e4]
@@ -170,7 +170,7 @@ instance Dependencies Exp where
 -- Recall that a later stmt can depend on values that appear in an ealier stmt
 -- For example, consider <x | x <- ..., f(x)>. Therefore we do a foldr to correctly
 -- consider cases like <x | f(x), x <- ... >
-dependenciesStmts :: Dependencies a => [PStmt] -> a -> TypeCheckMonad [Name]
+dependenciesStmts :: Dependencies a => [TCStmt] -> a -> TypeCheckMonad [Name]
 dependenciesStmts [] e = dependencies e
 dependenciesStmts (stmt:stmts) e = do
     depse <- dependenciesStmts stmts e
@@ -179,19 +179,19 @@ dependenciesStmts (stmt:stmts) e = do
     let depse' = nub (depsstmt++depse)
     return $ depse' \\ fvstmt
 
-instance Dependencies Stmt where
+instance Dependencies (Stmt Name) where
     dependencies' (Generator p e) = do
         ds1 <- dependencies p
         ds2 <- dependencies e
         return $ ds1++ds2
     dependencies' (Qualifier e) = dependencies e
 
-instance Dependencies Field where
+instance Dependencies (Field Name) where
     dependencies' (Input p e) = dependencies e
     dependencies' (NonDetInput p e) = dependencies e
     dependencies' (Output e) = dependencies e
 
-instance Dependencies Decl where
+instance Dependencies (Decl Name) where
     dependencies' (FunBind n ms) = do
         fvsms <- dependencies ms
         return $ fvsms
@@ -207,7 +207,7 @@ instance Dependencies Decl where
     dependencies' (Transparent ns) = return []
     dependencies' (Assert a) = dependencies a
 
-instance Dependencies Assertion where
+instance Dependencies (Assertion Name) where
     dependencies' (Refinement e1 m e2 opts) = do
         d1 <- dependencies [e1, e2]
         d2 <- dependencies opts
@@ -216,10 +216,10 @@ instance Dependencies Assertion where
     dependencies' (BoolAssertion e1) = dependencies [e1]
     dependencies' (ASNot a) = dependencies a
 
-instance Dependencies ModelOption where
+instance Dependencies (ModelOption Name) where
     dependencies' (TauPriority e) = dependencies' e
     
-instance Dependencies Match where
+instance Dependencies (Match Name) where
     dependencies' (Match ps e) =
         do
             fvs1 <- freeVars ps
@@ -227,48 +227,45 @@ instance Dependencies Match where
             fvs2 <- dependencies e
             return $ (fvs2 \\ fvs1) ++ depsPs
 
-instance Dependencies DataTypeClause where
+instance Dependencies (DataTypeClause Name) where
     dependencies' (DataTypeClause n Nothing) = return []
     dependencies' (DataTypeClause n (Just e)) = dependencies' e
 
 
 class FreeVars a where
     freeVars :: a -> TypeCheckMonad [Name]
-    freeVars = liftM nub . freeVars'
-    
-    freeVars' :: a -> TypeCheckMonad [Name]
 
 instance FreeVars a => FreeVars [a] where
-    freeVars' xs = concatMapM freeVars' xs
+    freeVars xs = concatMapM freeVars xs
     
 instance FreeVars a => FreeVars (Annotated b a) where
-    freeVars' (An _ _ inner) = freeVars inner
+    freeVars (An _ _ inner) = freeVars inner
 
-instance FreeVars Pat where
-    freeVars' (PVar n) = do
+instance FreeVars (Pat Name) where
+    freeVars (PVar n) = do
         res <- isDataTypeOrChannel n
         return $ if res then [] else [n]
-    freeVars' (PConcat p1 p2) = do
-        fvs1 <- freeVars' p1
-        fvs2 <- freeVars' p2
+    freeVars (PConcat p1 p2) = do
+        fvs1 <- freeVars p1
+        fvs2 <- freeVars p2
         return $ fvs1++fvs2
-    freeVars' (PDotApp p1 p2) = freeVars' [p1,p2]
-    freeVars' (PList ps) = freeVars' ps
-    freeVars' (PWildCard) = return []
-    freeVars' (PTuple ps) = freeVars' ps
-    freeVars' (PSet ps) = freeVars' ps
-    freeVars' (PParen p) = freeVars' p
-    freeVars' (PLit l) = return []
-    freeVars' (PDoublePattern p1 p2) = do
-        fvs1 <- freeVars' p1
-        fvs2 <- freeVars' p2
+    freeVars (PDotApp p1 p2) = freeVars [p1,p2]
+    freeVars (PList ps) = freeVars ps
+    freeVars (PWildCard) = return []
+    freeVars (PTuple ps) = freeVars ps
+    freeVars (PSet ps) = freeVars ps
+    freeVars (PParen p) = freeVars p
+    freeVars (PLit l) = return []
+    freeVars (PDoublePattern p1 p2) = do
+        fvs1 <- freeVars p1
+        fvs2 <- freeVars p2
         return $ fvs1++fvs2
 
-instance FreeVars Stmt where
-    freeVars' (Qualifier e) = return []
-    freeVars' (Generator p e) = freeVars p
+instance FreeVars (Stmt Name) where
+    freeVars (Qualifier e) = return []
+    freeVars (Generator p e) = freeVars p
 
-instance FreeVars Field where
-    freeVars' (Input p e) = freeVars p
-    freeVars' (NonDetInput p e) = freeVars p
-    freeVars' (Output e) = return []
+instance FreeVars (Field Name) where
+    freeVars (Input p e) = freeVars p
+    freeVars (NonDetInput p e) = freeVars p
+    freeVars (Output e) = return []

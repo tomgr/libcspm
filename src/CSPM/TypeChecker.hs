@@ -48,7 +48,7 @@ typeCheckExpect t exp = TC.typeCheckExpect exp t >> mcompress exp
 typeCheck :: (Compressable a, TC.TypeCheckable a b) => a -> TypeCheckMonad a
 typeCheck exp = TC.typeCheck exp >> mcompress exp
 
-typeOfExp :: PExp -> TypeCheckMonad Type
+typeOfExp :: TCExp -> TypeCheckMonad Type
 typeOfExp exp = do
     -- See if has been type checked, if so, return type,
     -- else type check

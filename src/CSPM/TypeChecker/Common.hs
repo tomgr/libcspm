@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, FunctionalDependencies #-}
 module CSPM.TypeChecker.Common where
 
+import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
 import CSPM.TypeChecker.BuiltInFunctions

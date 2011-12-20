@@ -1,22 +1,20 @@
+-- | Traverses the AST filling in all the type information, ensuring that each
+-- type is fully compressed.
 {-# LANGUAGE FlexibleInstances #-}
 module CSPM.TypeChecker.Compressor(
     Compressable, mcompress
 ) where
 
+import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Types
 import CSPM.DataStructures.Syntax
 import CSPM.TypeChecker.Monad
 import Util.Annotated
+import Util.Monad
 
 class Compressable a where
-    -- | Map compress
+    -- | Map compress.
     mcompress :: a -> TypeCheckMonad a
-
-($$) :: TypeCheckMonad (a -> b) -> TypeCheckMonad a -> TypeCheckMonad b
-($$) fm argm = do
-    f <- fm
-    arg <- argm
-    return $ f arg
 
 instance (Compressable a) => Compressable (Annotated (Maybe SymbolTable, PSymbolTable) a) where
     mcompress (An l (_, pt) v) = do
@@ -47,7 +45,7 @@ instance (Compressable a, Compressable b) => Compressable (a, b) where
         v1' <- mcompress v1
         v2' <- mcompress v2
         return (v1', v2')
-instance Compressable Exp where
+instance Compressable (Exp a) where
     mcompress (App e es) = return App $$ mcompress e $$ mcompress es
     mcompress (BooleanBinaryOp op e1 e2) = return 
         (BooleanBinaryOp op) $$ mcompress e1 $$ mcompress e2
@@ -111,12 +109,11 @@ instance Compressable Exp where
     mcompress (ReplicatedLinkParallel ties tiesStmts stmts e) =
         return ReplicatedLinkParallel $$ mcompress ties $$ mcompress tiesStmts 
                                         $$ mcompress stmts $$ mcompress e
-
-    mcompress a = panic (show a)
-instance Compressable Module where
+    
+instance Compressable (Module a) where
     mcompress (GlobalModule ds) = return GlobalModule $$ mcompress ds
 
-instance Compressable Decl where
+instance Compressable (Decl a) where
     mcompress (FunBind n ms) = return (FunBind n) $$ mcompress ms
     mcompress (PatBind p e) = return PatBind $$ mcompress p $$ mcompress e
     mcompress (Assert a) = return Assert $$ mcompress a
@@ -126,36 +123,36 @@ instance Compressable Decl where
     mcompress (DataType n cs) = return (DataType n) $$ mcompress cs
     mcompress (NameType n e) = return (NameType n) $$ mcompress e
 
-instance Compressable Assertion where
+instance Compressable (Assertion a) where
     mcompress (Refinement e1 m e2 opts) = return 
         Refinement $$ mcompress e1 $$ mcompress m $$ mcompress e2 $$ mcompress opts
     mcompress (PropertyCheck e p m) = return 
         PropertyCheck $$ mcompress e $$ mcompress p $$ mcompress m
 
-instance Compressable ModelOption where
+instance Compressable (ModelOption a) where
     mcompress (TauPriority e) = return TauPriority $$ mcompress e
 
-instance Compressable DataTypeClause where
+instance Compressable (DataTypeClause a) where
     mcompress (DataTypeClause n me) = return (DataTypeClause n) $$ mcompress me
 
-instance Compressable Match where
+instance Compressable (Match a) where
     mcompress (Match pss e) = return Match $$ mcompress pss $$ mcompress e
 
-instance Compressable Field where
+instance Compressable (Field a) where
     mcompress (Output e) = return Output $$ mcompress e
     mcompress (Input p e) = return Input $$ mcompress p $$ mcompress e
     mcompress (NonDetInput p e) = return NonDetInput $$ mcompress p $$ mcompress e
 
-instance Compressable Stmt where
+instance Compressable (Stmt a) where
     mcompress (Generator p e) = return Generator $$ mcompress p $$ mcompress e
     mcompress (Qualifier e) = return Qualifier $$ mcompress e
 
-instance Compressable InteractiveStmt where
+instance Compressable (InteractiveStmt a) where
     mcompress (Bind d) = return Bind $$ mcompress d
     mcompress (Evaluate e) = return Evaluate $$ mcompress e
     mcompress (RunAssertion a) = return RunAssertion $$ mcompress a
     
-instance Compressable Pat where
+instance Compressable (Pat a) where
     mcompress (PConcat p1 p2) = return PConcat $$ mcompress p1 $$ mcompress p2
     mcompress (PList ps) = return PList $$ mcompress ps
     mcompress (PDotApp p1 p2) = return PDotApp $$ mcompress p1 $$ mcompress p2
