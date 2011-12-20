@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Monad.Trans
 import System.Directory
 import System.Exit (exitFailure, exitSuccess)
 import System.FilePath
@@ -8,7 +9,7 @@ import CSPM
 import Monad
 import Util.Annotated
 import Util.Exception
-import Util.Monad
+import Util.Monad hiding (($$))
 import Util.PrettyPrint
 
 data RunResult = 
@@ -19,6 +20,13 @@ data RunResult =
         
 main :: IO ()
 main = do
+    --s <- initTestState
+    --runTestM s $ do
+    --    ms <- parseFile "tests/prettyprinter/should_pass/zbullyr.csp"
+    --    --pms <- CSPM.renameFile ms
+    --    liftIO $ putStrLn $ show (prettyPrint ms)
+    --return ()
+
     tests <- runSections
     results <- sequence tests
     let
@@ -56,15 +64,18 @@ runSections = do
                                 joinPath [testDir, section, "should_fail"]
             shouldWarnFiles <- getAndFilterDirectoryContents $
                                 joinPath [testDir, section, "should_warn"]
-            let 
-                Just test = lookup section testFunctions
-                pf = [runTest (joinPath [testDir, section, "should_pass", f]) 
-                        test PassedNoWarnings | f <- shouldPassFiles]
-                ff = [runTest (joinPath [testDir, section, "should_fail", f]) 
-                        test ErrorOccured | f <- shouldFailFiles]
-                wf = [runTest (joinPath [testDir, section, "should_warn", f]) 
-                        test WarningsEmitted | f <- shouldWarnFiles]
-            return $ pf++ff++wf
+        
+            case lookup section testFunctions of
+                Just test ->
+                    let
+                        pf = [runTest (joinPath [testDir, section, "should_pass", f]) 
+                            test PassedNoWarnings | f <- shouldPassFiles]
+                        ff = [runTest (joinPath [testDir, section, "should_fail", f]) 
+                            test ErrorOccured | f <- shouldFailFiles]
+                        wf = [runTest (joinPath [testDir, section, "should_warn", f]) 
+                            test WarningsEmitted | f <- shouldWarnFiles]
+                    in return $ pf++ff++wf
+                Nothing -> return []
         ) sections
     return $ concat fs
 
@@ -100,13 +111,14 @@ runTest fp test expectedResult = do
 testFunctions = [
         ("parser", parserTest),
         ("typechecker", typeCheckerTest),
-        ("prettyprinter", prettyPrinterTest),
-        ("evaluator", evaluatorTest)
+        ("prettyprinter", prettyPrinterTest)
+        --("evaluator", evaluatorTest)
     ]
 
 typeCheckerTest :: FilePath -> Test ()
 typeCheckerTest fp = do
     ms <- disallowErrors (parseFile fp)
+    ms <- CSPM.renameFile ms
     typeCheckFile ms
     return ()
 
@@ -133,34 +145,34 @@ disallowErrors a = do
                     $$ tabIndent (text (show e))
         Right v -> return v
 
-evaluatorTest :: FilePath -> Test ()
-evaluatorTest fp = do
-    tms <- disallowErrors (do
-        ms <- parseFile fp
-        tms <- typeCheckFile ms
-        bindFile tms
-        return tms)
-    mapM_ (\ (GlobalModule ds) ->
-        -- Extract all declarations of the form "test...", which should be of
-        -- patterns of type :: Bool
-        mapM_ (\ d ->
-            case d of 
-                PatBind p _ -> do
-                    case unAnnotate p of
-                        PVar (n @ ((Name s @ ('t':'e':'s':'t':_)))) -> do
-                            tce <- disallowErrors (do
-                                e <- parseExpression s
-                                ensureExpressionIsOfType TBool e)
-                            VBool b <- evaluateExp tce
-                            case b of
-                                True -> return ()
-                                False -> 
-                                    throwSourceError [
-                                        mkErrorMessage (loc p) 
-                                            (prettyPrint n <+> text "was false")
-                                        ]
+--evaluatorTest :: FilePath -> Test ()
+--evaluatorTest fp = do
+--    tms <- disallowErrors (do
+--        ms <- parseFile fp
+--        tms <- typeCheckFile ms
+--        bindFile tms
+--        return tms)
+--    mapM_ (\ (GlobalModule ds) ->
+--        -- Extract all declarations of the form "test...", which should be of
+--        -- patterns of type :: Bool
+--        mapM_ (\ d ->
+--            case d of 
+--                PatBind p _ -> do
+--                    case unAnnotate p of
+--                        PVar (n @ ((Name s @ ('t':'e':'s':'t':_)))) -> do
+--                            tce <- disallowErrors (do
+--                                e <- parseExpression s
+--                                ensureExpressionIsOfType TBool e)
+--                            VBool b <- evaluateExp tce
+--                            case b of
+--                                True -> return ()
+--                                False -> 
+--                                    throwSourceError [
+--                                        mkErrorMessage (loc p) 
+--                                            (prettyPrint n <+> text "was false")
+--                                        ]
 
-                        _ -> return ()
-                _ -> return ()
-            ) (map unAnnotate ds)
-        ) (map unAnnotate tms)
+--                        _ -> return ()
+--                _ -> return ()
+--            ) (map unAnnotate ds)
+--        ) (map unAnnotate tms)

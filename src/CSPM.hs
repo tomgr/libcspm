@@ -3,7 +3,7 @@ module CSPM (
     module CSPM.DataStructures.Names,
     module CSPM.DataStructures.Syntax,
     module CSPM.DataStructures.Types,
-    module CSPM.Evaluator.Values,
+    --module CSPM.Evaluator.Values,
     -- * CSPM Monad
     CSPMSession, newCSPMSession,
     CSPMMonad,
@@ -13,12 +13,16 @@ module CSPM (
     CSPM, unCSPM,
     -- * Parser API
     parseStringAsFile, parseFile, parseInteractiveStmt, parseExpression,
+    -- * Renamer API
+    renameFile, renameInteractiveStmt, renameExp,
     -- * Type Checker API
-    typeCheckFile, typeCheckInteractiveStmt, typeCheckExpression, ensureExpressionIsOfType,
-    dependenciesOfExp, typeOfExpression,
+    typeCheckFile, typeCheckInteractiveStmt, typeCheckExpression, 
+    ensureExpressionIsOfType, dependenciesOfExp, typeOfExpression,
+    -- * Desugarer API
+    --desugarFile, desugarExpression, desugarBind,
     -- * Evaluator API
-    evaluateExp, 
-    bindFile, bindDeclaration, getBoundNames,
+    --evaluateExp, 
+    --bindFile, bindDeclaration, getBoundNames,
     -- * Misc functions
     getLibCSPMVersion
 )
@@ -33,11 +37,12 @@ import System.IO
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
-import qualified CSPM.Evaluator as EV
-import CSPM.Evaluator.Values
+--import qualified CSPM.Evaluator as EV
+--import CSPM.Evaluator.Values
 import qualified CSPM.Parser as P
+import qualified CSPM.Renamer as RN
 import qualified CSPM.TypeChecker as TC
-import qualified CSPM.Desugar as DS
+--import qualified CSPM.Desugar as DS
 import Paths_libcspm (version)
 import Util.Annotated
 import Util.Exception
@@ -46,8 +51,9 @@ import Util.PrettyPrint
 -- | A 'CSPMSession' represents the internal states of all the various
 -- components.
 data CSPMSession = CSPMSession {
-        tcState :: TC.TypeInferenceState,
-        evState :: EV.EvaluationState
+        rnState :: RN.RenamerState,
+        tcState :: TC.TypeInferenceState
+        --evState :: EV.EvaluationState
     }
 
 -- | Create a new 'CSPMSession'.
@@ -55,9 +61,11 @@ newCSPMSession :: MonadIO m => m CSPMSession
 newCSPMSession = do
     -- Get the type checker environment with the built in functions already
     -- injected
+    rnState <- liftIO $ RN.initRenamer
     tcState <- liftIO $ TC.initTypeChecker
-    let evState = EV.initEvaluator
-    return $ CSPMSession tcState evState
+    --let evState = EV.initEvaluator
+    --return $ CSPMSession tcState evState
+    return $ CSPMSession rnState tcState
 
 -- | The CSPMMonad is the main monad in which all functions must be called.
 -- Whilst there is a build in representation (see 'CSPM') it is recommended
@@ -120,6 +128,23 @@ parseInteractiveStmt str = parse "" (P.parseInteractiveStmt str)
 parseExpression :: CSPMMonad m => String -> m PExp
 parseExpression str = parse "" (P.parseExpression str)
 
+-- Renamer API
+
+runRenamerInCurrentState :: CSPMMonad m => RN.RenamerMonad a -> m a
+runRenamerInCurrentState p = withSession $ \s -> do
+    (a, st) <- liftIO $ RN.runFromStateToState (rnState s) p
+    modifySession (\s -> s { rnState = st })
+    return a
+
+renameFile :: CSPMMonad m => [PModule] -> m [TCModule]
+renameFile m = runRenamerInCurrentState $ RN.rename m
+
+renameExp :: CSPMMonad m => PExp -> m TCExp
+renameExp e = runRenamerInCurrentState $ RN.rename e
+
+renameInteractiveStmt :: CSPMMonad m => PInteractiveStmt -> m TCInteractiveStmt
+renameInteractiveStmt e = runRenamerInCurrentState $ RN.rename e
+
 -- TypeChecker API
 -- All the type checkers also perform desugaring
 runTypeCheckerInCurrentState :: CSPMMonad m => TC.TypeCheckMonad a -> m (a, [ErrorMessage])
@@ -131,32 +156,36 @@ runTypeCheckerInCurrentState p = withSession $ \s -> do
 -- | Type checks a file, also desugaring and annotating it. Throws a 
 -- 'SourceError' if an error is encountered and will call 'handleWarnings' on 
 -- any warnings. This also performs desugaraing.
-typeCheckFile :: CSPMMonad m => [PModule] -> m [TCModule]
+typeCheckFile :: CSPMMonad m => [TCModule] -> m [TCModule]
 typeCheckFile ms = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheck ms
-    return $ DS.desugar ms
+    --return $ DS.desugar ms
+    return ms
 
 -- | Type checks a 'PInteractiveStmt'.
-typeCheckInteractiveStmt :: CSPMMonad m => PInteractiveStmt -> m TCInteractiveStmt
+typeCheckInteractiveStmt :: CSPMMonad m => TCInteractiveStmt -> m TCInteractiveStmt
 typeCheckInteractiveStmt pstmt = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheck pstmt
-    return $ DS.desugar pstmt
+    --return $ DS.desugar pstmt
+    return pstmt
 
 -- | Type checkes a 'PExp', returning the desugared and annotated version.
-typeCheckExpression :: CSPMMonad m => PExp -> m TCExp
+typeCheckExpression :: CSPMMonad m => TCExp -> m TCExp
 typeCheckExpression exp = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheck exp
-    return $ DS.desugar exp
+    --return $ DS.desugar exp
+    return exp
 
 -- | Given a 'Type', ensures that the 'PExp' is of that type. It returns the
 -- annoated and desugared expression.
-ensureExpressionIsOfType :: CSPMMonad m => Type -> PExp -> m TCExp
+ensureExpressionIsOfType :: CSPMMonad m => Type -> TCExp -> m TCExp
 ensureExpressionIsOfType t exp = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheckExpect t exp
-    return $ DS.desugar exp
+    --return $ DS.desugar exp
+    return exp
 
 -- | Gets the type of the expression in the current context.
-typeOfExpression :: CSPMMonad m => PExp -> m Type
+typeOfExpression :: CSPMMonad m => TCExp -> m Type
 typeOfExpression exp = 
     reportWarnings $ runTypeCheckerInCurrentState (TC.typeOfExp exp)
 
@@ -166,39 +195,39 @@ dependenciesOfExp e =
     reportWarnings $ runTypeCheckerInCurrentState (TC.dependenciesOfExp e)
 
 -- Evaluator API
-runEvaluatorInCurrentState :: CSPMMonad m => EV.EvaluationMonad a -> m a
-runEvaluatorInCurrentState p = withSession $ \s -> do
-    let (a, st) = EV.runFromStateToState (evState s) p
-    modifySession (\s -> s { evState = st })
-    return a
+--runEvaluatorInCurrentState :: CSPMMonad m => EV.EvaluationMonad a -> m a
+--runEvaluatorInCurrentState p = withSession $ \s -> do
+--    let (a, st) = EV.runFromStateToState (evState s) p
+--    modifySession (\s -> s { evState = st })
+--    return a
 
 -- Environment API
 
 -- | Get a list of currently bound names in the environment.
-getBoundNames :: CSPMMonad m => m [Name]
-getBoundNames = runEvaluatorInCurrentState EV.getBoundNames 
+--getBoundNames :: CSPMMonad m => m [Name]
+--getBoundNames = runEvaluatorInCurrentState EV.getBoundNames 
 
 -- | Takes a declaration and adds it to the current environment.
-bindDeclaration :: CSPMMonad m => TCDecl -> m ()
-bindDeclaration d = withSession $ \s -> do
-    evSt <- runEvaluatorInCurrentState (EV.addToEnvironment (EV.evaluateDecl d))
-    modifySession (\s -> s { evState = evSt })
+--bindDeclaration :: CSPMMonad m => TCDecl -> m ()
+--bindDeclaration d = withSession $ \s -> do
+--    evSt <- runEvaluatorInCurrentState (EV.addToEnvironment (EV.evaluateDecl d))
+--    modifySession (\s -> s { evState = evSt })
 
 -- | Binds all the declarations that are in a particular file.
-bindFile :: CSPMMonad m => [TCModule] -> m ()
-bindFile ms = do
-    -- Bind
-    evSt <- runEvaluatorInCurrentState (EV.addToEnvironment (EV.evaluateFile ms))
-    modifySession (\s -> s { evState = evSt })
-    return ()
+--bindFile :: CSPMMonad m => [TCModule] -> m ()
+--bindFile ms = do
+--    -- Bind
+--    evSt <- runEvaluatorInCurrentState (EV.addToEnvironment (EV.evaluateFile ms))
+--    modifySession (\s -> s { evState = evSt })
+--    return ()
 
 -- | Returns a list of all declarations in the specified file.
-evaluateFile :: CSPMMonad m => [TCModule] -> m [(Name, Value)]
-evaluateFile ms = runEvaluatorInCurrentState (EV.evaluateFile ms)
+--evaluateFile :: CSPMMonad m => [TCModule] -> m [(Name, Value)]
+--evaluateFile ms = runEvaluatorInCurrentState (EV.evaluateFile ms)
 
 -- | Evaluates the expression in the current context.
-evaluateExp :: CSPMMonad m => TCExp -> m Value
-evaluateExp e = runEvaluatorInCurrentState (EV.evaluateExp e)
+--evaluateExp :: CSPMMonad m => TCExp -> m Value
+--evaluateExp e = runEvaluatorInCurrentState (EV.evaluateExp e)
 
 -- | Return the version of libcspm that is being used.
 getLibCSPMVersion :: Version
