@@ -1,22 +1,23 @@
 module CSPM.DataStructures.Syntax where
 
-import CSPM.DataStructures.Types
+import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
+import CSPM.DataStructures.Types
 import Util.Annotated
 import Util.Exception
 
 -- P = post parsing, TC = post typechecking, An = annotated
-type AnModule = Annotated () Module
+type AnModule id = Annotated () (Module id)
 -- Declarations may bind multiple names
-type AnDecl = Annotated (Maybe SymbolTable, PSymbolTable) Decl
-type AnMatch = Annotated () Match
-type AnPat = Annotated () Pat
-type AnExp = Annotated (Maybe Type, PType) Exp
-type AnField = Annotated () Field
-type AnStmt = Annotated () Stmt
-type AnDataTypeClause = Annotated () DataTypeClause
-type AnAssertion = Annotated () Assertion
-type AnInteractiveStmt = Annotated () InteractiveStmt
+type AnDecl id = Annotated (Maybe SymbolTable, PSymbolTable) (Decl id)
+type AnMatch id = Annotated () (Match id)
+type AnPat id = Annotated () (Pat id)
+type AnExp id = Annotated (Maybe Type, PType) (Exp id)
+type AnField id = Annotated () (Field id)
+type AnStmt id = Annotated () (Stmt id)
+type AnDataTypeClause id = Annotated () (DataTypeClause id)
+type AnAssertion id = Annotated () (Assertion id)
+type AnInteractiveStmt id = Annotated () (InteractiveStmt id)
 
 getType :: Annotated (Maybe Type, PType) a -> Type
 getType an = case fst (annotation an) of
@@ -28,42 +29,33 @@ getSymbolTable an = case fst (annotation an) of
     Just t -> t
     Nothing -> panic "Cannot get the symbol table of something that is not typechecked"
 
+type PModule = AnModule UnRenamedName
+type PDecl = AnDecl UnRenamedName
+type PMatch = AnMatch UnRenamedName
+type PPat = AnPat UnRenamedName
+type PExp = AnExp UnRenamedName
+type PStmt = AnStmt UnRenamedName
+type PField = AnField UnRenamedName
+type PDataTypeClause = AnDataTypeClause UnRenamedName
+type PAssertion = AnAssertion UnRenamedName
+type PInteractiveStmt = AnInteractiveStmt UnRenamedName
 
-type PModule = AnModule
-type PDecl = AnDecl
-type PMatch = AnMatch
-type PPat = AnPat
-type PExp = AnExp
-type PStmt = AnStmt
-type PField = AnField
-type PDataTypeClause = AnDataTypeClause
-type PAssertion = AnAssertion
-type PInteractiveStmt = AnInteractiveStmt
-
-type TCModule = AnModule
-type TCDecl = AnDecl
-type TCMatch = AnMatch
-type TCPat = AnPat
-type TCExp = AnExp
-type TCField = AnField
-type TCStmt = AnStmt
-type TCDataTypeClause = AnDataTypeClause
-type TCAssertion = AnAssertion
-type TCInteractiveStmt = AnInteractiveStmt
-
--- *************************************************************************
--- Basic Components
--- *************************************************************************
-data Literal = 
-    Int Integer
-    | Bool Bool
-    deriving (Eq, Show)
+type TCModule = AnModule Name
+type TCDecl = AnDecl Name
+type TCMatch = AnMatch Name
+type TCPat = AnPat Name
+type TCExp = AnExp Name
+type TCField = AnField Name
+type TCStmt = AnStmt Name
+type TCDataTypeClause = AnDataTypeClause Name
+type TCAssertion = AnAssertion Name
+type TCInteractiveStmt = AnInteractiveStmt Name
 
 -- *************************************************************************
 -- Modules
 -- *************************************************************************
-data Module = 
-    GlobalModule [AnDecl]
+data Module id = 
+    GlobalModule [AnDecl id]
     deriving (Eq, Show)
 
 -- *************************************************************************
@@ -92,119 +84,124 @@ data BinaryMathsOp =
     Divide | Minus | Mod | Plus | Times
     deriving (Eq, Show)
 
-data Exp =
-    App AnExp [AnExp]
-    | BooleanBinaryOp BinaryBooleanOp AnExp AnExp
-    | BooleanUnaryOp UnaryBooleanOp AnExp
-    | Concat AnExp AnExp
-    | DotApp AnExp AnExp
-    | If AnExp AnExp AnExp
-    | Lambda AnPat AnExp
-    | Let [AnDecl] AnExp
+data Exp id =
+    App (AnExp id) [AnExp id]
+    | BooleanBinaryOp BinaryBooleanOp (AnExp id) (AnExp id)
+    | BooleanUnaryOp UnaryBooleanOp (AnExp id)
+    | Concat (AnExp id) (AnExp id)
+    | DotApp (AnExp id) (AnExp id)
+    | If (AnExp id) (AnExp id) (AnExp id)
+    | Lambda (AnPat id)(AnExp id)
+    | Let [AnDecl id] (AnExp id)
     | Lit Literal
-    | List [AnExp]
-    | ListComp [AnExp] [AnStmt]
-    | ListEnumFrom AnExp
-    | ListEnumFromTo AnExp AnExp
+    | List [AnExp id]
+    | ListComp [AnExp id] [AnStmt id]
+    | ListEnumFrom (AnExp id)
+    | ListEnumFromTo (AnExp id) (AnExp id)
     -- TODO: ListEnumFrom and ListEnumTO - test in FDR
     -- TODO: compare with official CSPM syntax
-    | ListLength AnExp
-    | MathsBinaryOp BinaryMathsOp AnExp AnExp
-    | MathsUnaryOp UnaryMathsOp AnExp
-    | Paren AnExp
-    | Set [AnExp]
-    | SetComp [AnExp] [AnStmt]
-    | SetEnum [AnExp]           -- {| |}
-    | SetEnumComp [AnExp] [AnStmt]  -- {|c.x | x <- xs|}
-    | SetEnumFrom AnExp
-    | SetEnumFromTo AnExp AnExp
-    | Tuple [AnExp]
-    | Var QualifiedName
+    | ListLength (AnExp id)
+    | MathsBinaryOp BinaryMathsOp (AnExp id) (AnExp id)
+    | MathsUnaryOp UnaryMathsOp (AnExp id)
+    | Paren (AnExp id)
+    | Set [AnExp id]
+    | SetComp [AnExp id] [AnStmt id]
+    | SetEnum [AnExp id]           -- {| |}
+    | SetEnumComp [AnExp id] [AnStmt id]  -- {|c.x | x <- xs|}
+    | SetEnumFrom (AnExp id)
+    | SetEnumFromTo (AnExp id) (AnExp id)
+    | Tuple [AnExp id]
+    | Var id
 
     -- Processes
     | AlphaParallel 
-        AnExp -- ^ Process 1
-        AnExp -- ^ Alphabet of process 1
-        AnExp -- ^ Alphabet of process 2
-        AnExp -- ^ Process 2
-    | Exception AnExp AnExp AnExp -- Proc Alpha Proc
-    | ExternalChoice AnExp AnExp
-    | GenParallel AnExp AnExp AnExp -- Proc Alpha Proc 
-    | GuardedExp AnExp AnExp            -- b & P
-    | Hiding AnExp AnExp
-    | InternalChoice AnExp AnExp
-    | Interrupt AnExp AnExp
-    | Interleave AnExp AnExp
-    | LinkParallel AnExp [(AnExp, AnExp)] [AnStmt] AnExp -- Exp, tied chans (old, new), generators, second
-    | Prefix AnExp [AnField] AnExp
-    | Rename AnExp [(AnExp, AnExp)] [AnStmt] -- (old, new)
-    | SequentialComp AnExp AnExp -- P; Q
-    | SlidingChoice AnExp AnExp
+        (AnExp id) -- ^ Process 1
+        (AnExp id) -- ^ Alphabet of process 1
+        (AnExp id) -- ^ Alphabet of process 2
+        (AnExp id) -- ^ Process 2
+    | Exception (AnExp id) (AnExp id) (AnExp id) -- Proc Alpha Proc
+    | ExternalChoice (AnExp id) (AnExp id)
+    | GenParallel (AnExp id) (AnExp id) (AnExp id) -- Proc Alpha Proc 
+    | GuardedExp (AnExp id) (AnExp id)            -- b & P
+    | Hiding (AnExp id) (AnExp id)
+    | InternalChoice (AnExp id) (AnExp id)
+    | Interrupt (AnExp id) (AnExp id)
+    | Interleave (AnExp id) (AnExp id)
+    | LinkParallel (AnExp id) [(AnExp id, (AnExp id))] [AnStmt id] (AnExp id) -- Exp, tied chans (old, new), generators, second
+    | Prefix (AnExp id) [AnField id] (AnExp id)
+    | Rename (AnExp id) [(AnExp id, (AnExp id))] [AnStmt id] -- (old, new)
+    | SequentialComp (AnExp id) (AnExp id) -- P; Q
+    | SlidingChoice (AnExp id) (AnExp id)
 
     -- Replicated Operators
-    | ReplicatedAlphaParallel [AnStmt] AnExp AnExp -- alpha exp is second
-    | ReplicatedExternalChoice [AnStmt] AnExp
-    | ReplicatedInterleave [AnStmt] AnExp 
-    | ReplicatedInternalChoice [AnStmt] AnExp
+    | ReplicatedAlphaParallel [AnStmt id] (AnExp id) (AnExp id) -- alpha exp is second
+    | ReplicatedExternalChoice [AnStmt id] (AnExp id)
+    | ReplicatedInterleave [AnStmt id] (AnExp id) 
+    | ReplicatedInternalChoice [AnStmt id] (AnExp id)
     | ReplicatedLinkParallel 
-        [(AnExp, AnExp)] -- ^ The ties
-        [AnStmt] -- ^ The 'Stmt's for the ties.
-        [AnStmt] -- ^ The 'Stmt's - the process is evaluated once for each
+        [(AnExp id, (AnExp id))] -- ^ The ties
+        [AnStmt id] -- ^ The 'Stmt's for the ties.
+        [AnStmt id] -- ^ The 'Stmt's - the process is evaluated once for each
                  -- value generated by these.
-        AnExp -- ^ The process
-    | ReplicatedParallel AnExp [AnStmt] AnExp -- alpha exp is first
+        (AnExp id) -- ^ The process
+    | ReplicatedParallel (AnExp id) [AnStmt id] (AnExp id) -- alpha exp is first
     
     -- Used only for parsing
     | ExpPatWildCard
-    | ExpPatDoublePattern AnExp AnExp
+    | ExpPatDoublePattern (AnExp id) (AnExp id)
     
     deriving (Eq, Show)
 
-data Field = 
+data Field id = 
     -- | !x
-    Output AnExp
+    Output (AnExp id)
     -- | ?x:A
-    | Input AnPat (Maybe AnExp)
+    | Input (AnPat id) (Maybe (AnExp id))
     -- | $x:A (see P395 UCS)
-    | NonDetInput AnPat (Maybe AnExp)
+    | NonDetInput (AnPat id) (Maybe (AnExp id))
     deriving (Eq, Show)
     
-data Stmt = 
-    Generator AnPat AnExp
-    | Qualifier AnExp
+data Stmt id = 
+    Generator (AnPat id) (AnExp id)
+    | Qualifier (AnExp id)
     deriving (Eq, Show)
 
 -- A statement in an interactive session
-data InteractiveStmt =
-    Evaluate AnExp
-    | Bind AnDecl
-    | RunAssertion Assertion
+data InteractiveStmt id =
+    Evaluate (AnExp id)
+    | Bind (AnDecl id)
+    | RunAssertion (Assertion id)
     deriving Show
     
 -- *************************************************************************
 -- Declarations
 -- *************************************************************************
-data Decl = 
+--data BindGroup id =
+--    [Binding id]
+--data Binding id =
+--    PatBind (Pat id) (Exp id)
+
+data Decl id = 
     -- Third argument is the annotated type
-    FunBind Name [AnMatch]
-    | PatBind AnPat AnExp
-    | Assert Assertion
-    | External [Name]
-    | Transparent [Name]
+    FunBind id [AnMatch id]
+    | PatBind (AnPat id)(AnExp id)
+    | Assert (Assertion id)
+    | External [id]
+    | Transparent [id]
     -- The expression in the following three definitions means a type expression
     -- and therefore dots and commas have special meanings. See TPC P529 for
     -- details (or the typechecker or evaluator).
-    | Channel [Name] (Maybe AnExp)
-    | DataType Name [AnDataTypeClause]
-    | NameType Name AnExp
+    | Channel [id] (Maybe (AnExp id))
+    | DataType id [AnDataTypeClause id]
+    | NameType id (AnExp id)
     deriving (Eq, Show)
 
 -- TODO: annotate
-data Assertion = 
-    Refinement AnExp Model AnExp [ModelOption]
-    | PropertyCheck AnExp SemanticProperty (Maybe Model)
-    | BoolAssertion AnExp
-    | ASNot Assertion
+data Assertion id = 
+    Refinement (AnExp id) Model (AnExp id) [ModelOption id]
+    | PropertyCheck (AnExp id) SemanticProperty (Maybe Model)
+    | BoolAssertion (AnExp id)
+    | ASNot (Assertion id)
     deriving (Eq, Show)
         
 data Model = 
@@ -217,8 +214,8 @@ data Model =
     | RevivalsDivergences
     deriving (Eq, Show)
     
-data ModelOption = 
-    TauPriority AnExp
+data ModelOption id = 
+    TauPriority (AnExp id)
     deriving (Eq, Show)
         
 data SemanticProperty = 
@@ -228,24 +225,24 @@ data SemanticProperty =
     deriving (Eq, Show)
     
 -- TODO: annotate
-data DataTypeClause =
-    DataTypeClause Name (Maybe AnExp)
+data DataTypeClause id =
+    DataTypeClause id (Maybe (AnExp id))
     deriving (Eq, Show)
 
-data Match =
-    Match [[AnPat]] AnExp
+data Match id =
+    Match [[AnPat id]] (AnExp id)
     deriving (Eq, Show)
 
-data Pat =
-    PConcat AnPat AnPat
-    | PDotApp AnPat AnPat
-    | PDoublePattern AnPat AnPat
-    | PList [AnPat]
+data Pat id =
+    PConcat (AnPat id) (AnPat id)
+    | PDotApp (AnPat id) (AnPat id)
+    | PDoublePattern (AnPat id) (AnPat id)
+    | PList [AnPat id]
     | PLit Literal
-    | PParen AnPat
-    | PSet [AnPat]
-    | PTuple [AnPat]
-    | PVar Name
+    | PParen (AnPat id)
+    | PSet [AnPat id]
+    | PTuple [AnPat id]
+    | PVar id
     | PWildCard
     
     -- In all compiled patterns we store the original pattern
@@ -258,13 +255,13 @@ data Pat =
     -- PCompList ps (Just (p, ps')) corresponds to a list
     -- where it starts with ps (where each p in ps matches exactly one
     -- component, has a middle of p and and end matching exactly ps'
-    | PCompList [AnPat] (Maybe (AnPat, [AnPat])) Pat
+    | PCompList [AnPat id] (Maybe (AnPat id, [AnPat id])) (Pat id)
     -- Recall the longest match rule when evaluating this
     -- How about:
     -- channel c : A.Int.A
     -- datatype A = B.Bool
     -- func(c.B.true.x) =
     -- func(c.B.false.0.B.x) =
-    | PCompDot [AnPat] Pat
+    | PCompDot [AnPat id] (Pat id)
 
     deriving (Eq, Show)
