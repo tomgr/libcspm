@@ -2,7 +2,8 @@
 module Util.Monad (
     concatMapM,
     andM,
-    orM
+    orM,
+    ($$)
 ) where
 
 import Control.Monad
@@ -21,3 +22,9 @@ orM [m] = m
 orM (m:ms) = do
     b <- m
     if not b then orM ms else return True
+
+($$) :: Monad m => m (a -> b) -> m a -> m b
+($$) fm argm = do
+    f <- fm
+    arg <- argm
+    return $ f arg
