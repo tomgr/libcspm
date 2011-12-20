@@ -158,7 +158,7 @@ prettyPrintType vmap (TDot t1 t2) =
     ) <> text "." <> prettyPrintType vmap t2
 prettyPrintType vmap (TDotable t1 t2) =
     prettyPrintType vmap t1 <> text "=>" <> prettyPrintType vmap t2
-prettyPrintType vmap (TDatatype (Name n)) = text n
+prettyPrintType vmap (TDatatype n) = prettyPrint n
 
 prettyPrintType vmap (TBool) = text "Bool"
 prettyPrintType vmap (TInt) = text "Int"
