@@ -1,4 +1,17 @@
-module CSPM.DataStructures.Types where
+module CSPM.DataStructures.Types (
+    -- * Data Structures
+    TypeVar, TypeScheme(..), Constraint(..), Type(..), TypeVarRef(..),
+    prettyPrintTypes,
+    -- * Creation of Types
+    freshTypeVar, freshTypeVarWithConstraints,
+
+    -- * Symbol Tables
+    SymbolTable, PSymbolTable, freshPSymbolTable, readPSymbolTable, 
+    setPSymbolTable,
+
+    -- * Type Pointers
+    PType, freshPType, readPType, setPType,
+) where
 
 import Control.Monad.Trans
 import Data.IORef
