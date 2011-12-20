@@ -9,8 +9,11 @@ where
 -- happy --ghc --coerce --array src/CSPM/Parser/Parser.y
 -- rm src/CSPM/Parser/Parser.y
 
+-- i.e.: cpp -P src/CSPM/Parser/Parser.ppy > src/CSPM/Parser/Parser.y && happy --ghc --coerce --array src/CSPM/Parser/Parser.y && rm src/CSPM/Parser/Parser.y
+
 import Data.Char
 
+import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Tokens
@@ -207,7 +210,7 @@ DeclA :: { PDecl }
     | "assert" Assertion                        { AN (Assert $2) }
     | "nametype" Name "=" CExp                  { AN2 (NameType (unLoc $2) $4) }
 
-Assertion :: { Assertion }
+Assertion :: { Assertion UnRenamedName }
     :
     CExp refines CExp                       { (Refinement $1 (getRefinesModel $2) $3 []) }
     | CExp refines CExp ModelOption         { (Refinement $1 (getRefinesModel $2) $3 [$4]) }
@@ -220,7 +223,7 @@ SemanticProperty :: { SemanticProperty }
     | "divergence free"                         { LivelockFreedom }
     | "deterministic"                           { Deterministic }
 
-ModelOption :: { ModelOption }
+ModelOption :: { ModelOption UnRenamedName }
     :
     "tau priority" CExp                         { TauPriority $2 }
 
@@ -236,20 +239,18 @@ rDataTypeClauseList :: { [PDataTypeClause] }
     DataTypeClause                              { [$1] }
     | rDataTypeClauseList "|" DataTypeClause    { $3:$1 }
 
-Name :: { Located Name }
+Name :: { Located UnRenamedName }
     : 
-    ident                           { LL (Name (getName $1)) }
-NameCommaList1 :: { [Located Name] }
+    ident                           { LL (UnQual (OccName (getName $1))) }
+
+NameCommaList1 :: { [Located UnRenamedName] }
     :
     rNameCommaList                  { reverse $1 }
-rNameCommaList :: { [Located Name] }
+rNameCommaList :: { [Located UnRenamedName] }
     :
     Name                            { [$1] }
     | rNameCommaList "," Name       { $3:$1 }
 
-QName :: { Located QualifiedName }
-    :
-    ident                           { LL (UnQual (Name (getName $1))) }
 
 Literal :: { Located Literal }:
     integer_literal                 { LL (Int (getInt $1)) }
@@ -294,7 +295,7 @@ ExpA :: { PExp }
     :
     -- Basic Types
     Literal                         { LL (Lit (unLoc $1)) }
-    | QName                         { LL (Var (unLoc $1)) }
+    | Name                          { LL (Var (unLoc $1)) }
     | "(" ExpCommaList2 ")"         { AN2 (Tuple $2) }
     | Exp "." Exp                   { AN2 (DotApp $1 $3) }
 
@@ -460,12 +461,12 @@ convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) =
         span = combineSpans loc1 loc2
 
         -- REMEMBER: needs to reverse pts
-        getPats :: Exp -> ([[PPat]], Name)
+        getPats :: Exp UnRenamedName -> ([[PPat]], UnRenamedName)
         getPats (App f args) = 
                 ((map convPat args):ps, n)
             where
                 (ps, n) = getPats (unAnnotate f)
-        getPats (Var (UnQual n)) = ([], n)
+        getPats (Var n) = ([], n)
         
         convFunBind exp = 
                 FunBind n [An span (dummyAnnotation) (Match (reverse ps) rhs)]
@@ -495,7 +496,7 @@ checkLetDecls decls = map checkDecl decls
 checkExp :: PExp -> PExp
 checkExp (anExp@(An a b exp)) =
     let 
-        check :: Exp -> Exp
+        check :: Exp UnRenamedName -> Exp UnRenamedName
         check (App e es) = App (checkExp e) (map checkExp es)
         check (BooleanBinaryOp op e1 e2) = BooleanBinaryOp op (checkExp e1) (checkExp e2)
         check (BooleanUnaryOp op e) = BooleanUnaryOp op (checkExp e)
@@ -558,7 +559,7 @@ checkExp (anExp@(An a b exp)) =
 dotAppToList :: PExp -> [PExp]
 dotAppToList (An a b exp) = 
     let 
-        list :: Exp -> [PExp]
+        list :: Exp UnRenamedName -> [PExp]
         list (DotApp e1 e2) = (dotAppToList e1) ++ (dotAppToList e2)
         list x = [An a b x]
     in
@@ -567,7 +568,7 @@ dotAppToList (An a b exp) =
 convPat :: PExp -> PPat
 convPat (anExp@ (An a b exp)) = 
     let
-        trans :: Exp -> Pat
+        trans :: Exp UnRenamedName -> Pat UnRenamedName
         trans (Concat e1 e2) = PConcat (convPat e1) (convPat e2)
         trans (DotApp e1 e2) = PDotApp (convPat e1) (convPat e2)
         trans (List xs) = PList (map convPat xs)
@@ -575,7 +576,7 @@ convPat (anExp@ (An a b exp)) =
         trans (Set xs) = PSet (map convPat xs)
         trans (Paren x) = PParen (convPat x)
         trans (Tuple xs) = PTuple (map convPat xs)
-        trans (Var (UnQual x)) = PVar x
+        trans (Var x) = PVar x
         trans (ExpPatWildCard) = PWildCard
         trans (ExpPatDoublePattern e1 e2) = 
             PDoublePattern (convPat e1) (convPat e2)
