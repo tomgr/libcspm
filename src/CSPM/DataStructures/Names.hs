@@ -71,18 +71,6 @@ instance Ord Name where
 
 instance PrettyPrintable Name where
     prettyPrint n = prettyPrint (nameOccurrence n)
-        --case nameType n of
-        --    External -> text "E"
-        --    Internal -> text "I"
-        --    WiredIn -> text "WI"
-        -- <> text (show (nameUnique n))
-        -- <> parens (prettyPrint (nameOccurrence n))
-                    
-        --case nameType n of
-        --    External -> text ('v':show (nameUnique n))
-        --                <> parens (prettyPrint (nameOccurrence n))
-        --    Internal ->
-        --    WiredIn ->
 
 instance Show Name where
     show n = show (prettyPrint n)
