@@ -4,30 +4,26 @@ module CSPM.PrettyPrinter (
 )
 where
 
+import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
-    
-instance PrettyPrintable Name where
-    prettyPrint (Name s) = text s
-instance PrettyPrintable QualifiedName where
-    prettyPrint (UnQual name) = prettyPrint name
 
-instance PrettyPrintable [Module] where
+instance PrettyPrintable id => PrettyPrintable [Module id] where
     prettyPrint = vcat . map prettyPrint
 
-instance PrettyPrintable Module where
+instance PrettyPrintable id => PrettyPrintable (Module id) where
     prettyPrint (GlobalModule decls) = 
         vcat (punctuate (char '\n') (map prettyPrint decls))
 
-instance PrettyPrintable InteractiveStmt where
+instance PrettyPrintable id => PrettyPrintable (InteractiveStmt id) where
     prettyPrint (Evaluate e) = prettyPrint e
     prettyPrint (Bind decl) = 
         text "let" <+> prettyPrint decl
     
-prettyPrintMatch :: Name -> AnMatch -> Doc
+prettyPrintMatch :: PrettyPrintable id => id -> AnMatch id -> Doc
 prettyPrintMatch n (An _ _ (Match groups exp)) = 
         hang ((prettyPrint n <> hcat (map ppGroup groups))
              <+> equals)
@@ -35,9 +31,8 @@ prettyPrintMatch n (An _ _ (Match groups exp)) =
     where
         ppGroup ps = parens (list (map prettyPrint ps))
 
-instance PrettyPrintable Decl where
-    prettyPrint (FunBind n ms) =
-            vcat (map (prettyPrintMatch n) ms)
+instance PrettyPrintable id => PrettyPrintable (Decl id) where
+    prettyPrint (FunBind n ms) = vcat (map (prettyPrintMatch n) ms)
     prettyPrint (PatBind pat exp) =
         hang (prettyPrint pat <+> equals)
             tabWidth (prettyPrint exp)
@@ -56,7 +51,7 @@ instance PrettyPrintable Decl where
     prettyPrint (Assert a) =
         text "assert" <+> prettyPrint a
         
-instance PrettyPrintable Assertion where
+instance PrettyPrintable id => PrettyPrintable (Assertion id) where
     prettyPrint (Refinement e1 m e2 opts) =
         hang (hang (prettyPrint e1) tabWidth
                 (char '[' <> prettyPrint m <> char '=' <+> prettyPrint e2))
@@ -67,6 +62,7 @@ instance PrettyPrintable Assertion where
     prettyPrint (PropertyCheck e1 prop (Just m)) =
         hang (prettyPrint e1) tabWidth
             (colon <> brackets (prettyPrint prop <+> brackets (prettyPrint m)))
+
 instance PrettyPrintable Model where
     prettyPrint Traces = text "T"
     prettyPrint Failures = text "F"
@@ -76,7 +72,7 @@ instance PrettyPrintable Model where
     prettyPrint Revivals = text "V"
     prettyPrint RevivalsDivergences = text "VD"
     
-instance PrettyPrintable ModelOption where
+instance PrettyPrintable id => PrettyPrintable (ModelOption id) where
     prettyPrint (TauPriority e) = 
         text ":[tau priority over]:" <+> prettyPrint e
 
@@ -85,12 +81,12 @@ instance PrettyPrintable SemanticProperty where
     prettyPrint Deterministic = text "deterministic"
     prettyPrint LivelockFreedom = text "divergence free"
 
-instance PrettyPrintable DataTypeClause where
+instance PrettyPrintable id => PrettyPrintable (DataTypeClause id) where
     prettyPrint (DataTypeClause n Nothing) = prettyPrint n
     prettyPrint (DataTypeClause n (Just e)) = 
         prettyPrint n <> text "." <> prettyPrint e
 
-instance PrettyPrintable Pat where
+instance PrettyPrintable id => PrettyPrintable (Pat id) where
     prettyPrint (PConcat e1 e2) =
         prettyPrint e1 <+> text "^" <+> prettyPrint e2
     prettyPrint (PDotApp e1 e2) =
@@ -136,7 +132,7 @@ instance PrettyPrintable UnaryMathsOp where
     -- {-1} which would start a block comment
     prettyPrint Negate = text " -"
 
-instance PrettyPrintable Exp where  
+instance PrettyPrintable id => PrettyPrintable (Exp id) where  
     prettyPrint (App e1 args) = 
         prettyPrint e1 <> parens (list (map prettyPrint args))
     prettyPrint (BooleanBinaryOp op e1 e2) = 
@@ -237,7 +233,7 @@ instance PrettyPrintable Exp where
     prettyPrint (ExpPatDoublePattern e1 e2) = 
         prettyPrint e1 <+> text "@@" <+> prettyPrint e2
 
-instance PrettyPrintable Field where
+instance PrettyPrintable id => PrettyPrintable (Field id) where
     prettyPrint (Output exp) = 
         char '!' <> prettyPrint exp
     prettyPrint (Input pat Nothing) =
@@ -249,7 +245,7 @@ instance PrettyPrintable Field where
     prettyPrint (NonDetInput pat (Just exp)) =
         char '$' <> prettyPrint pat <+> colon <+> prettyPrint exp
 
-instance PrettyPrintable Stmt where
+instance PrettyPrintable id => PrettyPrintable (Stmt id) where
     prettyPrint (Generator pat exp) = 
         sep [prettyPrint pat, text "<-" <+> prettyPrint exp]
     prettyPrint (Qualifier exp) = 
@@ -260,22 +256,22 @@ instance PrettyPrintable Literal where
     prettyPrint (Bool True) = text "true"
     prettyPrint (Bool False) = text "false"
 
-ppTie :: (AnExp, AnExp) -> Doc
+ppTie :: PrettyPrintable id => (AnExp id, AnExp id) -> Doc
 ppTie (l, r) = prettyPrint l <+> text "<->" <+> prettyPrint r
 
-ppRename :: (AnExp, AnExp) -> Doc
+ppRename :: PrettyPrintable id => (AnExp id, AnExp id) -> Doc
 ppRename (l, r) = prettyPrint l <+> text "<-" <+> prettyPrint r
 
-ppRepOp :: Doc -> [AnStmt] -> Doc -> Doc
+ppRepOp :: PrettyPrintable id => Doc -> [AnStmt id] -> Doc -> Doc
 ppRepOp op stmts exp =
     hang op tabWidth (
         hang (list (map prettyPrint stmts) <+> char '@')
             tabWidth exp)
 
-ppComp :: [AnExp] -> [AnStmt] -> Doc
+ppComp :: PrettyPrintable id => [AnExp id] -> [AnStmt id] -> Doc
 ppComp es stmts = ppComp' (map prettyPrint es) stmts 
         
-ppComp' :: [Doc] -> [AnStmt] -> Doc
+ppComp' :: PrettyPrintable id => [Doc] -> [AnStmt id] -> Doc
 ppComp' es stmts = 
     hang (list es) tabWidth
         (if stmts /= [] then char '|' <+> list (map prettyPrint stmts)
