@@ -6,7 +6,7 @@ module CSPM.DataStructures.Names (
     Name(..),
     NameType,
 
-    mkExternalName, mkInternalName, mkWiredInName,
+    mkExternalName, mkInternalName, mkWiredInName, mkFreshInternalName,
     isNameDataConstructor,
 ) where
 
@@ -96,6 +96,9 @@ mkInternalName :: MonadIO m => OccName -> SrcSpan -> m Name
 mkInternalName o s = do
     u <- takeNameUnique
     return $ Name Internal o s u False
+
+mkFreshInternalName :: MonadIO m => m Name
+mkFreshInternalName = mkInternalName (OccName "<fresh>") Unknown
 
 mkWiredInName :: MonadIO m => OccName -> m Name
 mkWiredInName o = do
