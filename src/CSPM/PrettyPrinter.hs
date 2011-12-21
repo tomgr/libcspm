@@ -251,11 +251,6 @@ instance PrettyPrintable id => PrettyPrintable (Stmt id) where
     prettyPrint (Qualifier exp) = 
         prettyPrint exp
 
-instance PrettyPrintable Literal where
-    prettyPrint (Int n) = integer n
-    prettyPrint (Bool True) = text "true"
-    prettyPrint (Bool False) = text "false"
-
 ppTie :: PrettyPrintable id => (AnExp id, AnExp id) -> Doc
 ppTie (l, r) = prettyPrint l <+> text "<->" <+> prettyPrint r
 
