@@ -79,7 +79,7 @@ instance Desugarable (Exp Name) where
     -- We don't remove the Paren as people may pretty print a desugared
     -- expression, which would then not have parenthesis needed to
     -- remove ambiguity
-    desugar (Paren e) = Paren (desugar e)
+    desugar (Paren e) = unAnnotate (desugar e)
     desugar (Set es) = Set (desugar es)
     desugar (SetComp es stmts) = SetComp (desugar es) (desugar stmts)
     desugar (SetEnum es) = SetEnum (desugar es)
@@ -165,7 +165,7 @@ instance Desugarable (Pat Name) where
     -- We don't remove the Paren as people may pretty print a desugared
     -- expression, which would then not have parenthesis needed to
     -- remove ambiguity
-    desugar (PParen p) = PParen (desugar p)
+    desugar (PParen p) = unAnnotate (desugar p)
     desugar (PSet []) = PSet []
     desugar (PSet [p]) = PSet [desugar p]
     desugar (PSet ps) = throwSourceError [mkErrorMessage l err]
