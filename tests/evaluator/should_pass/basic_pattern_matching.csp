@@ -15,7 +15,6 @@ func7(<>) = 7
 test1 = p == 2
 test2 = r == 3
 test3 = func7(<>) == 7
-test4 = func7(<0,1>) == 7
 test5 = func7(<0,1,2>) == 6
 test6 = func5(<1,2,4>) == 3
 test7 = func5(<1,2,3>) == 1
