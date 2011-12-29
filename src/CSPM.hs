@@ -14,7 +14,7 @@ module CSPM (
     -- * Parser API
     parseStringAsFile, parseFile, parseInteractiveStmt, parseExpression,
     -- * Renamer API
-    renameFile, renameInteractiveStmt, renameExp,
+    renameFile, renameInteractiveStmt, renameExpression,
     -- * Type Checker API
     typeCheckFile, typeCheckInteractiveStmt, typeCheckExpression, 
     ensureExpressionIsOfType, dependenciesOfExp, typeOfExpression,
@@ -137,13 +137,17 @@ runRenamerInCurrentState p = withSession $ \s -> do
     return a
 
 renameFile :: CSPMMonad m => [PModule] -> m [TCModule]
-renameFile m = runRenamerInCurrentState $ RN.rename m
+renameFile m = runRenamerInCurrentState $ do
+    RN.newScope
+    RN.rename m
 
-renameExp :: CSPMMonad m => PExp -> m TCExp
-renameExp e = runRenamerInCurrentState $ RN.rename e
+renameExpression :: CSPMMonad m => PExp -> m TCExp
+renameExpression e = runRenamerInCurrentState $ RN.rename e
 
 renameInteractiveStmt :: CSPMMonad m => PInteractiveStmt -> m TCInteractiveStmt
-renameInteractiveStmt e = runRenamerInCurrentState $ RN.rename e
+renameInteractiveStmt e = runRenamerInCurrentState $ do
+    RN.newScope 
+    RN.rename e
 
 -- TypeChecker API
 -- All the type checkers also perform desugaring

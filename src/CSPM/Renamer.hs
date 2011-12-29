@@ -14,6 +14,7 @@ module CSPM.Renamer (
     runFromStateToState,
     initRenamer,
     rename,
+    newScope,
 )  where
 
 import Control.Monad.State
@@ -42,7 +43,8 @@ initRenamer :: IO (RenamerState)
 initRenamer = do
     let bs = map (\b -> (UnQual (OccName (stringName b)), name b)) (builtins False)
     return $ RenamerState {
-        environment = HM.updateMulti HM.new bs
+        -- We insert a new layer to allow builtins to be overridden
+        environment = HM.newLayer (HM.updateMulti HM.new bs)
     }
 
 -- | Runs the renamer starting at the given state and returning the given state.
@@ -61,6 +63,12 @@ addScope m = do
     modify (\ st -> st { environment = env })
     return a
 
+newScope :: RenamerMonad ()
+newScope = do
+    env <- gets environment
+    let env' = HM.newLayer env
+    modify (\ st -> st { environment = env' })
+    
 lookupName :: UnRenamedName -> RenamerMonad (Maybe Name)
 lookupName n = do
     env <- gets environment
@@ -109,8 +117,9 @@ reAnnotate (An a b _) m = do
     v <- m
     return $ An a b v
 
+-- | Renames the declarations in the current scope.
 renameDeclarations :: Bool -> [PDecl] -> RenamerMonad a -> RenamerMonad ([TCDecl], a)
-renameDeclarations topLevel ds prog = addScope $ do
+renameDeclarations topLevel ds prog = do
     -- Firstly, check for duplicates amongst the definitions
     checkDuplicates ds
 
@@ -371,7 +380,7 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
                 return (p', e'))
         return $ Lambda p' e'
     rename (Let ds e) = do
-        (ds', e') <- renameDeclarations False ds (rename e)
+        (ds', e') <- addScope $ renameDeclarations False ds (rename e)
         return $ Let ds' e'
     rename (Lit l) = return $ Lit l
     rename (List es) = return List $$ rename es
@@ -451,7 +460,6 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
             (tiesStmts', ties') <- renameStatements tiesStmts (rename ties)
             return (e', ties', tiesStmts'))
         return $ ReplicatedLinkParallel ties' tiesStmts' stmts' e'
-
 
 class FreeVars a where
     freeVars :: a -> RenamerMonad [UnRenamedName]
