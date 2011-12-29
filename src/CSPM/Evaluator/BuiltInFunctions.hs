@@ -105,7 +105,15 @@ builtInFunctions =
         cspm_True = ("True", VBool True)
         cspm_False = ("False", VBool False)
         
-        constants = [cspm_true, cspm_false, cspm_True, cspm_False]
+        cspm_Bool = ("Bool", VSet (S.fromList [snd cspm_true, snd cspm_false]))
+        cspm_Int = ("Int", VSet S.Integers)
+        cspm_Proc = ("Proc", VSet S.Processes)
+        cspm_Events = ("Events", panic "Events not implemented")
+
+        constants = [
+            cspm_true, cspm_false, cspm_True, cspm_False,
+            cspm_Bool, cspm_Int, cspm_Proc, cspm_Events
+            ]
         
         mkConstant (s, v) = (nameForString s, v)
     in
