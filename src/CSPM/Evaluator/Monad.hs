@@ -70,7 +70,7 @@ addScopeAndBindM binds prog = do
     let
         env' = newLayerAndBind (environment st) bs
         st' = st { environment = env' }
-        bs = [(n, runEvaluator st' v) | v <- binds]
+        bs = [(n, runEvaluator st' v) | (n, v) <- binds]
     modify (\_ -> st') prog
 
 throwError :: ErrorMessage -> a

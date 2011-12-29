@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 module CSPM.Desugar where
 
+import CSPM.DataStructures.Literals
+import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
 import CSPM.PrettyPrinter
@@ -26,10 +28,10 @@ instance Desugarable a => Desugarable (Annotated b a) where
 instance (Desugarable a, Desugarable b) => Desugarable (a,b) where
     desugar (a,b) = (desugar a, desugar b)
 
-instance Desugarable Module where
+instance Desugarable (Module Name) where
     desugar (GlobalModule ds) = GlobalModule (desugar ds)
 
-instance Desugarable Decl where
+instance Desugarable (Decl Name) where
     desugar (FunBind n ms) = FunBind n (desugar ms)
     desugar (PatBind p e) = PatBind (desugar p) (desugar e)
     desugar (Assert a) = Assert (desugar a)
@@ -39,22 +41,22 @@ instance Desugarable Decl where
     desugar (DataType n cs) = DataType n (desugar cs)
     desugar (NameType n e) = NameType n (desugar e)
 
-instance Desugarable Assertion where
+instance Desugarable (Assertion Name) where
     desugar (Refinement e1 m e2 opts) = 
         Refinement (desugar e1) m (desugar e2) (desugar opts)
     desugar (PropertyCheck e p m) = 
         PropertyCheck (desugar e) p m
 
-instance Desugarable ModelOption where
+instance Desugarable (ModelOption Name) where
     desugar (TauPriority e) = TauPriority (desugar e)
 
-instance Desugarable DataTypeClause where
+instance Desugarable (DataTypeClause Name) where
     desugar (DataTypeClause n me) = DataTypeClause n (desugar me)
 
-instance Desugarable Match where
+instance Desugarable (Match Name) where
     desugar (Match pss e) = Match (desugar pss) (desugar e)
 
-instance Desugarable Exp where
+instance Desugarable (Exp Name) where
     desugar (App e es) = App (desugar e) (desugar es)
     desugar (BooleanBinaryOp op e1 e2) = 
         BooleanBinaryOp op (desugar e1) (desugar e2)
@@ -121,27 +123,27 @@ instance Desugarable Exp where
         ReplicatedLinkParallel (desugar ties) (desugar tiesStmts) 
                                 (desugar stmts) (desugar e)
     
-instance Desugarable Field where
+instance Desugarable (Field Name) where
     desugar (Output e) = Output (desugar e)
     desugar (Input p e) = Input (desugar p) (desugar e)
     desugar (NonDetInput p e) = NonDetInput (desugar p) (desugar e)
 
-instance Desugarable Stmt where
+instance Desugarable (Stmt Name) where
     desugar (Generator p e) = Generator (desugar p) (desugar e)
     desugar (Qualifier e) = Qualifier (desugar e)
 
-instance Desugarable InteractiveStmt where
+instance Desugarable (InteractiveStmt Name) where
     desugar (Bind d) = Bind (desugar d)
     desugar (Evaluate e) = Evaluate (desugar e)
     desugar (RunAssertion a) = RunAssertion (desugar a)
 
-instance Desugarable Pat where
+instance Desugarable (Pat Name) where
     desugar (PConcat p1 p2) = 
         let
             combine (as1, Just (p, bs1)) (as2, Nothing) = (as1, Just (p, bs1++as2))
             combine (as1, Nothing) (as2, p) = (as1++as2, p)
             
-            extractCompList :: AnPat -> ([AnPat], Maybe (AnPat, [AnPat]))
+            extractCompList :: TCPat -> ([TCPat], Maybe (TCPat, [TCPat]))
             extractCompList (An _ _ (PCompList ps mp _)) = (ps, mp)
             extractCompList p = ([], Just (p, []))
             

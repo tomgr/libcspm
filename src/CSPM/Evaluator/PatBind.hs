@@ -1,8 +1,9 @@
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module CSPM.Evaluator.PatBind where
 
 import Control.Monad
 
+import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.Evaluator.Monad
@@ -18,7 +19,7 @@ class Bindable a where
 instance Bindable a => Bindable (Annotated b a) where
     bind (An _ _ a) v = bind a v
 
-instance Bindable Pat where
+instance Bindable (Pat Name) where
     -- We can decompose any PConcat pattern into three patterns representing:
     -- Begining (of the form PList), middle (either PWildcard or PVar)
     -- and end (of the form PList), With both begining and end possible empty
@@ -74,7 +75,11 @@ instance Bindable Pat where
 -- with f(done). ARGH.
 --    bind (PVar n) (VChannel n') = return (n == n', []) 
 --    bind (PVar n) (VDataType n') = return (n == n', [])
-    -- Must just be a normal variable
+-- Must just be a normal variable
+    bind (PVar n) v | isNameDataConstructor n = 
+        case v of
+            VChannel n' -> (n == n', [])
+            VDataType n' -> (n == n', [])
     bind (PVar n) v = (True, [(n, v)])
     bind PWildCard v = (True, [])
     bind _ _ = (False, [])
@@ -82,5 +87,5 @@ instance Bindable Pat where
 bindAll :: Bindable a => [a] -> [Value] -> (Bool, [(Name, Value)])
 bindAll ps xs =
     let
-        rs = zipWithM bind ps xs
+        rs = zipWith bind ps xs
     in (and (map fst rs), concat (map snd rs))

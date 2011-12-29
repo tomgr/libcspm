@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module CSPM.Evaluator.Expr (
     Evaluatable, eval,
 ) where
@@ -6,8 +6,10 @@ module CSPM.Evaluator.Expr (
 import Control.Monad.Trans
 import Data.Maybe
 
+import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
+import CSPM.Evaluator.BuiltInFunctions
 import CSPM.Evaluator.DeclBind
 import CSPM.Evaluator.Environment
 import CSPM.Evaluator.Exceptions
@@ -31,7 +33,7 @@ class Evaluatable a where
 instance Evaluatable a => Evaluatable (Annotated b a) where
     eval (An _ _ a) = eval a
 
-instance Evaluatable Exp where
+instance Evaluatable (Exp Name) where
     eval (App func args) = do
         vs <- mapM eval args
         VFunction f <- eval func
@@ -85,14 +87,13 @@ instance Evaluatable Exp where
         if b then eval e2 else eval e3
     eval (Lambda p e) =
         return $ VFunction $ \ [v] -> do
-            (matches, binds) <- bind p v
+            let (matches, binds) = bind p v
             if matches then
                 addScopeAndBind binds (eval e)
             else
                 throwError $ patternMatchFailureMessage (loc p) p v
     eval (Let decls e) = do
-        bs <- bindDecls decls
-        addScopeAndBind bs (eval e)
+        addScopeAndBindM (bindDecls decls) (eval e)
     eval (Lit lit) = return $
         case lit of
             Int i -> VInt i
@@ -146,7 +147,7 @@ instance Evaluatable Exp where
         VInt ub <- eval e2
         return $ VSet (S.fromList (map VInt [lb..ub]))
     eval (Tuple es) = mapM eval es >>= return . VTuple
-    eval (Var (UnQual n)) = do
+    eval (Var n) = do
         v <- lookupVar n
         case v of
             VProc p -> return $ VProc $ PProcCall (procId n []) (Just p)
@@ -161,11 +162,11 @@ instance Evaluatable Exp where
             normalizeEvent ((VDot vs1):vs2) = normalizeEvent (vs1++vs2)
             normalizeEvent (v:vs) = v:normalizeEvent vs
             
-            evalInputField :: [Value] -> [Field] -> AnPat -> S.ValueSet -> 
+            evalInputField :: [Value] -> [Field Name] -> TCPat -> S.ValueSet -> 
                                 EvaluationMonad [Proc]
             evalInputField vs fs p s = do
                 mps <- mapM (\v -> do
-                    (matches, binds) <- bind p v
+                    let (matches, binds) = bind p v
                     if matches then do
                         p <- addScopeAndBind binds 
                             (evalFields (vs++normalizeEvent [v]) fs)
@@ -173,7 +174,7 @@ instance Evaluatable Exp where
                     else return Nothing) (S.toList s)
                 return $ catMaybes mps
             
-            evalFields :: [Value] -> [Field] -> EvaluationMonad Proc
+            evalFields :: [Value] -> [Field Name] -> EvaluationMonad Proc
             evalFields vs [] = do
                 p <- evalProc e2
                 return $ PPrefix (valueEventToEvent ev) p
@@ -254,7 +255,7 @@ instance Evaluatable Exp where
         return $ VProc $ PGenParallel (S.valueSetToEventSet a) ps
     eval (GuardedExp guard proc) = do
         VBool b <- eval guard
-        if b then eval proc else lookupVar (Name "STOP")
+        if b then eval proc else lookupVar (builtInName "STOP")
     eval (Hiding e1 e2) = do
         p <- evalProc e1
         VSet s <- eval e2
@@ -320,7 +321,7 @@ evalProc a = eval a >>= \v -> case v of
     VProc x -> return x
     _       -> panic "Type checker error"
 
-evalTies :: [AnStmt] -> [(AnExp, AnExp)] -> EvaluationMonad [(Event, Event)]
+evalTies :: [TCStmt] -> [(TCExp, TCExp)] -> EvaluationMonad [(Event, Event)]
 evalTies stmts ties = do
     tss <- evalStmts (\(VSet s) -> S.toList s) stmts (mapM evalTie ties)
     return $ concat tss
@@ -339,7 +340,7 @@ evalTies stmts ties = do
 
 -- | Evaluates the statements, evaluating `prog` for each possible 
 -- assingment to the generators that satisfies the qualifiers.
-evalStmts :: (Value -> [Value]) -> [AnStmt] -> EvaluationMonad [a] -> 
+evalStmts :: (Value -> [Value]) -> [TCStmt] -> EvaluationMonad [a] -> 
             EvaluationMonad [a]
 evalStmts extract anStmts prog =
     let
@@ -351,7 +352,7 @@ evalStmts extract anStmts prog =
         evStmts (Generator p e:stmts) = do
             v <- eval e
             vss <- mapM (\v -> do
-                (matches, binds) <- bind p v
+                let (matches, binds) = bind p v
                 if matches then 
                     addScopeAndBind binds (evStmts stmts)
                 else return []) (extract v)

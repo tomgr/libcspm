@@ -17,6 +17,15 @@ test2 = r == 3
 test3 = func7(<>) == 7
 test4 = func7(<0,1>) == 7
 test5 = func7(<0,1,2>) == 6
-test6 = func5(<1,2,4>) = 3
-test7 = func5(<1,2,3>) = 1
+test6 = func5(<1,2,4>) == 3
+test7 = func5(<1,2,3>) == 1
 test8 = func5(<>) == 2
+
+{-
+
+loop = loop
+(s,t) = (1, loop)
+
+test9 = s == 1
+test10 = s+1 == 2
+-}

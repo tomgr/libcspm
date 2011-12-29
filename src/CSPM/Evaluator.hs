@@ -34,16 +34,16 @@ evaluateExp :: TCExp -> EvaluationMonad Value
 evaluateExp e = eval e
 
 -- | Evaluates the declaration but doesn't add it to the current environment.
-evaluateDecl :: TCDecl -> EvaluationMonad [(Name, Value)]
-evaluateDecl d = bindDecls [d]
+evaluateDecl :: TCDecl -> EvaluationMonad [(Name, EvaluationMonad Value)]
+evaluateDecl d = return $ bindDecls [d]
 
 -- | Evaluates the declaration but doesn't add it to the current environment.
-evaluateFile :: [TCModule] -> EvaluationMonad [(Name, Value)]
-evaluateFile ms = bindModules ms
+evaluateFile :: [TCModule] -> EvaluationMonad [(Name, EvaluationMonad Value)]
+evaluateFile ms = return $ bindModules ms
 
 getBoundNames :: EvaluationMonad [Name]
 getBoundNames = 
-    getEnvironment >>= return . filter (not . isInternal) . map fst . flatten
+    getEnvironment >>= return . filter (\n -> nameType n == ExternalName) . map fst . flatten
 
 addToEnvironment :: [(Name, EvaluationMonad Value)] -> EvaluationMonad EvaluationState
 addToEnvironment bs = addScopeAndBindM bs getState

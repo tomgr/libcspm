@@ -1,6 +1,8 @@
-module Main where
+module Main (main) where
 
+import Control.Monad
 import Control.Monad.Trans
+import Data.List
 import System.Directory
 import System.Exit (exitFailure, exitSuccess)
 import System.FilePath
@@ -104,8 +106,8 @@ runTest fp test expectedResult = do
 testFunctions = [
         ("parser", parserTest),
         ("typechecker", typeCheckerTest),
-        ("prettyprinter", prettyPrinterTest)
-        --("evaluator", evaluatorTest)
+        ("prettyprinter", prettyPrinterTest),
+        ("evaluator", evaluatorTest)
     ]
 
 typeCheckerTest :: FilePath -> Test ()
@@ -138,34 +140,40 @@ disallowErrors a = do
                     $$ tabIndent (text (show e))
         Right v -> return v
 
---evaluatorTest :: FilePath -> Test ()
---evaluatorTest fp = do
---    tms <- disallowErrors (do
---        ms <- parseFile fp
---        tms <- typeCheckFile ms
---        bindFile tms
---        return tms)
---    mapM_ (\ (GlobalModule ds) ->
---        -- Extract all declarations of the form "test...", which should be of
---        -- patterns of type :: Bool
---        mapM_ (\ d ->
---            case d of 
---                PatBind p _ -> do
---                    case unAnnotate p of
---                        PVar (n @ ((Name s @ ('t':'e':'s':'t':_)))) -> do
---                            tce <- disallowErrors (do
---                                e <- parseExpression s
---                                ensureExpressionIsOfType TBool e)
---                            VBool b <- evaluateExp tce
---                            case b of
---                                True -> return ()
---                                False -> 
---                                    throwSourceError [
---                                        mkErrorMessage (loc p) 
---                                            (prettyPrint n <+> text "was false")
---                                        ]
+evaluatorTest :: FilePath -> Test ()
+evaluatorTest fp = do
+    tms <- disallowErrors (do
+        ms <- parseFile fp
+        rms <- CSPM.renameFile ms
+        tms <- typeCheckFile rms
+        dsms <- desugarFile tms
+        bindFile dsms
+        return tms)
+    mapM_ (\ (GlobalModule ds) ->
+        -- Extract all declarations of the form "test...", which should be of
+        -- patterns of type :: Bool
+        mapM_ (\ d ->
+            case d of 
+                PatBind p _ -> do
+                    case unAnnotate p of
+                        PVar n -> do
+                            let OccName s = nameOccurrence n
+                            when (isPrefixOf "test" s) $ do
+                                tce <- disallowErrors (do
+                                    e <- parseExpression s
+                                    rne <- renameExpression e
+                                    tce <- ensureExpressionIsOfType TBool rne
+                                    desugarExpression tce)
+                                VBool b <- evaluateExp tce
+                                case b of
+                                    True -> return ()
+                                    False -> 
+                                        throwSourceError [
+                                            mkErrorMessage (loc p) 
+                                                (prettyPrint n <+> text "was false")
+                                            ]
 
---                        _ -> return ()
---                _ -> return ()
---            ) (map unAnnotate ds)
---        ) (map unAnnotate tms)
+                        _ -> return ()
+                _ -> return ()
+            ) (map unAnnotate ds)
+        ) (map unAnnotate tms)

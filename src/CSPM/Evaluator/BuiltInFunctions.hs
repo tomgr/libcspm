@@ -1,6 +1,10 @@
-module CSPM.Evaluator.BuiltInFunctions where
+module CSPM.Evaluator.BuiltInFunctions (
+    injectBuiltInFunctions,
+    builtInName
+) where
 
 import Control.Monad
+import qualified Data.Map as M
 
 import qualified CSPM.Compiler.Set as CS
 import CSPM.DataStructures.Names
@@ -8,11 +12,16 @@ import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
 import qualified CSPM.Evaluator.ValueSet as S
+import CSPM.Prelude
 import Util.Exception
+
+bMap = M.fromList [(stringName b, name b) | b <- builtins True]
+builtInName s = M.findWithDefault (error "builtin not found") s bMap
 
 builtInFunctions :: [(Name, Value)]
 builtInFunctions = 
     let
+        nameForString s = builtInName s
         cspm_union [VSet s1, VSet s2] = S.union s1 s2
         cspm_inter [VSet s1, VSet s2] = S.intersection s1 s2
         cspm_diff [VSet s1, VSet s2] = S.difference s1 s2
@@ -39,10 +48,10 @@ builtInFunctions =
         cspm_elem [v, VList vs] = VBool $ v `elem` vs
         csp_chaos [VSet a] = VProc $ PProcCall n (Just p)
             where
-                n = procId (Name "CHAOS") [[VSet a]]
+                n = procId (nameForString "CHAOS") [[VSet a]]
                 evSet = S.valueSetToEventSet a
                 branches = [PPrefix ev (PProcCall n Nothing) | ev <- CS.toList evSet]
-                stopProc = PProcCall (procId (Name "STOP") []) (Just csp_stop)
+                stopProc = PProcCall (procId (nameForString "STOP") []) (Just csp_stop)
                 p = PInternalChoice (stopProc:branches)
         
         -- | Functions that return sets
@@ -78,18 +87,18 @@ builtInFunctions =
             ("empty", cspm_empty), ("CHAOS", csp_chaos)
             ]
         
-        mkFunc (s, f) = (Name s, VFunction (\ vs -> return (f vs)))
+        mkFunc (s, f) = (nameForString s, VFunction (\ vs -> return (f vs)))
         
         procs = [
             (csp_stop_id, csp_stop),
             (csp_skip_id, PPrefix Tick (PProcCall csp_stop_id (Just csp_stop)))
             ]
         
-        csp_skip_id = procId (Name "SKIP") []
-        csp_stop_id = procId (Name "STOP") []
+        csp_skip_id = procId (nameForString "SKIP") []
+        csp_stop_id = procId (nameForString "STOP") []
         csp_stop = PExternalChoice []
         
-        mkProc (s, p) = (Name s, VProc p)
+        mkProc (s, p) = (nameForString s, VProc p)
         
         cspm_true = ("true", VBool True)
         cspm_false = ("false", VBool False)
@@ -98,7 +107,7 @@ builtInFunctions =
         
         constants = [cspm_true, cspm_false, cspm_True, cspm_False]
         
-        mkConstant (s, v) = (Name s, v)
+        mkConstant (s, v) = (nameForString s, v)
     in
         map mkFunc (
             map (\ (n, f) -> (n, VSet . f)) set_funcs

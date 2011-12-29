@@ -13,9 +13,9 @@ import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
 import Util.Annotated
 
-bindModules :: [TCModule] -> EvaluationMonad [(Name, Value)]
-bindModules ms = liftM concat (mapM bindModule ms)
+bindModules :: [TCModule] -> [(Name, EvaluationMonad Value)]
+bindModules ms = concatMap bindModule ms
 
-bindModule :: TCModule -> EvaluationMonad [(Name, Value)]
+bindModule :: TCModule -> [(Name, EvaluationMonad Value)]
 bindModule an = case unAnnotate an of
     GlobalModule ds -> bindDecls ds

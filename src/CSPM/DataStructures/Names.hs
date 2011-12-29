@@ -62,6 +62,7 @@ data NameType =
     | InternalName
     -- | A built in name.
     | WiredInName
+    deriving Eq
 
 instance Eq Name where
     n1 == n2 = nameUnique n1 == nameUnique n2

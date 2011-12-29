@@ -13,7 +13,7 @@ import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 
-patternMatchFailureMessage :: SrcSpan -> AnPat -> Value -> ErrorMessage
+patternMatchFailureMessage :: SrcSpan -> TCPat -> Value -> ErrorMessage
 patternMatchFailureMessage l pat v =
     mkErrorMessage l $ 
         hang (hang (text "Pattern match failure: Value") tabWidth
@@ -34,7 +34,7 @@ funBindPatternMatchFailureMessage l n vss = mkErrorMessage l $
         (prettyPrint n <> 
             hcat (map (\ vs -> parens (list (map prettyPrint vs))) vss))
 
-replicatedInternalChoiceOverEmptySetMessage :: SrcSpan -> Exp -> ErrorMessage
+replicatedInternalChoiceOverEmptySetMessage :: SrcSpan -> Exp Name -> ErrorMessage
 replicatedInternalChoiceOverEmptySetMessage l p = mkErrorMessage l $
     hang (
         hang (text "The set expression in"<>colon) tabWidth 
