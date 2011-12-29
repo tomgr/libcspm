@@ -11,6 +11,7 @@ import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import Util.Annotated
 import Util.Exception
+import Util.PrettyPrint
 
 -- Bind :: Pattern, value -> (Matches Pattern, Values to Bind
 class Bindable a where
@@ -46,17 +47,29 @@ instance Bindable (Pat Name) where
                 else splitAt (length rest - length ends) rest
     bind (PCompDot ps _) (VDot vs) =
         let 
-            (psInit, pLast) = initLast ps
-            (vsInit, vsLast) = splitAt (length psInit) vs
-            lastValue [x] = x
-            lastValue vs = VDot vs
-            initLast :: [a] -> ([a], a)
-            initLast [a] = ([],a)
-            initLast (a:as) = let (bs,b) = initLast as in (a:bs,b)
-
-            (b1, nvs1) = bindAll psInit vsInit
-            (b2, nvs2) = bind pLast (lastValue vsLast)
-        in (b1 && b2, nvs1++nvs2)
+            -- Matches a compiled dot pattern, given a list of patterns for
+            -- the fields and the values that each field takes.
+            matchCompDot :: [Pat Name] -> [Value] -> (Bool, [(Name, Value)])
+            matchCompDot [] [] = (True, [])
+            matchCompDot (PVar n:ps) (VDot (VDataType n':vfs):vs2) | isNameDataConstructor n = 
+                -- In this case, we are matching within a subfield of the
+                -- current field. Therefore, add all the values that this
+                -- subfield has.
+                if n /= n' then (False, []) 
+                else matchCompDot ps (vfs++vs2)
+            matchCompDot (PVar n:ps) (VDot (VChannel n':vfs):vs2) | isNameDataConstructor n = 
+                if n /= n' then (False, []) 
+                else matchCompDot ps (vfs++vs2)
+            matchCompDot [p] [v] = bind p v
+            matchCompDot [p] vs = bind p (VDot vs)
+            matchCompDot (p:ps) (v:vs) = 
+                let
+                    (b1, nvs1) = bind p v
+                    (b2, nvs2) = matchCompDot ps vs
+                in (b1 && b2, nvs1++nvs2)
+            
+            r = matchCompDot (map unAnnotate ps) vs
+        in r
     bind (PDoublePattern p1 p2) v =
         let
             (m1, b1) = bind p1 v
@@ -80,6 +93,7 @@ instance Bindable (Pat Name) where
         case v of
             VChannel n' -> (n == n', [])
             VDataType n' -> (n == n', [])
+            _ -> panic $ show $ prettyPrint v <+> text "is not a data constructor."
     bind (PVar n) v = (True, [(n, v)])
     bind PWildCard v = (True, [])
     bind _ _ = (False, [])

@@ -17,6 +17,7 @@ import CSPM.Evaluator.PatBind
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import Util.Annotated
+import Util.Exception
 
 -- | Given a list of declarations, returns a sequence of names bounds to
 -- values that can be passed to 'addScopeAndBind' in order to bind them in
@@ -72,34 +73,37 @@ bindDecl (an@(An _ _ (PatBind p e))) =
             return $ head [v | (n', v) <- nvs, n' == n]
     in (nV, eval e):[(fv, extractor fv) | fv <- freeVars p]
 bindDecl (an@(An _ _ (Channel ns me))) =
-    --let
+    let
         -- TODO: check channel values are in es
-        --vs = case me of 
-        --    Nothing -> []
-        --    Just e -> do
-        --        v <- eval e
-        --        return $ evalTypeExprToList v
-        -- ++[(internalNameForChannel n, VTuple (map VSet vs)) | n <- ns]
-    [(n, return $ VChannel n) | n <- ns]
+        mkChan :: Name -> EvaluationMonad Value
+        mkChan n = do
+            vss <- case me of
+                Just e -> eval e >>= return . evalTypeExprToList
+                Nothing -> return []
+            
+            let arity = fromIntegral (length vss)
+            return $ VTuple [VDot [VChannel n], VInt arity, VList (map VSet vss)]
+    in [(n, mkChan n) | n <- ns]
 bindDecl (an@(An _ _ (DataType n cs))) =
     -- TODO: check data values are in e
     let
-        bindClause (DataTypeClause nc _) =
-            --(fromList [VDataType nc], [(nc, VDataType nc)]) -- (internalNameForDataTypeClause nc, VTuple [])
-          [(nc, return $ VDataType nc)]  
-        --bindClause (DataTypeClause nc (Just e)) =
-        --    [(nc, VDataType nc)]
-        --    --v <- eval e
-            --let 
-            --    sets = evalTypeExprToList v
-            --    setOfValues = cartesianProduct (\vs -> VDot ((VDataType nc):vs)) sets
-            --    binds = [(nc, VDataType nc)] -- (internalNameForDataTypeClause nc, VTuple (map VSet sets))
-            --return (setOfValues, binds)
-    in 
-        --(sets, binds) <- mapAndUnzipM (bindClause . unAnnotate) cs
-        concatMap bindClause (map unAnnotate cs)
-        --let dt = (n, VSet (unions sets))
-        --return $ dt:concat binds
+        mkDataTypeClause :: DataTypeClause Name -> (Name, EvaluationMonad Value)
+        mkDataTypeClause (DataTypeClause nc me) = (nc, do
+            vss <- case me of
+                Just e -> eval e >>= return . evalTypeExprToList
+                Nothing -> return []
+            let arity = fromIntegral (length vss)
+            return $ VTuple [VDot [VDataType nc], VInt arity, VList (map VSet vss)])
+        computeSetOfValues :: EvaluationMonad Value
+        computeSetOfValues =
+            let 
+                mkSet nc = do
+                    VTuple [_, _, VList fields] <- lookupVar nc
+                    return $ cartesianProduct (\vs -> VDot ((VDataType nc):vs)) (map (\(VSet s) -> s) fields)
+            in do
+                sets <- mapM mkSet [nc | DataTypeClause nc _ <- map unAnnotate cs]
+                return $ VSet (unions sets)
+    in (n, computeSetOfValues):(map mkDataTypeClause (map unAnnotate cs))
 bindDecl (an@(An _ _ (NameType n e))) =
     [(n, do
         v <- eval e
@@ -108,27 +112,6 @@ bindDecl (an@(An _ _ (NameType n e))) =
 bindDecl (an@(An _ _ (Assert _))) = []
 bindDecl (an@(An _ _ (External ns))) = []
 bindDecl (an@(An _ _ (Transparent ns))) = []
-
---internalNameForChannel, internalNameForDataTypeClause :: Name -> Name
---internalNameForChannel n = 
---    mkInternalName ("VALUE_TUPLE_CHANNEL_"++n)
---internalNameForDataTypeClause (Name n) = 
---    mkInternalName ("VALUE_TUPLE_DT_CLAUSE_"++n)
-
--- | Given a channel name returns a list of sets of values, one for each 
--- component of the channel. For example, if the channel took two components
--- A and {0..1} then this would return [A, {0..1}].
---valuesForChannel :: Name -> EvaluationMonad [ValueSet]
---valuesForChannel n = do
---    VTuple vs <- lookupVar (internalNameForChannel n)
---    return $ map (\(VSet s) -> s) vs
-
--- | Given a datatype clause name returns the sets of values, like 
--- 'valuesForChannel' does, but for channels.
---valuesForDataTypeClause :: Name -> EvaluationMonad [ValueSet]
---valuesForDataTypeClause n = do
---    VTuple vs <- lookupVar (internalNameForDataTypeClause n)
---    return $ map (\(VSet s) -> s) vs
 
 evalTypeExpr :: Value -> ValueSet
 evalTypeExpr (VSet s) = s

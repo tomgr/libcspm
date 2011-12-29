@@ -4,3 +4,21 @@ channel b : Int
 test1 = a != (b.0)
 test2 = (b.1) != (b.0)
 test3 = (b.2) != (b.0)
+
+fst(b.x) = x
+
+testPatternMatch1 = fst(b.0) == 0
+testPatternMatch2 = fst(b.1) == 1
+
+datatype A = B.A.Int.A | C | D.Int
+
+func1(B.D.x) = x
+func2(B.D.x.y) = (x,y)
+func3(B.x.y) = (x,y)
+func4(B.x.y.z) = (x,y,z)
+
+testPatternMatch3 = func4(B.C.0.C) == (C, 0, C)
+testPatternMatch4 = func3(B.C.0.C) == (C, 0.C)
+testPatternMatch5 = func1(B.(D.0).1.(D.2)) == (0.1.D.2)
+testPatternMatch6 = func2(B.(D.0).1.(D.2)) == (0, 1.D.2)
+testPatternMatch7 = func4(B.(D.0).1.(D.2)) == (D.0, 1, D.2)

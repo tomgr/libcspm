@@ -81,7 +81,7 @@ instance Evaluatable (Exp Name) where
     eval (DotApp e1 e2) = do
             v1 <- eval e1
             v2 <- eval e2
-            return $ combineDots v1 v2
+            combineDots v1 v2
     eval (If e1 e2 e3) = do
         VBool b <- eval e1
         if b then eval e2 else eval e3
@@ -147,6 +147,9 @@ instance Evaluatable (Exp Name) where
         VInt ub <- eval e2
         return $ VSet (S.fromList (map VInt [lb..ub]))
     eval (Tuple es) = mapM eval es >>= return . VTuple
+    eval (Var n) | isNameDataConstructor n = do
+        VTuple [dc, _, _] <- lookupVar n
+        return dc
     eval (Var n) = do
         v <- lookupVar n
         case v of
@@ -367,7 +370,7 @@ completeEvent ev = do
     return $ S.fromList (map (extendEvent ev) exs)
 
 extendEvent :: Value -> [Value] -> Value
-extendEvent ev exs = combineDots ev (VDot exs)
+extendEvent ev exs = error "not supported" --combineDots ev (VDot exs)
 
 -- Takes a VEvent ev and then computes all x such that ev.x is a full event.
 extensions :: Value -> EvaluationMonad [[Value]]

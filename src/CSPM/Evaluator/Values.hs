@@ -6,6 +6,9 @@ module CSPM.Evaluator.Values (
     combineDots,
 ) where
 
+import Control.Monad
+import Data.Foldable
+
 import CSPM.Compiler.Events
 import CSPM.Compiler.Processes
 import CSPM.DataStructures.Names
@@ -14,6 +17,8 @@ import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
 import {-# SOURCE #-} CSPM.Evaluator.ValueSet
 import CSPM.PrettyPrinter
+import Util.Exception
+import Util.List
 import Util.Prelude
 import Util.PrettyPrint
 
@@ -21,11 +26,14 @@ data Value =
     VInt Integer
     | VBool Bool
     | VTuple [Value]
-    -- | The values in a VDot are never other VDots, they are always other 
-    -- items.
+    -- | If A is a datatype clause that has 3 fields a b c then a runtime
+    -- instantiation of this would be VDot [VDataType "A", a, b, c] where a,b
+    -- and c can contain other VDots.
     | VDot [Value]
-    | VChannel Name -- [Value]
-    | VDataType Name -- [Value]
+    -- The following two never appear on their own, they are always part of a 
+    -- VDot (even if the VDot has no values).
+    | VChannel Name
+    | VDataType Name
     | VList [Value]
     | VSet ValueSet
     | VFunction ([Value] -> EvaluationMonad Value)
@@ -79,15 +87,6 @@ compareValues (VDataType n1) (VDataType n2) =
 compareValues (VDot vs1) (VDot vs2) =
     if vs1 == vs2 then Just EQ else Nothing
 
--- DataTypes may be compared to dotted things (e.g. if a datatype has two 
--- members, one with no fields and one with one as one will be just a VDataType
--- and the other will be a VDot).
-compareValues (VDataType n1) (VDot vs) = Nothing
-compareValues (VDot vs) (VDataType n1) = Nothing
--- Channels may also be, as channels may have no fields sometimes
-compareValues (VChannel n1) (VDot vs) = Nothing
-compareValues (VDot vs) (VChannel n1) = Nothing
-
 -- Every other possibility is invalid
 compareValues v1 v2 = throwError $ typeCheckerFailureMessage $
     "Cannot compare "++show v1++" "++show v2
@@ -115,7 +114,7 @@ instance PrettyPrintable Value where
     prettyPrint (VBool True) = text "true"
     prettyPrint (VBool False) = text "false"
     prettyPrint (VTuple vs) = parens (list $ map prettyPrint vs)
-    prettyPrint (VDot vs) = dotSep (map prettyPrint vs)
+    prettyPrint (VDot vs) = braces (dotSep (map prettyPrint vs))
     prettyPrint (VChannel n) = prettyPrint n
     prettyPrint (VDataType n) = prettyPrint n
     prettyPrint (VList vs) = angles (list $ map prettyPrint vs)
@@ -126,13 +125,83 @@ instance PrettyPrintable Value where
 instance Show Value where
     show v = show (prettyPrint v)
 
--- | Takes two values and returns a VDot. If the two arguments are both VDots
--- then this combines them into a single one.
-combineDots :: Value -> Value -> Value
-combineDots (VDot vs1) (VDot vs2) = VDot (vs1++vs2)
-combineDots (VDot vs) y = VDot (vs++[y])
-combineDots x (VDot vs) = VDot (x:vs)
-combineDots v1 v2 = VDot [v1, v2]
+-- | The number of fields this datatype or channel has.
+arityOfDataTypeClause :: Name -> EvaluationMonad Integer
+arityOfDataTypeClause n = do
+    VTuple [_, VInt a,_] <- lookupVar n
+    return a
+
+-- | Takes two values and dots then together appropriately.
+combineDots :: Value -> Value -> EvaluationMonad Value
+combineDots v1 v2 =
+    let
+        -- | Dots the given value onto the right of the given base, providing
+        -- the left hand value is a field.
+        maybeDotFieldOn :: Value -> Value -> EvaluationMonad (Maybe Value)
+        maybeDotFieldOn (VDot (nd:vs)) v = do
+            let 
+                mn = case nd of
+                        VDataType n -> Just n
+                        VChannel n -> Just n
+                        _ -> Nothing
+            case mn of
+                Nothing -> return Nothing
+                Just n -> do
+                    a <- arityOfDataTypeClause n
+                    let fieldCount = fromIntegral (length vs)
+                    if a == 0 then return Nothing
+                    else if length vs == 0 then
+                        return $ Just (VDot [nd, v])
+                    else do
+                        -- Try and dot it onto our last field
+                        mv <- maybeDotFieldOn (last vs) v
+                        case mv of
+                            Just vLast ->
+                                return $ Just (VDot (nd:replaceLast vs vLast))
+                            -- Start a new field, or return nothing if we
+                            -- are full
+                            Nothing | fieldCount < a -> 
+                                return $ Just (VDot (nd:vs++[v]))
+                            Nothing | fieldCount == a -> return Nothing
+                            Nothing | fieldCount > a -> panic "Malformed dot encountered."
+        maybeDotFieldOn vbase v = return Nothing
+
+        -- | Dots the two values together, ensuring that if either the left or
+        -- the right value is a dot list combines them into one dot list.
+        dotAndReduce :: Value -> Value -> Value
+        dotAndReduce (VDot (VDataType n1:vs1)) (VDot (VDataType n2:vs2)) =
+            VDot [VDot (VDataType n1:vs1), VDot (VDataType n2:vs2)]
+        dotAndReduce (VDot (VDataType n1:vs1)) (VDot vs2) =
+            VDot (VDot (VDataType n1:vs1) : vs2)
+        dotAndReduce (VDot vs1) (VDot (VDataType n2:vs2)) =
+            VDot (vs1 ++ [VDot (VDataType n2:vs2)])
+        dotAndReduce v1 v2 = VDot [v1, v2]
+
+        -- | Given a base value and the value of a field dots the field onto
+        -- the right of the base. Assumes that the value provided is a field.
+        dotFieldOn :: Value -> Value -> EvaluationMonad Value
+        dotFieldOn vBase vField = do
+            mv <- maybeDotFieldOn vBase vField
+            case mv of
+                Just v -> return v
+                Nothing -> return $ dotAndReduce vBase vField
+        
+        -- | Split a value up into the values that could be used as fields.
+        splitIntoFields :: Value -> [Value]
+        splitIntoFields (v@(VDot (VDataType n:_))) = [v]
+        splitIntoFields (VDot vs) = vs
+        splitIntoFields v = [v]
+
+        -- | Given a base value and a list of many fields dots the fields onto
+        -- the base. Assumes that the values provided are fields.
+        dotManyFieldsOn :: Value -> [Value] -> EvaluationMonad Value
+        dotManyFieldsOn v [] = return v
+        dotManyFieldsOn vBase (v:vs) = do
+            vBase' <- dotFieldOn vBase v
+            dotManyFieldsOn vBase' vs
+    in
+        -- Split v2 up into its composite fields and then dot them onto v1.
+        dotManyFieldsOn v1 (splitIntoFields v2)
 
 -- TODO take acount of let within statements
 procId :: Name -> [[Value]] -> String

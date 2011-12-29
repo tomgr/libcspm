@@ -19,7 +19,7 @@ toList :: Environment -> [(Name, Value)]
 toList = M.toList
 
 lookup :: Environment -> Name -> Value
-lookup env n = M.findWithDefault (panic "lookup not found") n env
+lookup env n = M.findWithDefault (panic ("lookup not found: "++show n)) n env
 
 newLayerAndBind :: Environment -> [(Name, Value)] -> Environment
 newLayerAndBind env nvs = 
