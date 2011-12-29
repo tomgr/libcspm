@@ -78,6 +78,16 @@ compareValues (VDataType n1) (VDataType n2) =
     if n1 == n2 then Just EQ else Nothing
 compareValues (VDot vs1) (VDot vs2) =
     if vs1 == vs2 then Just EQ else Nothing
+
+-- DataTypes may be compared to dotted things (e.g. if a datatype has two 
+-- members, one with no fields and one with one as one will be just a VDataType
+-- and the other will be a VDot).
+compareValues (VDataType n1) (VDot vs) = Nothing
+compareValues (VDot vs) (VDataType n1) = Nothing
+-- Channels may also be, as channels may have no fields sometimes
+compareValues (VChannel n1) (VDot vs) = Nothing
+compareValues (VDot vs) (VChannel n1) = Nothing
+
 -- Every other possibility is invalid
 compareValues v1 v2 = throwError $ typeCheckerFailureMessage $
     "Cannot compare "++show v1++" "++show v2
