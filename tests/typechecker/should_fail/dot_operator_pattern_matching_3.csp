@@ -1,0 +1,7 @@
+channel b : Int
+
+fst(x.y) = x
+snd(x.y) = y
+
+testPatternMatch2 = snd(b.0) == false
+

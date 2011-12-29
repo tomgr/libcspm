@@ -1,0 +1,10 @@
+channel b : Int
+
+fst(x.y) = x
+snd(x.y) = y
+
+-- These don't pass as they are polymorphic in dot, which appears not to work
+-- We should probably think about this.
+--testPatternMatch1 = fst(b.0) == b
+--testPatternMatch2 = snd(b.0) == 0
+--testPatternMatch3 = snd(b.1) == 1

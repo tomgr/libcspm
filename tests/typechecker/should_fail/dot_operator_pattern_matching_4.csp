@@ -1,0 +1,6 @@
+channel b : Int
+
+fst(x.y) = x
+snd(x.y) = y
+
+testPatternMatch3 = snd(b.1) == b

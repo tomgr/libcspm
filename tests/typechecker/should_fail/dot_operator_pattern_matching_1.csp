@@ -1,0 +1,14 @@
+datatype Z = B.{0..1}
+
+channel c : Z
+
+f.y = B
+
+P(f,y) = 
+	let
+		B = f.y
+	within B
+	
+g(x.y) = y
+
+z = g(B)
