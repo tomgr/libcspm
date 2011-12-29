@@ -4,7 +4,7 @@ module CSPM.DataStructures.Names (
     OccName(..),
     UnRenamedName(..),
     Name(..),
-    NameType,
+    NameType(..),
 
     mkExternalName, mkInternalName, mkWiredInName, mkFreshInternalName,
     isNameDataConstructor,
@@ -56,12 +56,12 @@ data Name =
 
 data NameType =
     -- | An externally visible name (like a top level definition).
-    External
+    ExternalName
     -- | A name created by the renamer, but from the users' source (e.g. from
     -- a lambda).
-    | Internal
+    | InternalName
     -- | A built in name.
-    | WiredIn
+    | WiredInName
 
 instance Eq Name where
     n1 == n2 = nameUnique n1 == nameUnique n2
@@ -90,20 +90,23 @@ takeNameUnique = do
 mkExternalName :: MonadIO m => OccName -> SrcSpan -> Bool -> m Name
 mkExternalName o s b = do
     u <- takeNameUnique
-    return $ Name External o s u b
+    return $ Name ExternalName o s u b
 
 mkInternalName :: MonadIO m => OccName -> SrcSpan -> m Name
 mkInternalName o s = do
     u <- takeNameUnique
-    return $ Name Internal o s u False
+    return $ Name InternalName o s u False
 
 mkFreshInternalName :: MonadIO m => m Name
-mkFreshInternalName = mkInternalName (OccName "<fresh>") Unknown
-
-mkWiredInName :: MonadIO m => OccName -> m Name
-mkWiredInName o = do
+mkFreshInternalName = do
     u <- takeNameUnique
-    return $ Name WiredIn o Unknown u False
+    let s = 'i':show u
+    return $ Name InternalName (OccName s) Unknown u False
+
+mkWiredInName :: MonadIO m => OccName -> Bool -> m Name
+mkWiredInName o b = do
+    u <- takeNameUnique
+    return $ Name WiredInName o Unknown u b
 
 -- | Does the given Name correspond to a data type or a channel definition.
 isNameDataConstructor :: Name -> Bool
