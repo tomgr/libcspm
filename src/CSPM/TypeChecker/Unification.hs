@@ -271,18 +271,18 @@ combineTypeLists ((a0@(TDotable argt rt)):a:as) (b:bs)
 -- Symmetric case of above
 combineTypeLists (a:as) ((TDotable argt rt):b:bs)
     | (isSimple b || (isVar b && bs /= [])) = do
-        unify argt b
-        combineTypeLists (rt:bs) (a:as)
+        unify b argt
+        combineTypeLists (a:as) (rt:bs)
     | isVar b = do
         let (args, urt) = reduceDotable (TDotable argt rt)
         t:ts <- evalTypeList (a:as)
-        t1 <- unify urt t
-        combineTypeLists (args++ts) [b]
+        t1 <- unify t urt
+        combineTypeLists [b] (args++ts)
         return (t1:ts)
     | isDotable b = do
         let (argsB, rtB) = reduceDotable b
-        unify argt rtB
-        combineTypeLists (foldr TDotable rt argsB : bs) (a:as)
+        unify rtB argt
+        combineTypeLists (a:as) (foldr TDotable rt argsB : bs)
 
 -- TODO: explain why we can't do the unification (it may be because of
 -- a type error, but may well be because of an unsupported type list).
@@ -295,6 +295,8 @@ combineTypeLists as bs = raiseUnificationError True
 -- stack in order to ensure error messages are helpful.
 unify :: Type -> Type -> TypeCheckMonad Type
 unify texp tact = do
+    text <- compress texp
+    tact <- compress tact
     addUnificationPair (texp, tact) (unifyNoStk texp tact)
 
 -- | Unifies the types but doesn't add a pair to the stack.
