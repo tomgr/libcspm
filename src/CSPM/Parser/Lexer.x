@@ -197,8 +197,14 @@ openseq token inp len =
         tok token inp len
 closeseq token inp len = 
     do
-        (c:c1:cs) <- getSequenceStack
-        setSequenceStack (c+c1:cs)
+        (c:cs) <- getSequenceStack
+        case cs of
+            c1:cs -> setSequenceStack (c+c1:cs)
+            [] -> 
+                -- Must be because of a syntax error (too many closing brakcets)
+                -- We let the parser catch this and we try and do something
+                -- sensible.
+                setSequenceStack [0]
         tok token inp len
 
 gt :: AlexInput -> Int -> ParseMonad LToken
