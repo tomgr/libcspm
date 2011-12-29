@@ -49,17 +49,8 @@ bindDecl (an@(An _ _ (FunBind n ms))) = [(n, collectArgs argGroupCount [])]
                             VProc p -> 
                                 return $ VProc $ PProcCall (procId n ass) (Just p)
                             _ -> return v)
-                _       -> -- throwError $ 
-                    -- funBindPatternMatchFailureMessage (loc an) n ass
-                        do
-                            x <- mapM (\ (Match pss e) -> do
-                                        let 
-                                            r = zipWith bindAll pss ass
-                                            b = and (map fst r)
-                                            binds = concatMap snd r
-                                        return (pss, ass, b, binds)
-                                    ) mss
-                            error $ show (ass) ++ "\n" ++ show x
+                _       -> throwError $ 
+                    funBindPatternMatchFailureMessage (loc an) n ass
             where
                 ass = reverse ass_
         collectArgs n ass =
