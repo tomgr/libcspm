@@ -1,5 +1,9 @@
 testSetEquality1 = {1} != {}
 
+testSetOrdering1 = {1} <= {0..}
+testSetOrdering2 = {0..} >= {0..}
+testSetOrdering3 = not ({1..} <= {0})
+
 testRangeSets1 = {1..-1} == {}
 testRangeSets2 = {(-1)..1} == {(-1),0,1}
 
@@ -25,3 +29,14 @@ testInfiniteSet6 = not member(-1, union({0..}, {1..}))
 
 testInfiniteSetUnion1 = member(1, union({0..}, {1..}))
 testInfiniteSetUnion2 = not member(-1, union({0..}, {1..}))
+testInfiniteSetUnion3 = member(1, union({0..}, {1,2,3}))
+
+testSetIntersection1 = member(1, inter({0..}, {1..}))
+testSetIntersection2 = card(inter({0,2,3}, {1,2,4})) == 1
+testSetIntersection3 = member(1, inter({0..}, {1,2}))
+
+testSetDifference1 = diff({1}, {1}) == {}
+testSetDifference2 = diff({1,2,3}, {1}) == {2,3}
+testSetDifference3 = diff({1..}, {1}) == {2..}
+testSetDifference4 = diff({1..}, Int) == {}
+testSetDifference5 = diff({2,4,5}, Int) == {}

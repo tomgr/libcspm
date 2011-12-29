@@ -42,6 +42,7 @@ data ValueSet =
     -- | The infinite set of integers starting at lb.
     | IntSetFrom Integer -- {lb..}
     -- | A set of two value sets. Note that the tree of sets may be infinite.
+    -- NB. Composite sets are always infinite.
     | CompositeSet ValueSet ValueSet
     -- Only used for the internal set representation
     deriving Ord
@@ -60,6 +61,12 @@ instance PrettyPrintable ValueSet where
     
 instance Show ValueSet where
     show = show . prettyPrint
+
+flipOrder :: Maybe Ordering -> Maybe Ordering
+flipOrder Nothing = Nothing
+flipOrder (Just EQ) = Just EQ
+flipOrder (Just LT) = Just GT
+flipOrder (Just GT) = Just LT
 
 -- | Compares two value sets using subseteq (as per the specification).
 compareValueSets :: ValueSet -> ValueSet -> Maybe Ordering
@@ -86,7 +93,7 @@ compareValueSets (IntSetFrom lb1) (ExplicitSet s2) =
         VInt ub2 = S.findMax s2
     in if lb1 <= lb2 then Just GT else Nothing
 compareValueSets (ExplicitSet s1) (IntSetFrom lb1) =
-    compareValueSets (IntSetFrom lb1) (ExplicitSet s1)
+    flipOrder (compareValueSets (IntSetFrom lb1) (ExplicitSet s1))
 
 -- Composite Sets
 compareValueSets (CompositeSet s1 s2) s =
@@ -97,7 +104,7 @@ compareValueSets (CompositeSet s1 s2) s =
         (Just EQ, Just x)   -> Just x
         (Just GT, Just x)   -> if x /= LT then Just GT else Nothing
 compareValueSets s (CompositeSet s1 s2) = 
-    compareValueSets (CompositeSet s1 s2) s
+    flipOrder (compareValueSets (CompositeSet s1 s2) s)
 
 -- Anything else is incomparable
 --compareValueSets _ _ = Nothing
@@ -119,15 +126,20 @@ allSequences s = if empty s then emptySet else
     let 
         itemsAsList :: [Value]
         itemsAsList = toList s
+
         list :: Integer -> [Value]
         list 0 = [VList []]
         list n = concatMap (\x -> map (app x) (list (n-1)))  itemsAsList
             where
                 app :: Value -> Value -> Value
                 app x (VList xs) = VList $ x:xs
+        
         yielder :: [Value] -> ValueSet
         yielder (x:xs) = CompositeSet (ExplicitSet (S.singleton x)) (yielder xs)
-    in yielder (list 0)
+
+        allSequences :: [Value]
+        allSequences = concatMap list [0..]
+    in yielder allSequences
 
 -- | The empty set
 emptySet :: ValueSet
@@ -150,9 +162,6 @@ singletonValue :: ValueSet -> Maybe Value
 singletonValue s =
     let
         isSingleton :: ValueSet -> Bool
-        isSingleton (CompositeSet s1 s2) = do
-            if isSingleton s1 then empty s2
-            else isSingleton s2
         isSingleton (ExplicitSet s) = S.size s == 1
         isSingleton _ = False
     in if isSingleton s then Just (head (toList s)) else Nothing
@@ -175,7 +184,7 @@ card s = throwSourceError [cardOfInfiniteSetMessage s]
 -- | Is the specified set empty?
 empty :: ValueSet -> Bool
 empty (ExplicitSet s) = S.null s
-empty (CompositeSet s1 s2) = empty s1 && empty s2
+empty (CompositeSet s1 s2) = False
 empty (IntSetFrom lb) = False
 empty Processes = False
 empty Integers = False
@@ -192,8 +201,6 @@ intersections (v:vs) = foldr1 intersection vs
 -- | Union two sets throwing an error if it cannot be done in a way that will
 -- terminate.
 union :: ValueSet -> ValueSet -> ValueSet
--- Explicit unions
-union (ExplicitSet s1) (ExplicitSet s2) = ExplicitSet (S.union s1 s2)
 -- Process unions
 union _ Processes = Processes
 union Processes _ = Processes
@@ -201,50 +208,69 @@ union Processes _ = Processes
 union (IntSetFrom lb1) (IntSetFrom lb2) = IntSetFrom (min lb1 lb2)
 union _ Integers = Integers
 union Integers _ = Integers
--- Mixed inf union
-union (IntSetFrom lb1) s = error "not allowed"
-    --let 
-    --    sl = toList s
-    --    VInt lb2 = min sl
-    --    VInt ub2 = max sl
-    --in if ub2 < lb1 then CompositeSet s (IntSetFrom lb1)
-    --    else IntSetFrom (min lb1 lb2)
-union s (IntSetFrom lb1) = union (IntSetFrom lb1) s
 -- Composite unions
 union s1 (s2 @ (CompositeSet _ _)) = CompositeSet s1 s2
 union (s1 @ (CompositeSet _ _)) s2 = CompositeSet s1 s2
--- The above are all the well typed possibilities
-union s1 s2 = throwSourceError [cannotUnionSetsMessage s1 s2]
+-- Explicit unions
+union (ExplicitSet s1) (ExplicitSet s2) = ExplicitSet (S.union s1 s2)
+union (ExplicitSet s1) (IntSetFrom lb) =
+    CompositeSet (ExplicitSet s1) (IntSetFrom lb)
+union (IntSetFrom lb) (ExplicitSet s1) =
+    CompositeSet (ExplicitSet s1) (IntSetFrom lb)
 
--- | Intersects two sets throwing an error if it cannot be done in a way that will
--- terminate.
+-- The above are all the well typed possibilities
+--union s1 s2 = throwSourceError [cannotUnionSetsMessage s1 s2]
+
+-- | Intersects two sets throwing an error if it cannot be done in a way that 
+-- will terminate.
 intersection :: ValueSet -> ValueSet -> ValueSet
+-- Explicit intersections
 intersection (ExplicitSet s1) (ExplicitSet s2) =
-     ExplicitSet (S.intersection s1 s2)
-intersection (IntSetFrom lb1) (IntSetFrom lb2) = 
-     IntSetFrom (min lb1 lb2)
-intersection (IntSetFrom lb) Integers = IntSetFrom lb
-intersection Integers (IntSetFrom lb) = IntSetFrom lb
--- TODO: complete
+    ExplicitSet (S.intersection s1 s2)
+-- Integer intersections
+intersection (IntSetFrom lb1) (IntSetFrom lb2) = IntSetFrom (max lb1 lb2)
+intersection Integers Integers = Integers
+intersection x Integers = x
+intersection Integers x = x
+-- Integer+ExplicitSet
+intersection (ExplicitSet s1) (IntSetFrom lb1) =
+    let
+        VInt ubs = S.findMax s1
+        VInt lbs = S.findMin s1
+    in if lbs >= lb1 then ExplicitSet s1
+    else ExplicitSet (S.intersection (S.fromList (map VInt [lbs..ubs])) s1)
+intersection (IntSetFrom lb1) (ExplicitSet s2) =
+    intersection (ExplicitSet s2) (IntSetFrom lb1)
+-- Process intersection
+intersection Processes Processes = Processes
+intersection Processes x = x
+intersection x Processes = x
+-- Composite sets are always infinite and therefore cannot be intersected in any
+-- finite way.
 intersection s1 s2 = throwSourceError [cannotIntersectSetsMessage s1 s2]
 
 difference :: ValueSet -> ValueSet -> ValueSet
 difference (ExplicitSet s1) (ExplicitSet s2) = ExplicitSet (S.difference s1 s2)
-difference (IntSetFrom lb1) (IntSetFrom lb2) = 
-    if lb1 < lb2 then fromList (map VInt [lb1..(lb2-1)])
-    else ExplicitSet S.empty
-difference (IntSetFrom lb) Integers = ExplicitSet S.empty
---difference Integers (IntSetFrom lb) = 
---   InfSetTo (lb-1)
---difference (IntSetFrom lb1) (RangedSet lb2 ub2) =
---  if lb1 <= ub2 thenRangedSet (max lb2 lb1) ub2
---  elseExplicitSet empty
---difference (RangedSet lb2 ub2) (IntSetFrom lb1) | lb1 <= ub2 =
-difference x y = ExplicitSet S.empty 
--- TODO: complete
--- TODO: maybe remove rangedset
+difference (IntSetFrom lb1) (IntSetFrom lb2) = fromList (map VInt [lb1..(lb2-1)])
+difference _ Integers = ExplicitSet S.empty
+difference (IntSetFrom lb1) (ExplicitSet s1) =
+    let
+        VInt ubs = S.findMax s1
+        VInt lbs = S.findMin s1
+        card = S.size s1
+        rangeSize = 1+(ubs-lbs)
+        s1' = IntSetFrom lb1
+        s2' = ExplicitSet s1
+    in if fromIntegral rangeSize == card then
+            -- is contiguous
+            if lb1 == lbs then IntSetFrom (ubs+1)
+            else throwSourceError [cannotDifferenceSetsMessage s1' s2']
+        else
+            -- is not contiguous
+            throwSourceError [cannotDifferenceSetsMessage s1' s2']
+difference (ExplicitSet s1) (IntSetFrom lb1) =
+    ExplicitSet (S.fromList [VInt i | VInt i <- S.toList s1, i < lb1])
 difference s1 s2 = throwSourceError [cannotDifferenceSetsMessage s1 s2]
-
 
 valueSetToEventSet :: ValueSet -> CS.Set CE.Event
 valueSetToEventSet = CS.fromList . map valueEventToEvent . toList
