@@ -57,7 +57,10 @@ bindDecl (an@(An _ _ (FunBind n ms))) = [(n, collectArgs argGroupCount [])]
             return $ VFunction $ \ vs -> collectArgs (n-1) (vs:ass)
 bindDecl (an@(An _ _ (PatBind p e))) =
     let
-        nV = unsafePerformIO mkFreshInternalName
+        -- We put p inside the unsafePerformIO simply to prevent it being
+        -- lifed out of the lambda (and thus only being performed once).
+        nV = unsafePerformIO (p `seq` mkFreshInternalName)
+        {-# NOINLINE nV #-}
         extractor :: Name -> EvaluationMonad Value
         extractor n = do
             v <- lookupVar nV
