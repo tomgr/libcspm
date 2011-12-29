@@ -67,7 +67,8 @@ bindDecl (an@(An _ _ (PatBind p e))) =
             let 
                 nvs = case bind p v of
                         (True, nvs) -> nvs
-                        (False, _) -> (unsafePerformIO $ putStrLn $ "My pattern failed\n"++show n++"\n"++show nV++"\n\n"++show v) `seq` []
+                        (False, _) -> throwError $ 
+                            patternMatchFailureMessage (loc an) p v
             return $ head [v | (n', v) <- nvs, n' == n]
     in (nV, eval e):[(fv, extractor fv) | fv <- freeVars p]
 bindDecl (an@(An _ _ (Channel ns me))) =
