@@ -142,37 +142,34 @@ disallowErrors a = do
 
 evaluatorTest :: FilePath -> Test ()
 evaluatorTest fp = do
-    disallowErrors (do
+    dsms <- disallowErrors $ do
         ms <- parseFile fp
         rms <- CSPM.renameFile ms
         tms <- typeCheckFile rms
         dsms <- desugarFile tms
-        bindFile dsms)
-    mapM_ (\ (GlobalModule ds) ->
-        -- Extract all declarations of the form "test...", which should be of
-        -- patterns of type :: Bool
-        mapM_ (\ d ->
-            case d of 
-                PatBind p _ -> do
-                    case unAnnotate p of
-                        PVar n -> do
-                            let OccName s = nameOccurrence n
-                            when (isPrefixOf "test" s) $ do
-                                tce <- disallowErrors (do
-                                    e <- parseExpression s
-                                    rne <- renameExpression e
-                                    tce <- ensureExpressionIsOfType TBool rne
-                                    desugarExpression tce)
-                                VBool b <- evaluateExp tce
-                                case b of
-                                    True -> return ()
-                                    False -> 
-                                        throwSourceError [
-                                            mkErrorMessage (loc p) 
-                                                (prettyPrint n <+> text "was false")
-                                            ]
+        bindFile dsms
+        return dsms
+    -- Extract all declarations of the form "test...", which should be of
+    -- patterns of type :: Bool
+    mapM_ (\ (GlobalModule ds) -> mapM_ (\ d ->
+        case d of 
+            PatBind p _ ->
+                case unAnnotate p of
+                    PVar n -> do
+                        let OccName s = nameOccurrence n
+                        when ("test" `isPrefixOf` s) $ do
+                            tce <- disallowErrors $ do
+                                e <- parseExpression s
+                                rne <- renameExpression e
+                                tce <- ensureExpressionIsOfType TBool rne
+                                desugarExpression tce
+                            VBool b <- evaluateExpression tce
+                            when (not b) $
+                                throwSourceError [mkErrorMessage (loc p) 
+                                            (prettyPrint n <+> text "was false")
+                                        ]
 
-                        _ -> return ()
-                _ -> return ()
+                    _ -> return ()
+            _ -> return ()
             ) (map unAnnotate ds)
-        ) (map unAnnotate tms)
+        ) (map unAnnotate dsms)

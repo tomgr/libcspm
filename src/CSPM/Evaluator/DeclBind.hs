@@ -76,7 +76,6 @@ bindDecl (an@(An _ _ (PatBind p e))) =
     in (nV, eval e):[(fv, extractor fv) | fv <- freeVars p]
 bindDecl (an@(An _ _ (Channel ns me))) =
     let
-        -- TODO: check channel values are in es
         mkChan :: Name -> EvaluationMonad Value
         mkChan n = do
             vss <- case me of
@@ -87,7 +86,6 @@ bindDecl (an@(An _ _ (Channel ns me))) =
             return $ VTuple [VDot [VChannel n], VInt arity, VList (map VList vss)]
     in [(n, mkChan n) | n <- ns]
 bindDecl (an@(An _ _ (DataType n cs))) =
-    -- TODO: check data values are in e
     let
         mkDataTypeClause :: DataTypeClause Name -> (Name, EvaluationMonad Value)
         mkDataTypeClause (DataTypeClause nc me) = (nc, do

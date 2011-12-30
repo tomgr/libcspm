@@ -237,13 +237,10 @@ bindFile ms = do
     modifySession (\s -> s { evState = evSt })
     return ()
  
--- | Returns a list of all declarations in the specified file.
---evaluateFile :: CSPMMonad m => [TCModule] -> m [(Name, EvaluationMonad Value)]
---evaluateFile ms = runEvaluatorInCurrentState (EV.evaluateFile ms)
- 
--- | Evaluates the expression in the current context.
-evaluateExp :: CSPMMonad m => TCExp -> m Value
-evaluateExp e = runEvaluatorInCurrentState (EV.evaluateExp e)
+-- | Evaluates the expression in the current context. Requires the expression
+-- to be desugared.
+evaluateExpression :: CSPMMonad m => TCExp -> m Value
+evaluateExpression e = runEvaluatorInCurrentState (EV.evaluateExp e)
 
 -- | Return the version of libcspm that is being used.
 getLibCSPMVersion :: Version

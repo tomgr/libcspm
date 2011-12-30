@@ -176,4 +176,6 @@ evaluate str = do
     dsStmt <- desugarInteractiveStmt tcStmt
     case (unAnnotate dsStmt) of
         Bind d -> bindDeclaration d
-        Evaluate e -> evaluateExp e >>= outputStrLn . show . prettyPrint
+        Evaluate e -> do
+            v <- evaluateExpression e
+            outputStrLn $ show $ prettyPrint v

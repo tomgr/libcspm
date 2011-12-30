@@ -92,8 +92,7 @@ instance Evaluatable (Exp Name) where
                 addScopeAndBind binds (eval e)
             else
                 throwError $ patternMatchFailureMessage (loc p) p v
-    eval (Let decls e) = do
-        addScopeAndBindM (bindDecls decls) (eval e)
+    eval (Let decls e) = addScopeAndBindM (bindDecls decls) (eval e)
     eval (Lit lit) = return $
         case lit of
             Int i -> VInt i
@@ -102,7 +101,6 @@ instance Evaluatable (Exp Name) where
     eval (ListComp es stmts) = do
             xs <- evalStmts (\(VList xs) -> xs) stmts (mapM eval es)
             return $ VList xs
-        where
     eval (ListEnumFrom e) = do
         VInt lb <- eval e
         return $ VList (map VInt [lb..])
@@ -305,10 +303,10 @@ instance Evaluatable (Exp Name) where
         return $ VProc $ PInterleave ps
     eval (ReplicatedInternalChoice stmts e) = do
         ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e])
-        if length ps == 0 then -- TODO: speed up
-            let e' = ReplicatedInternalChoice stmts e in
-            throwError $ replicatedInternalChoiceOverEmptySetMessage (loc e) e'
-        else return $ VProc $ PInternalChoice ps
+        let e' = ReplicatedInternalChoice stmts e
+        case ps of
+            [] -> throwError $ replicatedInternalChoiceOverEmptySetMessage (loc e) e'
+            _ -> return $ VProc $ PInternalChoice ps
     eval (ReplicatedLinkParallel ties tiesStmts stmts e) = do
         tsps <- evalStmts (\(VList vs) -> vs) stmts $ do
             ts <- evalTies tiesStmts ties
@@ -325,7 +323,8 @@ instance Evaluatable (Exp Name) where
     
     eval e = panic ("No clause to eval "++show e)
 
-evalProcs = mapM evalProc
+evalProcs :: Evaluatable a => [a] -> EvaluationMonad [Proc]
+evalProcs as = mapM evalProc as
 
 evalProc :: Evaluatable a => a -> EvaluationMonad Proc
 evalProc a = eval a >>= \v -> case v of

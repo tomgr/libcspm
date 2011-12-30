@@ -16,7 +16,7 @@ import CSPM.Prelude
 import Util.Exception
 
 bMap = M.fromList [(stringName b, name b) | b <- builtins True]
-builtInName s = M.findWithDefault (error "builtin not found") s bMap
+builtInName s = M.findWithDefault (panic "builtin not found") s bMap
 
 builtInFunctions :: [(Name, Value)]
 builtInFunctions = 
