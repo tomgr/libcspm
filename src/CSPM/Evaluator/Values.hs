@@ -219,31 +219,31 @@ valueEventToEvent v = UserEvent (show (prettyPrint v))
 extensions :: Value -> EvaluationMonad [Value]
 extensions (VDot (dn:vs)) = do
     let 
-        n = case dn of
-                VChannel n -> n
-                VDataType n -> n
-    
-        fieldCount = fromIntegral (length vs)
--- todo: handle duff dots
+       mn = case dn of
+                VChannel n -> Just n
+                VDataType n -> Just n
+                _ -> Nothing
+    case mn of
+        Nothing -> return [VDot []]
+        Just n -> do
+            let fieldCount = fromIntegral (length vs)
+            -- Get the information about the datatype/channel
+            VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
 
-    -- Get the information about the datatype/channel
-    VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
-
-    -- Firstly, complete the last field in the current value (in case it is only
-    -- half formed).
-    exsLast <- 
-        if fieldCount == 0 then return [VDot []]
-        else extensions (last vs)
-    
-
-    if arity == fieldCount then return exsLast
-    else 
-        -- We still have fields to complete
-        let 
-            remainingFields = [s | VList s <- drop (length vs) fieldSets]
-            combineDots ((VDot vs1):vs2) = VDot (vs1++vs2)
-        in return $ map combineDots (cartesianProduct (exsLast:remainingFields))
-
+            -- Firstly, complete the last field in the current value (in case it is only
+            -- half formed).
+            exsLast <- 
+                if fieldCount == 0 then return [VDot []]
+                else extensions (last vs)
+            
+            if arity == fieldCount then return exsLast
+            else 
+                -- We still have fields to complete
+                let 
+                    remainingFields = [s | VList s <- drop (length vs) fieldSets]
+                    combineDots ((VDot vs1):vs2) = VDot (vs1++vs2)
+                    fields = exsLast:remainingFields
+                in return $ map combineDots (cartesianProduct fields)
 extensions v = return [VDot []]
 
 -- | Takes a datatype or a channel value and computes v.x for all x that
