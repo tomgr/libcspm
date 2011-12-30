@@ -156,7 +156,8 @@ loadFileCommand fname = do
         pFile <- parseFile fname
         rnFile <- renameFile pFile
         tcFile <- typeCheckFile rnFile
-        bindFile tcFile
+        dsFile <- desugarFile tcFile
+        bindFile dsFile
         outputStrLn $ "Ok, loaded "++fname
 
 reload :: String -> InputT IChecker ()
@@ -172,6 +173,7 @@ evaluate str = do
     pStmt <- parseInteractiveStmt str
     rnStmt <- renameInteractiveStmt pStmt
     tcStmt <- typeCheckInteractiveStmt rnStmt
-    case (unAnnotate tcStmt) of
+    dsStmt <- desugarInteractiveStmt tcStmt
+    case (unAnnotate dsStmt) of
         Bind d -> bindDeclaration d
         Evaluate e -> evaluateExp e >>= outputStrLn . show . prettyPrint
