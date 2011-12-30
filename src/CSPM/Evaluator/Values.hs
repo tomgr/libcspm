@@ -116,7 +116,7 @@ instance PrettyPrintable Value where
     prettyPrint (VBool True) = text "true"
     prettyPrint (VBool False) = text "false"
     prettyPrint (VTuple vs) = parens (list $ map prettyPrint vs)
-    prettyPrint (VDot vs) = braces (dotSep (map prettyPrint vs))
+    prettyPrint (VDot vs) = dotSep (map prettyPrint vs)
     prettyPrint (VChannel n) = prettyPrint n
     prettyPrint (VDataType n) = prettyPrint n
     prettyPrint (VList vs) = angles (list $ map prettyPrint vs)
