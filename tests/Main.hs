@@ -142,13 +142,12 @@ disallowErrors a = do
 
 evaluatorTest :: FilePath -> Test ()
 evaluatorTest fp = do
-    tms <- disallowErrors (do
+    disallowErrors (do
         ms <- parseFile fp
         rms <- CSPM.renameFile ms
         tms <- typeCheckFile rms
         dsms <- desugarFile tms
-        bindFile dsms
-        return tms)
+        bindFile dsms)
     mapM_ (\ (GlobalModule ds) ->
         -- Extract all declarations of the form "test...", which should be of
         -- patterns of type :: Bool
