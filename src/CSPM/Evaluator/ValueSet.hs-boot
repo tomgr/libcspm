@@ -10,4 +10,6 @@ instance Ord ValueSet
 instance PrettyPrintable ValueSet
 
 toList :: ValueSet -> [Value]
+fromList :: [Value] -> ValueSet
+cartesianProduct :: ([Value] -> Value) -> [ValueSet] -> ValueSet
 compareValueSets :: ValueSet -> ValueSet -> Maybe Ordering

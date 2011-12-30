@@ -10,3 +10,6 @@ noDups xs = nub xs == xs
 replaceLast :: [a] -> a -> [a]
 replaceLast [_] v = [v]
 replaceLast (x:xs) v = replaceLast xs v
+
+cartesianProduct :: [[a]] -> [[a]]
+cartesianProduct vss = sequence vss

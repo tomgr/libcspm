@@ -1,5 +1,5 @@
 channel a
-channel b : Int
+channel b : {0,1,2}
 
 test1 = a != (b.0)
 test2 = (b.1) != (b.0)
@@ -10,7 +10,7 @@ fst(b.x) = x
 testPatternMatch1 = fst(b.0) == 0
 testPatternMatch2 = fst(b.1) == 1
 
-datatype A = B.A.Int.A | C | D.Int
+datatype A = B.A.{0,1}.A | C | D.{0,1}
 
 func1(B.D.x) = x
 func2(B.D.x.y) = (x,y)
@@ -22,3 +22,29 @@ testPatternMatch4 = func3(B.C.0.C) == (C, 0.C)
 testPatternMatch5 = func1(B.(D.0).1.(D.2)) == (0.1.D.2)
 testPatternMatch6 = func2(B.(D.0).1.(D.2)) == (0, 1.D.2)
 testPatternMatch7 = func4(B.(D.0).1.(D.2)) == (D.0, 1, D.2)
+
+testExtensions1 = {| b |} == { b.0, b.1, b.2 }
+testExtensions2 = {| a, b |} == { a, b.0, b.1, b.2 }
+testExtensions3 = {| a, b.0 |} == { a, b.0 }
+testExtensions4 = {| a |} == { a }
+
+datatype Complex1 = X.{0,1} | Y.{0,1}.Bool
+
+channel c : Complex1
+
+testExtensions5 = {| c.X |} == {| c.X.0, c.X.1 |}
+testExtensions6 = {| c.X.0 |} == {| c.X.0 |}
+testExtensions7 = {| c.Y.0 |} == {| c.Y.0.false, c.Y.0.true |}
+testExtensions8 = {| c.Y |} == {| c.Y.0.false, c.Y.1.false, c.Y.0.true, c.Y.1.true |}
+
+channel d : Complex1.Complex1
+
+testExtensions9 = {| d.X |} == 
+    {| 
+        d.X.0.X.0, d.X.0.X.1,
+        d.X.0.Y.0.false, d.X.0.Y.0.true,
+        d.X.0.Y.1.false, d.X.0.Y.1.true,
+        d.X.1.X.0, d.X.1.X.1,
+        d.X.1.Y.0.false, d.X.1.Y.0.true,
+        d.X.1.Y.1.false, d.X.1.Y.1.true
+    |}

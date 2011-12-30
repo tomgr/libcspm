@@ -18,6 +18,8 @@ import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import Util.Annotated
 import Util.Exception
+import qualified Util.List as UL
+import Util.Monad
 
 -- | Given a list of declarations, returns a sequence of names bounds to
 -- values that can be passed to 'addScopeAndBind' in order to bind them in
@@ -82,7 +84,7 @@ bindDecl (an@(An _ _ (Channel ns me))) =
                 Nothing -> return []
             
             let arity = fromIntegral (length vss)
-            return $ VTuple [VDot [VChannel n], VInt arity, VList (map VSet vss)]
+            return $ VTuple [VDot [VChannel n], VInt arity, VList (map VList vss)]
     in [(n, mkChan n) | n <- ns]
 bindDecl (an@(An _ _ (DataType n cs))) =
     -- TODO: check data values are in e
@@ -93,16 +95,17 @@ bindDecl (an@(An _ _ (DataType n cs))) =
                 Just e -> eval e >>= return . evalTypeExprToList
                 Nothing -> return []
             let arity = fromIntegral (length vss)
-            return $ VTuple [VDot [VDataType nc], VInt arity, VList (map VSet vss)])
+            return $ VTuple [VDot [VDataType nc], VInt arity, VList (map VList vss)])
         computeSetOfValues :: EvaluationMonad Value
         computeSetOfValues =
             let 
                 mkSet nc = do
                     VTuple [_, _, VList fields] <- lookupVar nc
-                    return $ cartesianProduct (\vs -> VDot ((VDataType nc):vs)) (map (\(VSet s) -> s) fields)
+                    let cp = UL.cartesianProduct (map (\(VList vs) -> vs) fields)
+                    return $ map (\vs -> VDot ((VDataType nc):vs)) cp
             in do
-                sets <- mapM mkSet [nc | DataTypeClause nc _ <- map unAnnotate cs]
-                return $ VSet (unions sets)
+                vs <- concatMapM mkSet [nc | DataTypeClause nc _ <- map unAnnotate cs]
+                return $ VSet (fromList vs)
     in (n, computeSetOfValues):(map mkDataTypeClause (map unAnnotate cs))
 bindDecl (an@(An _ _ (NameType n e))) =
     [(n, do
@@ -118,9 +121,9 @@ evalTypeExpr (VSet s) = s
 evalTypeExpr (VDot vs) = cartesianProduct VDot (map evalTypeExpr vs)
 evalTypeExpr (VTuple vs) = cartesianProduct VTuple (map evalTypeExpr vs)
 
-evalTypeExprToList :: Value -> [ValueSet]
+evalTypeExprToList :: Value -> [[Value]]
 evalTypeExprToList (VDot vs) = concatMap evalTypeExprToList vs
-evalTypeExprToList v = [evalTypeExpr v]
+evalTypeExprToList v = [toList (evalTypeExpr v)]
 
 class FreeVars a where
     freeVars :: a -> [Name]

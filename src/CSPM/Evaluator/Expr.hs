@@ -192,7 +192,7 @@ instance Evaluatable (Exp Name) where
             evalFields vs (Input p Nothing:fs) = do
                 -- Calculate which component this is
                 let component = length vs
-                error "unsupported case"
+                panic "unsupported case"
                 --chanVs <- valuesForChannel n
                 --let s = chanVs!!component
                 --ps <- evalInputField vs fs p s
@@ -205,7 +205,7 @@ instance Evaluatable (Exp Name) where
             evalFields vs (NonDetInput p Nothing:fs) = do
                 -- Calculate which component this is
                 let component = length vs
-                error "unsupported case"
+                panic "unsupported case"
                 ----chanVs <- valuesForChannel n
                 ----let s = chanVs!!component
                 ----ps <- evalInputField vs fs p s
@@ -305,7 +305,10 @@ instance Evaluatable (Exp Name) where
         return $ VProc $ PInterleave ps
     eval (ReplicatedInternalChoice stmts e) = do
         ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e])
-        return $ VProc $ PInternalChoice ps
+        if length ps == 0 then -- TODO: speed up
+            let e' = ReplicatedInternalChoice stmts e in
+            throwError $ replicatedInternalChoiceOverEmptySetMessage (loc e) e'
+        else return $ VProc $ PInternalChoice ps
     eval (ReplicatedLinkParallel ties tiesStmts stmts e) = do
         ts <- evalTies tiesStmts ties
         ps <- evalStmts (\(VList vs) -> vs) stmts (evalProcs [e])
@@ -329,9 +332,11 @@ evalTies stmts ties = do
     tss <- evalStmts (\(VSet s) -> S.toList s) stmts (mapM evalTie ties)
     return $ concat tss
     where
-        extendTie (evOld, evNew) ex = 
-            (extendEvent evOld ex, extendEvent evNew ex)
-        tieToEvent (ev, ev') = (valueEventToEvent ev, valueEventToEvent ev')
+        extendTie :: (Value, Value) -> Value -> EvaluationMonad (Event, Event)
+        extendTie (evOld, evNew) ex = do
+            ev1 <- extendEvent evOld ex
+            ev2 <- extendEvent evNew ex
+            return (valueEventToEvent ev1, valueEventToEvent ev2)
         evalTie (eOld, eNew) = do
             evOld <- eval eOld
             evNew <- eval eNew
@@ -339,7 +344,7 @@ evalTies stmts ties = do
             -- of events so we compute the extensions.
             -- TODO: this assumes extensions evOld <= extensions evNew
             exsOld <- extensions evOld
-            return $ map (tieToEvent . extendTie (evOld, evNew)) exsOld
+            mapM (\ex -> extendTie (evOld, evNew) ex) exsOld
 
 -- | Evaluates the statements, evaluating `prog` for each possible 
 -- assingment to the generators that satisfies the qualifiers.
@@ -367,15 +372,8 @@ evalStmts extract anStmts prog =
 completeEvent :: Value -> EvaluationMonad S.ValueSet
 completeEvent ev = do
     exs <- extensions ev
-    return $ S.fromList (map (extendEvent ev) exs)
+    l <- mapM (extendEvent ev) exs
+    return $ S.fromList l
 
-extendEvent :: Value -> [Value] -> Value
-extendEvent ev exs = error "not supported" --combineDots ev (VDot exs)
-
--- Takes a VEvent ev and then computes all x such that ev.x is a full event.
-extensions :: Value -> EvaluationMonad [[Value]]
-extensions ev = error "not implemented"
-    --chanVs <- valuesForChannel n
-    --let remainingComponents = drop (length vs) chanVs
-    --if length remainingComponents == 0 then return $ [[]]
-    --else return $ cartProduct (map S.toList remainingComponents)
+extendEvent :: Value -> Value -> EvaluationMonad Value
+extendEvent ev exs = combineDots ev exs

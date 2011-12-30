@@ -54,6 +54,13 @@ builtInFunctions =
                 stopProc = PProcCall (procId (nameForString "STOP") []) (Just csp_stop)
                 p = PInternalChoice (stopProc:branches)
         
+        cspm_extensions [v] = do
+            exs <- extensions v
+            return $ VSet $ S.fromList exs
+        cspm_productions [v] = do
+            exs <- productions v
+            return $ VSet $ S.fromList exs
+
         -- | Functions that return sets
         set_funcs = [
             ("union", cspm_union), ("inter", cspm_inter), 
@@ -86,9 +93,15 @@ builtInFunctions =
             ("member", cspm_member), ("card", cspm_card),
             ("empty", cspm_empty), ("CHAOS", csp_chaos)
             ]
+
+        -- | Functions that require a monadic context.
+        monadic_funcs = [
+            ("productions", cspm_productions), ("extensions", cspm_extensions)
+            ]
         
         mkFunc (s, f) = (nameForString s, VFunction (\ vs -> return (f vs)))
-        
+        mkMonadicFunc (s, f) = (nameForString s, VFunction f)
+
         procs = [
             (csp_stop_id, csp_stop),
             (csp_skip_id, PPrefix Tick (PProcCall csp_stop_id (Just csp_stop)))
@@ -123,6 +136,7 @@ builtInFunctions =
             ++ map (\ (n, po) -> 
                         (n,\[VProc p]-> VProc $ POperator po p)) proc_operators
             ++ other_funcs)
+        ++ map mkMonadicFunc monadic_funcs
         ++ map mkProc procs
         ++ map mkConstant constants
 

@@ -4,10 +4,12 @@ module CSPM.Evaluator.Values (
     procId,
     valueEventToEvent,
     combineDots,
+    extensions,
+    productions,
 ) where
 
 import Control.Monad
-import Data.Foldable
+import Data.Foldable (foldrM)
 
 import CSPM.Compiler.Events
 import CSPM.Compiler.Processes
@@ -15,7 +17,7 @@ import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
-import {-# SOURCE #-} CSPM.Evaluator.ValueSet
+import {-# SOURCE #-} CSPM.Evaluator.ValueSet hiding (cartesianProduct)
 import CSPM.PrettyPrinter
 import Util.Exception
 import Util.List
@@ -211,3 +213,43 @@ procId n vss = show $
 -- | This assumes that the value is a VDot with the left is a VChannel
 valueEventToEvent :: Value -> Event
 valueEventToEvent v = UserEvent (show (prettyPrint v))
+
+-- | Takes a datatype or a channel value and then computes all x such that 
+-- ev.x is a full datatype/event. Each of the returned values is guaranteed
+-- to be a VDot.
+extensions :: Value -> EvaluationMonad [Value]
+extensions (VDot (dn:vs)) = do
+    let 
+        n = case dn of
+                VChannel n -> n
+                VDataType n -> n
+    
+        fieldCount = fromIntegral (length vs)
+-- todo: handle duff dots
+
+    -- Get the information about the datatype/channel
+    VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
+
+    -- Firstly, complete the last field in the current value (in case it is only
+    -- half formed).
+    exsLast <- 
+        if fieldCount == 0 then return [VDot []]
+        else extensions (last vs)
+    
+
+    if arity == fieldCount then return exsLast
+    else 
+        -- We still have fields to complete
+        let 
+            remainingFields = [s | VList s <- drop (length vs) fieldSets]
+            combineDots ((VDot vs1):vs2) = VDot (vs1++vs2)
+        in return $ map combineDots (cartesianProduct (exsLast:remainingFields))
+
+extensions v = return [VDot []]
+
+-- | Takes a datatype or a channel value and computes v.x for all x that
+-- complete the value.
+productions :: Value -> EvaluationMonad [Value]
+productions v = do
+    pss <- extensions v
+    mapM (combineDots v) pss
