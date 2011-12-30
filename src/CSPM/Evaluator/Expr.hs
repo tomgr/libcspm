@@ -153,7 +153,7 @@ instance Evaluatable (Exp Name) where
     eval (Var n) = do
         v <- lookupVar n
         case v of
-            VProc p -> return $ VProc $ PProcCall (procId n []) (Just p)
+            VProc p -> return $ VProc $ PProcCall (procId n []) p
             _       -> return v
 
     -- This is the most complicated process because it is actually a shorthand

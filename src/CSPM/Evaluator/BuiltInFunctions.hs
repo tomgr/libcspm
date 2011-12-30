@@ -46,12 +46,13 @@ builtInFunctions =
         cspm_tail [VList (x:xs)] = xs
         cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
         cspm_elem [v, VList vs] = VBool $ v `elem` vs
-        csp_chaos [VSet a] = VProc $ PProcCall n (Just p)
+        csp_chaos [VSet a] = VProc chaosCall
             where
+                chaosCall = PProcCall n p
                 n = procId (nameForString "CHAOS") [[VSet a]]
                 evSet = S.valueSetToEventSet a
-                branches = [PPrefix ev (PProcCall n Nothing) | ev <- CS.toList evSet]
-                stopProc = PProcCall (procId (nameForString "STOP") []) (Just csp_stop)
+                branches = [PPrefix ev chaosCall | ev <- CS.toList evSet]
+                stopProc = PProcCall (procId (nameForString "STOP") []) csp_stop
                 p = PInternalChoice (stopProc:branches)
         
         cspm_extensions [v] = do
@@ -103,8 +104,8 @@ builtInFunctions =
         mkMonadicFunc (s, f) = (nameForString s, VFunction f)
 
         procs = [
-            (csp_stop_id, csp_stop),
-            (csp_skip_id, PPrefix Tick (PProcCall csp_stop_id (Just csp_stop)))
+            ("STOP", csp_stop),
+            ("SKIP", PPrefix Tick (PProcCall csp_stop_id csp_stop))
             ]
         
         csp_skip_id = procId (nameForString "SKIP") []

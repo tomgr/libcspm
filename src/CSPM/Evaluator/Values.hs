@@ -204,10 +204,8 @@ combineDots v1 v2 =
         -- Split v2 up into its composite fields and then dot them onto v1.
         dotManyFieldsOn v1 (splitIntoFields v2)
 
--- TODO take acount of let within statements
-procId :: Name -> [[Value]] -> String
-procId n vss = show $
-    prettyPrint n <> hcat (map (parens . list) (map (map prettyPrint) vss))
+procId :: Name -> [[Value]] -> ProcName
+procId n vss = ProcName n vss
 
 -- | This assumes that the value is a VDot with the left is a VChannel
 valueEventToEvent :: Value -> Event

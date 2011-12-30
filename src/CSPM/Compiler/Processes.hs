@@ -2,15 +2,33 @@
 module CSPM.Compiler.Processes (
     Proc(..), 
     ProcOperator(..), 
-    ProcName
+    ProcName(..)
 ) where
 
 import qualified CSPM.Compiler.Map as M
 import qualified CSPM.Compiler.Set as S
 import CSPM.Compiler.Events
+import CSPM.DataStructures.Names
+import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.PrettyPrint
 
-type ProcName = String
+-- | ProcNames uniquely identify processes.
+data ProcName = ProcName {
+        -- | The name of this process (recal Name s are unique).
+        name :: Name,
+        -- | The arguments applied to this process, in case it was a function
+        -- call.
+        arguments :: [[Value]]
+    }
+
+instance Eq ProcName where
+    pn1 == pn2 = name pn1 == name pn2 
+instance PrettyPrintable ProcName where
+    prettyPrint (ProcName n args) =
+        prettyPrint n
+        <> hcat (map (\as -> parens (list (map prettyPrint as))) args)
+instance Show ProcName where
+    show pn = show (prettyPrint pn)
 
 -- | An operator that can be applied to processes.
 data ProcOperator =
@@ -22,6 +40,7 @@ data ProcOperator =
     | StrongBisim 
     | TauLoopFactor 
     | WeakBisim
+    deriving (Eq)
 
 instance PrettyPrintable ProcOperator where
     prettyPrint Chase = text "chase"
@@ -32,6 +51,9 @@ instance PrettyPrintable ProcOperator where
     prettyPrint StrongBisim = text "sbisim"
     prettyPrint TauLoopFactor = text "tau_loop_factor"
     prettyPrint WeakBisim = text "wbisim"
+
+instance Show ProcOperator where
+    show p = show (prettyPrint p)
 
 -- | A compiled process. Note this is an infinite data structure (due to
 -- PProcCall) as this makes compilation easy (we can easily chase
@@ -54,7 +76,9 @@ data Proc =
     | PRename (M.Relation Event Event) Proc
     | PSequentialComp Proc Proc
     | PSlidingChoice Proc Proc
-    | PProcCall ProcName (Maybe Proc)
+    -- | Labels the process this contains. This allows infinite loops to be
+    -- spotted.
+    | PProcCall ProcName Proc
 
 instance PrettyPrintable Proc where
     prettyPrint (PAlphaParallel aps) =
@@ -88,8 +112,8 @@ instance PrettyPrintable Proc where
     prettyPrint (PSequentialComp p1 p2) =
         prettyPrint p1 <+> text "->" <+> prettyPrint p2
     prettyPrint (PSlidingChoice p1 p2) =
-        prettyPrint p1 <+> text "|>" <+> prettyPrint p2
-    
-    prettyPrint (PProcCall s _) = text s
+        prettyPrint p1 <+> text "|>" <+> prettyPrint p2    
+    prettyPrint (PProcCall n _) = prettyPrint n
+
 instance Show Proc where
     show p = show (prettyPrint p)

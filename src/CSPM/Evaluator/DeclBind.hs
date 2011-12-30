@@ -50,7 +50,7 @@ bindDecl (an@(An _ _ (FunBind n ms))) = [(n, collectArgs argGroupCount [])]
                         v <- eval exp
                         case v of
                             VProc p -> 
-                                return $ VProc $ PProcCall (procId n ass) (Just p)
+                                return $ VProc $ PProcCall (procId n ass) p
                             _ -> return v)
                 _       -> throwError $ 
                     funBindPatternMatchFailureMessage (loc an) n ass
