@@ -7,7 +7,7 @@ import Prelude
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.PrettyPrinter
-import {-# SOURCE #-} CSPM.Evaluator.Values
+import CSPM.Evaluator.Values
 import {-# SOURCE #-} CSPM.Evaluator.ValueSet
 import Util.Annotated
 import Util.Exception
@@ -74,3 +74,11 @@ cannotIntersectSetsMessage vs1 vs2 = mkErrorMessage Unknown $
 cannotDifferenceSetsMessage :: ValueSet -> ValueSet -> ErrorMessage
 cannotDifferenceSetsMessage vs1 vs2 = mkErrorMessage Unknown $
     text "Cannot difference the supplied sets."
+
+eventIsNotValidMessage :: Value -> ErrorMessage
+eventIsNotValidMessage (v@(VDot (VChannel n:_))) = mkErrorMessage Unknown $
+    text "The event" 
+    <+> prettyPrint v 
+    <+> text "is not a member of its channel"
+    <+> prettyPrint n
+    <+> text "and therefore the event is not valid."

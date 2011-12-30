@@ -15,7 +15,6 @@ import CSPM.Compiler.Events
 import CSPM.Compiler.Processes
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
-import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
 import {-# SOURCE #-} CSPM.Evaluator.ValueSet hiding (cartesianProduct)
 import CSPM.PrettyPrinter
@@ -51,7 +50,7 @@ instance Eq Value where
     VList vs1 == VList vs2 = vs1 == vs2
     VSet s1 == VSet s2 = s1 == s2
     
-    v1 == v2 = throwError $ typeCheckerFailureMessage $ show $
+    v1 == v2 = panic $ show $
         text "Cannot compare the following for equality:"
         $$ tabIndent (prettyPrint v1 $$ prettyPrint v2)
     
@@ -90,7 +89,7 @@ compareValues (VDot vs1) (VDot vs2) =
     if vs1 == vs2 then Just EQ else Nothing
 
 -- Every other possibility is invalid
-compareValues v1 v2 = throwError $ typeCheckerFailureMessage $
+compareValues v1 v2 = panic $
     "Cannot compare "++show v1++" "++show v2
 
 instance Ord Value where
@@ -106,7 +105,7 @@ instance Ord Value where
     compare (VChannel n) (VChannel n') = compare n n'
     compare (VDataType n) (VDataType n') = compare n n'
 
-    compare v1 v2 = throwError $ typeCheckerFailureMessage $
+    compare v1 v2 = panic $
         -- Must be as a result of a mixed set of values, which cannot happen
         -- as a result of type checking.
         "Internal sets - cannot order "++show v1++" "++show v2

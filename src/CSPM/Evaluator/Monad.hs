@@ -4,7 +4,6 @@ module CSPM.Evaluator.Monad where
 import Prelude hiding (lookup)
 
 import CSPM.DataStructures.Names
-import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Environment
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.Exception
