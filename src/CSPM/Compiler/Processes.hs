@@ -69,7 +69,7 @@ data Proc =
     | PInterleave [Proc]
     -- Map from event of left process, to event of right that it synchronises
     -- with. (Left being p1, Right being p2 ps ps).
-    | PLinkParallel (M.Map Event Event) [Proc]
+    | PLinkParallel Proc (M.Map Event Event) Proc
     | POperator ProcOperator Proc
     | PPrefix Event Proc
     -- Map from Old -> New event
@@ -98,7 +98,11 @@ instance PrettyPrintable Proc where
         sep (punctuate (text " |~|") (map prettyPrint ps))
     prettyPrint (PInterleave ps) =
         sep (punctuate (text " |||") (map prettyPrint ps))
-    -- TODO | PLinkParallel EventMap [Proc]
+    prettyPrint (PLinkParallel p1 evm p2) =
+        prettyPrint p1 <+> text "[" <>
+            list (map (\(evLeft, evRight) -> prettyPrint evLeft <+> text "<-" 
+                                        <+> prettyPrint evRight) evm)
+        <> text "]" <+> prettyPrint p2
     prettyPrint (POperator op p) = 
         prettyPrint op <> parens (prettyPrint p)
     prettyPrint (PPrefix e p) =

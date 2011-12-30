@@ -277,7 +277,7 @@ instance Evaluatable (Exp Name) where
         p1 <- evalProc e1
         p2 <- evalProc e2
         ts <- evalTies stmts ties
-        return $ VProc $ PLinkParallel ts [p1, p2]
+        return $ VProc $ PLinkParallel p1 ts p2
     eval (Rename e1 ties stmts) = do
         p1 <- evalProc e1
         ts <- evalTies stmts ties
@@ -310,9 +310,14 @@ instance Evaluatable (Exp Name) where
             throwError $ replicatedInternalChoiceOverEmptySetMessage (loc e) e'
         else return $ VProc $ PInternalChoice ps
     eval (ReplicatedLinkParallel ties tiesStmts stmts e) = do
-        ts <- evalTies tiesStmts ties
-        ps <- evalStmts (\(VList vs) -> vs) stmts (evalProcs [e])
-        return $ VProc $ PLinkParallel ts ps
+        tsps <- evalStmts (\(VList vs) -> vs) stmts $ do
+            ts <- evalTies tiesStmts ties
+            p <- evalProc e
+            return [(ts, p)]
+        let 
+            mkLinkPar [(ts, p1)] = p1
+            mkLinkPar ((ts, p1):tps) = PLinkParallel p1 ts (mkLinkPar tps)
+        return $ VProc $ mkLinkPar tsps
     eval (ReplicatedParallel e1 stmts e2) = do
         VSet s <- eval e1
         ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e2])
