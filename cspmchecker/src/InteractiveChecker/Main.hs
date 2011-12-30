@@ -7,6 +7,7 @@ import Data.List
 import Prelude hiding (catch)
 import System.Console.Haskeline
 import System.FilePath
+import System.IO
 
 import CSPM
 import Monad
@@ -26,7 +27,7 @@ main = do
 runICheckerInput :: IChecker ()
 runICheckerInput = do
     settingsDir <- getState settingsDirectory
-    let settings = setComplete ICheckerComplete $ defaultSettings {
+    let settings = setComplete iCheckerComplete $ defaultSettings {
             historyFile = Just $ 
                 joinPath [settingsDir, "interactive", "prompt_history"]
         }
@@ -103,8 +104,8 @@ wrapCompleter :: [Char] -> (String -> IChecker [String]) -> CompletionFunc IChec
 wrapCompleter breakers fun = completeWord Nothing breakers
     $ fmap (map simpleCompletion) . fmap sort . fun
 
-ICheckerComplete :: CompletionFunc IChecker
-ICheckerComplete line@(left,_) =
+iCheckerComplete :: CompletionFunc IChecker
+iCheckerComplete line@(left,_) =
     case firstWord of
         ':':cmd | null rest -> completeCommand line
                 | otherwise -> (lookupCompleter cmd) line
@@ -125,7 +126,7 @@ completeCommand = wrapCompleter lineBreakers $
 completeExpression :: CompletionFunc IChecker
 completeExpression = wrapCompleter expressionBreakers $ \str -> do
     ns <- getBoundNames
-    return [s | Name s <- ns, str `isPrefixOf` s]
+    return [s | n <- ns, let OccName s = nameOccurrence n, str `isPrefixOf` s]
     
 -- Commands
 
@@ -138,7 +139,8 @@ quit _ = return False
 typeOfExpr :: String ->  InputT IChecker ()
 typeOfExpr str = do
     pExpr <- parseExpression str
-    typ <- typeOfExpression pExpr
+    rnExpr <- renameExpression pExpr
+    typ <- typeOfExpression rnExpr
     outputStrLn $ show $ 
         text str <+> text "::" <+> prettyPrint typ
     return ()
@@ -152,7 +154,8 @@ loadFileCommand fname = do
     -- Handle the error here so that the filepath is remembered (for reloading)
     handleSourceError () $ do
         pFile <- parseFile fname
-        tcFile <- typeCheckFile pFile
+        rnFile <- renameFile pFile
+        tcFile <- typeCheckFile rnFile
         bindFile tcFile
         outputStrLn $ "Ok, loaded "++fname
 
@@ -167,7 +170,8 @@ reload _ = do
 evaluate :: String -> InputT IChecker ()
 evaluate str = do
     pStmt <- parseInteractiveStmt str
-    tcStmt <- typeCheckInteractiveStmt pStmt
+    rnStmt <- renameInteractiveStmt pStmt
+    tcStmt <- typeCheckInteractiveStmt rnStmt
     case (unAnnotate tcStmt) of
         Bind d -> bindDeclaration d
         Evaluate e -> evaluateExp e >>= outputStrLn . show . prettyPrint

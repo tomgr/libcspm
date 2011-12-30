@@ -49,7 +49,8 @@ doFile fp = do
     liftIO $ putStr $ "Checking "++fp++"....."
     res <- tryM $ do
         ms <- parseFile fp
-        typeCheckFile ms
+        rms <- CSPM.renameFile ms
+        typeCheckFile rms
         return ()
     ws <- getState lastWarnings
     resetCSPM
