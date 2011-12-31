@@ -211,6 +211,40 @@ procId n vss = ProcName n vss
 valueEventToEvent :: Value -> Event
 valueEventToEvent v = UserEvent (show (prettyPrint v))
 
+-- | Returns an x such that ev.x has been extended by exactly one atomic field.
+-- This could be inside a subfield or elsewhere.
+oneFieldExtensions :: Value -> EvaluationMonad [Value]
+oneFieldExtensions (VDot (dn:vs)) = do
+    let 
+       mn = case dn of
+                VChannel n -> Just n
+                VDataType n -> Just n
+                _ -> Nothing
+    case mn of
+        Nothing -> return [VDot []]
+        Just n -> do
+            let fieldCount = fromIntegral (length vs)
+            -- Get the information about the channel
+            VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
+
+            -- Firstly, try completing the last field in the current value 
+            -- (in case it is only half formed).
+            mexs <- 
+                if fieldCount > 0 then do
+                    exs <- oneFieldExtensions (last vs)
+                    if exs /= [VDot []] then return $ Just exs
+                    else return Nothing
+                else return Nothing
+            
+            return $ case mexs of
+                Just exs -> exs
+                Nothing -> 
+                    if arity == fieldCount then [VDot []]
+                    else -- We still have fields to complete
+                        map (\ v -> VDot [v]) 
+                            (head [s | VList s <- drop (length vs) fieldSets])
+oneFieldExtensions _ = return [VDot []]
+
 -- | Takes a datatype or a channel value and then computes all x such that 
 -- ev.x is a full datatype/event. Each of the returned values is guaranteed
 -- to be a VDot.

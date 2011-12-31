@@ -156,83 +156,97 @@ instance Evaluatable (Exp Name) where
 
     -- This is the most complicated process because it is actually a shorthand
     -- for external choice and internal choice.
-    eval (Prefix e1 fs e2) = do
-        ev <- eval e1
+    eval (Prefix e1 fs e2) =
         let
-            normalizeEvent [] = []
-            normalizeEvent ((VDot vs1):vs2) = normalizeEvent (vs1++vs2)
-            normalizeEvent (v:vs) = v:normalizeEvent vs
-            
-            evalInputField :: [Value] -> [Field Name] -> TCPat -> S.ValueSet -> 
+            evalInputField :: Value -> [Field Name] -> TCPat -> S.ValueSet -> 
                                 EvaluationMonad [Proc]
-            evalInputField vs fs p s = do
+            evalInputField evBase fs p s = do
                 mps <- mapM (\v -> do
                     let (matches, binds) = bind p v
                     if matches then do
-                        p <- addScopeAndBind binds 
-                            (evalFields (vs++normalizeEvent [v]) fs)
+                        ev' <- combineDots evBase v
+                        p <- addScopeAndBind binds (evalFields ev' fs)
                         return $ Just p
                     else return Nothing) (S.toList s)
                 return $ catMaybes mps
             
-            evalFields :: [Value] -> [Field Name] -> EvaluationMonad Proc
-            evalFields vs [] = do
+            -- | Evalutates an input field, deducing the correct set of values
+            -- to input over.
+            evalInputField2 :: Value -> [Field Name] -> Pat Name -> 
+                                ([Proc] -> Proc) -> EvaluationMonad Proc
+            evalInputField2 evBase fs p procConstructor = 
+                let
+                    -- | The function to use to generate the options. If this
+                    -- is the last field it uses 'extensions' to extend to a
+                    -- fully formed event, otherwise we use 'oneFieldExtensions'
+                    -- to extend by precisely one field.
+                    extensionsOperator =
+                        if fs == [] then extensions else oneFieldExtensions
+                    
+                    -- | Converts a pattern to its constituent fields.
+                    patToFields :: Pat Name -> [Pat Name]
+                    patToFields (PCompDot ps _) = map unAnnotate ps
+                    patToFields p = [p]
+
+                    -- | Given a value and a list of patterns (from 
+                    -- 'patToFields') computes the appropriate set of events and
+                    -- then evaluates it.
+                    evExtensions :: Value -> [Pat Name] -> EvaluationMonad [Proc]
+                    evExtensions evBase [] = do
+                        p <- evalFields evBase fs
+                        return [p]
+                    evExtensions evBase (PVar n:ps) | isNameDataConstructor n = do
+                        VTuple [dc, _, _] <- lookupVar n
+                        evBase' <- combineDots evBase dc
+                        evExtensions evBase' ps
+                    evExtensions evBase (p:ps) = do
+                        vs <- extensionsOperator evBase
+                        mps <- mapM (\v -> do
+                                let (matches, bs) = bind p v
+                                if matches then do
+                                    evBase' <- combineDots evBase v
+                                    proc <- addScopeAndBind bs (evExtensions evBase' ps)
+                                    return $ Just proc
+                                else return Nothing) vs
+                        return $ concat $ catMaybes mps
+                in do
+                    ps <- evExtensions evBase (patToFields p)
+                    return $ procConstructor ps
+
+            evalFields :: Value -> [Field Name] -> EvaluationMonad Proc
+            evalFields ev [] = do
+                -- TODO: check valid event
                 p <- evalProc e2
                 return $ PPrefix (valueEventToEvent ev) p
-            evalFields vs (Output e:fs) = do
+            evalFields evBase (Output e:fs) = do
                 v <- eval e
-                evalFields (vs++normalizeEvent [v]) fs
-            
-            evalFields vs (Input p (Just e):fs) = do
+                ev' <- combineDots evBase v
+                evalFields ev' fs
+            evalFields evBase (Input p (Just e):fs) = do
                 VSet s <- eval e
-                ps <- evalInputField vs fs p s
+                ps <- evalInputField evBase fs p s
                 return $ PExternalChoice ps
-            evalFields vs (Input p Nothing:fs) = do
-                -- Calculate which component this is
-                let component = length vs
-                panic "unsupported case"
-                --chanVs <- valuesForChannel n
-                --let s = chanVs!!component
-                --ps <- evalInputField vs fs p s
-                --return $ PExternalChoice ps
-            
-            evalFields vs (NonDetInput p (Just e):fs) = do
-                VSet s <- eval e
-                ps <- evalInputField vs fs p s
-                return $ PInternalChoice ps
-            evalFields vs (NonDetInput p Nothing:fs) = do
-                -- Calculate which component this is
-                let component = length vs
-                panic "unsupported case"
-                ----chanVs <- valuesForChannel n
-                ----let s = chanVs!!component
-                ----ps <- evalInputField vs fs p s
-                --return $ PInternalChoice ps
--- TODO: the semantics of $ are not currently correct                
+            evalFields evBase (Input p Nothing:fs) =
+                evalInputField2 evBase fs (unAnnotate p) PExternalChoice
+
+            evalFields _ _ = panic "$ is not supported"
+
             -- Takes a proc and combines nested [] and |~|
             simplify :: Proc -> Proc
--- TODO: error over PInternalChoice []
             simplify (PExternalChoice [p]) = simplify p
             simplify (PInternalChoice [p]) = simplify p
-            
             simplify (PExternalChoice ((PExternalChoice ps1):ps2)) =
                 simplify (PExternalChoice (ps1++ps2))
-            simplify (PExternalChoice ps) =
-                PExternalChoice (map simplify ps)
-
+            simplify (PExternalChoice ps) = PExternalChoice (map simplify ps)
             simplify (PInternalChoice ((PInternalChoice ps1):ps2)) =
                 simplify (PInternalChoice (ps1++ps2))
-            simplify (PInternalChoice ps) =
-                PInternalChoice (map simplify ps)
-
+            simplify (PInternalChoice ps) = PInternalChoice (map simplify ps)
             simplify p = p
-            
-    -- TODO: is this right?
-            vs1 = case ev of
-                    VDot vs -> vs
-                    _ -> [ev]
-        p <- evalFields vs1 (map unAnnotate fs)
-        return $ VProc $ simplify p
+        in do
+            ev@(VDot (VChannel n:vfs)) <- eval e1
+            VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
+            p <- evalFields ev (map unAnnotate fs)
+            return $ VProc (simplify p)
 
     eval (AlphaParallel e1 e2 e3 e4) = do
         p1 <- evalProc e1
