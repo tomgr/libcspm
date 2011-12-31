@@ -110,6 +110,9 @@ externalNameMaker b l (UnQual ocn) = mkExternalName ocn l b
 internalNameMaker :: NameMaker
 internalNameMaker l (UnQual ocn) = mkInternalName ocn l
 
+reAnnotatePure :: Annotated a e -> e' -> Annotated a e'
+reAnnotatePure (An a b _) v = An a b v
+
 -- | Given something annotated and a function that mutates the inner object,
 -- returns the inner object annotated with the same outer annotation.
 reAnnotate :: Monad m => Annotated a e -> m e' -> m (Annotated a e')
@@ -292,21 +295,41 @@ renameFields fs inner = do
     -- No duplicates, so we can just add one scope
     addScope (do
         -- We do the fields left to right, to ensure that the scoping is correct
-        fs' <- mapM (\ afd -> reAnnotate afd $ 
+
+        -- Recall that c?x$y is equiv to |~| y:... @ [] x:... @ ... and hence
+        -- the nondet fields bind first.
+
+        -- Firstly, we do the nondet fields.
+        fsNonDet <- mapM (\afd -> 
+                case unAnnotate afd of
+                    Output e -> return Nothing
+                    Input p me -> return Nothing
+                    NonDetInput p me -> do
+                        me' <- rename me
+                        p' <- renamePattern internalNameMaker p
+                        return $ Just $ reAnnotatePure afd $ NonDetInput p' me') fs
+
+        fsDet <- mapM (\ afd ->
                 case unAnnotate afd of
                     Output e -> do
                         e' <- rename e
-                        return $ Output e'
+                        return $ Just $ reAnnotatePure afd $ Output e'
                     Input p me -> do
                         -- Rename me first, as it can't depend on p
                         me' <- rename me
                         p' <- renamePattern internalNameMaker p
-                        return $ Input p' me'
-                    NonDetInput p me -> do
-                        me' <- rename me
-                        p' <- renamePattern internalNameMaker p
-                        return $ NonDetInput p' me'
-            ) fs
+                        return $ Just $ reAnnotatePure afd $ Input p' me'
+                    NonDetInput p me -> return Nothing) fs
+        
+        let 
+            combineJusts :: [Maybe a] -> [Maybe a] -> [a]
+            combineJusts [] [] = []
+            combineJusts (Just x:xs) (Nothing:ys) = x:combineJusts xs ys
+            combineJusts (Nothing:xs) (Just y:ys) = y:combineJusts xs ys
+
+            fs' :: [TCField]
+            fs' = combineJusts fsNonDet fsDet
+
         -- all fields renamed, now rename the inner thing
         a <- inner
         return (fs', a))

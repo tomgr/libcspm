@@ -254,7 +254,7 @@ instance TypeCheckable (Exp Name) Type where
                 ensureIsProc e2
             tcfs (f:fs) tsfields =
                 typeCheckField f (\ t -> tcfs fs (t:tsfields))
-        tcfs fields []
+        local fvs (tcfs fields [])
 
     typeCheck' (LinkParallel e1 ties stmts e2) = do
         ensureIsProc e1
@@ -307,16 +307,13 @@ typeCheckField field tc =
         errCtxt = hang (text "In the field:") tabWidth (prettyPrint field)
         checkInput p e = do
             t <- typeCheck e
-            fvs <- freeVars p
-            local fvs $ do
-                tp <- addErrorContext errCtxt (do
-                        tp <- typeCheck p
-                        unify (TSet tp) t
-                        return tp)
-                tc tp
-        chkInputNoSet p = do
-            fvs <- freeVars p
-            local fvs (addErrorContext errCtxt (typeCheck p) >>= tc)
+            tp <- addErrorContext errCtxt (do
+                    tp <- typeCheck p
+                    unify (TSet tp) t
+                    return tp)
+            tc tp
+        chkInputNoSet p =
+            addErrorContext errCtxt (typeCheck p) >>= tc
         check (NonDetInput p (Just e)) = checkInput p e
         check (Input p (Just e)) = checkInput p e
         check (NonDetInput p Nothing) = chkInputNoSet p
@@ -336,13 +333,11 @@ typeCheckStmt typc stmt tc =
             addErrorContext errCtxt (ensureIsBool e)
             tc
         check (Generator p exp) = do
-            fvs <- freeVars p
             texp <- addErrorContext errCtxt (typeCheck exp)
-            local fvs $ do
-                addErrorContext errCtxt (do
-                    tpat <- typeCheck p
-                    unify (typc tpat) texp)
-                tc
+            addErrorContext errCtxt (do
+                tpat <- typeCheck p
+                unify (typc tpat) texp)
+            tc
     in setSrcSpan (loc stmt) (check (unAnnotate stmt))
 
 -- | Type check a series of statements. For each statement a new scope is added
@@ -358,7 +353,8 @@ typeCheckStmts typc stmts tc = do
                 [(n, loc f) | (f, fvs) <- fvsByStmt, n <- fvs]
         -- Throw an error if a name is defined multiple times
         when (not (noDups fvs)) (panic "Dupes found in stmts after renaming.")
-        check stmts
+        -- Renaming ensures uniqueness, so introduce the free vars now.
+        local fvs (check stmts)
     where
         check [] = tc
         check (stmt:stmts) = typeCheckStmt typc stmt (check stmts)

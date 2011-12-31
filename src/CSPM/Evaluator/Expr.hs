@@ -186,6 +186,7 @@ instance Evaluatable (Exp Name) where
                     -- | Converts a pattern to its constituent fields.
                     patToFields :: Pat Name -> [Pat Name]
                     patToFields (PCompDot ps _) = map unAnnotate ps
+                    patToFields (PDoublePattern p1 p2) = patToFields (unAnnotate p1)
                     patToFields p = [p]
 
                     -- | Given a value and a list of patterns (from 
@@ -213,6 +214,15 @@ instance Evaluatable (Exp Name) where
                     ps <- evExtensions evBase (patToFields p)
                     return $ procConstructor ps
 
+            evalNonDetFields :: Value -> [Field Name] -> [Field Name] -> EvaluationMonad Proc
+            evalNonDetFields ev [] fs = evalFields ev fs
+            evalNonDetFields ev (Output _:fs) allFs = 
+                evalNonDetFields ev fs allFs
+            evalNonDetFields ev (Input _ _:fs) allFs = 
+                evalNonDetFields ev fs allFs
+            evalNonDetFields ev (NonDetInput _ _:fs) allFs =
+                panic "Evaluation of $ is not supported."
+
             evalFields :: Value -> [Field Name] -> EvaluationMonad Proc
             evalFields ev [] = do
                 -- TODO: check valid event
@@ -229,8 +239,6 @@ instance Evaluatable (Exp Name) where
             evalFields evBase (Input p Nothing:fs) =
                 evalInputField2 evBase fs (unAnnotate p) PExternalChoice
 
-            evalFields _ _ = panic "$ is not supported"
-
             -- Takes a proc and combines nested [] and |~|
             simplify :: Proc -> Proc
             simplify (PExternalChoice [p]) = simplify p
@@ -245,7 +253,7 @@ instance Evaluatable (Exp Name) where
         in do
             ev@(VDot (VChannel n:vfs)) <- eval e1
             VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
-            p <- evalFields ev (map unAnnotate fs)
+            p <- evalNonDetFields ev (map unAnnotate fs) (map unAnnotate fs)
             return $ VProc (simplify p)
 
     eval (AlphaParallel e1 e2 e3 e4) = do
