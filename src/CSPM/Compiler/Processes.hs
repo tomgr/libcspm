@@ -22,7 +22,7 @@ data ProcName = ProcName {
     }
 
 instance Eq ProcName where
-    pn1 == pn2 = name pn1 == name pn2 
+    pn1 == pn2 = name pn1 == name pn2 && arguments pn1 == arguments pn2
 instance PrettyPrintable ProcName where
     prettyPrint (ProcName n args) =
         prettyPrint n
