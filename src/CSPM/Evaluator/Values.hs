@@ -4,7 +4,7 @@ module CSPM.Evaluator.Values (
     procId,
     valueEventToEvent,
     combineDots,
-    extensions,
+    extensions, oneFieldExtensions,
     productions,
 ) where
 
