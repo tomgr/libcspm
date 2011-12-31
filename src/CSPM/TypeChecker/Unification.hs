@@ -110,28 +110,31 @@ unifyAll (t1:ts) = do
 -- | Takes a constraint and a type and returns True iff the type satisfies the
 -- constraint, or can be made to satsify the constraint by appropriate type
 -- substitutions, in which case the type substitutions are performed.
-unifyConstraint :: Constraint -> Type -> TypeCheckMonad Bool
+unifyConstraint :: Constraint -> Type -> TypeCheckMonad ()
 unifyConstraint c (TVar v) = do
     res <- readTypeRef v
     case res of
         Left (tva, cs)  -> 
-            if c `elem` cs then return True else do
+            if c `elem` cs then return () else do
                 fv <- freshTypeVarWithConstraints (nub (c:cs))
                 applySubstitution v fv
-                return True
+                return ()
         Right t         -> unifyConstraint c t
-unifyConstraint c TInt = return True
-unifyConstraint Eq TBool = return True -- Bools are not orderable P524
+unifyConstraint c TInt = return ()
+unifyConstraint Eq TBool = return () -- Bools are not orderable P524
+unifyConstraint Inputable TBool = return ()
 unifyConstraint c (TSeq t) = unifyConstraint c t
-unifyConstraint c (TDot t1 t2) = liftM and (mapM (unifyConstraint c) [t1,t2])
-unifyConstraint c (TSet t) = return True -- All set elements must support comparison
-unifyConstraint c (TTuple ts) = liftM and (mapM (unifyConstraint c) ts)
-unifyConstraint Eq TEvent = return True -- Events comparable only
-unifyConstraint Eq TEventable = return True -- ditto
+unifyConstraint c (TDot t1 t2) = mapM_ (unifyConstraint c) [t1,t2]
+unifyConstraint c (TSet t) = return () -- All set elements must support comparison
+unifyConstraint c (TTuple ts) = mapM_ (unifyConstraint c) ts
+unifyConstraint Eq TEvent = return () -- Events comparable only
+unifyConstraint Inputable TEvent = return ()
+unifyConstraint Eq TEventable = return () -- ditto
 unifyConstraint Eq (TDotable a b) = -- channels and datatypes are only dotable things
-    liftM and (mapM (unifyConstraint Eq) [a,b])
-unifyConstraint Eq (TDatatype n) = return True
+    mapM_ (unifyConstraint Eq) [a,b]
+unifyConstraint Eq (TDatatype n) = return ()
     -- User data types are not orderable P524
+unifyConstraint Inputable (TDatatype n) = return ()
 unifyConstraint c t = 
     raiseMessageAsError $ constraintUnificationErrorMessage c t
 
@@ -319,17 +322,15 @@ unifyNoStk (TVar a) b = do
     res <- readTypeRef a
     case res of
         Left (tva, cs)  -> do
-            res <- liftM and (mapM (\ c -> unifyConstraint c b) cs)
-            if res then applySubstitution a b
-            else raiseUnificationError False
+            mapM_ (\ c -> unifyConstraint c b) cs
+            applySubstitution a b
         Right t         -> unify t b
 unifyNoStk a (TVar b) = do
     res <- readTypeRef b
     case res of
         Left (tvb, cs)  -> do
-            res <- liftM and (mapM (\ c -> unifyConstraint c a) cs)
-            if res then applySubstitution b a
-            else raiseUnificationError False
+            mapM_ (\ c -> unifyConstraint c a) cs
+            applySubstitution b a
         Right t         -> unify a t
 
 

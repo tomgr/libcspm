@@ -33,7 +33,7 @@ data TypeScheme =
     deriving (Eq, Show)
     
 data Constraint =
-    Eq | Ord
+    Eq | Ord | Inputable
     deriving (Eq, Ord, Show)
 
 -- During Type Checking we use TDotable a b only when a is something
@@ -117,6 +117,7 @@ freshPSymbolTable = liftIO $ newIORef []
 instance PrettyPrintable Constraint where
     prettyPrint Eq = text "Eq"
     prettyPrint Ord = text "Ord"
+    prettyPrint Inputable = text "Inputable"
 
 -- | Pretty prints several types using the same variable substitutions
 prettyPrintTypes :: [Type] -> [Doc]

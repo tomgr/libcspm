@@ -1,0 +1,8 @@
+datatype M = G.{0} | H.{1}
+channel e : M
+
+P2(x,y,0) = STOP
+
+-- This should fail as y cannot be made to be anything sensible (or equiv
+-- x has to be of type a=>M, which is not communicatable).
+V = e?x?y -> P2(x,y,0)

@@ -308,12 +308,18 @@ typeCheckField field tc =
         checkInput p e = do
             t <- typeCheck e
             tp <- addErrorContext errCtxt (do
+                    -- We don't enforce that tp is Inputable as users are free 
+                    -- to do what they wish when they specify the set where 
+                    -- the items come from.
                     tp <- typeCheck p
                     unify (TSet tp) t
                     return tp)
             tc tp
-        chkInputNoSet p =
-            addErrorContext errCtxt (typeCheck p) >>= tc
+        chkInputNoSet p = do
+            t <- addErrorContext errCtxt $ do
+                    t <- typeCheck p
+                    ensureHasConstraint Inputable t
+            tc t
         check (NonDetInput p (Just e)) = checkInput p e
         check (Input p (Just e)) = checkInput p e
         check (NonDetInput p Nothing) = chkInputNoSet p

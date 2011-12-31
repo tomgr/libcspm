@@ -11,3 +11,10 @@ T(y) = c?x -> a?x!0!y -> b?x!y -> P
 M(x) = b.x -> c.0 -> a.x.0 -> a.0.x -> STOP
 
 N = b?x.y -> a!x.y.0 -> STOP
+
+datatype X = G.{0} | H.{1}
+channel e : X
+
+P2(x,y,0) = STOP
+
+V = e?x:{G,H}?y -> P2(x,y,0)
