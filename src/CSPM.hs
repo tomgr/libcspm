@@ -16,15 +16,15 @@ module CSPM (
     -- * Renamer API
     renameFile, renameInteractiveStmt, renameExpression,
     -- * Type Checker API
-    typeCheckFile, typeCheckInteractiveStmt, typeCheckExpression, 
+    typeCheckFile, typeCheckInteractiveStmt, typeCheckExpression,
     ensureExpressionIsOfType, dependenciesOfExp, typeOfExpression,
     -- * Desugarer API
     desugarFile, desugarInteractiveStmt, desugarExpression,
     -- * Evaluator API
     bindFile, bindDeclaration, getBoundNames,
-    evaluateExp,
+    evaluateExpression,
     -- * Misc functions
-    getLibCSPMVersion
+    getLibCSPMVersion,
 )
 where
 
@@ -89,16 +89,16 @@ modifySession f = do
 reportWarnings :: CSPMMonad m => m (a, [ErrorMessage]) -> m a
 reportWarnings prog = withSession $ \ sess -> do
     (v, ws) <- prog
-    if ws == [] then return ()
-    else handleWarnings ws
+    when (ws /= []) $ handleWarnings ws
     return v
 
--- | A basic implementation of 'CSPMMonad', using the 'StateT' monad.
+-- | A basic implementation of 'CSPMMonad', using the 'StateT' monad. This
+-- prints out any warnings to stdout.
 type CSPM = StateT CSPMSession IO
 
 unCSPM :: CSPMSession -> CSPM a -> IO (a, CSPMSession)
 unCSPM = flip runStateT
-    
+
 instance CSPMMonad CSPM where
     getSession = get
     setSession = put
@@ -135,17 +135,20 @@ runRenamerInCurrentState p = withSession $ \s -> do
     modifySession (\s -> s { rnState = st })
     return a
 
+-- | Renames a file.
 renameFile :: CSPMMonad m => [PModule] -> m [TCModule]
 renameFile m = runRenamerInCurrentState $ do
     RN.newScope
     RN.rename m
 
+-- | Renames an expression.
 renameExpression :: CSPMMonad m => PExp -> m TCExp
 renameExpression e = runRenamerInCurrentState $ RN.rename e
 
+-- | Rename ian interactive statement.
 renameInteractiveStmt :: CSPMMonad m => PInteractiveStmt -> m TCInteractiveStmt
 renameInteractiveStmt e = runRenamerInCurrentState $ do
-    RN.newScope 
+    RN.newScope
     RN.rename e
 
 -- TypeChecker API
@@ -162,21 +165,18 @@ runTypeCheckerInCurrentState p = withSession $ \s -> do
 typeCheckFile :: CSPMMonad m => [TCModule] -> m [TCModule]
 typeCheckFile ms = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheck ms
-    --return $ DS.desugar ms
     return ms
 
 -- | Type checks a 'PInteractiveStmt'.
 typeCheckInteractiveStmt :: CSPMMonad m => TCInteractiveStmt -> m TCInteractiveStmt
 typeCheckInteractiveStmt pstmt = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheck pstmt
-    --return $ DS.desugar pstmt
     return pstmt
 
 -- | Type checkes a 'PExp', returning the desugared and annotated version.
 typeCheckExpression :: CSPMMonad m => TCExp -> m TCExp
 typeCheckExpression exp = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheck exp
-    --return $ DS.desugar exp
     return exp
 
 -- | Given a 'Type', ensures that the 'PExp' is of that type. It returns the
@@ -184,7 +184,6 @@ typeCheckExpression exp = reportWarnings $ runTypeCheckerInCurrentState $ do
 ensureExpressionIsOfType :: CSPMMonad m => Type -> TCExp -> m TCExp
 ensureExpressionIsOfType t exp = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheckExpect t exp
-    --return $ DS.desugar exp
     return exp
 
 -- | Gets the type of the expression in the current context.
@@ -197,12 +196,15 @@ dependenciesOfExp :: CSPMMonad m => TCExp -> m [Name]
 dependenciesOfExp e = 
     reportWarnings $ runTypeCheckerInCurrentState (TC.dependenciesOfExp e)
 
+-- | Desugar a file, preparing it for evaulation.
 desugarFile :: CSPMMonad m => [TCModule] -> m [TCModule]
 desugarFile [m] = return [DS.desugar m]
 
+-- | Desugars an expression.
 desugarExpression :: CSPMMonad m => TCExp -> m TCExp
 desugarExpression e = return $ DS.desugar e
 
+-- | Desugars an interactive statement.
 desugarInteractiveStmt :: CSPMMonad m => TCInteractiveStmt -> m TCInteractiveStmt
 desugarInteractiveStmt s = return $ DS.desugar s
 
@@ -219,7 +221,8 @@ runEvaluatorInCurrentState p = withSession $ \s -> do
 getBoundNames :: CSPMMonad m => m [Name]
 getBoundNames = runEvaluatorInCurrentState EV.getBoundNames 
  
--- | Takes a declaration and adds it to the current environment.
+-- | Takes a declaration and adds it to the current environment. Requires the
+-- declaration to be desugared.
 bindDeclaration :: CSPMMonad m => TCDecl -> m ()
 bindDeclaration d = withSession $ \s -> do
     evSt <- runEvaluatorInCurrentState (do
@@ -227,7 +230,8 @@ bindDeclaration d = withSession $ \s -> do
         EV.addToEnvironment ds)
     modifySession (\s -> s { evState = evSt })
  
--- | Binds all the declarations that are in a particular file.
+-- | Binds all the declarations that are in a particular file. Requires the
+-- file to be desugared.
 bindFile :: CSPMMonad m => [TCModule] -> m ()
 bindFile ms = do
     -- Bind
