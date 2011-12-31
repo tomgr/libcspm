@@ -50,9 +50,7 @@ instance Eq Value where
     VList vs1 == VList vs2 = vs1 == vs2
     VSet s1 == VSet s2 = s1 == s2
     
-    v1 == v2 = panic $ show $
-        text "Cannot compare the following for equality:"
-        $$ tabIndent (prettyPrint v1 $$ prettyPrint v2)
+    v1 == v2 = False
     
 -- | Implements CSPM comparisons (note that Ord Value does not).
 compareValues :: Value -> Value -> Maybe Ordering
