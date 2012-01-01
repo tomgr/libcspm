@@ -10,6 +10,7 @@ import System.FilePath
 import System.IO
 
 import CSPM
+import CSPM.Compiler.Processes
 import Monad
 import Util.Annotated
 import Util.Exception
@@ -77,6 +78,7 @@ type Command = (String, CommandFunc, CompletionFunc IChecker)
 builtInCommands :: [Command]
 builtInCommands = [
     ("load", keepGoing loadFileCommand, completeFilename),
+    ("printProc", keepGoing printProcCommand, completeExpression),
     ("reload", keepGoing reload, noCompletion),
     ("type", keepGoing typeOfExpr, completeExpression),
     ("quit", quit, noCompletion)
@@ -179,3 +181,13 @@ evaluate str = do
         Evaluate e -> do
             v <- evaluateExpression e
             outputStrLn $ show $ prettyPrint v
+
+printProcCommand :: String -> InputT IChecker ()
+printProcCommand str = do
+    pExpr <- parseExpression str
+    rnExpr <- renameExpression pExpr
+    tcExpr <- ensureExpressionIsOfType TProc rnExpr
+    dsExpr <- desugarExpression tcExpr
+    VProc p <- evaluateExpression dsExpr
+    outputStrLn $ show $ prettyPrintAllRequiredProcesses p
+    return ()
