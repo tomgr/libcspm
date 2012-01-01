@@ -1,0 +1,15 @@
+datatype Complex1 = X.{0,1} | Y.{0,1}.Bool
+
+channel d : Complex1.Complex1
+
+S = d$x$y -> Dump(<x,y>)
+T = d?x$y -> Dump(<x,y>)
+U = d?x:f(y)$y -> Dump(<x,y>)
+
+f(x) = {x}
+
+Dump(xs) = STOP
+
+procTest1 = d?X.x?y -> Dump((x,y))
+procTest2 = d?Y.x.y.z -> Dump((x,y,z))
+procTest3 = d?x -> Dump((x))
