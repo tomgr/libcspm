@@ -2,7 +2,8 @@
 module CSPM.Compiler.Processes (
     Proc(..), 
     ProcOperator(..), 
-    ProcName(..)
+    ProcName(..),
+    prettyPrintAllRequiredProcesses,
 ) where
 
 import qualified CSPM.Compiler.Map as M
@@ -121,3 +122,45 @@ instance PrettyPrintable Proc where
 
 instance Show Proc where
     show p = show (prettyPrint p)
+
+-- | Given a process, returns the initial process and all processes that it
+-- calls.
+splitProcIntoComponents :: Proc -> (Proc, [(ProcName, Proc)])
+splitProcIntoComponents p =
+    let
+        explored pns n = n `elem` (map fst pns)
+
+        exploreAll :: [(ProcName, Proc)] -> [Proc] -> [(ProcName, Proc)]
+        exploreAll pns [] = pns
+        exploreAll pns (p:ps) = exploreAll (explore pns p) ps
+
+        explore :: [(ProcName, Proc)] -> Proc -> [(ProcName, Proc)]
+        explore pns (PAlphaParallel aps) = exploreAll pns ps
+            where ps = map snd aps
+        explore pns (PException p1 _ p2) = exploreAll pns [p1, p2]
+        explore pns (PExternalChoice ps) = exploreAll pns ps
+        explore pns (PGenParallel _ ps) = exploreAll pns ps
+        explore pns (PHide p _) = explore pns p
+        explore pns (PInternalChoice ps) = exploreAll pns ps
+        explore pns (PInterrupt p1 p2) = exploreAll pns [p1, p2]
+        explore pns (PInterleave ps) = exploreAll pns ps
+        explore pns (PLinkParallel p1 _ p2) = exploreAll pns [p1, p2]
+        explore pns (POperator _ p) = explore pns p
+        explore pns (PPrefix _ p) = explore pns p
+        explore pns (PRename _ p) = explore pns p
+        explore pns (PSequentialComp p1 p2) = exploreAll pns [p1, p2]
+        explore pns (PSlidingChoice p1 p2) = exploreAll pns [p1, p2]
+        explore pns (PProcCall n p) =
+            if explored pns n then pns
+            else explore ((n, p):pns) p
+    in (p, explore [] p)
+
+-- | Pretty prints the given process and all processes that it depends upon.
+prettyPrintAllRequiredProcesses :: Proc -> Doc
+prettyPrintAllRequiredProcesses p =
+    let
+        (pInit, namedPs) = splitProcIntoComponents p
+        ppNamedProc (n,p) =
+            hang (prettyPrint n <+> char '=') tabWidth (prettyPrint p)
+    in 
+        vcat (punctuate (char '\n') ((map ppNamedProc namedPs)++[prettyPrint pInit]))
