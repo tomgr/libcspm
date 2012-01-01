@@ -159,13 +159,14 @@ instance Evaluatable (Exp Name) where
     eval (Prefix e1 fs e2) =
         let
             evalInputField :: Value -> [Field Name] -> TCPat -> S.ValueSet -> 
-                                EvaluationMonad [Proc]
-            evalInputField evBase fs p s = do
+                (Value -> [Field Name] -> EvaluationMonad Proc) ->
+                EvaluationMonad [Proc]
+            evalInputField evBase fs p s evalRest = do
                 mps <- mapM (\v -> do
                     let (matches, binds) = bind p v
                     if matches then do
                         ev' <- combineDots evBase v
-                        p <- addScopeAndBind binds (evalFields ev' fs)
+                        p <- addScopeAndBind binds (evalRest ev' fs)
                         return $ Just p
                     else return Nothing) (S.toList s)
                 return $ catMaybes mps
@@ -173,8 +174,9 @@ instance Evaluatable (Exp Name) where
             -- | Evalutates an input field, deducing the correct set of values
             -- to input over.
             evalInputField2 :: Value -> [Field Name] -> Pat Name -> 
-                                ([Proc] -> Proc) -> EvaluationMonad Proc
-            evalInputField2 evBase fs p procConstructor = 
+                (Value -> [Field Name] -> EvaluationMonad Proc) ->
+                ([Proc] -> Proc) -> EvaluationMonad Proc
+            evalInputField2 evBase fs p evalRest procConstructor = 
                 let
                     -- | The function to use to generate the options. If this
                     -- is the last field it uses 'extensions' to extend to a
@@ -194,7 +196,7 @@ instance Evaluatable (Exp Name) where
                     -- then evaluates it.
                     evExtensions :: Value -> [Pat Name] -> EvaluationMonad [Proc]
                     evExtensions evBase [] = do
-                        p <- evalFields evBase fs
+                        p <- evalRest evBase fs
                         return [p]
                     evExtensions evBase (PVar n:ps) | isNameDataConstructor n = do
                         VTuple [dc, _, _] <- lookupVar n
@@ -214,14 +216,14 @@ instance Evaluatable (Exp Name) where
                     ps <- evExtensions evBase (patToFields p)
                     return $ procConstructor ps
 
-            evalNonDetFields :: Value -> [Field Name] -> [Field Name] -> EvaluationMonad Proc
-            evalNonDetFields ev [] fs = evalFields ev fs
-            evalNonDetFields ev (Output _:fs) allFs = 
-                evalNonDetFields ev fs allFs
-            evalNonDetFields ev (Input _ _:fs) allFs = 
-                evalNonDetFields ev fs allFs
-            evalNonDetFields ev (NonDetInput _ _:fs) allFs =
-                panic "Evaluation of $ is not supported."
+            evalNonDetFields :: Value -> [Field Name] -> EvaluationMonad Proc
+            evalNonDetFields evBase (NonDetInput p (Just e):fs) = do
+                VSet s <- eval e
+                ps <- evalInputField evBase fs p s evalNonDetFields
+                return $ PInternalChoice ps
+            evalNonDetFields evBase (NonDetInput p Nothing:fs) =
+                evalInputField2 evBase fs (unAnnotate p) evalNonDetFields PInternalChoice
+            evalNonDetFields evBase fs = evalFields evBase fs
 
             evalFields :: Value -> [Field Name] -> EvaluationMonad Proc
             evalFields ev [] = do
@@ -234,10 +236,12 @@ instance Evaluatable (Exp Name) where
                 evalFields ev' fs
             evalFields evBase (Input p (Just e):fs) = do
                 VSet s <- eval e
-                ps <- evalInputField evBase fs p s
+                ps <- evalInputField evBase fs p s evalFields
                 return $ PExternalChoice ps
             evalFields evBase (Input p Nothing:fs) =
-                evalInputField2 evBase fs (unAnnotate p) PExternalChoice
+                evalInputField2 evBase fs (unAnnotate p) evalFields PExternalChoice
+            evalFields evBase (NonDetInput _ _:fs) = 
+                panic "Evaluation of $ after ! or ? is not supported."
 
             -- Takes a proc and combines nested [] and |~|
             simplify :: Proc -> Proc
@@ -247,7 +251,7 @@ instance Evaluatable (Exp Name) where
                 let extract (PExternalChoice ps) = ps in
                 simplify (PExternalChoice (concatMap extract ps))
             simplify (PExternalChoice ps) = PExternalChoice (map simplify ps)
-            simplify (PInternalChoice ((PInternalChoice ps1):ps2)) =
+            simplify (PInternalChoice (ps@((PInternalChoice _):_))) =
                 let extract (PInternalChoice ps) = ps in
                 simplify (PInternalChoice (concatMap extract ps))
             simplify (PInternalChoice ps) = PInternalChoice (map simplify ps)
@@ -255,7 +259,7 @@ instance Evaluatable (Exp Name) where
         in do
             ev@(VDot (VChannel n:vfs)) <- eval e1
             VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
-            p <- evalNonDetFields ev (map unAnnotate fs) (map unAnnotate fs)
+            p <- evalNonDetFields ev (map unAnnotate fs)
             return $ VProc (simplify p)
 
     eval (AlphaParallel e1 e2 e3 e4) = do
