@@ -8,6 +8,7 @@ import System.Exit (exitFailure, exitSuccess)
 import System.FilePath
 
 import CSPM
+import CSPM.Compiler.Processes
 import Monad
 import Util.Annotated
 import Util.Exception
@@ -44,7 +45,8 @@ getAndFilterDirectoryContents fp = do
             if b then do
                 ns <- getAndFilterDirectoryContents fp'
                 return [joinPath [n, n'] | n' <- ns]
-            else return [n]) ns
+            else if takeExtension n == ".csp" then return [n]
+            else return []) ns
 
 runSections ::IO [IO Bool]
 runSections = do
@@ -142,6 +144,16 @@ disallowErrors a = do
 
 evaluatorTest :: FilePath -> Test ()
 evaluatorTest fp = do
+    let 
+        evalExpr :: String -> Type -> Test Value
+        evalExpr s t = do
+            tce <- disallowErrors $ do
+                e <- parseExpression s
+                rne <- renameExpression e
+                tce <- ensureExpressionIsOfType t rne
+                desugarExpression tce
+            evaluateExpression tce
+    
     dsms <- disallowErrors $ do
         ms <- parseFile fp
         rms <- CSPM.renameFile ms
@@ -149,6 +161,7 @@ evaluatorTest fp = do
         dsms <- desugarFile tms
         bindFile dsms
         return dsms
+
     -- Extract all declarations of the form "test...", which should be of
     -- patterns of type :: Bool
     mapM_ (\ (GlobalModule ds) -> mapM_ (\ d ->
@@ -158,17 +171,25 @@ evaluatorTest fp = do
                     PVar n -> do
                         let OccName s = nameOccurrence n
                         when ("test" `isPrefixOf` s) $ do
-                            tce <- disallowErrors $ do
-                                e <- parseExpression s
-                                rne <- renameExpression e
-                                tce <- ensureExpressionIsOfType TBool rne
-                                desugarExpression tce
-                            VBool b <- evaluateExpression tce
+                            VBool b <- evalExpr s TBool
                             when (not b) $
                                 throwSourceError [mkErrorMessage (loc p) 
                                             (prettyPrint n <+> text "was false")
                                         ]
-
+                        when ("procTest" `isPrefixOf` s) $ do
+                            VProc proc <- evalExpr s TProc
+                            let expectedOutputFile = 
+                                    (dropExtension fp)++"-"++s++"-expected.txt"
+                            expectedOutput <- liftIO $ readFile expectedOutputFile
+                            let output = prettyPrintAllRequiredProcesses proc
+                            when (show output /= expectedOutput) $
+                                throwSourceError [mkErrorMessage (loc p) $
+                                        text "The output of" 
+                                        <+> prettyPrint n 
+                                        <+> text "did not match the expected output."
+                                        <+> text "The actual output was:"
+                                        $$ tabIndent output
+                                    ]
                     _ -> return ()
             _ -> return ()
             ) (map unAnnotate ds)
