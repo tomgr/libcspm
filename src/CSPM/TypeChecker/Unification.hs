@@ -124,6 +124,11 @@ unifyConstraint c TInt = return ()
 unifyConstraint Eq TBool = return () -- Bools are not orderable P524
 unifyConstraint Inputable TBool = return ()
 unifyConstraint c (TSeq t) = unifyConstraint c t
+unifyConstraint Inputable (TDot t1 t2) = do
+    t <- evaluateDots (TDot t1 t2)
+    case t of
+        TDot t1 t2 -> mapM_ (unifyConstraint Inputable) [t1,t2]
+        _ -> unifyConstraint Inputable t
 unifyConstraint c (TDot t1 t2) = mapM_ (unifyConstraint c) [t1,t2]
 unifyConstraint c (TSet t) = return () -- All set elements must support comparison
 unifyConstraint c (TTuple ts) = mapM_ (unifyConstraint c) ts

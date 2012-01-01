@@ -18,3 +18,9 @@ channel e : X
 P2(x,y,0) = STOP
 
 V = e?x:{G,H}?y -> P2(x,y,0)
+
+datatype Complex1 = Z.{0,1} | Y.{0,1}.Bool
+channel d : Complex1.Complex1
+
+procTest1 = d?Z.x?y -> STOP
+procTest2 = d?Y.x.y.z -> STOP
