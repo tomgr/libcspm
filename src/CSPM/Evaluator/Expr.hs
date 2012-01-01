@@ -243,11 +243,13 @@ instance Evaluatable (Exp Name) where
             simplify :: Proc -> Proc
             simplify (PExternalChoice [p]) = simplify p
             simplify (PInternalChoice [p]) = simplify p
-            simplify (PExternalChoice ((PExternalChoice ps1):ps2)) =
-                simplify (PExternalChoice (ps1++ps2))
+            simplify (PExternalChoice (ps@((PExternalChoice _):_))) =
+                let extract (PExternalChoice ps) = ps in
+                simplify (PExternalChoice (concatMap extract ps))
             simplify (PExternalChoice ps) = PExternalChoice (map simplify ps)
             simplify (PInternalChoice ((PInternalChoice ps1):ps2)) =
-                simplify (PInternalChoice (ps1++ps2))
+                let extract (PInternalChoice ps) = ps in
+                simplify (PInternalChoice (concatMap extract ps))
             simplify (PInternalChoice ps) = PInternalChoice (map simplify ps)
             simplify p = p
         in do
