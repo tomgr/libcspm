@@ -6,7 +6,8 @@ module Util.PrettyPrint (
     shortDouble,
     commaSeparatedInt,
     angles, bars, list, dotSep,
-    speakNth
+    speakNth,
+    punctuateFront,
 )
 where 
 
@@ -75,3 +76,8 @@ speakNth n = hcat [ int n, text suffix ]
         | last_dig == 3 = "rd"
         | otherwise     = "th"
     last_dig = n `rem` 10
+
+-- | Equivalent to [d1, sep <> d2, sep <> d3, ...].
+punctuateFront :: Doc -> [Doc] -> [Doc]
+punctuateFront sep [] = []
+punctuateFront sep (x:xs) = x:[sep <> x | x <- xs]

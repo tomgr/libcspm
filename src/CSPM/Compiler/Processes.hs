@@ -88,16 +88,16 @@ instance PrettyPrintable Proc where
         prettyPrint p1 <+> text "[|" <> prettyPrint a <> text "|>" 
             <+> prettyPrint p2
     prettyPrint (PExternalChoice ps) =
-        sep (punctuate (text " []") (map prettyPrint ps))
+        sep (punctuateFront (text "[] ") (map prettyPrint ps))
     prettyPrint (PGenParallel a ps) =
         text "||" <+> brackets (prettyPrint a) 
                 <+> braces (list (map prettyPrint ps))
     prettyPrint (PHide p a) =
         prettyPrint p <+> char '\\' <+> prettyPrint a
     prettyPrint (PInternalChoice ps) =
-        sep (punctuate (text " |~|") (map prettyPrint ps))
+        sep (punctuateFront (text "|~| ") (map prettyPrint ps))
     prettyPrint (PInterleave ps) =
-        sep (punctuate (text " |||") (map prettyPrint ps))
+        sep (punctuateFront (text "||| ") (map prettyPrint ps))
     prettyPrint (PLinkParallel p1 evm p2) =
         prettyPrint p1 <+> text "[" <>
             list (map (\(evLeft, evRight) -> prettyPrint evLeft <+> text "<-" 
@@ -116,7 +116,7 @@ instance PrettyPrintable Proc where
     prettyPrint (PSequentialComp p1 p2) =
         prettyPrint p1 <+> text "->" <+> prettyPrint p2
     prettyPrint (PSlidingChoice p1 p2) =
-        prettyPrint p1 <+> text "|>" <+> prettyPrint p2    
+        prettyPrint p1 <+> text "|>" <+> prettyPrint p2
     prettyPrint (PProcCall n _) = prettyPrint n
 
 instance Show Proc where
