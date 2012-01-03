@@ -1,12 +1,14 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -- | Names used by the evaluator. This is heavily inspired by GHC.
 module CSPM.DataStructures.Names (
+    -- * Data Types
     OccName(..),
     UnRenamedName(..),
     Name(..),
     NameType(..),
-
+    -- * Construction Helpers
     mkExternalName, mkInternalName, mkWiredInName, mkFreshInternalName,
+    -- * Utility Functions
     isNameDataConstructor,
 ) where
 
@@ -35,7 +37,23 @@ data UnRenamedName =
 instance PrettyPrintable UnRenamedName where
     prettyPrint (UnQual n) = prettyPrint n
 
--- | A renamed name and is the exclusive type used after the renamer.
+-- | A renamed name and is the exclusive type used after the renamer. Names
+-- are guaranteed to be unique, meaning that two names are equal iff they
+-- refer to the same binding instance. For example, consider the following CSPM
+-- code:
+--
+-- @
+--      f = 1
+--      g = let f = 2 within (f, f)
+-- @
+--
+-- This will be renamed to:
+--
+-- @
+--      f0 = 1
+--      g = let f1 = 2 within (f1, f1)
+-- @
+--
 data Name =
     Name {
         -- | The type of this name.
@@ -49,7 +67,6 @@ data Name =
         -- | The unique identifier for this name. Inserted by the renamer.
         nameUnique :: !Int,
         -- | Is this name a type constructor, i.e. a datatype or a channel?
-        -- Only External names can be.
         nameIsConstructor :: Bool
     }
     deriving Typeable
