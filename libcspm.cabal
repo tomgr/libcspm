@@ -44,7 +44,7 @@ Source-Repository head
 Source-repository this
     type:     git
     location: https://github.com/tomgr/libcspm
-    tag: release-0.1.2
+    tag: release-0.2.0
 
 Library
     Build-Depends:
