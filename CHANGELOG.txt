@@ -1,3 +1,24 @@
+0.2.0 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> 2012-01-04
+    * Enhanced the evaluator:
+        * Dot is not handled correctly;
+        * More versions of infinite sets are allowed;
+        * Add experimental and partial support of $ in prefixes.
+      This should mean that the evaluator has feature parity with FDR2, 
+      although it does lack testing.
+    * Added a renamer that renames all variables in a file or expression to
+      ensure that they do not clash.
+    * Enhanced the parser to be more compatible with FDR2 with regard to the
+      ambiguity with > and end of sequence. See the comment in 
+      src/CSPM/Parser.hs.
+    * Fixed a bug in the typechecker where it would incorrectly allow yield
+      types to be chosen in prefixes. For example, given c?x?y:{0,1} where
+      c is a channel that has only one field, of type A, the typechecker would
+      assign a type of Int=>A for x, which does not match the evaluator which
+      would assign x to the whole A. To fix this a new type constraint was 
+      added, Inputable, that any type other than yield satisfies.
+    * Added a lot more documentation, particularly on the abstract syntax tree
+      and how to use the library.
+
 0.1.2 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> 2011-11-04
     * Fix building with GHC 7.2 and Alex 3.
     * Remove the last few remaining mentions to sfdr (the old name for
