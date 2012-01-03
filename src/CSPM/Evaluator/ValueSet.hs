@@ -40,7 +40,7 @@ data ValueSet =
     -- | An explicit set of values
     | ExplicitSet (S.Set Value)
     -- | The infinite set of integers starting at lb.
-    | IntSetFrom Integer -- {lb..}
+    | IntSetFrom Int -- {lb..}
     -- | A set of two value sets. Note that the tree of sets may be infinite.
     -- NB. Composite sets are always infinite.
     | CompositeSet ValueSet ValueSet
@@ -53,7 +53,7 @@ instance Eq ValueSet where
 instance PrettyPrintable ValueSet where
     prettyPrint Integers = text "Integers"
     prettyPrint Processes = text "Proc"
-    prettyPrint (IntSetFrom lb) = braces (integer lb <> text "...")
+    prettyPrint (IntSetFrom lb) = braces (int lb <> text "...")
     prettyPrint (ExplicitSet s) =
         braces (list (map prettyPrint $ S.toList s))
     prettyPrint (CompositeSet s1 s2) =

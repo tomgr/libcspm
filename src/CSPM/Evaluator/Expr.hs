@@ -110,7 +110,7 @@ instance Evaluatable (Exp Name) where
         return $ VList (map VInt [lb..ub])
     eval (ListLength e) = do
         VList xs <- eval e 
-        return $ VInt (toInteger (length xs))
+        return $ VInt (length xs)
     eval (MathsBinaryOp op e1 e2) = do
         VInt i1 <- eval e1
         VInt i2 <- eval e2

@@ -9,7 +9,7 @@ import Util.Annotated
 import Util.PrettyPrint
 
 data Token = 
-    TInteger Integer
+    TInteger Int
     | TFalse
     | TTrue
     | TIdent String
@@ -107,7 +107,7 @@ instance Show Token where
     show t = show (prettyPrint t)
 
 instance PrettyPrintable Token where
-    prettyPrint (TInteger i) = integer i
+    prettyPrint (TInteger i) = int i
     prettyPrint TFalse = text "false"
     prettyPrint TTrue = text "true"
     prettyPrint (TIdent s) = text s

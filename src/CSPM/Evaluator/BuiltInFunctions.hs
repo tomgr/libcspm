@@ -29,7 +29,7 @@ builtInFunctions =
         cspm_Inter [VSet s] = 
             S.intersections (map (\ (VSet s) -> s) (S.toList s))
         cspm_member [v, VSet s] = VBool $ S.member v s
-        cspm_card [VSet s] = VInt $ S.card s
+        cspm_card [VSet s] = VInt $ fromIntegral $ S.card s
         cspm_empty [VSet s] = VBool $ S.empty s
         cspm_set [VList xs] = S.fromList xs
         cspm_Set [VSet s] = S.powerset s
@@ -38,7 +38,7 @@ builtInFunctions =
         cspm_seq [VSet s] = S.toList s
         
         
-        cspm_length [VList xs] = VInt $ (toInteger (length xs))
+        cspm_length [VList xs] = VInt $ length xs
         cspm_null [VList xs] = VBool $ null xs
         cspm_head [VList []] = throwError headEmptyListMessage
         cspm_head [VList (x:xs)] = x

@@ -24,7 +24,7 @@ import Util.Prelude
 import Util.PrettyPrint
 
 data Value =
-    VInt Integer
+    VInt Int
     | VBool Bool
     | VTuple [Value]
     -- | If A is a datatype clause that has 3 fields a b c then a runtime
@@ -109,7 +109,7 @@ instance Ord Value where
         "Internal sets - cannot order "++show v1++" "++show v2
 
 instance PrettyPrintable Value where
-    prettyPrint (VInt i) = integer i
+    prettyPrint (VInt i) = int i
     prettyPrint (VBool True) = text "true"
     prettyPrint (VBool False) = text "false"
     prettyPrint (VTuple vs) = parens (list $ map prettyPrint vs)
@@ -125,7 +125,7 @@ instance Show Value where
     show v = show (prettyPrint v)
 
 -- | The number of fields this datatype or channel has.
-arityOfDataTypeClause :: Name -> EvaluationMonad Integer
+arityOfDataTypeClause :: Name -> EvaluationMonad Int
 arityOfDataTypeClause n = do
     VTuple [_, VInt a,_] <- lookupVar n
     return a
@@ -147,7 +147,7 @@ combineDots v1 v2 =
                 Nothing -> return Nothing
                 Just n -> do
                     a <- arityOfDataTypeClause n
-                    let fieldCount = fromIntegral (length vs)
+                    let fieldCount = length vs
                     if a == 0 then return Nothing
                     else if length vs == 0 then
                         return $ Just (VDot [nd, v])
@@ -221,7 +221,7 @@ oneFieldExtensions (VDot (dn:vs)) = do
     case mn of
         Nothing -> return [VDot []]
         Just n -> do
-            let fieldCount = fromIntegral (length vs)
+            let fieldCount = length vs
             -- Get the information about the channel
             VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
 
@@ -256,7 +256,7 @@ extensions (VDot (dn:vs)) = do
     case mn of
         Nothing -> return [VDot []]
         Just n -> do
-            let fieldCount = fromIntegral (length vs)
+            let fieldCount = length vs
             -- Get the information about the datatype/channel
             VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
 
