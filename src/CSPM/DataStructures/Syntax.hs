@@ -136,36 +136,138 @@ data BinaryMathsOp =
     Divide | Minus | Mod | Plus | Times
     deriving (Eq, Show)
 
+-- | An expression.
 data Exp id =
-    App (AnExp id) [AnExp id]
-    | BooleanBinaryOp BinaryBooleanOp (AnExp id) (AnExp id)
-    | BooleanUnaryOp UnaryBooleanOp (AnExp id)
-    | Concat (AnExp id) (AnExp id)
-    | DotApp (AnExp id) (AnExp id)
-    | If (AnExp id) (AnExp id) (AnExp id)
-    | Lambda (AnPat id)(AnExp id)
-    | Let [AnDecl id] (AnExp id)
-    | Lit Literal
-    | List [AnExp id]
-    | ListComp [AnExp id] [AnStmt id]
-    | ListEnumFrom (AnExp id)
-    | ListEnumFromTo (AnExp id) (AnExp id)
-    -- TODO: ListEnumFrom and ListEnumTO - test in FDR
-    -- TODO: compare with official CSPM syntax
-    | ListLength (AnExp id)
-    | MathsBinaryOp BinaryMathsOp (AnExp id) (AnExp id)
-    | MathsUnaryOp UnaryMathsOp (AnExp id)
-    | Paren (AnExp id)
-    | Set [AnExp id]
-    | SetComp [AnExp id] [AnStmt id]
-    | SetEnum [AnExp id]           -- {| |}
-    | SetEnumComp [AnExp id] [AnStmt id]  -- {|c.x | x <- xs|}
-    | SetEnumFrom (AnExp id)
-    | SetEnumFromTo (AnExp id) (AnExp id)
-    | Tuple [AnExp id]
-    | Var id
+    -- | Function application.
+    App {
+        -- | The function.
+        appFunction :: AnExp id,
+        -- | The arguments applied to the function
+        appArguments :: [AnExp id]
+    }
+    -- | Application of a binary boolean operator.
+    | BooleanBinaryOp {
+        booleanBinaryOpOperator :: BinaryBooleanOp,
+        booleanBinaryOpLeftExpression :: AnExp id,
+        booleanBinaryOpRightExpression :: AnExp id
+    }
+    -- | Application of a unary boolean operator.
+    | BooleanUnaryOp {
+        unaryBooleanOpOperator :: UnaryBooleanOp,
+        unaryBooleanExpression :: AnExp id
+    }
+    -- | List concatenation, e.g. @x^y@.
+    | Concat {
+        concatLeftList :: AnExp id,
+        concatRightList :: AnExp id
+    }
+    -- | Dot operator application, e.g. @c.x@.
+    | DotApp {
+        dotAppLeftArgument :: AnExp id,
+        dotAppRighArgument :: AnExp id
+    }
+    -- | If statements, e.g. @if cond then e1 else e2@.
+    | If {
+        -- | The condition of the if.
+        ifCondition :: AnExp id,
+        -- | The then branch.
+        ifThenBranch :: AnExp id,
+        -- The else branch.
+        ifElseBranch :: AnExp id
+    }
+    -- | Lambda functions, e.g. @\(x,y) \@ e(x,y)@.
+    | Lambda {
+        lambdaBindingPattern :: AnPat id,
+        lambdaRightHandSide :: AnExp id
+    }
+    -- | Let declarations, e.g. @let func = e1 within e2@.
+    | Let {
+        letDeclarations :: [AnDecl id],
+        letExpression :: AnExp id
+    }
+    -- | Literals, e.g. @true@ or @1@.
+    | Lit {
+        litLiteral :: Literal
+    }
+    -- | List literals, e.g. @<1,2,3>@.
+    | List {
+        listItems :: [AnExp id]
+    }
+    -- | List comprehensions, e.g. @<x,y | (x,y) <- e>@.
+    | ListComp {
+        listCompItems :: [AnExp id],
+        listCompStatements :: [AnStmt id]
+    }
+    -- | Infinite list of integers from the given value, e.g. @<1..>@.
+    | ListEnumFrom {
+        listEnumFromLowerBound :: AnExp id
+    }
+    -- | Bounded list of integers between the given values, e.g. @<1..3>@.
+    | ListEnumFromTo {
+        listEnumFromToLowerBound :: AnExp id,
+        listEnumFromToUpperBound :: AnExp id
+    }
+    -- | The length of the list, e.g. @#list@.
+    | ListLength {
+        listLengthExpression :: AnExp id
+    }
+    -- | Application of binary maths operator, e.g. @x+y@.
+    | MathsBinaryOp {
+        mathsBinaryOpOperator :: BinaryMathsOp,
+        mathsBinaryOpLeftExpression :: AnExp id,
+        mathsBinaryOpRightExpression :: AnExp id
+    }
+    -- | Application of unary maths operator, e.g. @-x@.
+    | MathsUnaryOp {
+        mathsUnaryOpOperator :: UnaryMathsOp,
+        mathsUnaryOpExpression :: AnExp id
+    }
+    -- | A user provided bracket, e.g. @(e)@.
+    | Paren {
+        parenExpression :: AnExp id
+    }
+    -- | Set literals, e.g. @{1,2,3}@.
+    | Set {
+        setItems :: [AnExp id]
+    }
+    -- | Set comprehensions, e.g. @{x,y | (x,y) <- e}@.
+    | SetComp {
+        setCompItems :: [AnExp id],
+        setCompStatements :: [AnStmt id]
+    }
+    -- | Enumerated Sets, i.e. sets that complete the events, e.g. @{| c.x |}@.
+    | SetEnum {
+        setEnumItems :: [AnExp id]
+    }
+    -- | Set comprehension version of 'SetEnum', e.g. @{| c.x | x <- xs |}@.
+    | SetEnumComp {
+        setEnumCompItems :: [AnExp id],
+        setEnumCompStatements :: [AnStmt id]
+    }
+    -- | The infinite set of integers from the given value, e.g. @{5..}@.
+    | SetEnumFrom {
+        setEnumFromLowerBound :: AnExp id
+    }
+    -- | The bounded set of integers between the two given values, e.g. 
+    -- @{5..6}@.
+    | SetEnumFromTo {
+        -- | The lower bound.
+        setEnumFromToLowerBound :: AnExp id,
+        -- | The upper bound.
+        setEnumFromToUpperBound :: AnExp id
+    }
+    -- | Tuples, e.g. @(1,2)@.
+    | Tuple {
+        tupleItems :: [AnExp id]
+    }
+    -- | Variables, e.g. @x@.
+    | Var {
+        varIdentity :: id
+    }
 
     -- Processes
+
+    -- | Alphabetised parallel, e.g. @P [A || B] Q@.
     | AlphaParallel {
         -- | Process 1.
         alphaParLeftProcess :: AnExp id,
@@ -176,50 +278,140 @@ data Exp id =
         -- | Process 2.
         alphaParRightProcess :: AnExp id
     }
-    | Exception (AnExp id) (AnExp id) (AnExp id) -- Proc Alpha Proc
-    | ExternalChoice (AnExp id) (AnExp id)
-    | GenParallel (AnExp id) (AnExp id) (AnExp id) -- Proc Alpha Proc 
-    | GuardedExp (AnExp id) (AnExp id)            -- b & P
-    | Hiding (AnExp id) (AnExp id)
-    | InternalChoice (AnExp id) (AnExp id)
-    | Interrupt (AnExp id) (AnExp id)
-    | Interleave (AnExp id) (AnExp id)
-    | LinkParallel (AnExp id) [(AnExp id, (AnExp id))] [AnStmt id] (AnExp id) -- Exp, tied chans (old, new), generators, second
-    | Prefix (AnExp id) [AnField id] (AnExp id)
-    | Rename (AnExp id) [(AnExp id, (AnExp id))] [AnStmt id] -- (old, new)
-    | SequentialComp (AnExp id) (AnExp id) -- P; Q
-    | SlidingChoice (AnExp id) (AnExp id)
+    -- | Exception operator, e.g. @P [| A |> Q@.
+    | Exception {
+        exceptionLeftProcess :: AnExp id,
+        exceptionAlphabet :: AnExp id,
+        exceptionRightProcess :: AnExp id
+    }
+    -- | External choice, e.g. @P [] Q@.
+    | ExternalChoice {
+        extChoiceLeftProcess :: AnExp id,
+        extChoiceRightOperator :: AnExp id
+    }
+    -- | Generalised parallel, e.g. @P [| A |] Q@.
+    | GenParallel {
+        genParallelLeftProcess :: AnExp id,
+        genParallelAlphabet :: AnExp id,
+        genParallelRightProcess :: AnExp id
+    }
+    -- | Guarded expressions, e.g. @b & P@ where @b@ is a boolean expression.
+    -- This is equivalent to @if b then P else STOP@.
+    | GuardedExp {
+        guardedExpCondition :: AnExp id,
+        guardedExpProcess :: AnExp id
+    }
+    -- | Hiding of events, e.g. @P \ A@.
+    | Hiding {
+        -- | The process the hiding is applied to.
+        hidingProcess :: AnExp id,
+        -- | The set of events to be hidden.
+        hidingAlphabet :: AnExp id
+    }
+    -- | Internal choice, e.g. @P |~| Q@.
+    | InternalChoice {
+        intChoiceLeftProcess :: AnExp id,
+        intChoiceRightProcess :: AnExp id
+    }
+    -- | Interrupt (where the left process is turned off once the right process
+    -- performs an event), e.g. @P /\ Q@.
+    | Interrupt {
+        interruptLeftProcess :: AnExp id,
+        interruptRightProcess :: AnExp id
+    }
+    -- | Interleaving of processes, e.g. @P ||| Q@.
+    | Interleave {
+        interleaveLeftProcess :: AnExp id,
+        interleaveRightProcess :: AnExp id
+    }
+    -- Linked parallel, e.g. @P [a.x <- b.x | x <- X] Q@.
+    | LinkParallel {
+        linkParLeftProcess :: AnExp id,
+        linkParTiedEvents :: [(AnExp id, AnExp id)],
+        linkParTieStatements :: [AnStmt id],
+        linkParRightProcess :: AnExp id
+    }
+    -- | Event prefixing, e.g. @c$x?y!z -> P@.
+    | Prefix {
+        prefixChannel :: AnExp id,
+        prefixFields :: [AnField id],
+        prefixProcess :: AnExp id
+    }
+    -- | Event renaming, e.g. @P [[ a.x <- b.x | x <- X ]]@.
+    | Rename {
+        -- | The process that is renamed.
+        renameProcess :: AnExp id,
+        -- | The events that are renamed, in the format of @(old, new)@.
+        renameTiedEvents :: [(AnExp id, AnExp id)],
+        -- | The statements for the ties.
+        renameTieStatements :: [AnStmt id]
+    }
+    -- | Sequential composition, e.g. @P; Q@.
+    | SequentialComp {
+        seqCompLeftProcess :: AnExp id,
+        seqCompRightProcess :: AnExp id
+    }
+    -- | Sliding choice, e.g. @P |> Q@.
+    | SlidingChoice {
+        slidingChoiceLeftProcess :: AnExp id,
+        slidingChoiceRightProcess :: AnExp id
+    }
 
     -- Replicated Operators
-    | ReplicatedAlphaParallel [AnStmt id] (AnExp id) (AnExp id) -- alpha exp is second
-    | ReplicatedExternalChoice [AnStmt id] (AnExp id)
-    | ReplicatedInterleave [AnStmt id] (AnExp id) 
-    | ReplicatedInternalChoice [AnStmt id] (AnExp id)
+    -- | Replicated alphabetised parallel, e.g. @|| x : X \@ [| A(x) |] P(x)@.
+    | ReplicatedAlphaParallel {
+        repAlphaParReplicatedStatements :: [AnStmt id],
+        repAlphaParAlphabet :: AnExp id,
+        repAlphaParProcess :: AnExp id
+    }
+    -- | Replicated external choice, e.g. @[] x : X \@ P(x)@.
+    | ReplicatedExternalChoice {
+        repExtChoiceReplicatedStatements :: [AnStmt id],
+        repExtChoiceProcess :: AnExp id
+    }
+    -- | Replicated interleave, e.g. @||| x : X \@ P(x)@.
+    | ReplicatedInterleave {
+        repInterleaveReplicatedStatements :: [AnStmt id],
+        repInterleaveProcess :: AnExp id
+    }
+    -- | Replicated internal choice, e.g. @|~| x : X \@ P(x)@.
+    | ReplicatedInternalChoice {
+        repIntChoiceReplicatedStatements :: [AnStmt id],
+        repIntChoiceProcess :: AnExp id
+    }
+    -- | Replicated link parallel, e.g. 
+    -- @[a.x <- b.x | x <- X(y)] y : Y \@ P(y)@.
     | ReplicatedLinkParallel {
         -- | The tied events.
         repLinkParTiedChannels :: [(AnExp id, AnExp id)],
         -- | The statements for the ties.
-        repLinkParTieStatemets :: [AnStmt id],
+        repLinkParTieStatements :: [AnStmt id],
         -- | The 'Stmt's - the process (and ties) are evaluated once for each 
         -- value generated by these.
         repLinkParReplicatedStatements :: [AnStmt id],
         -- | The process
         repLinkParProcess :: AnExp id
     }
-    | ReplicatedParallel (AnExp id) [AnStmt id] (AnExp id) -- alpha exp is first
+    -- | Replicated parallel, e.g. @[| A |] x : X \@ P(x)@.
+    | ReplicatedParallel {
+        repParAlphabet :: AnExp id,
+        repParReplicatedStatements :: [AnStmt id],
+        repParProcess :: AnExp id
+    }
     
-    -- Used only for parsing
+    -- | Used only for parsing - never appears in an AST.
     | ExpPatWildCard
+    -- | Used only for parsing - never appears in an AST.
     | ExpPatDoublePattern (AnExp id) (AnExp id)
     
     deriving (Eq, Show)
 
 data Field id = 
-    -- | !x
+    -- | @!x@
     Output (AnExp id)
-    -- | ?x:A
+    -- | @?x:A@
     | Input (AnPat id) (Maybe (AnExp id))
-    -- | $x:A (see P395 UCS)
+    -- | @$x:A@ (see P395 UCS)
     | NonDetInput (AnPat id) (Maybe (AnExp id))
     deriving (Eq, Show)
     
@@ -228,7 +420,7 @@ data Stmt id =
     | Qualifier (AnExp id)
     deriving (Eq, Show)
 
--- A statement in an interactive session
+-- | A statement in an interactive session.
 data InteractiveStmt id =
     Evaluate (AnExp id)
     | Bind (AnDecl id)
@@ -238,31 +430,49 @@ data InteractiveStmt id =
 -- *************************************************************************
 -- Declarations
 -- *************************************************************************
---data BindGroup id =
---    [Binding id]
---data Binding id =
---    PatBind (Pat id) (Exp id)
 
 data Decl id = 
-    -- Third argument is the annotated type
+    -- | A function binding, e.g. @func(x,y)(z) = 0@.
     FunBind id [AnMatch id]
-    | PatBind (AnPat id)(AnExp id)
+    -- | The binding of a pattern to an expression, e.g. @(p,q) = e@.
+    | PatBind (AnPat id) (AnExp id)
+    -- | An assertion in a file, e.g. @assert P [T= Q@.
     | Assert (Assertion id)
-    | External [id]
-    | Transparent [id]
-    -- The expression in the following three definitions means a type expression
-    -- and therefore dots and commas have special meanings. See TPC P529 for
-    -- details (or the typechecker or evaluator).
+    -- | An import of an external function, e.g. @external test@,
+    | External {
+        externalImportedNames :: [id]
+    }
+    -- | An import of a transparent function, e.g. @transparent normal@.
+    | Transparent {
+        transparentImportedNames :: [id]
+    }
+    -- | A channel declaration, e.g. @channel c, d : {0..1}.{0..1}@.
     | Channel [id] (Maybe (AnExp id))
+    -- | A datatype declaration, e.g. @datatype T = Clause1 | Clause2@.
     | DataType id [AnDataTypeClause id]
+    -- | A nametype declaration, e.g. @nametype T2 = T.T@.
     | NameType id (AnExp id)
     deriving (Eq, Show)
 
 -- TODO: annotate
 data Assertion id = 
-    Refinement (AnExp id) Model (AnExp id) [ModelOption id]
-    | PropertyCheck (AnExp id) SemanticProperty (Maybe Model)
+    -- | A refinement assertion, e.g. @assert P [F= Q@.
+    Refinement {
+        refinementSpecification :: AnExp id,
+        refinementModel :: Model,
+        refinementImplementation :: AnExp id,
+        refinementModelOptions :: [ModelOption id]
+    }
+    -- | A check of property, like deadlock freedom, e.g. 
+    -- @assert P :[deadlock free [F]]@.
+    | PropertyCheck {
+        propertyCheckProcess :: AnExp id,
+        propertyCheckProperty :: SemanticProperty,
+        propertyCheckModel :: Maybe Model
+    }
+    -- | A boolean assertion, not currently supported.
     | BoolAssertion (AnExp id)
+    -- | The negation of an assertion, not currently supported.
     | ASNot (Assertion id)
     deriving (Eq, Show)
         
@@ -287,8 +497,21 @@ data SemanticProperty =
     deriving (Eq, Show)
     
 -- TODO: annotate
+-- | The clause of a datatype, e.g. if a datatype declaration was:
+--
+-- > datatype T = A.Int.Bool | B.Bool | C
+--
+-- Then T would have three datatype clauses, one for each of its tags (i.e.
+-- @A@, @B@ and @C@).
 data DataTypeClause id =
-    DataTypeClause id (Maybe (AnExp id))
+    DataTypeClause {
+        -- | The name of the datatype clause.
+        dataTypeClauseName :: id,
+        -- | The expression that gives the set of values that can be dotted
+        -- with this clause. For example, in the above example the datatype
+        -- clause for A would have "Int.Bool" as its type expression.
+        dataTypeClauseTypeExpression :: Maybe (AnExp id)
+    }
     deriving (Eq, Show)
 
 -- | Matches occur on the left hand side of a function declaration and there
@@ -312,34 +535,76 @@ data Match id =
     deriving (Eq, Show)
 
 data Pat id =
-    PConcat (AnPat id) (AnPat id)
-    | PDotApp (AnPat id) (AnPat id)
-    | PDoublePattern (AnPat id) (AnPat id)
-    | PList [AnPat id]
-    | PLit Literal
-    | PParen (AnPat id)
-    | PSet [AnPat id]
-    | PTuple [AnPat id]
-    | PVar id
+    -- | The concatenation of two patterns, e.g. @p1^p2@.
+    PConcat {
+        pConcatLeftPat :: AnPat id,
+        pConcatRightPat :: AnPat id
+    }
+    -- | The dot of two patterns, e.g. @p1.p2@.
+    | PDotApp {
+        pDotLeftPat :: AnPat id,
+        pDotRightPat :: AnPat id
+    }
+    -- | A double pattern match, e.g. @p1\@\@p2@.
+    | PDoublePattern {
+        pDoublePatLeftPat :: AnPat id,
+        pDoublePatRightPat :: AnPat id
+    }
+    -- | A literal pattern list, e.g. @<p1,p2,p3>@.
+    | PList {
+        pListItems :: [AnPat id]
+    }
+    -- | A literal pattern, e.g. @true@, or @0@.
+    | PLit {
+        pLitLiteral :: Literal
+    }
+    -- | A user supplied parenthesis in a pattern.
+    | PParen {
+        pParenPattern :: AnPat id
+    }
+    -- | A set pattern. Only singleton patterns, or zero patterns are supported.
+    -- This is checked by the desugarer. For example, @{p1,p2}@ is not allowed,
+    -- but @{p1}@ and @{}@ are allowed.
+    | PSet {
+        pSetItems :: [AnPat id]
+    }
+    -- | A tuple pattern, e.g. @(p1,p2,p3)@.
+    | PTuple {
+        pTupleItems :: [AnPat id]
+    }
+    -- | A variable pattern, e.g. @x@, or @A@ where @A@ is a datatype clause. 
+    -- If the variable is a datatype clause then it only matches that datatype
+    -- tag, whereas for anything else it matches anything.
+    | PVar {
+        pVarIdentity :: id
+    }
+    -- | Matches anything but does not bind it.
     | PWildCard
     
-    -- In all compiled patterns we store the original pattern
-    -- Because of the fact that you can write patterns such as:
-    --  f(<x,y>^xs^<z,p>)
-    --  f(<x,y>)
-    --  f(xs^<x,y>)
+    -- | Since you can write list patterns such as:
+    -- 
+    -- > f(<x,y>^xs^<z,p>^<9,0>)
+    -- > f(<x,y>)
+    -- > f(xs^<x,y>)
+    --
     -- we need an easy may of matching them. Thus, we compile
-    -- the patterns to a PCompList instead.
-    -- PCompList ps (Just (p, ps')) corresponds to a list
+    -- the patterns to a @PCompList@ instead.
+    -- 
+    -- @PCompList ps (Just (p, ps'))@ corresponds to a list
     -- where it starts with ps (where each p in ps matches exactly one
-    -- component, has a middle of p and and end matching exactly ps'
-    | PCompList [AnPat id] (Maybe (AnPat id, [AnPat id])) (Pat id)
-    -- Recall the longest match rule when evaluating this
-    -- How about:
-    -- channel c : A.Int.A
-    -- datatype A = B.Bool
-    -- func(c.B.true.x) =
-    -- func(c.B.false.0.B.x) =
-    | PCompDot [AnPat id] (Pat id)
+    -- list element, has a middle of p (which must be a variable pattern, 
+    -- or a wildcard) and and end matching exactly ps' (again, where each p
+    -- in ps matches exactly one list component).
+    | PCompList {
+        pListStartItems :: [AnPat id],
+        pListMiddleEndItems :: Maybe (AnPat id, [AnPat id]),
+        pListOriginalPattern :: Pat id
+    }
+    -- | Like with a 'PCompList' we flatten nested dot patterns to make it
+    -- easier to evaluate.
+    | PCompDot {
+        pDotItems :: [AnPat id],
+        pDotOriginalpattern :: Pat id
+    }
 
     deriving (Eq, Show)

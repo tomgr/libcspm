@@ -3,7 +3,7 @@ module Util.Exception (
     Exception,
     LibCSPMException(..),
     throwException,
-    tryM,
+    MonadIOException(..),
     panic, throwSourceError,
     mkErrorMessage, mkWarningMessage, 
     ErrorMessage, ErrorMessages,
@@ -24,24 +24,24 @@ type ErrorMessages = [ErrorMessage]
 -- | An error message that resulted from something in the user's input.
 data ErrorMessage =
     ErrorMessage {
-        -- | Used for sorting into order
+        -- | Used for sorting into order.
         location :: SrcSpan,
-        -- | The message
+        -- | The message.
         message :: Doc
     }
     | WarningMessage {
-        -- | Used for sorting into order
+        -- | Used for sorting into order.
         location :: SrcSpan,
-        -- | The message
+        -- | The message.
         message :: Doc
     }
 
--- | Given a 'SrcSpan' and a pretty printed 'Doc' returns an 'ErrorMessage'.
+-- | Given a 'SrcSpan' and a pretty printed 'Doc' creates an 'ErrorMessage'.
 mkErrorMessage :: SrcSpan -> Doc -> ErrorMessage
 mkErrorMessage l d = ErrorMessage l d
 
 -- | Constructs a warning from a 'SrcSpan' and a pretty printed 'Doc',
--- prepending "Warning: " to the 'Doc'.
+-- prepending @Warning: @ to the 'Doc'.
 mkWarningMessage :: SrcSpan -> Doc -> ErrorMessage
 mkWarningMessage l d = WarningMessage l (text "Warning" <> colon <+> d)
 

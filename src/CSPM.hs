@@ -1,16 +1,88 @@
 {-# LANGUAGE FlexibleInstances #-}
+-- | This module provides the main high-level interface to the library 
+-- functionality. It does this through a monadic interface, mainly due to the
+-- fact that several of the components require the use of the IO monad. It is
+-- highly recommended that users of this library use a monad and then implement
+-- the 'CSPMMonad' class on their own custom monad. An example of this is shown
+-- by the basic implementation of the 'CSPM' monad.
+--
+-- The main library datatype is exported by 'CSPM.DataStructures.Syntax', which
+-- provides an AST representation of machine CSP. Most of the pieces of syntax,
+-- like expressions ('Exp'), are parametrised by the type of the variables that
+-- it contains. For more information see the comment at the top of the above
+-- module.
+--
+-- The library exports several APIs which, in likely order of usage, are:
+-- 
+--      [@Parser@] Parses strings or files and produces an AST, parametrised
+--        by 'UnRenamedName', which are simply pieces of text.
+--
+--      [@Renamer@] Renames the AST and produces an equivalent AST, but 
+--        parametrised by 'Name', which uniquely identify the binding instance
+--        of each variable (see documentation of 'Name').
+--
+--      [@Type Checker@] Type checks an AST, in the process annotating it with
+--        types.
+--
+--      [@Desugarer@] Desugars an AST, remove syntactic sugar and prepares it for
+--        evaluation. The AST produced by this phase should not be pretty 
+--        printed as it parenthesis have been removed, potentially making it not
+--        equivalent.
+--
+--      [@Evaluator@] Evaluates an AST, returning a 'Value'. Note that the 
+--        evaluator is lazy, meaning that the resulting Value will be generated
+--        as it is consumed, making it suitable for streaming to subsequent
+--        compilation phases.
+--
+-- For example, suppose we wish to evaluate the expression @test(1,2,3)@ within
+-- the context of the file @test.csp@ we could use the following segment of
+-- code:
+--
+-- >    main :: IO ()
+-- >    main = do
+-- >        session <- newCSPMSession
+-- >        (value, resultingSession) <- unCSPM session $ do
+-- >            -- Parse the file, returning something of type PModule.
+-- >            parsedFile <- parseFile "test.csp"
+-- >            -- Rename the file, returning something of type TCModule.
+-- >            renamedFile <- renameFile parsedFile
+-- >            -- Typecheck the file, annotating it with types.
+-- >            typeCheckedFile <- typeCheckFile renamedFile
+-- >            -- Desugar the file, returning the version ready for evaluation.
+-- >            desugaredFile <- desugarFile typeCheckedFile
+-- >            -- Bind the file, making all functions and patterns available.
+-- >            bindFile desugaredFile
+-- >            
+-- >            -- The file is now ready for use, so now we build the expression
+-- >            -- to be evaluated.
+-- >            parsedExpression <- parseExpression "test(1,2,3)"
+-- >            renamedExpression <- renameExpression parsedExpression
+-- >            typeCheckedExpression <- typeCheckExpression renamedExpression
+-- >            desugaredExpression <- desugarExpression typeCheckedExpression
+-- >
+-- >            -- Evaluate the expression in the current context.
+-- >            value <- evaluateExpression desugaredExpression
+-- >            return value
+-- >        putStrLn (show (prettyPrint value))
+-- >        return ()
+--
+-- This would pretty print the value of the expression to stdout.
 module CSPM (
-    module CSPM.DataStructures.Names,
-    module CSPM.DataStructures.Syntax,
-    module CSPM.DataStructures.Types,
-    module CSPM.Evaluator.Values,
     -- * CSPM Monad
     CSPMSession, newCSPMSession,
-    CSPMMonad,
-    getSession, setSession, handleWarnings,
+    CSPMMonad(..),
     withSession,
     -- ** A basic implementation of the monad
     CSPM, unCSPM,
+    -- * Common Data Types
+    -- | Defines the names that are used by machine CSP.
+    module CSPM.DataStructures.Names,
+    -- | Defines the abstract syntax for machine CSP.
+    module CSPM.DataStructures.Syntax,
+    -- | Defines the types used by the typechecker.
+    module CSPM.DataStructures.Types,
+    -- | Defines the values produced by the evaluator.
+    module CSPM.Evaluator.Values,
     -- * Parser API
     parseStringAsFile, parseFile, parseInteractiveStmt, parseExpression,
     -- * Renamer API
@@ -23,6 +95,17 @@ module CSPM (
     -- * Evaluator API
     bindFile, bindDeclaration, getBoundNames,
     evaluateExpression,
+    -- * Low-Level API
+    -- | Whilst this module provides many of the commonly used functionality 
+    -- within the CSPM monad, sometimes there are additional functions exported
+    -- by other modules that are of use. The following functions allow the
+    -- renamer, typechecker and evaluator to be run in the current state. They
+    -- also save the resulting state in the current session.
+    runParserInCurrentState,
+    runRenamerInCurrentState, 
+    runTypeCheckerInCurrentState,
+    runEvaluatorInCurrentState, 
+    reportWarnings,
     -- * Misc functions
     getLibCSPMVersion,
 )
@@ -51,8 +134,11 @@ import Util.PrettyPrint
 -- | A 'CSPMSession' represents the internal states of all the various
 -- components.
 data CSPMSession = CSPMSession {
+        -- | The state of the renamer.
         rnState :: RN.RenamerState,
+        -- | The state of the type checker.
         tcState :: TC.TypeInferenceState,
+        -- | The state of the evaluator.
         evState :: EV.EvaluationState
     }
 
@@ -70,8 +156,11 @@ newCSPMSession = do
 -- Whilst there is a build in representation (see 'CSPM') it is recommended
 -- that you define an instance of 'CSPMMonad' over whatever monad you use.
 class (MonadIO m) => CSPMMonad m where
+    -- | Get the current session.
     getSession :: m CSPMSession
+    -- | Update the current session.
     setSession :: CSPMSession -> m ()
+    -- | This is called whenever warnings are emitted.
     handleWarnings :: [ErrorMessage] -> m ()
 
 -- | Executes an operation giving it access to the current 'CSPMSession'.
@@ -96,6 +185,7 @@ reportWarnings prog = withSession $ \ sess -> do
 -- prints out any warnings to stdout.
 type CSPM = StateT CSPMSession IO
 
+-- | Runs a 'CSPM' function, returning the result and the resulting session.
 unCSPM :: CSPMSession -> CSPM a -> IO (a, CSPMSession)
 unCSPM = flip runStateT
 
@@ -104,31 +194,33 @@ instance CSPMMonad CSPM where
     setSession = put
     handleWarnings ms = liftIO $ putStrLn $ show $ prettyPrint ms
 
--- Parser API
-parse :: CSPMMonad m => FilePath -> P.ParseMonad a -> m a
-parse dir p = liftIO $ P.runParser p dir
+-- | Runs the parser.
+runParserInCurrentState :: CSPMMonad m => FilePath -> P.ParseMonad a -> m a
+runParserInCurrentState dir p = liftIO $ P.runParser p dir
 
 -- | Parse a file `fp`. Throws a `SourceError` on any parse error.
 parseFile :: CSPMMonad m => FilePath -> m [PModule]
 parseFile fp =
     let (dir, fname) = splitFileName fp
-    in parse dir (P.parseFile fname)
+    in runParserInCurrentState dir (P.parseFile fname)
 
 -- | Parses a string, treating it as though it were a file. Throws a 
 -- 'SourceError' on any parse error.
 parseStringAsFile :: CSPMMonad m => String -> m [PModule]
-parseStringAsFile str = parse "" (P.parseStringAsFile str)
+parseStringAsFile str = runParserInCurrentState "" (P.parseStringAsFile str)
 
 -- | Parses a 'PInteractiveStmt'. Throws a 'SourceError' on any parse error.
 parseInteractiveStmt :: CSPMMonad m => String -> m PInteractiveStmt
-parseInteractiveStmt str = parse "" (P.parseInteractiveStmt str)
+parseInteractiveStmt str = 
+    runParserInCurrentState "" (P.parseInteractiveStmt str)
 
 -- | Parses an 'Exp'. Throws a 'SourceError' on any parse error.
 parseExpression :: CSPMMonad m => String -> m PExp
-parseExpression str = parse "" (P.parseExpression str)
+parseExpression str = runParserInCurrentState "" (P.parseExpression str)
 
 -- Renamer API
 
+-- | Runs renamer in the current state.
 runRenamerInCurrentState :: CSPMMonad m => RN.RenamerMonad a -> m a
 runRenamerInCurrentState p = withSession $ \s -> do
     (a, st) <- liftIO $ RN.runFromStateToState (rnState s) p
@@ -152,7 +244,9 @@ renameInteractiveStmt e = runRenamerInCurrentState $ do
     RN.rename e
 
 -- TypeChecker API
--- All the type checkers also perform desugaring
+
+-- | Runs the typechecker in the current state, saving the resulting state and
+-- returning any warnings encountered.
 runTypeCheckerInCurrentState :: CSPMMonad m => TC.TypeCheckMonad a -> m (a, [ErrorMessage])
 runTypeCheckerInCurrentState p = withSession $ \s -> do
     (a, ws, st) <- liftIO $ TC.runFromStateToState (tcState s) p
@@ -209,6 +303,8 @@ desugarInteractiveStmt :: CSPMMonad m => TCInteractiveStmt -> m TCInteractiveStm
 desugarInteractiveStmt s = return $ DS.desugar s
 
 -- Evaluator API
+
+-- | Runs the evaluator in the current state, saving the resulting state.
 runEvaluatorInCurrentState :: CSPMMonad m => EV.EvaluationMonad a -> m a
 runEvaluatorInCurrentState p = withSession $ \s -> do
     let (a, st) = EV.runFromStateToState (evState s) p

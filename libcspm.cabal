@@ -10,7 +10,29 @@ Category: Concurrency
 Build-type: Simple
 Cabal-version: >=1.9.2
 Synopsis: A library providing a parser, type checker and evaluator for CSPM.
-Version: 0.1.2
+Description:
+    This library provides a parser, type checker and evaluator for machine CSP.
+    The parser is designed to be compatible with FDR2 and, in particular, deals
+    with the ambiguity between greater than and end of sequence in the same way
+    (as far as possible, see "CSPM.Parser" for more information). The 
+    typechecker is as liberal as it is possible to make a typechecker without
+    making typechecking undecidable. Documentation on the type system is
+    forthcoming. The evaluator is relatively experimental, but should be able
+    to evaluate any CSPM expression that FDR2 can. The output of this phase
+    (if a process is evaluated) is a tree of CSP (note not CSPM) operator 
+    applications which should be suitable for input into a refinement checker, 
+    or other process algebraic tool.
+    .
+    The main module of interest will be the "CSPM" module. This packages up 
+    most of the functionality of the library in an easy to use, relatively
+    high level format. See "CSPM" for an example of how to use this module.
+    .
+    Version Numbering Policy: point releases (i.e. from @x.y.z@ to @x.y.z'@)
+    are guaranteed to be backwards compatible. Minor releases (i.e. 
+    from @x.y.z@ to @x.y'.z'@) will not be backwards compatible, but should be
+    relatively easy to port to. Major changes (i.e. from @x.y.z@ to @x'.y'.z'@)
+    will not be backwards compatible and may include large API redesigns.
+Version: 0.2.0
 Extra-source-files: 
     README.md,
     CHANGELOG.txt
