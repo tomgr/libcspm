@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
 -- | This module provides the main high-level interface to the library 
 -- functionality. It does this through a monadic interface, mainly due to the
 -- fact that several of the components require the use of the IO monad. It is
