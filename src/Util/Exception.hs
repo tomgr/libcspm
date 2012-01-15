@@ -6,7 +6,7 @@ module Util.Exception (
     MonadIOException(..),
     panic, throwSourceError,
     mkErrorMessage, mkWarningMessage, 
-    ErrorMessage, ErrorMessages,
+    ErrorMessage(..), ErrorMessages,
 )
 where
 
