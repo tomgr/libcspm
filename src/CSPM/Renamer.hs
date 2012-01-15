@@ -33,7 +33,8 @@ import Util.PrettyPrint hiding (($$))
 type RenameEnvironment = HM.HierarchicalMap UnRenamedName Name
 
 data RenamerState = RenamerState {
-        environment :: RenameEnvironment
+        environment :: RenameEnvironment,
+        srcSpan :: SrcSpan
     }
 
 type RenamerMonad = StateT RenamerState IO
@@ -44,7 +45,8 @@ initRenamer = do
     let bs = map (\b -> (UnQual (OccName (stringName b)), name b)) (builtins False)
     return $ RenamerState {
         -- We insert a new layer to allow builtins to be overridden
-        environment = HM.newLayer (HM.updateMulti HM.new bs)
+        environment = HM.newLayer (HM.updateMulti HM.new bs),
+        srcSpan = Unknown
     }
 
 -- | Runs the renamer starting at the given state and returning the given state.
@@ -80,6 +82,9 @@ setName rn n =
         environment = HM.update (environment st) rn n
     })
 
+setSrcSpan :: SrcSpan -> RenamerMonad ()
+setSrcSpan loc = modify (\ st -> st { srcSpan = loc })
+
 -- **********************
 -- Renaming Class and basic instances
 
@@ -94,7 +99,9 @@ instance Renamable e1 e2 => Renamable (Maybe e1) (Maybe e2) where
     rename Nothing = return Nothing
 
 instance Renamable e1 e2 => Renamable (Annotated a e1) (Annotated a e2) where
-    rename (An a b e) = rename e >>= return . An a b
+    rename (An a b e) = do
+        setSrcSpan a
+        rename e >>= return . An a b
 
 instance (Renamable e1 e2, Renamable e1' e2') => Renamable (e1, e1') (e2, e2') where
     rename (a, b) = do
@@ -273,8 +280,9 @@ checkDuplicates aps = do
         nameLocMap = 
             concatMap (\(ns, d) -> [(n, loc d) | n <- ns])  (zip fvss aps)
     
+    loc <- gets srcSpan
     if duped /= [] then
-        throwSourceError (map (mkErrorMessage Unknown) (duplicatedDefinitionsMessage nameLocMap))
+        throwSourceError (map (mkErrorMessage loc) (duplicatedDefinitionsMessage nameLocMap))
     else return ()
 
 -- | Rename a variable on the left hand side of a definition.
@@ -285,9 +293,10 @@ checkDuplicates aps = do
 renameVarRHS :: UnRenamedName -> RenamerMonad Name
 renameVarRHS n = do
     mn <- lookupName n
+    loc <- gets srcSpan
     case mn of
         Just x -> return x
-        Nothing -> throwSourceError [mkErrorMessage Unknown (varNotInScopeMessage n)]
+        Nothing -> throwSourceError [mkErrorMessage loc (varNotInScopeMessage n)]
 
 renameFields :: [PField] -> RenamerMonad a -> RenamerMonad ([TCField], a)
 renameFields fs inner = do
