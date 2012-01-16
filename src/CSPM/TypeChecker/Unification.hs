@@ -546,6 +546,10 @@ evaluateDots (TVar t) = do
 evaluateDots (TSet t) = evaluateDots t >>= return . TSet
 evaluateDots (TSeq t) = evaluateDots t >>= return . TSeq
 evaluateDots (TTuple ts) = mapM evaluateDots ts >>= return . TTuple
+evaluateDots (TFunction t1 t2) = do
+    t1' <- mapM evaluateDots t1
+    t2' <- evaluateDots t2
+    return $ TFunction t1' t2'
 evaluateDots t = do
     ts <- typeToDotList t
     ts <- mapM (\t -> compress t >>= return . toNormalForm) ts
