@@ -10,7 +10,7 @@ Category: Concurrency
 Build-type: Simple
 Cabal-version: >=1.9.2
 Synopsis: A command line type checker for CSPM files.
-Version: 0.2.0
+Version: 0.2.1
 
 Source-Repository head
     type:     git
@@ -21,7 +21,7 @@ Source-repository this
     type:     git
     location: git://github.com/tomgr/libcspm.git
     subdir:   cspmchecker
-    tag: release-0.2.0
+    tag: release-0.2.1
   
 Executable cspmchecker
     Main-is: Main.hs
@@ -31,7 +31,7 @@ Executable cspmchecker
 
     Build-depends: 
         base >= 4 && < 5,
-        libcspm >= 0.2.0,
+        libcspm >= 0.2.1,
         filepath >= 1.2,
         mtl >= 2.0,
         directory >= 1.0

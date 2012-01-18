@@ -32,7 +32,7 @@ Description:
     from @x.y.z@ to @x.y'.z'@) will not be backwards compatible, but should be
     relatively easy to port to. Major changes (i.e. from @x.y.z@ to @x'.y'.z'@)
     will not be backwards compatible and may include large API redesigns.
-Version: 0.2.0
+Version: 0.2.1
 Extra-source-files: 
     README.md,
     CHANGELOG.txt
@@ -44,7 +44,7 @@ Source-Repository head
 Source-repository this
     type:     git
     location: https://github.com/tomgr/libcspm
-    tag: release-0.2.0
+    tag: release-0.2.1
 
 Library
     Build-Depends:
