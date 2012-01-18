@@ -1,0 +1,8 @@
+datatype A = X.Int | Y
+
+f(g) = 
+    let
+        a = (X.0) == g(X.0)
+    within X.0
+
+test = f(\ x @ Y)
