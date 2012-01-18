@@ -1,3 +1,11 @@
+0.2.1 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> 2012-01-18
+    * Fixed a bug in the typechecker that prevented certain (uncommon)
+      functions that took function arguments that were polymorphic in dot from
+      being type checked.
+    * Exposed ErrorMessages to allow clients to present them more usefully.
+    * Added location information to renamer errors.
+    * Made compatible with GHC 7.0.4.
+
 0.2.0 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> 2012-01-04
     * Enhanced the evaluator:
         * Dot is not handled correctly;
