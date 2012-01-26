@@ -29,20 +29,23 @@ import Util.PrettyPrint
 -- | Type check a list of possibly mutually recursive functions
 typeCheckDecls :: [TCDecl] -> TypeCheckMonad ()
 typeCheckDecls decls = do
-    namesBoundByDecls <- mapM (\ decl -> do
-        namesBound <- namesBoundByDecl decl
-        return (decl, namesBound)) decls
-        
     let 
         -- | Map from declarations to integer identifiers
         declMap = zip decls [0..]
         invDeclMap = invert declMap
+
+    namesBoundByDecls <- mapM (\ (decl, declId) -> do
+        namesBound <- namesBoundByDecl decl
+        return (declId, namesBound)) declMap
+
+    let        
         -- | Map from names to the identifier of the declaration that it is
         -- defined by.
         varToDeclIdMap = 
-            [(n, apply declMap d) | (d, ns) <- namesBoundByDecls, n <- ns]
+            [(n, declId) | (declId, ns) <- namesBoundByDecls, n <- ns]
         boundVars = map fst varToDeclIdMap
-        namesToLocations = [(n, loc d) | (d, ns) <- namesBoundByDecls, n <- ns]
+        namesToLocations = [(n, loc $ apply invDeclMap declId) 
+                                | (declId, ns) <- namesBoundByDecls, n <- ns]
 
     -- Throw an error if a name is defined multiple times
     when (not (noDups boundVars)) $ panic "Duplicates found after renaming."
@@ -54,11 +57,11 @@ typeCheckDecls decls = do
 
     -- Map from decl id -> [decl id] meaning decl id depends on the list of
     -- ids
-    declDeps <- mapM (\ decl -> do
+    declDeps <- mapM (\ (decl, declId) -> do
             deps <- dependencies decl
             let depsInThisGroup = intersect deps boundVars
-            return (apply declMap decl, mapPF varToDeclIdMap depsInThisGroup)
-        ) decls
+            return (declId, mapPF varToDeclIdMap depsInThisGroup)
+        ) declMap
 
     let 
         -- | Edge from n -> n' iff n uses n'
