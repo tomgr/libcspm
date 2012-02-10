@@ -1,0 +1,12 @@
+DUMP(C) = STOP
+
+STOP =
+
+DUMP(B) = STOP
+
+Q(B) =
+    c.B.B -> DUMP(B) [] c.B.C -> [] c.C.B -> [] c.C.C -> DUMP(C)
+
+procTest2 = Q(B)
+
+procTest2

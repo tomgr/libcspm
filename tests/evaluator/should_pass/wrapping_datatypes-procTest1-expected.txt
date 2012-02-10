@@ -1,0 +1,9 @@
+STOP =
+
+DUMP(B) = STOP
+
+P(B) = x.B -> DUMP(B) [] x.C ->
+
+procTest1 = P(B)
+
+procTest1
