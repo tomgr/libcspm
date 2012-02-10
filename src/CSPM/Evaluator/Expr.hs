@@ -179,11 +179,15 @@ instance Evaluatable (Exp Name) where
             evalInputField2 evBase fs p evalRest procConstructor = 
                 let
                     -- | The function to use to generate the options. If this
-                    -- is the last field it uses 'extensions' to extend to a
-                    -- fully formed event, otherwise we use 'oneFieldExtensions'
-                    -- to extend by precisely one field.
-                    extensionsOperator =
-                        if fs == [] then extensions else oneFieldExtensions
+                    -- is the last field AND the last pattern in the current
+                    -- field it uses 'extensions' to extend to a fully formed 
+                    -- event, otherwise we use 'oneFieldExtensions' to extend 
+                    -- by precisely one field.
+                    extensionsOperator :: 
+                        [Pat Name] -> Value -> EvaluationMonad [Value]
+                    extensionsOperator ps | fs /= [] = oneFieldExtensions
+                    extensionsOperator [p] = extensions 
+                    extensionsOperator (p1:p2:ps) = oneFieldExtensions
                     
                     -- | Converts a pattern to its constituent fields.
                     patToFields :: Pat Name -> [Pat Name]
@@ -203,7 +207,7 @@ instance Evaluatable (Exp Name) where
                         evBase' <- combineDots evBase dc
                         evExtensions evBase' ps
                     evExtensions evBase (p:ps) = do
-                        vs <- extensionsOperator evBase
+                        vs <- extensionsOperator (p:ps) evBase
                         mps <- mapM (\v -> do
                                 let (matches, bs) = bind p v
                                 if matches then do
