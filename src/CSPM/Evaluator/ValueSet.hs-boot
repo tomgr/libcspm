@@ -1,11 +1,14 @@
 module CSPM.Evaluator.ValueSet where
 
+import Data.Hashable
+
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.PrettyPrint
 
 data ValueSet
 
 instance Eq ValueSet
+instance Hashable ValueSet
 instance Ord ValueSet
 instance PrettyPrintable ValueSet
 

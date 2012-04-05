@@ -13,6 +13,7 @@ module CSPM.DataStructures.Names (
 ) where
 
 import Control.Monad.Trans
+import Data.Hashable
 import Data.IORef
 import Data.Supply
 import Data.Typeable
@@ -83,6 +84,9 @@ data NameType =
 
 instance Eq Name where
     n1 == n2 = nameUnique n1 == nameUnique n2
+
+instance Hashable Name where
+    hash n = nameUnique n
 
 instance Ord Name where
     compare n1 n2 = compare (nameUnique n1) (nameUnique n2)

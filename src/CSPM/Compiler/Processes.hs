@@ -11,6 +11,7 @@ import qualified CSPM.Compiler.Set as S
 import CSPM.Compiler.Events
 import CSPM.DataStructures.Names
 import {-# SOURCE #-} CSPM.Evaluator.Values
+import Data.Hashable
 import Util.PrettyPrint
 
 -- | ProcNames uniquely identify processes.
@@ -24,6 +25,8 @@ data ProcName = ProcName {
 
 instance Eq ProcName where
     pn1 == pn2 = name pn1 == name pn2 && arguments pn1 == arguments pn2
+instance Hashable ProcName where
+    hash (ProcName n vss) = combine (hash n) (hash vss)
 instance PrettyPrintable ProcName where
     prettyPrint (ProcName n args) =
         prettyPrint n

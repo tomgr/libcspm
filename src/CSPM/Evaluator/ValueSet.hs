@@ -23,6 +23,7 @@ module CSPM.Evaluator.ValueSet (
 where
 
 import Control.Monad
+import Data.Hashable
 import qualified Data.Set as S
 
 import CSPM.Evaluator.Exceptions
@@ -46,6 +47,13 @@ data ValueSet =
     | CompositeSet ValueSet ValueSet
     -- Only used for the internal set representation
     deriving Ord
+
+instance Hashable ValueSet where
+    hash Integers = 1
+    hash Processes = 2
+    hash (ExplicitSet s) = combine 3 (hash (S.toList s))
+    hash (IntSetFrom lb) = combine 4 lb
+    hash (CompositeSet vs1 vs2) = panic "Hash of an infinite set"
 
 instance Eq ValueSet where
     s1 == s2 = compareValueSets s1 s2 == Just EQ

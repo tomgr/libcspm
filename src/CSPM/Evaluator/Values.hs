@@ -10,6 +10,7 @@ module CSPM.Evaluator.Values (
 
 import Control.Monad
 import Data.Foldable (foldrM)
+import Data.Hashable
 
 import CSPM.Compiler.Events
 import CSPM.Compiler.Processes
@@ -39,6 +40,19 @@ data Value =
     | VSet ValueSet
     | VFunction ([Value] -> EvaluationMonad Value)
     | VProc Proc
+
+instance Hashable Value where
+    hash (VInt i) = combine 1 (hash i)
+    hash (VBool b) = combine 2 (hash b)
+    hash (VTuple vs) = combine 5 (hash vs)
+    hash (VDot vs) = combine 6 (hash vs)
+    hash (VChannel n) = combine 7 (hash n)
+    hash (VDataType n) = combine 8 (hash n)
+    hash (VList vs) = combine 9 (hash vs)
+    hash (VSet vset) = combine 10 (hash vset)
+    hash (VFunction f) = panic "Cannot hash a function"
+    hash (VProc (PProcCall n _)) = combine 12 (hash n)
+    hash (VProc _) = panic "Cannot hash a process"
 
 instance Eq Value where
     VInt i1 == VInt i2 = i1 == i2

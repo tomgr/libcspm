@@ -6,6 +6,7 @@ module CSPM.Compiler.Events (
 
 import qualified CSPM.Compiler.Map as M
 import qualified CSPM.Compiler.Set as S
+import Data.Hashable
 import Util.PrettyPrint
 
 -- | Events, as represented in the LTS.
@@ -18,6 +19,10 @@ data Event =
     | UserEvent String
     deriving (Eq, Ord)
 
+instance Hashable Event where
+    hash Tau = 1
+    hash Tick = 2
+    hash (UserEvent vs) = combine 3 (hash vs)
 instance PrettyPrintable Event where
     prettyPrint Tau = char 'τ'
     prettyPrint Tick = char '✓'
