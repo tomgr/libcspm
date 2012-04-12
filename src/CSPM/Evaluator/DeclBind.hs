@@ -22,26 +22,28 @@ import Util.Exception
 import qualified Util.List as UL
 import Util.Monad
 
+import Debug.Trace
+
 -- | Given a list of declarations, returns a sequence of names bounds to
 -- values that can be passed to 'addScopeAndBind' in order to bind them in
 -- the current scope.
 bindDecls :: [TCDecl] -> EvaluationMonad [(Name, EvaluationMonad Value)]
-bindDecls ds =
-    let
-        nvs = concatMap bindDecl ds
-        eventsName = builtInName "Events"
+bindDecls ds = do
+    nvs <- concatMapM bindDecl ds 
+    let eventsName = builtInName "Events"
         (eventNvs, normalNvs) = partition (\x -> fst x == eventsName) nvs
         computeEvents vs = do
             vss <- sequence (map snd eventNvs)
             return $ VSet $ unions $ vs : map (\ (VSet s) -> s) vss
-    in do
-        -- Lookup the existing value of events and add to it
-        VSet vs <- lookupVar eventsName
-        return $ (eventsName, computeEvents vs)  : normalNvs
 
-bindDecl :: TCDecl -> [(Name, EvaluationMonad Value)]
-bindDecl (an@(An _ _ (FunBind n ms))) = [(n, collectArgs argGroupCount [])]
-    where
+    -- Lookup the existing value of events and add to it
+    VSet vs <- lookupVar eventsName
+    return $ (eventsName, computeEvents vs)  : normalNvs
+
+bindDecl :: TCDecl -> EvaluationMonad [(Name, EvaluationMonad Value)]
+bindDecl (an@(An _ _ (FunBind n ms))) = do
+    parentPid <- getParentProcName
+    let
         mss = map unAnnotate ms
         argGroupCount = head (map (\ (Match pss e) -> length pss) mss)
         collectArgs :: Int -> [[Value]] -> EvaluationMonad Value
@@ -57,20 +59,22 @@ bindDecl (an@(An _ _ (FunBind n ms))) = [(n, collectArgs argGroupCount [])]
                 rs :: [([(Name, Value)], TCExp)]
                 rs = [(bs, e) | ((True, bs), e) <- bss]
             case rs of
-                ((binds, exp):_) ->
-                    addScopeAndBind binds (do
+                ((binds, exp):_) -> do
+                    let pn = procId n ass parentPid
+                    addScopeAndBind binds $ updateParentProcName pn $ do
                         v <- eval exp
-                        case v of
-                            VProc p -> 
-                                return $ VProc $ PProcCall (procId n ass) p
-                            _ -> return v)
+                        return $ case v of
+                                    VProc p -> VProc $ PProcCall pn p
+                                    _ -> v
                 _       -> throwError $ 
                     funBindPatternMatchFailureMessage (loc an) n ass
             where
                 ass = reverse ass_
         collectArgs n ass =
             return $ VFunction $ \ vs -> collectArgs (n-1) (vs:ass)
-bindDecl (an@(An _ _ (PatBind p e))) =
+    return $ [(n, collectArgs argGroupCount [])]
+bindDecl (an@(An _ _ (PatBind p e))) = do
+    parentPid <- getParentProcName
     let
         -- We put p inside the unsafePerformIO simply to prevent it being
         -- lifed out of the lambda (and thus only being performed once).
@@ -84,8 +88,13 @@ bindDecl (an@(An _ _ (PatBind p e))) =
                         (True, nvs) -> nvs
                         (False, _) -> throwError $ 
                             patternMatchFailureMessage (loc an) p v
-            return $ head [v | (n', v) <- nvs, n' == n]
-    in (nV, eval e):[(fv, extractor fv) | fv <- freeVars p]
+                val = head [v | (n', v) <- nvs, n' == n]
+            -- We don't need to update the parent proc name as the renamer
+            -- disambiguates things for us
+            return $ case val of
+                        VProc p -> VProc $ PProcCall (procId n [] parentPid) p
+                        _ -> val
+    return $ (nV, eval e):[(fv, extractor fv) | fv <- freeVars p]
 bindDecl (an@(An _ _ (Channel ns me))) =
     let
         mkChan :: Name -> EvaluationMonad Value
@@ -101,7 +110,7 @@ bindDecl (an@(An _ _ (Channel ns me))) =
             ss <- mapM (\ n -> completeEvent (VDot [VChannel n])) ns
             return $ VSet (unions ss)
     -- We bind to events here, and this is picked up in bindDecls
-    in (builtInName "Events", eventSetValue) : [(n, mkChan n) | n <- ns]
+    in return $ (builtInName "Events", eventSetValue) : [(n, mkChan n) | n <- ns]
 bindDecl (an@(An _ _ (DataType n cs))) =
     let
         mkDataTypeClause :: DataTypeClause Name -> (Name, EvaluationMonad Value)
@@ -121,15 +130,15 @@ bindDecl (an@(An _ _ (DataType n cs))) =
             in do
                 vs <- concatMapM mkSet [nc | DataTypeClause nc _ <- map unAnnotate cs]
                 return $ VSet (fromList vs)
-    in (n, computeSetOfValues):(map mkDataTypeClause (map unAnnotate cs))
-bindDecl (an@(An _ _ (NameType n e))) =
+    in return $ (n, computeSetOfValues):(map mkDataTypeClause (map unAnnotate cs))
+bindDecl (an@(An _ _ (NameType n e))) = return $
     [(n, do
         v <- eval e
         return $ VSet $ evalTypeExpr v)]
 
-bindDecl (an@(An _ _ (Assert _))) = []
-bindDecl (an@(An _ _ (External ns))) = []
-bindDecl (an@(An _ _ (Transparent ns))) = []
+bindDecl (an@(An _ _ (Assert _))) = return []
+bindDecl (an@(An _ _ (External ns))) = return []
+bindDecl (an@(An _ _ (Transparent ns))) = return []
 
 evalTypeExpr :: Value -> ValueSet
 evalTypeExpr (VSet s) = s

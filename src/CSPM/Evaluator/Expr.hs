@@ -150,11 +150,7 @@ instance Evaluatable (Exp Name) where
     eval (Var n) | isNameDataConstructor n = do
         VTuple [dc, _, _] <- lookupVar n
         return dc
-    eval (Var n) = do
-        v <- lookupVar n
-        case v of
-            VProc p -> return $ VProc $ PProcCall (procId n []) p
-            _       -> return v
+    eval (Var n) = lookupVar n
 
     -- This is the most complicated process because it is actually a shorthand
     -- for external choice and internal choice.

@@ -27,7 +27,7 @@ runFromStateToState st prog = runEvaluator st $ do
 -- | The environment to use initially. This uses the IO monad as 
 -- the EvaluationMonad cannot be used without a valid environment.
 initEvaluator :: EvaluationState
-initEvaluator = runEvaluator (EvaluationState new) $
+initEvaluator = runEvaluator (EvaluationState new Nothing) $
     injectBuiltInFunctions getState
 
 evaluateExp :: TCExp -> EvaluationMonad Value

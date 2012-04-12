@@ -1,6 +1,4 @@
-STOP =
-
-DUMP(B) = STOP
+DUMP(B) =
 
 P(B) = x.B -> DUMP(B) [] x.C ->
 

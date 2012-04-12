@@ -1,7 +1,7 @@
 module CSPM.Evaluator.Values (
     Value(..), Proc(..), ProcOperator(..), Event(..),
     compareValues,
-    procId,
+    procId, procId',
     valueEventToEvent,
     combineDots,
     extensions, oneFieldExtensions,
@@ -216,8 +216,11 @@ combineDots v1 v2 =
         -- Split v2 up into its composite fields and then dot them onto v1.
         dotManyFieldsOn v1 (splitIntoFields v2)
 
-procId :: Name -> [[Value]] -> ProcName
-procId n vss = ProcName n vss
+procId :: Name -> [[Value]] -> Maybe ProcName -> ProcName
+procId n vss pn = ProcName n vss pn
+
+procId' :: Name -> [[Value]] -> ProcName
+procId' n vss = ProcName n vss Nothing
 
 -- | This assumes that the value is a VDot with the left is a VChannel
 valueEventToEvent :: Value -> Event

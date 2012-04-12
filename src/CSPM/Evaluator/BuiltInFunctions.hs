@@ -49,10 +49,10 @@ builtInFunctions =
         csp_chaos [VSet a] = VProc chaosCall
             where
                 chaosCall = PProcCall n p
-                n = procId (nameForString "CHAOS") [[VSet a]]
+                n = procId' (nameForString "CHAOS") [[VSet a]]
                 evSet = S.valueSetToEventSet a
                 branches = [PPrefix ev chaosCall | ev <- CS.toList evSet]
-                stopProc = PProcCall (procId (nameForString "STOP") []) csp_stop
+                stopProc = PProcCall (procId' (nameForString "STOP") []) csp_stop
                 p = PInternalChoice (stopProc:branches)
         
         cspm_extensions [v] = do
@@ -105,12 +105,14 @@ builtInFunctions =
 
         procs = [
             ("STOP", csp_stop),
-            ("SKIP", PPrefix Tick (PProcCall csp_stop_id csp_stop))
+            ("SKIP", csp_skip)
             ]
         
-        csp_skip_id = procId (nameForString "SKIP") []
-        csp_stop_id = procId (nameForString "STOP") []
+        csp_skip_id = procId' (nameForString "SKIP") []
+        csp_stop_id = procId' (nameForString "STOP") []
+        -- We actually inline stop, for efficiency
         csp_stop = PExternalChoice []
+        csp_skip = PPrefix Tick (PExternalChoice [])
         
         mkProc (s, p) = (nameForString s, VProc p)
         

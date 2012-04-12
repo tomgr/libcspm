@@ -84,11 +84,6 @@ instance Bindable (Pat Name) where
     bind (PTuple ps) (VTuple vs) = do
         -- NB: len ps == len vs by typechecker
         bindAll ps vs
--- TODO, the following two cases are wrong, consider calling f(x) = x
--- with f(done). ARGH.
---    bind (PVar n) (VChannel n') = return (n == n', []) 
---    bind (PVar n) (VDataType n') = return (n == n', [])
--- Must just be a normal variable
     bind (PVar n) v | isNameDataConstructor n = 
         case v of
             VChannel n' -> (n == n', [])

@@ -1,8 +1,6 @@
-DUMP(C) = STOP
+DUMP(C) =
 
-STOP =
-
-DUMP(B) = STOP
+DUMP(B) =
 
 Q(B) =
     c.B.B -> DUMP(B) [] c.B.C -> [] c.C.B -> [] c.C.C -> DUMP(C)

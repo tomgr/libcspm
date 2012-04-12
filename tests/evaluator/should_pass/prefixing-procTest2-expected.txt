@@ -1,52 +1,50 @@
-Dump((1, true, Y.1.true)) = STOP
+Dump((1, true, Y.1.true)) =
 
-Dump((1, true, Y.1.false)) = STOP
+Dump((1, true, Y.1.false)) =
 
-Dump((1, true, Y.0.true)) = STOP
+Dump((1, true, Y.0.true)) =
 
-Dump((1, true, Y.0.false)) = STOP
+Dump((1, true, Y.0.false)) =
 
-Dump((1, true, X.1)) = STOP
+Dump((1, true, X.1)) =
 
-Dump((1, true, X.0)) = STOP
+Dump((1, true, X.0)) =
 
-Dump((1, false, Y.1.true)) = STOP
+Dump((1, false, Y.1.true)) =
 
-Dump((1, false, Y.1.false)) = STOP
+Dump((1, false, Y.1.false)) =
 
-Dump((1, false, Y.0.true)) = STOP
+Dump((1, false, Y.0.true)) =
 
-Dump((1, false, Y.0.false)) = STOP
+Dump((1, false, Y.0.false)) =
 
-Dump((1, false, X.1)) = STOP
+Dump((1, false, X.1)) =
 
-Dump((1, false, X.0)) = STOP
+Dump((1, false, X.0)) =
 
-Dump((0, true, Y.1.true)) = STOP
+Dump((0, true, Y.1.true)) =
 
-Dump((0, true, Y.1.false)) = STOP
+Dump((0, true, Y.1.false)) =
 
-Dump((0, true, Y.0.true)) = STOP
+Dump((0, true, Y.0.true)) =
 
-Dump((0, true, Y.0.false)) = STOP
+Dump((0, true, Y.0.false)) =
 
-Dump((0, true, X.1)) = STOP
+Dump((0, true, X.1)) =
 
-Dump((0, true, X.0)) = STOP
+Dump((0, true, X.0)) =
 
-Dump((0, false, Y.1.true)) = STOP
+Dump((0, false, Y.1.true)) =
 
-Dump((0, false, Y.1.false)) = STOP
+Dump((0, false, Y.1.false)) =
 
-Dump((0, false, Y.0.true)) = STOP
+Dump((0, false, Y.0.true)) =
 
-Dump((0, false, Y.0.false)) = STOP
+Dump((0, false, Y.0.false)) =
 
-Dump((0, false, X.1)) = STOP
+Dump((0, false, X.1)) =
 
-STOP =
-
-Dump((0, false, X.0)) = STOP
+Dump((0, false, X.0)) =
 
 procTest2 =
     d.Y.0.false.X.0 -> Dump((0, false, X.0))

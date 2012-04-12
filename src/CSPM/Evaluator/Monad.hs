@@ -3,6 +3,7 @@ module CSPM.Evaluator.Monad where
 --import Control.Monad.State
 import Prelude hiding (lookup)
 
+import CSPM.Compiler.Processes
 import CSPM.DataStructures.Names
 import CSPM.Evaluator.Environment
 import {-# SOURCE #-} CSPM.Evaluator.Values
@@ -10,7 +11,8 @@ import Util.Exception
 
 data EvaluationState = 
     EvaluationState {
-        environment :: Environment
+        environment :: Environment,
+        parentProcName :: Maybe ProcName
     }
     
 type EvaluationMonad = LazyEvalMonad EvaluationState
@@ -70,3 +72,10 @@ addScopeAndBindM binds prog = do
 
 throwError :: ErrorMessage -> a
 throwError err = throwSourceError [err]
+
+getParentProcName :: EvaluationMonad (Maybe ProcName)
+getParentProcName = gets parentProcName
+
+updateParentProcName :: ProcName -> EvaluationMonad a -> EvaluationMonad a
+updateParentProcName pn prog =
+    modify (\ st -> st { parentProcName = Just pn }) prog
