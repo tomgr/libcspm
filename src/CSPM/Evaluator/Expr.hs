@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module CSPM.Evaluator.Expr (
-    Evaluatable, eval,
+    Evaluatable, eval, completeEvent,
 ) where
 
 import Control.Monad.Trans
@@ -92,7 +92,9 @@ instance Evaluatable (Exp Name) where
                 addScopeAndBind binds (eval e)
             else
                 throwError $ patternMatchFailureMessage (loc p) p v
-    eval (Let decls e) = addScopeAndBindM (bindDecls decls) (eval e)
+    eval (Let decls e) = do
+        nvs <- bindDecls decls
+        addScopeAndBindM nvs (eval e)
     eval (Lit lit) = return $
         case lit of
             Int i -> VInt i

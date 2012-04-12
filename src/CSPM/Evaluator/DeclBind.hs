@@ -1,15 +1,16 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module CSPM.Evaluator.DeclBind (
     bindDecls, 
-    --valuesForChannel, valuesForDataTypeClause,
 ) where
 
 import Control.Monad
+import Data.List (partition)
 import Data.Maybe
 import System.IO.Unsafe
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
+import CSPM.Evaluator.BuiltInFunctions
 import CSPM.Evaluator.Exceptions
 import {-# SOURCE #-} CSPM.Evaluator.Expr
 import CSPM.Evaluator.Monad
@@ -24,8 +25,19 @@ import Util.Monad
 -- | Given a list of declarations, returns a sequence of names bounds to
 -- values that can be passed to 'addScopeAndBind' in order to bind them in
 -- the current scope.
-bindDecls :: [TCDecl] -> [(Name, EvaluationMonad Value)]
-bindDecls ds = concatMap bindDecl ds
+bindDecls :: [TCDecl] -> EvaluationMonad [(Name, EvaluationMonad Value)]
+bindDecls ds =
+    let
+        nvs = concatMap bindDecl ds
+        eventsName = builtInName "Events"
+        (eventNvs, normalNvs) = partition (\x -> fst x == eventsName) nvs
+        computeEvents vs = do
+            vss <- sequence (map snd eventNvs)
+            return $ VSet $ unions $ vs : map (\ (VSet s) -> s) vss
+    in do
+        -- Lookup the existing value of events and add to it
+        VSet vs <- lookupVar eventsName
+        return $ (eventsName, computeEvents vs)  : normalNvs
 
 bindDecl :: TCDecl -> [(Name, EvaluationMonad Value)]
 bindDecl (an@(An _ _ (FunBind n ms))) = [(n, collectArgs argGroupCount [])]
@@ -84,7 +96,12 @@ bindDecl (an@(An _ _ (Channel ns me))) =
             
             let arity = fromIntegral (length vss)
             return $ VTuple [VDot [VChannel n], VInt arity, VList (map VList vss)]
-    in [(n, mkChan n) | n <- ns]
+        eventSetValue :: EvaluationMonad Value
+        eventSetValue = do
+            ss <- mapM (\ n -> completeEvent (VDot [VChannel n])) ns
+            return $ VSet (unions ss)
+    -- We bind to events here, and this is picked up in bindDecls
+    in (builtInName "Events", eventSetValue) : [(n, mkChan n) | n <- ns]
 bindDecl (an@(An _ _ (DataType n cs))) =
     let
         mkDataTypeClause :: DataTypeClause Name -> (Name, EvaluationMonad Value)

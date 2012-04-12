@@ -47,10 +47,6 @@ getState = gets id
 getEnvironment :: EvaluationMonad Environment
 getEnvironment = gets environment
 
---setEnvironment :: Environment -> EvaluationMonad ()
---setEnvironment env =
---  modify (\ st -> st { environment = env })
-
 lookupVar :: Name -> EvaluationMonad Value
 lookupVar n = do
     -- This should never produce an error as the TC would
@@ -74,9 +70,3 @@ addScopeAndBindM binds prog = do
 
 throwError :: ErrorMessage -> a
 throwError err = throwSourceError [err]
-
--- the problem here is that in order to get st', we need env', which requires
--- bs. However, bs requires st', which is not a problem intself if something
--- is lazy, but if binds does a lookup in the environment (which it does)
--- then this will break it?
-

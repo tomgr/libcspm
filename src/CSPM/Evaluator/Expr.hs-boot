@@ -14,3 +14,4 @@ class Evaluatable a where
 instance Evaluatable a => Evaluatable (Annotated b a)
 instance Evaluatable (Exp Name)
 
+completeEvent :: Value -> EvaluationMonad ValueSet

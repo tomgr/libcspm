@@ -35,11 +35,11 @@ evaluateExp e = eval e
 
 -- | Evaluates the declaration but doesn't add it to the current environment.
 evaluateDecl :: TCDecl -> EvaluationMonad [(Name, EvaluationMonad Value)]
-evaluateDecl d = return $ bindDecls [d]
+evaluateDecl d = bindDecls [d]
 
 -- | Evaluates the declaration but doesn't add it to the current environment.
 evaluateFile :: [TCModule] -> EvaluationMonad [(Name, EvaluationMonad Value)]
-evaluateFile ms = return $ bindModules ms
+evaluateFile ms = bindModules ms
 
 getBoundNames :: EvaluationMonad [Name]
 getBoundNames = 

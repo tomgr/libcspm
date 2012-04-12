@@ -122,7 +122,7 @@ builtInFunctions =
         cspm_Bool = ("Bool", VSet (S.fromList [snd cspm_true, snd cspm_false]))
         cspm_Int = ("Int", VSet S.Integers)
         cspm_Proc = ("Proc", VSet S.Processes)
-        cspm_Events = ("Events", panic "Events not implemented")
+        cspm_Events = ("Events", VSet (S.fromList []))
 
         constants = [
             cspm_true, cspm_false, cspm_True, cspm_False,

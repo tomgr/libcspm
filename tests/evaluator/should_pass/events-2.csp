@@ -1,0 +1,8 @@
+channel a
+channel b : {0,1,2}
+datatype Foo = A | B
+channel c : Foo
+
+test2 = Events == {| a, b, c |}
+test3 = member(c.A, Events) == true
+test4 = let x = 1 within member(c.A, Events) == true
