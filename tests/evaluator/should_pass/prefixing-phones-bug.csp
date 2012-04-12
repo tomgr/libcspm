@@ -1,0 +1,5 @@
+datatype X = A.{0}
+
+channel b : {0}.X
+
+procTest1 = b.0.A!0 -> STOP
