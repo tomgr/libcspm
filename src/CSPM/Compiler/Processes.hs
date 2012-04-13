@@ -15,7 +15,8 @@ import Data.Hashable
 import Util.PrettyPrint
 
 -- | ProcNames uniquely identify processes.
-data ProcName = ProcName {
+data ProcName =
+    ProcName {
         -- | The name of this process (recal Name s are unique).
         name :: Name,
         -- | The arguments applied to this process, in case it was a function
@@ -24,20 +25,29 @@ data ProcName = ProcName {
         -- | The parent of this proc name. This is used in let expressions.
         parent :: Maybe ProcName
     }
+    -- | A proccess that has no name, but needs disambgiuation. These are
+    -- used in prefixing to avoid problems with things like:
+    -- P = c?x -> (let Q = ... within Q) as the ... can depend on x.
+    | AnnonymousProcName {
+        arguments :: [[Value]],
+        parent :: Maybe ProcName
+    }
+    deriving Eq
 
-instance Eq ProcName where
-    pn1 == pn2 = 
-        name pn1 == name pn2 
-        && arguments pn1 == arguments pn2
-        && parent pn1 == parent pn2
 instance Hashable ProcName where
-    hash (ProcName n vss p) = combine (hash n) (combine (hash vss) (hash p))
+    hash (ProcName n vss p) = combine 1 (combine (hash n) (combine (hash vss) (hash p)))
+    hash (AnnonymousProcName as ps) = combine 2 (combine (hash as) (hash ps))
 instance PrettyPrintable ProcName where
     prettyPrint (ProcName n args Nothing) =
         prettyPrint n
         <> hcat (map (\as -> parens (list (map prettyPrint as))) args)
     prettyPrint (ProcName n args (Just pn)) =
         prettyPrint pn <> colon<>colon <> prettyPrint (ProcName n args Nothing)
+    prettyPrint (AnnonymousProcName args Nothing) =
+        text "ANNON"
+        <> hcat (map (\as -> parens (list (map prettyPrint as))) args)
+    prettyPrint (AnnonymousProcName args (Just pn)) =
+        prettyPrint pn <> colon<>colon <> prettyPrint (AnnonymousProcName args Nothing)
 instance Show ProcName where
     show pn = show (prettyPrint pn)
 

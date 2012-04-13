@@ -1,0 +1,7 @@
+ANNON(c.1)::Q = c.1 ->
+
+ANNON(c.0)::Q = c.0 ->
+
+procTest2 = c.0 -> ANNON(c.0)::Q [] c.1 -> ANNON(c.1)::Q
+
+procTest2

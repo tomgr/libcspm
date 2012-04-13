@@ -1,7 +1,7 @@
 module CSPM.Evaluator.Values (
     Value(..), Proc(..), ProcOperator(..), Event(..),
     compareValues,
-    procId, procId',
+    procId, annonymousProcId,
     valueEventToEvent,
     combineDots,
     extensions, oneFieldExtensions,
@@ -219,8 +219,8 @@ combineDots v1 v2 =
 procId :: Name -> [[Value]] -> Maybe ProcName -> ProcName
 procId n vss pn = ProcName n vss pn
 
-procId' :: Name -> [[Value]] -> ProcName
-procId' n vss = ProcName n vss Nothing
+annonymousProcId :: [[Value]] -> Maybe ProcName -> ProcName
+annonymousProcId vss pn = AnnonymousProcName vss pn
 
 -- | This assumes that the value is a VDot with the left is a VChannel
 valueEventToEvent :: Value -> Event

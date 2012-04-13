@@ -3,3 +3,5 @@ channel c : {0, 1}
 P(x) = let Q = c.x -> STOP within Q
 
 procTest1 = P(0) ||| P(1)
+
+procTest2 = c?x -> let Q = c!x -> STOP within Q

@@ -238,8 +238,10 @@ instance Evaluatable (Exp Name) where
             evalFields :: Value -> [Field Name] -> EvaluationMonad Proc
             evalFields ev [] = do
                 -- TODO: check valid event
-                p <- evalProc e2
-                return $ PPrefix (valueEventToEvent ev) p
+                p <- getParentProcName
+                updateParentProcName (annonymousProcId [[ev]] p) $ do
+                    p <- evalProc e2
+                    return $ PPrefix (valueEventToEvent ev) p
             evalFields evBase (Output e:fs) = do
                 v <- eval e
                 ev' <- combineDots evBase v
