@@ -181,14 +181,10 @@ combineDots v1 v2 =
 
         -- | Dots the two values together, ensuring that if either the left or
         -- the right value is a dot list combines them into one dot list.
+        -- This function assumes that any data values are not meant to be split
+        -- apart.
         dotAndReduce :: Value -> Value -> Value
-        dotAndReduce (VDot (VDataType n1:vs1)) (VDot (VDataType n2:vs2)) =
-            VDot [VDot (VDataType n1:vs1), VDot (VDataType n2:vs2)]
-        dotAndReduce (VDot (VDataType n1:vs1)) (VDot vs2) =
-            VDot (VDot (VDataType n1:vs1) : vs2)
-        dotAndReduce (VDot vs1) (VDot (VDataType n2:vs2)) =
-            VDot (vs1 ++ [VDot (VDataType n2:vs2)])
-        dotAndReduce v1 v2 = VDot [v1, v2]
+        dotAndReduce v1 v2 = VDot (splitIntoFields v1 ++ splitIntoFields v2)
 
         -- | Given a base value and the value of a field dots the field onto
         -- the right of the base. Assumes that the value provided is a field.
@@ -215,7 +211,7 @@ combineDots v1 v2 =
     in
         -- Split v2 up into its composite fields and then dot them onto v1.
         dotManyFieldsOn v1 (splitIntoFields v2)
-
+        
 procId :: Name -> [[Value]] -> Maybe ProcName -> ProcName
 procId n vss pn = ProcName n vss pn
 

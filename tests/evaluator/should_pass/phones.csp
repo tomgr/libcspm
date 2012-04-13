@@ -1,0 +1,18 @@
+channel called:{0}.{0}.{0}.{0}
+channel calledp:{0}.{0}.{0}
+
+AP(n) = {|called.n|} 
+
+flatten(called.x.y.c.D) = calledp.x.y.c
+
+
+UAP(n) = {flatten(x) | x <- AP(n)}
+
+flatten2(called.x.y.c.D) = (x, y, c, D)
+flatten2(calledp.x.y.c) = (x, y, c, 0)
+
+test1 = flatten2(flatten(called.0.0.0.0)) == (0,0,0,0)
+test2 = 
+    let
+        {x} = UAP(0)
+    within flatten2(x) == (0, 0, 0, 0)
