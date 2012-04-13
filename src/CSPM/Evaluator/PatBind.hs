@@ -67,9 +67,8 @@ instance Bindable (Pat Name) where
                     (b1, nvs1) = bind p v
                     (b2, nvs2) = matchCompDot ps vs
                 in (b1 && b2, nvs1++nvs2)
-            
-            r = matchCompDot (map unAnnotate ps) vs
-        in r
+            matchCompDot _ _ = (False, [])
+        in matchCompDot (map unAnnotate ps) vs
     bind (PDoublePattern p1 p2) v =
         let
             (m1, b1) = bind p1 v
