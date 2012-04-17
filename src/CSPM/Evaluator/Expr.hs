@@ -157,8 +157,8 @@ instance Evaluatable (Exp Name) where
     eval (Prefix e1 fs e2) =
         let
             evalInputField :: Value -> [Field Name] -> TCPat -> S.ValueSet -> 
-                (Value -> [Field Name] -> EvaluationMonad Proc) ->
-                EvaluationMonad [Proc]
+                (Value -> [Field Name] -> EvaluationMonad UProc) ->
+                EvaluationMonad [UProc]
             evalInputField evBase fs p s evalRest = do
                 mps <- mapM (\v -> do
                     let (matches, binds) = bind p v
@@ -172,8 +172,8 @@ instance Evaluatable (Exp Name) where
             -- | Evalutates an input field, deducing the correct set of values
             -- to input over.
             evalInputField2 :: Value -> [Field Name] -> Pat Name -> 
-                (Value -> [Field Name] -> EvaluationMonad Proc) ->
-                ([Proc] -> Proc) -> EvaluationMonad Proc
+                (Value -> [Field Name] -> EvaluationMonad UProc) ->
+                ([UProc] -> UProc) -> EvaluationMonad UProc
             evalInputField2 evBase fs p evalRest procConstructor = 
                 let
                     -- | The function to use to generate the options. If this
@@ -196,7 +196,7 @@ instance Evaluatable (Exp Name) where
                     -- | Given a value and a list of patterns (from 
                     -- 'patToFields') computes the appropriate set of events and
                     -- then evaluates it.
-                    evExtensions :: Value -> [Pat Name] -> EvaluationMonad [Proc]
+                    evExtensions :: Value -> [Pat Name] -> EvaluationMonad [UProc]
                     evExtensions evBase [] = do
                         p <- evalRest evBase fs
                         return [p]
@@ -226,7 +226,7 @@ instance Evaluatable (Exp Name) where
                     ps <- evExtensions evBase (patToFields p)
                     return $ procConstructor ps
 
-            evalNonDetFields :: Value -> [Field Name] -> EvaluationMonad Proc
+            evalNonDetFields :: Value -> [Field Name] -> EvaluationMonad UProc
             evalNonDetFields evBase (NonDetInput p (Just e):fs) = do
                 VSet s <- eval e
                 ps <- evalInputField evBase fs p s evalNonDetFields
@@ -235,7 +235,7 @@ instance Evaluatable (Exp Name) where
                 evalInputField2 evBase fs (unAnnotate p) evalNonDetFields PInternalChoice
             evalNonDetFields evBase fs = evalFields evBase fs
 
-            evalFields :: Value -> [Field Name] -> EvaluationMonad Proc
+            evalFields :: Value -> [Field Name] -> EvaluationMonad UProc
             evalFields ev [] = do
                 -- TODO: check valid event
                 p <- getParentProcName
@@ -256,7 +256,7 @@ instance Evaluatable (Exp Name) where
                 panic "Evaluation of $ after ! or ? is not supported."
 
             -- Takes a proc and combines nested [] and |~|
-            simplify :: Proc -> Proc
+            simplify :: UProc -> UProc
             simplify (PExternalChoice [p]) = simplify p
             simplify (PInternalChoice [p]) = simplify p
             simplify (PExternalChoice (ps@((PExternalChoice _):_))) =
@@ -279,8 +279,9 @@ instance Evaluatable (Exp Name) where
         p2 <- evalProc e4
         VSet a1 <- eval e2
         VSet a2 <- eval e3
-        return $ VProc $ PAlphaParallel [(S.valueSetToEventSet a1, p1),
-                                        (S.valueSetToEventSet a2, p2)]
+        return $ VProc $ PAlphaParallel 
+            [S.valueSetToEventSet a1, S.valueSetToEventSet a2]
+            [p1, p2]
     eval (Exception e1 e2 e3) = do
         p1 <- evalProc e1
         VSet a <- eval e2
@@ -334,7 +335,8 @@ instance Evaluatable (Exp Name) where
             VSet s <- eval e1
             p <- evalProc e2
             return [(S.valueSetToEventSet s, p)])
-        return $ VProc $ PAlphaParallel aps
+        let (as, ps) = unzip aps
+        return $ VProc $ PAlphaParallel as ps
     eval (ReplicatedExternalChoice stmts e) = do
         ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e])
         return $ VProc $ PExternalChoice ps
@@ -363,10 +365,10 @@ instance Evaluatable (Exp Name) where
     
     eval e = panic ("No clause to eval "++show e)
 
-evalProcs :: Evaluatable a => [a] -> EvaluationMonad [Proc]
+evalProcs :: Evaluatable a => [a] -> EvaluationMonad [UProc]
 evalProcs as = mapM evalProc as
 
-evalProc :: Evaluatable a => a -> EvaluationMonad Proc
+evalProc :: Evaluatable a => a -> EvaluationMonad UProc
 evalProc a = eval a >>= \v -> case v of
     VProc x -> return x
     _       -> panic "Type checker error"

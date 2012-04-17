@@ -1,5 +1,5 @@
 module CSPM.Evaluator.Values (
-    Value(..), Proc(..), ProcOperator(..), Event(..),
+    Value(..), UProc, Proc(..), ProcOperator(..), Event(..),
     compareValues,
     procId, annonymousProcId,
     valueEventToEvent,
@@ -24,6 +24,8 @@ import Util.List
 import Util.Prelude
 import Util.PrettyPrint
 
+type UProc = UnCompiledProc
+
 data Value =
     VInt Int
     | VBool Bool
@@ -39,7 +41,7 @@ data Value =
     | VList [Value]
     | VSet ValueSet
     | VFunction ([Value] -> EvaluationMonad Value)
-    | VProc Proc
+    | VProc UProc
 
 instance Hashable Value where
     hash (VInt i) = combine 1 (hash i)
