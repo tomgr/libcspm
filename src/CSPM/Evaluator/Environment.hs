@@ -1,26 +1,34 @@
 module CSPM.Evaluator.Environment (
     Environment,
-    new, lookup, newLayerAndBind, toList,
+    new, lookup, newLayerAndBind,
 ) where
 
-import qualified Data.Map as M
+import qualified Data.IntMap as M
 import Prelude hiding (lookup)
 
 import CSPM.DataStructures.Names
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.Exception
 
-type Environment = M.Map Name Value
+type Environment = [M.IntMap Value]
 
 new :: Environment
-new = M.empty
-
-toList :: Environment -> [(Name, Value)]
-toList = M.toList
+new = []
 
 lookup :: Environment -> Name -> Value
-lookup env n = M.findWithDefault (panic ("lookup not found: "++show n)) n env
+lookup env n = 
+    let
+        nv = nameUnique n
+        lookupInLayers [] = panic ("lookup not found: "++show n)
+        lookupInLayers (m:ms) = 
+            case M.lookup nv m of
+                Just v -> v
+                Nothing -> lookupInLayers ms
+    in lookupInLayers env
+
+toList :: Environment -> [(Name, Value)]
+toList env = panic "not imp"
 
 newLayerAndBind :: Environment -> [(Name, Value)] -> Environment
-newLayerAndBind env nvs = 
-    foldr (\ (n,v) env -> M.insert n v env) env nvs
+newLayerAndBind ms nvs =
+    M.fromList [(nameUnique n, v) | (n,v) <- nvs] : ms
