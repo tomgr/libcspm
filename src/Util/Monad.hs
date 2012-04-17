@@ -9,7 +9,14 @@ module Util.Monad (
 import Control.Monad
 
 concatMapM :: (Monad m) => (a -> m [b]) -> [a] -> m [b]
-concatMapM f xs = liftM concat (mapM f xs)
+concatMapM f xs = 
+    let
+        cm [] accum = return accum
+        cm (x:xs) accum = do
+            ys <- f x
+            cm xs (accum++ys)
+    in cm xs []
+{-# INLINE concatMapM #-}
 
 andM :: (Monad m) => [m Bool] -> m Bool
 andM [m] = m
