@@ -44,32 +44,29 @@ bindDecl :: TCDecl -> EvaluationMonad [(Name, EvaluationMonad Value)]
 bindDecl (an@(An _ _ (FunBind n ms))) = do
     parentPid <- getParentProcName
     let
-        mss = map unAnnotate ms
-        argGroupCount = head (map (\ (Match pss e) -> length pss) mss)
+        matches = map unAnnotate ms
+        argGroupCount = head (map (\ (Match pss e) -> length pss) matches)
         collectArgs :: Int -> [[Value]] -> EvaluationMonad Value
-        collectArgs 0 ass_ = do
-            bss <- mapM (\ (Match pss e) -> do
-                    let 
-                        r = zipWith bindAll pss ass
-                        b = and (map fst r)
-                        binds = concatMap snd r
-                    return ((b, binds), e)
-                ) mss
+        collectArgs 0 ass_ =
             let
-                rs :: [([(Name, Value)], TCExp)]
-                rs = [(bs, e) | ((True, bs), e) <- bss]
-            case rs of
-                ((binds, exp):_) -> do
-                    let pn = procId n ass parentPid
-                    addScopeAndBind binds $ updateParentProcName pn $ do
-                        v <- eval exp
-                        return $ case v of
-                                    VProc p -> VProc $ PProcCall pn p
-                                    _ -> v
-                _       -> throwError $ 
-                    funBindPatternMatchFailureMessage (loc an) n ass
-            where
-                ass = reverse ass_
+                procName = procId n argGroups parentPid
+                argGroups = reverse ass_
+                tryMatches [] = throwError $ 
+                    funBindPatternMatchFailureMessage (loc an) n argGroups
+                tryMatches (Match pss e : ms) =
+                    let 
+                        bindResult = zipWith bindAll pss argGroups
+                        (bindResults, boundValuess) = unzip bindResult
+                        binds = concat boundValuess
+                    in 
+                        if not (and bindResults) then tryMatches ms
+                        else
+                            addScopeAndBind binds $ updateParentProcName procName $ do
+                                v <- eval e
+                                case v of
+                                    VProc p -> return $ VProc $ PProcCall procName p
+                                    _ -> return $ v
+            in tryMatches matches
         collectArgs n ass =
             return $ VFunction $ \ vs -> collectArgs (n-1) (vs:ass)
     return $ [(n, collectArgs argGroupCount [])]
@@ -91,9 +88,9 @@ bindDecl (an@(An _ _ (PatBind p e))) = do
                 val = head [v | (n', v) <- nvs, n' == n]
             -- We don't need to update the parent proc name as the renamer
             -- disambiguates things for us
-            return $ case val of
-                        VProc p -> VProc $ PProcCall (procId n [] parentPid) p
-                        _ -> val
+            case val of
+                VProc p -> return $ VProc $ PProcCall (procId n [] parentPid) p
+                _ -> return $ val
     return $ (nV, eval e):[(fv, extractor fv) | fv <- freeVars p]
 bindDecl (an@(An _ _ (Channel ns me))) =
     let
