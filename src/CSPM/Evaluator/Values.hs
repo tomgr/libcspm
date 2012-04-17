@@ -220,7 +220,7 @@ annonymousProcId vss pn = AnnonymousProcName vss pn
 
 -- | This assumes that the value is a VDot with the left is a VChannel
 valueEventToEvent :: Value -> Event
-valueEventToEvent v = UserEvent (show (prettyPrint v))
+valueEventToEvent v = newUserEvent (show (prettyPrint v))
 
 -- | Returns an x such that ev.x has been extended by exactly one atomic field.
 -- This could be inside a subfield or elsewhere.

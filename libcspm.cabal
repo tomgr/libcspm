@@ -58,6 +58,7 @@ Library
         hashable >= 1.1,
         mtl >= 2.0, 
         pretty >= 1.0,
+        text >= 0.11 && < 0.12,
         value-supply >= 0.6
 
     Exposed-Modules:
@@ -117,6 +118,8 @@ Library
     Other-Modules:
         Paths_libcspm
     
+    GHC-Options: -O3
+
     Hs-Source-Dirs: src
     
     Extensions: DoAndIfThenElse

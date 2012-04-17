@@ -1,12 +1,13 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
 module CSPM.Compiler.Events (
-    Event(..),
+    Event(..), newUserEvent,
     EventSet
 ) where
 
 import qualified CSPM.Compiler.Map as M
 import qualified CSPM.Compiler.Set as S
 import Data.Hashable
+import qualified Data.Text as T
 import Util.PrettyPrint
 
 -- | Events, as represented in the LTS.
@@ -16,8 +17,11 @@ data Event =
     -- | The internal event tick, representing termination.
     | Tick 
     -- | Any event defined in a channel definition.
-    | UserEvent String
+    | UserEvent T.Text
     deriving (Eq, Ord)
+
+newUserEvent :: String -> Event
+newUserEvent = UserEvent . T.pack
 
 instance Hashable Event where
     hash Tau = 1
@@ -26,7 +30,7 @@ instance Hashable Event where
 instance PrettyPrintable Event where
     prettyPrint Tau = char 'τ'
     prettyPrint Tick = char '✓'
-    prettyPrint (UserEvent s) = text s
+    prettyPrint (UserEvent s) = text (T.unpack s)
 instance Show Event where
     show ev = show (prettyPrint ev)
 
