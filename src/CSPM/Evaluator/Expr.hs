@@ -230,9 +230,9 @@ instance Evaluatable (Exp Name) where
             evalNonDetFields evBase (NonDetInput p (Just e):fs) = do
                 VSet s <- eval e
                 ps <- evalInputField evBase fs p s evalNonDetFields
-                return $ PInternalChoice ps
+                return $ POp PInternalChoice ps
             evalNonDetFields evBase (NonDetInput p Nothing:fs) =
-                evalInputField2 evBase fs (unAnnotate p) evalNonDetFields PInternalChoice
+                evalInputField2 evBase fs (unAnnotate p) evalNonDetFields (POp PInternalChoice)
             evalNonDetFields evBase fs = evalFields evBase fs
 
             evalFields :: Value -> [Field Name] -> EvaluationMonad UProc
@@ -241,7 +241,7 @@ instance Evaluatable (Exp Name) where
                 p <- getParentProcName
                 updateParentProcName (annonymousProcId [[ev]] p) $ do
                     p <- evalProc e2
-                    return $ PPrefix (valueEventToEvent ev) p
+                    return $ PUnaryOp (PPrefix (valueEventToEvent ev)) p
             evalFields evBase (Output e:fs) = do
                 v <- eval e
                 ev' <- combineDots evBase v
@@ -249,86 +249,86 @@ instance Evaluatable (Exp Name) where
             evalFields evBase (Input p (Just e):fs) = do
                 VSet s <- eval e
                 ps <- evalInputField evBase fs p s evalFields
-                return $ PExternalChoice ps
+                return $ POp PExternalChoice ps
             evalFields evBase (Input p Nothing:fs) =
-                evalInputField2 evBase fs (unAnnotate p) evalFields PExternalChoice
+                evalInputField2 evBase fs (unAnnotate p) evalFields (POp PExternalChoice)
             evalFields evBase (NonDetInput _ _:fs) = 
                 panic "Evaluation of $ after ! or ? is not supported."
 
             -- Takes a proc and combines nested [] and |~|
-            simplify :: UProc -> UProc
-            simplify (PExternalChoice [p]) = simplify p
-            simplify (PInternalChoice [p]) = simplify p
-            simplify (PExternalChoice (ps@((PExternalChoice _):_))) =
-                let extract (PExternalChoice ps) = ps in
-                simplify (PExternalChoice (concatMap extract ps))
-            simplify (PExternalChoice ps) = PExternalChoice (map simplify ps)
-            simplify (PInternalChoice (ps@((PInternalChoice _):_))) =
-                let extract (PInternalChoice ps) = ps in
-                simplify (PInternalChoice (concatMap extract ps))
-            simplify (PInternalChoice ps) = PInternalChoice (map simplify ps)
-            simplify p = p
+            --simplify :: UProc -> UProc
+            --simplify (POp (PExternalChoice [p])) = simplify p
+            --simplify (POp (PInternalChoice [p])) = simplify p
+            --simplify (POp (PExternalChoice (ps@((PExternalChoice _):_))) =
+            --    let extract (PExternalChoice ps) = ps in
+            --    simplify (PExternalChoice (concatMap extract ps))
+            --simplify (PExternalChoice ps) = PExternalChoice (map simplify ps)
+            --simplify (PInternalChoice (ps@((PInternalChoice _):_))) =
+            --    let extract (PInternalChoice ps) = ps in
+            --    simplify (PInternalChoice (concatMap extract ps))
+            --simplify (PInternalChoice ps) = PInternalChoice (map simplify ps)
+            --simplify p = p
         in do
             ev@(VDot (VChannel n:vfs)) <- eval e1
             VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
             p <- evalNonDetFields ev (map unAnnotate fs)
-            return $ VProc (simplify p)
+            return $ VProc p --(simplify p)
 
     eval (AlphaParallel e1 e2 e3 e4) = do
         p1 <- evalProc e1
         p2 <- evalProc e4
         VSet a1 <- eval e2
         VSet a2 <- eval e3
-        return $ VProc $ PAlphaParallel 
-            [S.valueSetToEventSet a1, S.valueSetToEventSet a2]
+        return $ VProc $ POp
+            (PAlphaParallel [S.valueSetToEventSet a1, S.valueSetToEventSet a2])
             [p1, p2]
     eval (Exception e1 e2 e3) = do
         p1 <- evalProc e1
         VSet a <- eval e2
         p2 <- evalProc e3
-        return $ VProc $ PException p1 (S.valueSetToEventSet a) p2
+        return $ VProc $ PBinaryOp (PException (S.valueSetToEventSet a)) p1 p2
     eval (ExternalChoice e1 e2) = do
         p1 <- evalProc e1
         p2 <- evalProc e2
-        return $ VProc $ PExternalChoice [p1, p2]
+        return $ VProc $ POp PExternalChoice [p1, p2]
     eval (GenParallel e1 e2 e3) = do
         ps <- evalProcs [e1, e3]
         VSet a <- eval e2
-        return $ VProc $ PGenParallel (S.valueSetToEventSet a) ps
+        return $ VProc $ POp (PGenParallel (S.valueSetToEventSet a)) ps
     eval (GuardedExp guard proc) = do
         VBool b <- eval guard
         if b then eval proc else lookupVar (builtInName "STOP")
     eval (Hiding e1 e2) = do
         p <- evalProc e1
         VSet s <- eval e2
-        return $ VProc $ PHide p (S.valueSetToEventSet s)
+        return $ VProc $ PUnaryOp (PHide (S.valueSetToEventSet s)) p
     eval (InternalChoice e1 e2) = do
         ps <- evalProcs [e1, e2]
-        return $ VProc $ PInternalChoice ps
+        return $ VProc $ POp PInternalChoice ps
     eval (Interrupt e1 e2) = do
         p1 <- evalProc e1
         p2 <- evalProc e2
-        return $ VProc $ PInterrupt p1 p2
+        return $ VProc $ PBinaryOp PInterrupt p1 p2
     eval (Interleave e1 e2) = do
         ps <- evalProcs [e1, e2]
-        return $ VProc $ PInterleave ps
+        return $ VProc $ POp PInterleave ps
     eval (LinkParallel e1 ties stmts e2) = do
         p1 <- evalProc e1
         p2 <- evalProc e2
         ts <- evalTies stmts ties
-        return $ VProc $ PLinkParallel p1 ts p2
+        return $ VProc $ PBinaryOp (PLinkParallel ts) p1 p2
     eval (Rename e1 ties stmts) = do
         p1 <- evalProc e1
         ts <- evalTies stmts ties
-        return $ VProc $ PRename ts p1
+        return $ VProc $ PUnaryOp (PRename ts) p1
     eval (SequentialComp e1 e2) = do
         p1 <- evalProc e1
         p2 <- evalProc e2
-        return $ VProc $ PSequentialComp p1 p2
+        return $ VProc $ PBinaryOp PSequentialComp p1 p2
     eval (SlidingChoice e1 e2) = do
         p1 <- evalProc e1
         p2 <- evalProc e2
-        return $ VProc $ PSlidingChoice p1 p2
+        return $ VProc $ PBinaryOp PSlidingChoice p1 p2
     
     eval (ReplicatedAlphaParallel stmts e1 e2) = do
         aps <- evalStmts (\(VSet s) -> S.toList s) stmts (do
@@ -336,19 +336,19 @@ instance Evaluatable (Exp Name) where
             p <- evalProc e2
             return [(S.valueSetToEventSet s, p)])
         let (as, ps) = unzip aps
-        return $ VProc $ PAlphaParallel as ps
+        return $ VProc $ POp (PAlphaParallel as) ps
     eval (ReplicatedExternalChoice stmts e) = do
         ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e])
-        return $ VProc $ PExternalChoice ps
+        return $ VProc $ POp PExternalChoice ps
     eval (ReplicatedInterleave stmts e) = do
         ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e])
-        return $ VProc $ PInterleave ps
+        return $ VProc $ POp PInterleave ps
     eval (ReplicatedInternalChoice stmts e) = do
         ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e])
         let e' = ReplicatedInternalChoice stmts e
         case ps of
             [] -> throwError $ replicatedInternalChoiceOverEmptySetMessage (loc e) e'
-            _ -> return $ VProc $ PInternalChoice ps
+            _ -> return $ VProc $ POp PInternalChoice ps
     eval (ReplicatedLinkParallel ties tiesStmts stmts e) = do
         tsps <- evalStmts (\(VList vs) -> vs) stmts $ do
             ts <- evalTies tiesStmts ties
@@ -356,12 +356,12 @@ instance Evaluatable (Exp Name) where
             return [(ts, p)]
         let 
             mkLinkPar [(ts, p1)] = p1
-            mkLinkPar ((ts, p1):tps) = PLinkParallel p1 ts (mkLinkPar tps)
+            mkLinkPar ((ts, p1):tps) = PBinaryOp (PLinkParallel ts) p1 (mkLinkPar tps)
         return $ VProc $ mkLinkPar tsps
     eval (ReplicatedParallel e1 stmts e2) = do
         VSet s <- eval e1
         ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e2])
-        return $ VProc $ PGenParallel (S.valueSetToEventSet s) ps
+        return $ VProc $ POp (PGenParallel (S.valueSetToEventSet s)) ps
     
     eval e = panic ("No clause to eval "++show e)
 

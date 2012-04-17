@@ -2,9 +2,10 @@
 -- | This module provides the input data structure to the compiler.
 module CSPM.Compiler.Processes (
     Proc(..), UnCompiledProc,
+    CSPOperator(..),
     ProcOperator(..), 
     ProcName(..),
-    prettyPrintAllRequiredProcesses,
+    --prettyPrintAllRequiredProcesses,
 ) where
 
 import qualified CSPM.Compiler.Map as M
@@ -77,112 +78,118 @@ instance PrettyPrintable ProcOperator where
 instance Show ProcOperator where
     show p = show (prettyPrint p)
 
-type UnCompiledProc = Proc ProcName Event [Event] [(Event, Event)]
+type UnCompiledProc = 
+    Proc [] CSPOperator ProcName Event [Event] [(Event, Event)]
+
+data CSPOperator seq ev evs evm =
+    PAlphaParallel (seq evs)
+    | PException evs
+    | PExternalChoice
+    | PGenParallel evs
+    | PHide evs
+    | PInternalChoice
+    | PInterrupt
+    | PInterleave
+    -- Map from event of left process, to event of right that it synchronises
+    -- with. (Left being p1, Right being p2 ps ps).
+    | PLinkParallel evm
+    | POperator ProcOperator
+    | PPrefix ev
+    -- Map from Old -> New event
+    | PRename evm
+    | PSequentialComp
+    | PSlidingChoice
 
 -- | A compiled process. Note this is an infinite data structure (due to
 -- PProcCall) as this makes compilation easy (we can easily chase
 -- dependencies).
-data Proc pn ev evs evm =
-    PAlphaParallel [evs] [Proc pn ev evs evm]
-    | PException (Proc pn ev evs evm) evs (Proc pn ev evs evm)
-    | PExternalChoice [Proc pn ev evs evm]
-    | PGenParallel (evs) [Proc pn ev evs evm]
-    | PHide (Proc pn ev evs evm) (evs)
-    | PInternalChoice [Proc pn ev evs evm]
-    | PInterrupt (Proc pn ev evs evm) (Proc pn ev evs evm)
-    | PInterleave [Proc pn ev evs evm]
-    -- Map from event of left process, to event of right that it synchronises
-    -- with. (Left being p1, Right being p2 ps ps).
-    | PLinkParallel (Proc pn ev evs evm) evm (Proc pn ev evs evm)
-    | POperator ProcOperator (Proc pn ev evs evm)
-    | PPrefix ev (Proc pn ev evs evm)
-    -- Map from Old -> New event
-    | PRename evm (Proc pn ev evs evm)
-    | PSequentialComp (Proc pn ev evs evm) (Proc pn ev evs evm)
-    | PSlidingChoice (Proc pn ev evs evm) (Proc pn ev evs evm)
+data Proc seq op pn ev evs evm = 
+    PUnaryOp (op seq ev evs evm) (Proc seq op pn ev evs evm)
+    | PBinaryOp (op seq ev evs evm) (Proc seq op pn ev evs evm) (Proc seq op pn ev evs evm)
+    | POp (op seq ev evs evm) [Proc seq op pn ev evs evm]
     -- | Labels the process this contains. This allows infinite loops to be
     -- spotted.
-    | PProcCall pn (Proc pn ev evs evm)
+    | PProcCall pn (Proc seq op pn ev evs evm)
 
 instance PrettyPrintable UnCompiledProc where
-    prettyPrint (PAlphaParallel as ps) =
+    prettyPrint (POp (PAlphaParallel as) ps) =
         text "||" <+> braces (list (zipWith (\ a p -> 
             parens (prettyPrint a <> char ',' <+> prettyPrint p)) as ps))
-    prettyPrint (PException p1 a p2) =
+    prettyPrint (PBinaryOp (PException a) p1 p2) =
         prettyPrint p1 <+> text "[|" <> prettyPrint a <> text "|>" 
             <+> prettyPrint p2
-    prettyPrint (PExternalChoice ps) =
+    prettyPrint (POp PExternalChoice ps) =
         sep (punctuateFront (text "[] ") (map prettyPrint ps))
-    prettyPrint (PGenParallel a ps) =
+    prettyPrint (POp (PGenParallel a) ps) =
         text "||" <+> brackets (prettyPrint a) 
                 <+> braces (list (map prettyPrint ps))
-    prettyPrint (PHide p a) =
+    prettyPrint (PUnaryOp (PHide a) p) =
         prettyPrint p <+> char '\\' <+> prettyPrint a
-    prettyPrint (PInternalChoice ps) =
+    prettyPrint (POp PInternalChoice ps) =
         sep (punctuateFront (text "|~| ") (map prettyPrint ps))
-    prettyPrint (PInterleave ps) =
+    prettyPrint (POp PInterleave ps) =
         sep (punctuateFront (text "||| ") (map prettyPrint ps))
-    prettyPrint (PLinkParallel p1 evm p2) =
+    prettyPrint (PBinaryOp (PLinkParallel evm) p1 p2) =
         prettyPrint p1 <+> text "[" <>
             list (map (\(evLeft, evRight) -> prettyPrint evLeft <+> text "<-" 
                                         <+> prettyPrint evRight) evm)
         <> text "]" <+> prettyPrint p2
-    prettyPrint (POperator op p) = 
+    prettyPrint (PUnaryOp (POperator op) p) = 
         prettyPrint op <> parens (prettyPrint p)
-    prettyPrint (PPrefix e p) =
+    prettyPrint (PUnaryOp (PPrefix e) p) =
         prettyPrint e <+> text "->" <+> prettyPrint p
-    prettyPrint (PRename evm p) =
+    prettyPrint (PUnaryOp (PRename evm) p) =
         prettyPrint p <> text "[[" 
         <> list (map (\ (evOld, evNew) -> 
                             prettyPrint evOld <+> text "<-" 
                             <+> prettyPrint evNew) evm) 
         <> text "]]"
-    prettyPrint (PSequentialComp p1 p2) =
+    prettyPrint (PBinaryOp PSequentialComp p1 p2) =
         prettyPrint p1 <+> text "->" <+> prettyPrint p2
-    prettyPrint (PSlidingChoice p1 p2) =
+    prettyPrint (PBinaryOp PSlidingChoice p1 p2) =
         prettyPrint p1 <+> text "|>" <+> prettyPrint p2
     prettyPrint (PProcCall n _) = prettyPrint n
 
 instance Show UnCompiledProc where
     show p = show (prettyPrint p)
 
--- | Given a process, returns the initial process and all processes that it
--- calls.
-splitProcIntoComponents :: UnCompiledProc -> (UnCompiledProc, [(ProcName, UnCompiledProc)])
-splitProcIntoComponents p =
-    let
-        explored pns n = n `elem` (map fst pns)
+---- | Given a process, returns the initial process and all processes that it
+---- calls.
+--splitProcIntoComponents :: UnCompiledProc -> (UnCompiledProc, [(ProcName, UnCompiledProc)])
+--splitProcIntoComponents p =
+--    let
+--        explored pns n = n `elem` (map fst pns)
 
-        exploreAll :: [(ProcName, UnCompiledProc)] -> [UnCompiledProc] -> [(ProcName, UnCompiledProc)]
-        exploreAll pns [] = pns
-        exploreAll pns (p:ps) = exploreAll (explore pns p) ps
+--        exploreAll :: [(ProcName, UnCompiledProc)] -> [UnCompiledProc] -> [(ProcName, UnCompiledProc)]
+--        exploreAll pns [] = pns
+--        exploreAll pns (p:ps) = exploreAll (explore pns p) ps
 
-        explore :: [(ProcName, UnCompiledProc)] -> UnCompiledProc -> [(ProcName, UnCompiledProc)]
-        explore pns (PAlphaParallel as ps) = exploreAll pns ps
-        explore pns (PException p1 _ p2) = exploreAll pns [p1, p2]
-        explore pns (PExternalChoice ps) = exploreAll pns ps
-        explore pns (PGenParallel _ ps) = exploreAll pns ps
-        explore pns (PHide p _) = explore pns p
-        explore pns (PInternalChoice ps) = exploreAll pns ps
-        explore pns (PInterrupt p1 p2) = exploreAll pns [p1, p2]
-        explore pns (PInterleave ps) = exploreAll pns ps
-        explore pns (PLinkParallel p1 _ p2) = exploreAll pns [p1, p2]
-        explore pns (POperator _ p) = explore pns p
-        explore pns (PPrefix _ p) = explore pns p
-        explore pns (PRename _ p) = explore pns p
-        explore pns (PSequentialComp p1 p2) = exploreAll pns [p1, p2]
-        explore pns (PSlidingChoice p1 p2) = exploreAll pns [p1, p2]
-        explore pns (PProcCall n p) =
-            if explored pns n then pns
-            else explore ((n, p):pns) p
-    in (p, explore [] p)
+--        explore :: [(ProcName, UnCompiledProc)] -> UnCompiledProc -> [(ProcName, UnCompiledProc)]
+--        explore pns (PAlphaParallel as ps) = exploreAll pns ps
+--        explore pns (PException p1 _ p2) = exploreAll pns [p1, p2]
+--        explore pns (PExternalChoice ps) = exploreAll pns ps
+--        explore pns (PGenParallel _ ps) = exploreAll pns ps
+--        explore pns (PHide p _) = explore pns p
+--        explore pns (PInternalChoice ps) = exploreAll pns ps
+--        explore pns (PInterrupt p1 p2) = exploreAll pns [p1, p2]
+--        explore pns (PInterleave ps) = exploreAll pns ps
+--        explore pns (PLinkParallel p1 _ p2) = exploreAll pns [p1, p2]
+--        explore pns (POperator _ p) = explore pns p
+--        explore pns (PPrefix _ p) = explore pns p
+--        explore pns (PRename _ p) = explore pns p
+--        explore pns (PSequentialComp p1 p2) = exploreAll pns [p1, p2]
+--        explore pns (PSlidingChoice p1 p2) = exploreAll pns [p1, p2]
+--        explore pns (PProcCall n p) =
+--            if explored pns n then pns
+--            else explore ((n, p):pns) p
+--    in (p, explore [] p)
 
--- | Pretty prints the given process and all processes that it depends upon.
-prettyPrintAllRequiredProcesses :: UnCompiledProc -> Doc
-prettyPrintAllRequiredProcesses p =
-    let
-        (pInit, namedPs) = splitProcIntoComponents p
-        ppNamedProc (n,p) =
-            hang (prettyPrint n <+> char '=') tabWidth (prettyPrint p)
-    in 
-        vcat (punctuate (char '\n') ((map ppNamedProc namedPs)++[prettyPrint pInit]))
+---- | Pretty prints the given process and all processes that it depends upon.
+--prettyPrintAllRequiredProcesses :: UnCompiledProc -> Doc
+--prettyPrintAllRequiredProcesses p =
+--    let
+--        (pInit, namedPs) = splitProcIntoComponents p
+--        ppNamedProc (n,p) =
+--            hang (prettyPrint n <+> char '=') tabWidth (prettyPrint p)
+--    in 
+--        vcat (punctuate (char '\n') ((map ppNamedProc namedPs)++[prettyPrint pInit]))

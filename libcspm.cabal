@@ -32,7 +32,7 @@ Description:
     from @x.y.z@ to @x.y'.z'@) will not be backwards compatible, but should be
     relatively easy to port to. Major changes (i.e. from @x.y.z@ to @x'.y'.z'@)
     will not be backwards compatible and may include large API redesigns.
-Version: 0.2.2
+Version: 0.3.0
 Extra-source-files: 
     README.md,
     CHANGELOG.txt

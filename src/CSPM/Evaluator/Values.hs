@@ -1,5 +1,5 @@
 module CSPM.Evaluator.Values (
-    Value(..), UProc, Proc(..), ProcOperator(..), Event(..),
+    Value(..), UProc, Proc(..), CSPOperator(..), ProcOperator(..), Event(..),
     compareValues,
     procId, annonymousProcId,
     valueEventToEvent,

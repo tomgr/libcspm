@@ -1,6 +1,6 @@
 module CSPM.Evaluator.Environment (
     Environment,
-    new, lookup, newLayerAndBind,
+    new, lookup, newLayerAndBind, toList,
 ) where
 
 import qualified Data.IntMap as M

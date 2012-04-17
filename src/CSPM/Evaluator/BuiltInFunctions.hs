@@ -51,9 +51,9 @@ builtInFunctions =
                 chaosCall = PProcCall n p
                 n = procId (nameForString "CHAOS") [[VSet a]] Nothing
                 evSet = S.valueSetToEventSet a
-                branches = [PPrefix ev chaosCall | ev <- CS.toList evSet]
+                branches = [PUnaryOp (PPrefix ev) chaosCall | ev <- CS.toList evSet]
                 stopProc = PProcCall (procId (nameForString "STOP") [] Nothing) csp_stop
-                p = PInternalChoice (stopProc:branches)
+                p = POp PInternalChoice (stopProc:branches)
         
         cspm_extensions [v] = do
             exs <- extensions v
@@ -111,8 +111,8 @@ builtInFunctions =
         csp_skip_id = procId (nameForString "SKIP") [] Nothing
         csp_stop_id = procId (nameForString "STOP") [] Nothing
         -- We actually inline stop, for efficiency
-        csp_stop = PExternalChoice []
-        csp_skip = PPrefix Tick (PExternalChoice [])
+        csp_stop = POp PExternalChoice []
+        csp_skip = PUnaryOp (PPrefix Tick) csp_stop
         
         mkProc (s, p) = (nameForString s, VProc p)
         
@@ -137,7 +137,7 @@ builtInFunctions =
             map (\ (n, f) -> (n, VSet . f)) set_funcs
             ++ map (\ (n, f) -> (n, VList . f)) seq_funcs
             ++ map (\ (n, po) -> 
-                        (n,\[VProc p]-> VProc $ POperator po p)) proc_operators
+                        (n,\[VProc p]-> VProc $ PUnaryOp (POperator po) p)) proc_operators
             ++ other_funcs)
         ++ map mkMonadicFunc monadic_funcs
         ++ map mkProc procs
