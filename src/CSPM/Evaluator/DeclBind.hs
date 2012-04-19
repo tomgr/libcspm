@@ -78,7 +78,7 @@ bindDecl (an@(An _ _ (PatBind p e))) = do
         nV = unsafePerformIO (p `seq` mkFreshInternalName)
         {-# NOINLINE nV #-}
         extractor :: Name -> EvaluationMonad Value
-        extractor n = do
+        extractor n = noSave $ do
             v <- lookupVar nV
             let 
                 nvs = case bind p v of
@@ -91,7 +91,7 @@ bindDecl (an@(An _ _ (PatBind p e))) = do
             case val of
                 VProc p -> return $ VProc $ PProcCall (procId n [] parentPid) p
                 _ -> return $ val
-    return $ (nV, eval e):[(fv, extractor fv) | fv <- freeVars p]
+    return $ (nV, noSave (eval e)):[(fv, extractor fv) | fv <- freeVars p]
 bindDecl (an@(An _ _ (Channel ns me))) =
     let
         mkChan :: Name -> EvaluationMonad Value

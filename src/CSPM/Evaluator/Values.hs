@@ -6,6 +6,7 @@ module CSPM.Evaluator.Values (
     combineDots,
     extensions, oneFieldExtensions,
     productions,
+    noSave, removeThunk, lookupVar,
 ) where
 
 import Control.Monad
@@ -42,6 +43,26 @@ data Value =
     | VSet ValueSet
     | VFunction ([Value] -> EvaluationMonad Value)
     | VProc UProc
+    | VThunk (EvaluationMonad Value)
+
+-- | Given a program that yields a value, returns a second program that can be
+-- inserted into the environment, but will cause the environment not to save
+-- the actual value, but to recompute it everytime. This is useful for cheap,
+-- to compute, but high cost in terms of memory, computations (like named
+-- processes).
+noSave :: EvaluationMonad Value -> EvaluationMonad Value
+noSave prog = do
+    pn <- getParentProcName
+    return $ VThunk $ case pn of
+                        Just x -> updateParentProcName x prog
+                        Nothing -> prog
+
+removeThunk :: Value -> EvaluationMonad Value
+removeThunk (VThunk p) = p
+removeThunk v = return v
+
+lookupVar :: Name -> EvaluationMonad Value
+lookupVar n = lookupVarMaybeThunk n >>= removeThunk
 
 instance Hashable Value where
     hash (VInt i) = combine 1 (hash i)
@@ -136,6 +157,7 @@ instance PrettyPrintable Value where
     prettyPrint (VSet s) = prettyPrint s
     prettyPrint (VFunction _) = text "<function>"
     prettyPrint (VProc p) = prettyPrint p
+    prettyPrint (VThunk th) = text "<thunk>"
 
 instance Show Value where
     show v = show (prettyPrint v)
