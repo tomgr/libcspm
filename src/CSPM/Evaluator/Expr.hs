@@ -85,11 +85,14 @@ instance Evaluatable (Exp Name) where
     eval (If e1 e2 e3) = do
         VBool b <- eval e1
         if b then eval e2 else eval e3
-    eval (Lambda p e) =
-        return $ VFunction $ \ [v] -> do
+    eval (Lambda p e) = do
+        st <- getState
+        return $ VFunction $ \ [v] -> return $ runEvaluator st $ do
             let (matches, binds) = bind p v
-            if matches then
-                addScopeAndBind binds (eval e)
+            if matches then do
+                p <- getParentProcName
+                updateParentProcName (annonymousProcId [[v]] p) $ do
+                    addScopeAndBind binds (eval e)
             else
                 throwError $ patternMatchFailureMessage (loc p) p v
     eval (Let decls e) = do

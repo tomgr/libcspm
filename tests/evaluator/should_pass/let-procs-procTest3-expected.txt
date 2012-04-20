@@ -1,0 +1,3 @@
+procTest3 = c.0 -> ||| c.1 ->
+
+procTest3
