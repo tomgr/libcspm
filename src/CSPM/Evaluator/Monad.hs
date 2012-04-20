@@ -44,7 +44,9 @@ lookupVarMaybeThunk n = do
 
 -- | Implements non-recursive lets.
 addScopeAndBind :: [(Name, Value)] -> EvaluationMonad a -> EvaluationMonad a
-addScopeAndBind bs = addScopeAndBindM [(n, return v) | (n, v) <- bs]
+addScopeAndBind [] prog = prog
+addScopeAndBind bs prog =
+    modify (\ st -> st { environment = newLayerAndBind (environment st) bs }) prog
 
 -- | Implements recursive lets.
 addScopeAndBindM :: [(Name, EvaluationMonad Value)] -> EvaluationMonad a -> EvaluationMonad a
