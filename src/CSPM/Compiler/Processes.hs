@@ -8,8 +8,6 @@ module CSPM.Compiler.Processes (
     --prettyPrintAllRequiredProcesses,
 ) where
 
-import qualified CSPM.Compiler.Map as M
-import qualified CSPM.Compiler.Set as S
 import CSPM.Compiler.Events
 import CSPM.DataStructures.Names
 import {-# SOURCE #-} CSPM.Evaluator.Values

@@ -4,8 +4,6 @@ module CSPM.Compiler.Events (
     EventSet
 ) where
 
-import qualified CSPM.Compiler.Map as M
-import qualified CSPM.Compiler.Set as S
 import Data.Hashable
 import qualified Data.Text as T
 import Util.PrettyPrint

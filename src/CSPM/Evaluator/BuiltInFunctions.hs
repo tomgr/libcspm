@@ -6,7 +6,6 @@ module CSPM.Evaluator.BuiltInFunctions (
 import Control.Monad
 import qualified Data.Map as M
 
-import qualified CSPM.Compiler.Set as CS
 import CSPM.DataStructures.Names
 import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad

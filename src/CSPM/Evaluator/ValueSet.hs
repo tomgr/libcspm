@@ -280,5 +280,5 @@ difference (ExplicitSet s1) (IntSetFrom lb1) =
     ExplicitSet (S.fromList [VInt i | VInt i <- S.toList s1, i < lb1])
 difference s1 s2 = throwSourceError [cannotDifferenceSetsMessage s1 s2]
 
-valueSetToEventSet :: ValueSet -> CS.Set CE.Event
-valueSetToEventSet = CS.fromList . map valueEventToEvent . toList
+valueSetToEventSet :: ValueSet -> CE.EventSet
+valueSetToEventSet = CE.fromList . map valueEventToEvent . toList

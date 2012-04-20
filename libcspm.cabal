@@ -64,9 +64,7 @@ Library
     Exposed-Modules:
         CSPM,
         CSPM.Compiler.Events,
-        CSPM.Compiler.Map,
         CSPM.Compiler.Processes,
-        CSPM.Compiler.Set,
         CSPM.DataStructures.Literals,
         CSPM.DataStructures.Names,
         CSPM.DataStructures.Syntax,
