@@ -13,6 +13,7 @@ import CSPM.Compiler.Events
 import CSPM.DataStructures.Names
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import qualified Data.Foldable as F
+import qualified Data.Functor as F
 import qualified Data.Sequence as S
 import Data.Hashable
 import Util.PrettyPrint
@@ -136,14 +137,20 @@ instance PrettyPrintable UnCompiledProc where
         prettyPrint p1 <+> text "[|" <> prettyPrint a <> text "|>" 
             <+> prettyPrint p2
     prettyPrint (POp PExternalChoice ps) =
-        sep (punctuateFront (text "[] ") (map prettyPrint $ F.toList ps))
+        let flatten (POp PExternalChoice ps) = F.msum (F.fmap flatten ps)
+            flatten p = S.singleton p
+            ps' = flatten (POp PExternalChoice ps)
+        in sep (punctuateFront (text "[] ") (map prettyPrint $ F.toList ps'))
     prettyPrint (POp (PGenParallel a) ps) =
         text "||" <+> brackets (prettyPrint a) 
                 <+> braces (list (map prettyPrint $ F.toList ps))
     prettyPrint (PUnaryOp (PHide a) p) =
         prettyPrint p <+> char '\\' <+> prettyPrint a
     prettyPrint (POp PInternalChoice ps) =
-        sep (punctuateFront (text "|~| ") (map prettyPrint $ F.toList ps))
+        let flatten (POp PInternalChoice ps) = F.msum (F.fmap flatten ps)
+            flatten p = S.singleton p
+            ps' = flatten (POp PInternalChoice ps)
+        in sep (punctuateFront (text "|~| ") (map prettyPrint $ F.toList ps'))
     prettyPrint (POp PInterleave ps) =
         sep (punctuateFront (text "||| ") (map prettyPrint $ F.toList ps))
     prettyPrint (PBinaryOp (PLinkParallel evm) p1 p2) =
