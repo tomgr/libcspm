@@ -4,7 +4,10 @@ module CSPM.Evaluator.Expr (
 ) where
 
 import Control.Monad.Trans
+import qualified Data.Foldable as F
 import Data.Maybe
+import Data.Sequence ((<|), (|>))
+import qualified Data.Sequence as Sq
 
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
@@ -161,7 +164,7 @@ instance Evaluatable (Exp Name) where
         let
             evalInputField :: Value -> [Field Name] -> TCPat -> S.ValueSet -> 
                 (Value -> [Field Name] -> EvaluationMonad UProc) ->
-                EvaluationMonad [UProc]
+                EvaluationMonad (Sq.Seq UProc)
             evalInputField evBase fs p s evalRest = do
                 mps <- mapM (\v -> do
                     let (matches, binds) = bind p v
@@ -170,13 +173,13 @@ instance Evaluatable (Exp Name) where
                         p <- addScopeAndBind binds (evalRest ev' fs)
                         return $ Just p
                     else return Nothing) (S.toList s)
-                return $ catMaybes mps
+                return $ Sq.fromList $ catMaybes mps
             
             -- | Evalutates an input field, deducing the correct set of values
             -- to input over.
             evalInputField2 :: Value -> [Field Name] -> Pat Name -> 
                 (Value -> [Field Name] -> EvaluationMonad UProc) ->
-                ([UProc] -> UProc) -> EvaluationMonad UProc
+                (Sq.Seq UProc -> UProc) -> EvaluationMonad UProc
             evalInputField2 evBase fs p evalRest procConstructor = 
                 let
                     -- | The function to use to generate the options. If this
@@ -199,10 +202,10 @@ instance Evaluatable (Exp Name) where
                     -- | Given a value and a list of patterns (from 
                     -- 'patToFields') computes the appropriate set of events and
                     -- then evaluates it.
-                    evExtensions :: Value -> [Pat Name] -> EvaluationMonad [UProc]
+                    evExtensions :: Value -> [Pat Name] -> EvaluationMonad (Sq.Seq UProc)
                     evExtensions evBase [] = do
                         p <- evalRest evBase fs
-                        return [p]
+                        return $ Sq.singleton p
                     evExtensions evBase (PVar n:ps) | isNameDataConstructor n = do
                         VTuple [dc, _, _] <- lookupVar n
                         evBase' <- combineDots evBase dc
@@ -224,7 +227,7 @@ instance Evaluatable (Exp Name) where
                                     proc <- addScopeAndBind bs (evExtensions evBase' ps)
                                     return $ Just proc
                                 else return Nothing) vs
-                        return $ concat $ catMaybes mps
+                        return $ F.msum $ catMaybes mps
                 in do
                     ps <- evExtensions evBase (patToFields p)
                     return $ procConstructor ps
@@ -282,9 +285,9 @@ instance Evaluatable (Exp Name) where
         p2 <- evalProc e4
         VSet a1 <- eval e2
         VSet a2 <- eval e3
-        return $ VProc $ POp
-            (PAlphaParallel [S.valueSetToEventSet a1, S.valueSetToEventSet a2])
-            [p1, p2]
+        return $ VProc $ POp (PAlphaParallel 
+                (S.valueSetToEventSet a1 <| S.valueSetToEventSet a2 <| Sq.empty))
+                (p1 <| p2 <| Sq.empty)
     eval (Exception e1 e2 e3) = do
         p1 <- evalProc e1
         VSet a <- eval e2
@@ -293,7 +296,7 @@ instance Evaluatable (Exp Name) where
     eval (ExternalChoice e1 e2) = do
         p1 <- evalProc e1
         p2 <- evalProc e2
-        return $ VProc $ POp PExternalChoice [p1, p2]
+        return $ VProc $ POp PExternalChoice (p1 <| p2 <| Sq.empty)
     eval (GenParallel e1 e2 e3) = do
         ps <- evalProcs [e1, e3]
         VSet a <- eval e2
@@ -334,52 +337,52 @@ instance Evaluatable (Exp Name) where
         return $ VProc $ PBinaryOp PSlidingChoice p1 p2
     
     eval (ReplicatedAlphaParallel stmts e1 e2) = do
-        aps <- evalStmts (\(VSet s) -> S.toList s) stmts (do
+        aps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts $ do
             VSet s <- eval e1
             p <- evalProc e2
-            return [(S.valueSetToEventSet s, p)])
-        let (as, ps) = unzip aps
+            return (S.valueSetToEventSet s, p)
+        let (as, ps) = unzipSq aps
         return $ VProc $ POp (PAlphaParallel as) ps
     eval (ReplicatedExternalChoice stmts e) = do
-        ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e])
+        ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
         return $ VProc $ POp PExternalChoice ps
     eval (ReplicatedInterleave stmts e) = do
-        ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e])
+        ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
         return $ VProc $ POp PInterleave ps
     eval (ReplicatedInternalChoice stmts e) = do
-        ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e])
+        ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
         let e' = ReplicatedInternalChoice stmts e
-        case ps of
-            [] -> throwError $ replicatedInternalChoiceOverEmptySetMessage (loc e) e'
-            _ -> return $ VProc $ POp PInternalChoice ps
+        if Sq.null ps then
+            throwError $ replicatedInternalChoiceOverEmptySetMessage (loc e) e'
+        else return $ VProc $ POp PInternalChoice ps
     eval (ReplicatedLinkParallel ties tiesStmts stmts e) = do
-        tsps <- evalStmts (\(VList vs) -> vs) stmts $ do
+        tsps <- evalStmts' (\(VList vs) -> Sq.fromList vs) stmts $ do
             ts <- evalTies tiesStmts ties
             p <- evalProc e
-            return [(ts, p)]
+            return (ts, p)
         let 
-            mkLinkPar [(ts, p1)] = p1
-            mkLinkPar ((ts, p1):tps) = PBinaryOp (PLinkParallel ts) p1 (mkLinkPar tps)
-        return $ VProc $ mkLinkPar tsps
+            (tsps' Sq.:> (_, lastProc)) = Sq.viewr tsps
+            mkLinkPar (ts, p1) p2 = PBinaryOp (PLinkParallel ts) p1 p2
+        return $ VProc $ F.foldr mkLinkPar lastProc tsps'
     eval (ReplicatedParallel e1 stmts e2) = do
         VSet s <- eval e1
-        ps <- evalStmts (\(VSet s) -> S.toList s) stmts (evalProcs [e2])
+        ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e2)
         return $ VProc $ POp (PGenParallel (S.valueSetToEventSet s)) ps
     
     eval e = panic ("No clause to eval "++show e)
 
-evalProcs :: Evaluatable a => [a] -> EvaluationMonad [UProc]
-evalProcs as = mapM evalProc as
+evalProcs :: Evaluatable a => [a] -> EvaluationMonad (Sq.Seq UProc)
+evalProcs as = mapM evalProc as >>= return . Sq.fromList
 
 evalProc :: Evaluatable a => a -> EvaluationMonad UProc
 evalProc a = eval a >>= \v -> case v of
     VProc x -> return x
     _       -> panic "Type checker error"
 
-evalTies :: [TCStmt] -> [(TCExp, TCExp)] -> EvaluationMonad [(Event, Event)]
+evalTies :: [TCStmt] -> [(TCExp, TCExp)] -> EvaluationMonad (Sq.Seq (Event, Event))
 evalTies stmts ties = do
     tss <- evalStmts (\(VSet s) -> S.toList s) stmts (mapM evalTie ties)
-    return $ concat tss
+    return $ Sq.fromList (concat tss)
     where
         extendTie :: (Value, Value) -> Value -> EvaluationMonad (Event, Event)
         extendTie (evOld, evNew) ex = do
@@ -417,6 +420,26 @@ evalStmts extract anStmts prog =
     in
         evStmts (map unAnnotate anStmts)
 
+-- | Evaluates the statements, evaluating `prog` for each possible 
+-- assingment to the generators that satisfies the qualifiers.
+evalStmts' :: (Value -> Sq.Seq Value) -> [TCStmt] -> EvaluationMonad a -> 
+            EvaluationMonad (Sq.Seq a)
+evalStmts' extract anStmts prog =
+    let
+        evStmts [] = prog >>= return . Sq.singleton
+        evStmts (Qualifier e:stmts) = do
+            VBool b <- eval e
+            if b then evStmts stmts else return Sq.empty
+        evStmts (Generator p e:stmts) = do
+            v <- eval e
+            F.foldlM (\ s v -> do
+                let (matches, binds) = bind p v
+                if matches then do
+                    s' <- addScopeAndBind binds (evStmts stmts)
+                    return $ s Sq.>< s'
+                else return s) Sq.empty (extract v)
+    in evStmts (map unAnnotate anStmts)
+
 -- | Takes a VEvent and then computes all events that this is a prefix of.
 completeEvent :: Value -> EvaluationMonad S.ValueSet
 completeEvent ev = do
@@ -426,3 +449,7 @@ completeEvent ev = do
 
 extendEvent :: Value -> Value -> EvaluationMonad Value
 extendEvent ev exs = combineDots ev exs
+
+unzipSq :: Sq.Seq (a,b) -> (Sq.Seq a, Sq.Seq b)
+unzipSq sqs = F.foldr 
+    (\ (a,b) (as, bs) -> (a <| as, b <| bs) ) (Sq.empty, Sq.empty) sqs

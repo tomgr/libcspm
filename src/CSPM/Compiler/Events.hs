@@ -1,10 +1,12 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
 module CSPM.Compiler.Events (
     Event(..), newUserEvent,
-    EventSet
+    EventSet, fromList,
 ) where
 
+import Data.Foldable as F
 import Data.Hashable
+import qualified Data.Sequence as Sq
 import qualified Data.Text as T
 import Util.PrettyPrint
 
@@ -18,8 +20,13 @@ data Event =
     | UserEvent T.Text
     deriving (Eq, Ord)
 
+type EventSet = Sq.Seq Event
+
 newUserEvent :: String -> Event
 newUserEvent = UserEvent . T.pack
+
+fromList :: [Event] -> EventSet
+fromList = Sq.fromList
 
 instance Hashable Event where
     hash Tau = 1
@@ -32,9 +39,5 @@ instance PrettyPrintable Event where
 instance Show Event where
     show ev = show (prettyPrint ev)
 
--- | An alias for ease
-type EventSet = S.Set Event
-type EventMap = M.Map Event Event
-
-instance PrettyPrintable EventSet where
-    prettyPrint s = braces (list (map prettyPrint (S.toList s)))
+instance PrettyPrintable (Sq.Seq Event) where
+    prettyPrint s = braces (list (map prettyPrint (F.toList s)))

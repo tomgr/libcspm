@@ -5,6 +5,7 @@ module CSPM.Evaluator.BuiltInFunctions (
 
 import Control.Monad
 import qualified Data.Map as M
+import qualified Data.Sequence as Sq
 
 import CSPM.DataStructures.Names
 import CSPM.Evaluator.Exceptions
@@ -50,9 +51,10 @@ builtInFunctions =
                 chaosCall = PProcCall n p
                 n = procId (nameForString "CHAOS") [[VSet a]] Nothing
                 evSet = S.valueSetToEventSet a
-                branches = [PUnaryOp (PPrefix ev) chaosCall | ev <- CS.toList evSet]
+                branches :: Sq.Seq UProc
+                branches = fmap (\ ev -> PUnaryOp (PPrefix ev) chaosCall) evSet
                 stopProc = PProcCall (procId (nameForString "STOP") [] Nothing) csp_stop
-                p = POp PInternalChoice (stopProc:branches)
+                p = POp PInternalChoice (stopProc Sq.<| branches)
         
         cspm_extensions [v] = do
             exs <- extensions v
@@ -110,7 +112,7 @@ builtInFunctions =
         csp_skip_id = procId (nameForString "SKIP") [] Nothing
         csp_stop_id = procId (nameForString "STOP") [] Nothing
         -- We actually inline stop, for efficiency
-        csp_stop = POp PExternalChoice []
+        csp_stop = POp PExternalChoice Sq.empty
         csp_skip = PUnaryOp (PPrefix Tick) csp_stop
         
         mkProc (s, p) = (nameForString s, VProc p)

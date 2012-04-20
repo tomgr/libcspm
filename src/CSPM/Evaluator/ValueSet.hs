@@ -7,7 +7,7 @@
 module CSPM.Evaluator.ValueSet (
     -- * Construction
     ValueSet(Integers, Processes, IntSetFrom),
-    emptySet, fromList, toList,
+    emptySet, fromList, toList, toSeq,
     -- * Basic Functions
     compareValueSets,
     member, card, empty,
@@ -23,13 +23,14 @@ module CSPM.Evaluator.ValueSet (
 where
 
 import Control.Monad
+import qualified Data.Foldable as F
 import Data.Hashable
 import qualified Data.Set as S
+import qualified Data.Sequence as Sq
 
 import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Values
 import qualified CSPM.Compiler.Events as CE
-import qualified CSPM.Compiler.Set as CS
 import Util.Exception
 import Util.PrettyPrint hiding (empty)
 
@@ -164,6 +165,13 @@ toList (IntSetFrom lb) = map VInt [lb..]
 toList (CompositeSet s1 s2) = toList s1 ++ toList s2
 toList Integers = throwSourceError [cannotConvertIntegersToListMessage]
 toList Processes = throwSourceError [cannotConvertProcessesToListMessage]
+
+toSeq :: ValueSet -> Sq.Seq Value
+toSeq (ExplicitSet s) = F.foldMap Sq.singleton s
+toSeq (IntSetFrom lb) = fmap VInt (Sq.fromList [lb..])
+toSeq (CompositeSet s1 s2) = toSeq s1 Sq.>< toSeq s2
+toSeq Integers = throwSourceError [cannotConvertIntegersToListMessage]
+toSeq Processes = throwSourceError [cannotConvertProcessesToListMessage]
 
 -- | Returns the value iff the set contains one item only.
 singletonValue :: ValueSet -> Maybe Value
