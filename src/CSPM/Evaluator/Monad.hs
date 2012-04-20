@@ -50,6 +50,7 @@ addScopeAndBind bs prog =
 
 -- | Implements recursive lets.
 addScopeAndBindM :: [(Name, EvaluationMonad Value)] -> EvaluationMonad a -> EvaluationMonad a
+addScopeAndBindM [] prog = prog
 addScopeAndBindM binds prog = do
     st <- getState
     let
