@@ -1,0 +1,7 @@
+P = c ->
+
+Wrapper(P) = c -> P
+
+procTest1 = Wrapper(P) ||| Wrapper(P)
+
+procTest1

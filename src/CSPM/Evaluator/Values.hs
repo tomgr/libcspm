@@ -86,6 +86,7 @@ instance Eq Value where
     VDataType n1 == VDataType n2 = n1 == n2
     VList vs1 == VList vs2 = vs1 == vs2
     VSet s1 == VSet s2 = s1 == s2
+    VProc (PProcCall n _) == VProc (PProcCall n' _) = n == n'
     
     v1 == v2 = False
     

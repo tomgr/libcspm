@@ -1,0 +1,7 @@
+channel c
+
+P = c -> STOP
+
+Wrapper(P) = c -> P
+
+procTest1 = Wrapper(P) ||| Wrapper(P)
