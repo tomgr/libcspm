@@ -70,6 +70,15 @@ bindDecl (an@(An _ _ (FunBind n ms))) = do
         collectArgs n ass =
             return $ VFunction $ \ vs -> collectArgs (n-1) (vs:ass)
     return $ [(n, collectArgs argGroupCount [])]
+bindDecl (an@(An _ _ (PatBind (An _ _ (PVar n)) e))) | not (nameIsConstructor n) = do
+    -- Optimise for this case
+    parentPid <- getParentProcName
+    let ev = noSave $ do
+            val <- eval e
+            case val of
+                VProc p -> return $ VProc $ PProcCall (procId n [] parentPid) p
+                _ -> return $ val
+    return $ [(n, ev)]
 bindDecl (an@(An _ _ (PatBind p e))) = do
     parentPid <- getParentProcName
     let
