@@ -202,15 +202,16 @@ instance Evaluatable (Exp Name) where
                     -- | Given a value and a list of patterns (from 
                     -- 'patToFields') computes the appropriate set of events and
                     -- then evaluates it.
-                    evExtensions :: Value -> [Pat Name] -> EvaluationMonad (Sq.Seq UProc)
-                    evExtensions evBase [] = do
-                        p <- evalRest evBase fs
+                    evExtensions :: Value -> [Pat Name] -> [(Name, Value)] -> 
+                        EvaluationMonad (Sq.Seq UProc)
+                    evExtensions evBase [] bs = do
+                        p <- addScopeAndBind bs $ evalRest evBase fs
                         return $ Sq.singleton p
-                    evExtensions evBase (PVar n:ps) | isNameDataConstructor n = do
+                    evExtensions evBase (PVar n:ps) bs | isNameDataConstructor n = do
                         VTuple [dc, _, _] <- lookupVar n
                         evBase' <- combineDots evBase dc
-                        evExtensions evBase' ps
-                    evExtensions evBase (p:ps) = do
+                        evExtensions evBase' ps bs
+                    evExtensions evBase (p:ps) bs = do
                         vs <- extensionsOperator (p:ps) evBase
                         mps <- mapM (\v -> do
                                 let 
@@ -221,15 +222,15 @@ instance Evaluatable (Exp Name) where
                                     -- the value inside.
                                     extract (VDot [v]) = v
                                     extract v = v
-                                    (matches, bs) = bind p (extract v)
+                                    (matches, bs') = bind p (extract v)
                                 if matches then do
                                     evBase' <- combineDots evBase v
-                                    proc <- addScopeAndBind bs (evExtensions evBase' ps)
+                                    proc <- evExtensions evBase' ps (bs++bs')
                                     return $ Just proc
                                 else return Nothing) vs
                         return $ F.msum $ catMaybes mps
                 in do
-                    ps <- evExtensions evBase (patToFields p)
+                    ps <- evExtensions evBase (patToFields p) []
                     return $ procConstructor ps
 
             evalNonDetFields :: Value -> [Field Name] -> EvaluationMonad UProc
