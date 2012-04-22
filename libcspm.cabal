@@ -111,13 +111,15 @@ Library
         Util.Monad,
         Util.PartialFunctions,
         Util.Prelude,
-        Util.PrettyPrint
+        Util.PrettyPrint,
+        Util.TextPrettyPrint
     
     Other-Modules:
         Paths_libcspm
     
     GHC-Options: -O3
-
+    GHC-Prof-Options: -auto-all -prof
+    
     Hs-Source-Dirs: src
     
     Extensions: DoAndIfThenElse

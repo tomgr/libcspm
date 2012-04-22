@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module CSPM.Evaluator.Values (
     Value(..), UProc, Proc(..), CSPOperator(..), ProcOperator(..), Event(..),
     compareValues,
@@ -24,6 +25,7 @@ import Util.Exception
 import Util.List
 import Util.Prelude
 import Util.PrettyPrint
+import qualified Util.TextPrettyPrint as T
 
 type UProc = UnCompiledProc
 
@@ -243,9 +245,25 @@ procId n vss pn = ProcName n vss pn
 annonymousProcId :: [[Value]] -> Maybe ProcName -> ProcName
 annonymousProcId vss pn = AnnonymousProcName vss pn
 
+instance T.FastPrettyPrintable Name where
+    toBuilder (Name { nameOccurrence = OccName s }) = T.text s
+instance T.FastPrettyPrintable Value where
+    toBuilder (VInt i) = T.integral i
+    toBuilder (VBool b) = if b then T.stext "true" else T.stext "false"
+    toBuilder (VTuple vs) = T.parens (T.list (map T.toBuilder vs))
+    toBuilder (VDot vs) = T.punctuate T.dot (map T.toBuilder vs)
+    toBuilder (VChannel n) = T.toBuilder n
+    toBuilder (VDataType n) = T.toBuilder n
+    toBuilder (VList vs) = T.angles (T.list (map T.toBuilder vs))
+    toBuilder (VSet vs) = T.text (show (prettyPrint vs))
+    toBuilder (VFunction _) = T.stext "<function>"
+    toBuilder (VProc (PProcCall pn _)) = T.text (show (prettyPrint pn))
+    toBuilder (VProc p) = T.text (show (prettyPrint p))
+    toBuilder (VThunk th) = T.stext "<thunk>"
+
 -- | This assumes that the value is a VDot with the left is a VChannel
 valueEventToEvent :: Value -> Event
-valueEventToEvent v = newUserEvent (show (prettyPrint v))
+valueEventToEvent v = UserEvent $ T.toText v
 
 -- | Returns an x such that ev.x has been extended by exactly one atomic field.
 -- This could be inside a subfield or elsewhere.
