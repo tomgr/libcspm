@@ -27,6 +27,10 @@ type EventSet = Sq.Seq Event
 fromList :: [Event] -> EventSet
 fromList = Sq.fromList
 
+instance T.FastPrettyPrintable Event where
+    toBuilder Tau = T.char 'τ'
+    toBuilder Tick = T.char '✓'
+    toBuilder (UserEvent v) = T.toBuilder v
 instance Hashable Event where
     hash Tau = 1
     hash Tick = 2

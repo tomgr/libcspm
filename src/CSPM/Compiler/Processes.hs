@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances, TypeSynonymInstances, OverloadedStrings #-}
 -- | This module provides the input data structure to the compiler.
 module CSPM.Compiler.Processes (
     Proc(..), UnCompiledProc,
@@ -17,6 +17,7 @@ import qualified Data.Functor as F
 import qualified Data.Sequence as S
 import Data.Hashable
 import Util.PrettyPrint
+import qualified Util.TextPrettyPrint as T
 
 -- | ProcNames uniquely identify processes.
 data ProcName =
@@ -54,6 +55,18 @@ instance PrettyPrintable ProcName where
         prettyPrint pn <> colon<>colon <> prettyPrint (AnnonymousProcName args Nothing)
 instance Show ProcName where
     show pn = show (prettyPrint pn)
+
+instance T.FastPrettyPrintable ProcName where
+    toBuilder (ProcName n args Nothing) =
+        T.toBuilder n
+        T.<> T.hcat (map (\as -> T.parens (T.list (map T.toBuilder as))) args)
+    toBuilder (ProcName n args (Just pn)) =
+        T.toBuilder n T.<> T.stext "::" T.<> T.toBuilder (ProcName n args Nothing)
+    toBuilder (AnnonymousProcName args Nothing) =
+        T.stext "ANNON"
+        T.<> T.hcat (map (\as -> T.parens (T.list (map T.toBuilder as))) args)
+    toBuilder (AnnonymousProcName args (Just pn)) =
+        T.toBuilder pn T.<> T.stext "::" T.<> T.toBuilder (AnnonymousProcName args Nothing)
 
 -- | An operator that can be applied to processes.
 data ProcOperator =

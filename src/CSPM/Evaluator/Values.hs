@@ -261,7 +261,7 @@ instance T.FastPrettyPrintable Value where
 
 -- | This assumes that the value is a VDot with the left is a VChannel
 valueEventToEvent :: Value -> Event
-valueEventToEvent v = UserEvent $ T.toText v
+valueEventToEvent = UserEvent
 
 -- | Returns an x such that ev.x has been extended by exactly one atomic field.
 -- This could be inside a subfield or elsewhere.

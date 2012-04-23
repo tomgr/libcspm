@@ -21,6 +21,7 @@ import System.IO.Unsafe
 
 import Util.Annotated
 import Util.PrettyPrint
+import qualified Util.TextPrettyPrint as T
 
 -- | A name that occurs in the source code somewhere.
 data OccName = 
@@ -96,6 +97,9 @@ instance PrettyPrintable Name where
 
 instance Show Name where
     show n = show (prettyPrint n)
+
+instance T.FastPrettyPrintable Name where
+    toBuilder (Name { nameOccurrence = OccName s }) = T.text s
 
 nameUniqueSupply :: IORef (Supply Int)
 nameUniqueSupply = unsafePerformIO (do

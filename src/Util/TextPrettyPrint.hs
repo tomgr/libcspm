@@ -6,6 +6,12 @@ import qualified Data.Text.Lazy as T hiding (singleton)
 import qualified Data.Text.Lazy.Builder as T
 import qualified Data.Text.Lazy.Builder.Int as T
 
+(<>) :: T.Builder -> T.Builder -> T.Builder
+(<>) = mappend
+
+hcat :: [T.Builder] -> T.Builder
+hcat = mconcat
+
 text :: String -> T.Builder
 text = T.fromString
 
@@ -18,9 +24,12 @@ ltext = T.fromLazyText
 integral :: Integral a => a -> T.Builder
 integral a = T.decimal a
 
+char :: Char -> T.Builder
+char c = T.singleton c
+
 comma, dot :: T.Builder
-comma = T.singleton ','
-dot = T.singleton '.'
+comma = char ','
+dot = char '.'
 
 wrap :: T.Builder -> T.Builder -> T.Builder -> T.Builder
 wrap l t r = l `mappend` t `mappend` r
