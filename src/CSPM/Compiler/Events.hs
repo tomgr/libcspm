@@ -1,14 +1,16 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
 module CSPM.Compiler.Events (
-    Event(..), newUserEvent,
+    Event(..),
     EventSet, fromList,
 ) where
 
 import Data.Foldable as F
 import Data.Hashable
 import qualified Data.Sequence as Sq
-import qualified Data.Text as T
+
+import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.PrettyPrint
+import qualified Util.TextPrettyPrint as T
 
 -- | Events, as represented in the LTS.
 data Event = 
@@ -17,13 +19,10 @@ data Event =
     -- | The internal event tick, representing termination.
     | Tick 
     -- | Any event defined in a channel definition.
-    | UserEvent T.Text
+    | UserEvent Value
     deriving (Eq, Ord)
 
 type EventSet = Sq.Seq Event
-
-newUserEvent :: String -> Event
-newUserEvent = UserEvent . T.pack
 
 fromList :: [Event] -> EventSet
 fromList = Sq.fromList
@@ -35,7 +34,7 @@ instance Hashable Event where
 instance PrettyPrintable Event where
     prettyPrint Tau = char 'τ'
     prettyPrint Tick = char '✓'
-    prettyPrint (UserEvent s) = text (T.unpack s)
+    prettyPrint (UserEvent v) = prettyPrint v
 instance Show Event where
     show ev = show (prettyPrint ev)
 

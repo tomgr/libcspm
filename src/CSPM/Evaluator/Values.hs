@@ -245,8 +245,6 @@ procId n vss pn = ProcName n vss pn
 annonymousProcId :: [[Value]] -> Maybe ProcName -> ProcName
 annonymousProcId vss pn = AnnonymousProcName vss pn
 
-instance T.FastPrettyPrintable Name where
-    toBuilder (Name { nameOccurrence = OccName s }) = T.text s
 instance T.FastPrettyPrintable Value where
     toBuilder (VInt i) = T.integral i
     toBuilder (VBool b) = if b then T.stext "true" else T.stext "false"
