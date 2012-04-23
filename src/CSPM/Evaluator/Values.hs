@@ -162,6 +162,20 @@ instance PrettyPrintable Value where
     prettyPrint (VProc p) = prettyPrint p
     prettyPrint (VThunk th) = text "<thunk>"
 
+instance T.FastPrettyPrintable Value where
+    toBuilder (VInt i) = T.integral i
+    toBuilder (VBool b) = if b then T.stext "true" else T.stext "false"
+    toBuilder (VTuple vs) = T.parens (T.list (map T.toBuilder vs))
+    toBuilder (VDot vs) = T.punctuate T.dot (map T.toBuilder vs)
+    toBuilder (VChannel n) = T.toBuilder n
+    toBuilder (VDataType n) = T.toBuilder n
+    toBuilder (VList vs) = T.angles (T.list (map T.toBuilder vs))
+    toBuilder (VSet vs) = T.text (show (prettyPrint vs))
+    toBuilder (VFunction _) = T.stext "<function>"
+    toBuilder (VProc (PProcCall pn _)) = T.text (show (prettyPrint pn))
+    toBuilder (VProc p) = T.text (show (prettyPrint p))
+    toBuilder (VThunk th) = T.stext "<thunk>"
+
 instance Show Value where
     show v = show (prettyPrint v)
 
@@ -244,20 +258,6 @@ procId n vss pn = ProcName n vss pn
 
 annonymousProcId :: [[Value]] -> Maybe ProcName -> ProcName
 annonymousProcId vss pn = AnnonymousProcName vss pn
-
-instance T.FastPrettyPrintable Value where
-    toBuilder (VInt i) = T.integral i
-    toBuilder (VBool b) = if b then T.stext "true" else T.stext "false"
-    toBuilder (VTuple vs) = T.parens (T.list (map T.toBuilder vs))
-    toBuilder (VDot vs) = T.punctuate T.dot (map T.toBuilder vs)
-    toBuilder (VChannel n) = T.toBuilder n
-    toBuilder (VDataType n) = T.toBuilder n
-    toBuilder (VList vs) = T.angles (T.list (map T.toBuilder vs))
-    toBuilder (VSet vs) = T.text (show (prettyPrint vs))
-    toBuilder (VFunction _) = T.stext "<function>"
-    toBuilder (VProc (PProcCall pn _)) = T.text (show (prettyPrint pn))
-    toBuilder (VProc p) = T.text (show (prettyPrint p))
-    toBuilder (VThunk th) = T.stext "<thunk>"
 
 -- | This assumes that the value is a VDot with the left is a VChannel
 valueEventToEvent :: Value -> Event
