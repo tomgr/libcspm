@@ -43,7 +43,7 @@ evaluateFile ms = bindModules ms
 
 getBoundNames :: EvaluationMonad [Name]
 getBoundNames = 
-    getEnvironment >>= return . filter (\n -> nameType n == ExternalName) . map fst . toList
+    getEnvironment >>= return . filter (\n -> nameType n == ExternalName) . boundNames
 
 addToEnvironment :: [(Name, EvaluationMonad Value)] -> EvaluationMonad EvaluationState
 addToEnvironment bs = addScopeAndBindM bs getState
