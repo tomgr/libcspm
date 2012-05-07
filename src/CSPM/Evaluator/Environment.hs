@@ -3,6 +3,7 @@ module CSPM.Evaluator.Environment (
     new, lookup, newLayerAndBind, boundNames,
 ) where
 
+import Data.List (nub, sort)
 import qualified Data.IntMap as M
 import Prelude hiding (lookup)
 
@@ -28,12 +29,11 @@ lookup (Environment env _) n =
     in lookupInLayers env
 
 boundNames :: Environment -> [Name]
-boundNames (Environment _ ns) = ns
+boundNames (Environment _ ns) = nub (sort ns)
 
 newLayerAndBind :: Environment -> [(Name, Value)] -> Environment
 newLayerAndBind (Environment ms ns) nvs =
     let
         ms' = M.fromList [(nameUnique n, v) | (n,v) <- nvs] : ms
         newns = map fst nvs
-        ns' = newsns ++ (ns' \\ newns)
-    in Environment ms' ns'
+    in Environment ms' (map fst nvs ++ newns)
