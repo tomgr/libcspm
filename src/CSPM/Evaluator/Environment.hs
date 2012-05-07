@@ -36,4 +36,4 @@ newLayerAndBind (Environment ms ns) nvs =
     let
         ms' = M.fromList [(nameUnique n, v) | (n,v) <- nvs] : ms
         newns = map fst nvs
-    in Environment ms' (map fst nvs ++ newns)
+    in Environment ms' (map fst nvs ++ ns)
