@@ -69,4 +69,4 @@ unsafeNameUsed :: Name -> Error
 unsafeNameUsed n =
     text "The invocation of" <+> prettyPrint n 
         <+> text "has not been type-checked."
-    <+> text "Therefore, a runtime type error may occur here."
+    $$ text "Therefore, a runtime type error may occur."
