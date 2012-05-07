@@ -33,7 +33,5 @@ boundNames (Environment _ ns) = nub (sort ns)
 
 newLayerAndBind :: Environment -> [(Name, Value)] -> Environment
 newLayerAndBind (Environment ms ns) nvs =
-    let
-        ms' = M.fromList [(nameUnique n, v) | (n,v) <- nvs] : ms
-        newns = map fst nvs
+    let ms' = M.fromList [(nameUnique n, v) | (n,v) <- nvs] : ms
     in Environment ms' (map fst nvs ++ ns)

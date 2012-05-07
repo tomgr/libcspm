@@ -15,6 +15,7 @@ module CSPM.Renamer (
     initRenamer,
     rename,
     newScope,
+    getBoundNames,
 )  where
 
 import Control.Monad.State
@@ -52,6 +53,12 @@ initRenamer = do
 -- | Runs the renamer starting at the given state and returning the given state.
 runFromStateToState :: RenamerState -> RenamerMonad a -> IO (a, RenamerState)
 runFromStateToState s p = runStateT p s
+
+getBoundNames :: RenamerMonad [Name]
+getBoundNames = do
+    env <- gets environment
+    let isInteresting n = nameType n `elem` [ExternalName, WiredInName]
+    return $ filter isInteresting $ map snd (HM.flatten env)
 
 -- **********************
 -- Monad Operations

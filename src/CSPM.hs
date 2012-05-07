@@ -86,14 +86,14 @@ module CSPM (
     -- * Parser API
     parseStringAsFile, parseFile, parseInteractiveStmt, parseExpression,
     -- * Renamer API
-    renameFile, renameInteractiveStmt, renameExpression,
+    renameFile, renameInteractiveStmt, renameExpression, getBoundNames,
     -- * Type Checker API
     typeCheckFile, typeCheckInteractiveStmt, typeCheckExpression,
     ensureExpressionIsOfType, dependenciesOfExp, typeOfExpression,
     -- * Desugarer API
     desugarFile, desugarInteractiveStmt, desugarExpression,
     -- * Evaluator API
-    bindFile, bindDeclaration, getBoundNames,
+    bindFile, bindDeclaration,
     evaluateExpression,
     -- * Low-Level API
     -- | Whilst this module provides many of the commonly used functionality 
@@ -243,6 +243,10 @@ renameInteractiveStmt e = runRenamerInCurrentState $ do
     RN.newScope
     RN.rename e
 
+-- | Get a list of currently bound names in the environment.
+getBoundNames :: CSPMMonad m => m [Name]
+getBoundNames = runRenamerInCurrentState RN.getBoundNames
+
 -- TypeChecker API
 
 -- | Runs the typechecker in the current state, saving the resulting state and
@@ -312,10 +316,6 @@ runEvaluatorInCurrentState p = withSession $ \s -> do
     return a
 
 -- Environment API
-
--- | Get a list of currently bound names in the environment.
-getBoundNames :: CSPMMonad m => m [Name]
-getBoundNames = runEvaluatorInCurrentState EV.getBoundNames 
  
 -- | Takes a declaration and adds it to the current environment. Requires the
 -- declaration to be desugared.

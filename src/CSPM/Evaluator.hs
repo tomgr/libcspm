@@ -41,9 +41,12 @@ evaluateDecl d = bindDecls [d]
 evaluateFile :: [TCModule] -> EvaluationMonad [(Name, EvaluationMonad Value)]
 evaluateFile ms = bindModules ms
 
+-- | Get the names currently bound by the evaluator. Note that this will be a
+-- superset of the actually available names as this will include all external
+-- and transparent names, even if they are not currently bound.
 getBoundNames :: EvaluationMonad [Name]
-getBoundNames = 
-    getEnvironment >>= return . filter (\n -> nameType n == ExternalName) . boundNames
+getBoundNames = getEnvironment >>= return . 
+    filter (\n -> nameType n `elem` [ExternalName, WiredInName]) . boundNames
 
 addToEnvironment :: [(Name, EvaluationMonad Value)] -> EvaluationMonad EvaluationState
 addToEnvironment bs = addScopeAndBindM bs getState
