@@ -1,6 +1,6 @@
 module CSPM.Evaluator.Environment (
     Environment,
-    new, lookup, newLayerAndBind, boundNames,
+    new, lookup, newLayerAndBind,
 ) where
 
 import Data.List (nub, sort)
@@ -11,14 +11,13 @@ import CSPM.DataStructures.Names
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.Exception
 
-data Environment = 
-    Environment [M.IntMap Value] [Name]
+data Environment = Environment [M.IntMap Value]
 
 new :: Environment
-new = Environment [] []
+new = Environment []
 
 lookup :: Environment -> Name -> Value
-lookup (Environment env _) n = 
+lookup (Environment env) n = 
     let
         nv = nameUnique n
         lookupInLayers [] = panic ("lookup not found: "++show n)
@@ -28,10 +27,7 @@ lookup (Environment env _) n =
                 Nothing -> lookupInLayers ms
     in lookupInLayers env
 
-boundNames :: Environment -> [Name]
-boundNames (Environment _ ns) = nub (sort ns)
-
 newLayerAndBind :: Environment -> [(Name, Value)] -> Environment
-newLayerAndBind (Environment ms ns) nvs =
+newLayerAndBind (Environment ms) nvs =
     let ms' = M.fromList [(nameUnique n, v) | (n,v) <- nvs] : ms
-    in Environment ms' (map fst nvs ++ ns)
+    in Environment ms'
