@@ -23,7 +23,7 @@ module CSPM.TypeChecker.Monad (
 )
 where
 
-import Control.Monad.State
+import Control.Monad.State.Strict
 import Prelude hiding (lookup)
 
 import CSPM.DataStructures.Names

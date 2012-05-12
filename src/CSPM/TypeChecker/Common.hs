@@ -65,4 +65,3 @@ ensureHasConstraint :: Constraint -> Type -> TypeCheckMonad Type
 ensureHasConstraint c t = do
     fv1 <- freshTypeVarWithConstraints [c]
     unify fv1 t
-

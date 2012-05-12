@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, FlexibleContexts,
+    ScopedTypeVariables  #-}
 module CSPM.Evaluator.DeclBind (
     bindDecls, 
 ) where
@@ -21,13 +22,15 @@ import Util.Annotated
 import Util.Exception
 import qualified Util.List as UL
 import Util.Monad
+import Util.PrettyPrint
 
 import Debug.Trace
 
 -- | Given a list of declarations, returns a sequence of names bounds to
 -- values that can be passed to 'addScopeAndBind' in order to bind them in
 -- the current scope.
-bindDecls :: [TCDecl] -> EvaluationMonad [(Name, EvaluationMonad Value)]
+bindDecls :: forall p ops . (Evaluatable (TCExp p) ops, PrettyPrintable (UProc ops)) => 
+    [TCDecl p] -> EvaluationMonad ops [(Name, EvaluationMonad ops (Value ops))]
 bindDecls ds = do
     nvs <- concatMapM bindDecl ds 
     let eventsName = builtInName "Events"
@@ -40,17 +43,19 @@ bindDecls ds = do
     VSet vs <- lookupVar eventsName
     return $ (eventsName, computeEvents vs)  : normalNvs
 
-bindDecl :: TCDecl -> EvaluationMonad [(Name, EvaluationMonad Value)]
+bindDecl :: forall p ops . (Evaluatable (TCExp p) ops, PrettyPrintable (UProc ops)) => 
+    TCDecl p -> EvaluationMonad ops [(Name, EvaluationMonad ops (Value ops))]
 bindDecl (an@(An _ _ (FunBind n ms))) = do
     parentPid <- getParentProcName
     let
         matches = map unAnnotate ms
         argGroupCount = head (map (\ (Match pss e) -> length pss) matches)
-        collectArgs :: Int -> [[Value]] -> EvaluationMonad Value
+        collectArgs :: Int -> [[Value ops]] -> EvaluationMonad ops (Value ops)
         collectArgs 0 ass_ =
             let
                 procName = procId n argGroups parentPid
                 argGroups = reverse ass_
+                tryMatches :: [Match Name p] -> EvaluationMonad ops (Value ops)
                 tryMatches [] = throwError $ 
                     funBindPatternMatchFailureMessage (loc an) n argGroups
                 tryMatches (Match pss e : ms) =
@@ -86,7 +91,7 @@ bindDecl (an@(An _ _ (PatBind p e))) = do
         -- lifed out of the lambda (and thus only being performed once).
         nV = unsafePerformIO (p `seq` mkFreshInternalName)
         {-# NOINLINE nV #-}
-        extractor :: Name -> EvaluationMonad Value
+        extractor :: Name -> EvaluationMonad ops (Value ops)
         extractor n = noSave $ do
             v <- lookupVar nV
             let 
@@ -103,7 +108,7 @@ bindDecl (an@(An _ _ (PatBind p e))) = do
     return $ (nV, noSave (eval e)):[(fv, extractor fv) | fv <- freeVars p]
 bindDecl (an@(An _ _ (Channel ns me))) =
     let
-        mkChan :: Name -> EvaluationMonad Value
+        mkChan :: Name -> EvaluationMonad ops (Value ops)
         mkChan n = do
             vss <- case me of
                 Just e -> eval e >>= return . evalTypeExprToList
@@ -111,7 +116,7 @@ bindDecl (an@(An _ _ (Channel ns me))) =
             
             let arity = fromIntegral (length vss)
             return $ VTuple [VDot [VChannel n], VInt arity, VList (map VList vss)]
-        eventSetValue :: EvaluationMonad Value
+        eventSetValue :: EvaluationMonad ops (Value ops)
         eventSetValue = do
             ss <- mapM (\ n -> completeEvent (VDot [VChannel n])) ns
             return $ VSet (unions ss)
@@ -119,14 +124,14 @@ bindDecl (an@(An _ _ (Channel ns me))) =
     in return $ (builtInName "Events", eventSetValue) : [(n, mkChan n) | n <- ns]
 bindDecl (an@(An _ _ (DataType n cs))) =
     let
-        mkDataTypeClause :: DataTypeClause Name -> (Name, EvaluationMonad Value)
+        mkDataTypeClause :: DataTypeClause Name p -> (Name, EvaluationMonad ops (Value ops))
         mkDataTypeClause (DataTypeClause nc me) = (nc, do
             vss <- case me of
                 Just e -> eval e >>= return . evalTypeExprToList
                 Nothing -> return []
             let arity = fromIntegral (length vss)
             return $ VTuple [VDot [VDataType nc], VInt arity, VList (map VList vss)])
-        computeSetOfValues :: EvaluationMonad Value
+        computeSetOfValues :: EvaluationMonad ops (Value ops)
         computeSetOfValues =
             let 
                 mkSet nc = do
@@ -146,12 +151,12 @@ bindDecl (an@(An _ _ (Assert _))) = return []
 bindDecl (an@(An _ _ (External ns))) = return []
 bindDecl (an@(An _ _ (Transparent ns))) = return []
 
-evalTypeExpr :: Value -> ValueSet
+evalTypeExpr :: Value ops -> ValueSet ops
 evalTypeExpr (VSet s) = s
 evalTypeExpr (VDot vs) = cartesianProduct VDot (map evalTypeExpr vs)
 evalTypeExpr (VTuple vs) = cartesianProduct VTuple (map evalTypeExpr vs)
 
-evalTypeExprToList :: Value -> [[Value]]
+evalTypeExprToList :: Value ops -> [[Value ops]]
 evalTypeExprToList (VDot vs) = concatMap evalTypeExprToList vs
 evalTypeExprToList v = [toList (evalTypeExpr v)]
 

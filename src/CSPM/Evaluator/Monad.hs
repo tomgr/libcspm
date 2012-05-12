@@ -9,32 +9,32 @@ import CSPM.Evaluator.Environment
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.Exception
 
-data EvaluationState = 
+data EvaluationState ops = 
     EvaluationState {
-        environment :: Environment,
-        parentProcName :: Maybe ProcName
+        environment :: Environment ops,
+        parentProcName :: Maybe (ProcName ops)
     }
   
-type EvaluationMonad = Reader EvaluationState
+type EvaluationMonad ops = Reader (EvaluationState ops)
 
-gets :: (EvaluationState -> a) -> EvaluationMonad a
+gets :: (EvaluationState ops -> a) -> EvaluationMonad ops a
 gets = asks
 
-modify :: (EvaluationState -> EvaluationState) -> EvaluationMonad a -> EvaluationMonad a
+modify :: (EvaluationState ops -> EvaluationState ops) -> EvaluationMonad ops a -> EvaluationMonad ops a
 modify = local
 
-runEvaluator :: EvaluationState -> EvaluationMonad a -> a
+runEvaluator :: EvaluationState ops -> EvaluationMonad ops a -> a
 runEvaluator st prog = runReader prog st
 
-getState :: EvaluationMonad EvaluationState
+getState :: EvaluationMonad ops (EvaluationState ops)
 getState = gets id
 {-# INLINE getState #-}
 
-getEnvironment :: EvaluationMonad Environment
+getEnvironment :: EvaluationMonad ops (Environment ops)
 getEnvironment = gets environment
 {-# INLINE getEnvironment #-}
 
-lookupVarMaybeThunk :: Name -> EvaluationMonad Value
+lookupVarMaybeThunk :: Name -> EvaluationMonad ops (Value ops)
 lookupVarMaybeThunk n = do
     -- This should never produce an error as the TC would
     -- catch it
@@ -43,13 +43,13 @@ lookupVarMaybeThunk n = do
 {-# INLINE lookupVarMaybeThunk #-}
 
 -- | Implements non-recursive lets.
-addScopeAndBind :: [(Name, Value)] -> EvaluationMonad a -> EvaluationMonad a
+addScopeAndBind :: [(Name, Value ops)] -> EvaluationMonad ops a -> EvaluationMonad ops a
 addScopeAndBind [] prog = prog
 addScopeAndBind bs prog =
     modify (\ st -> st { environment = newLayerAndBind (environment st) bs }) prog
 
 -- | Implements recursive lets.
-addScopeAndBindM :: [(Name, EvaluationMonad Value)] -> EvaluationMonad a -> EvaluationMonad a
+addScopeAndBindM :: [(Name, EvaluationMonad ops (Value ops))] -> EvaluationMonad ops a -> EvaluationMonad ops a
 addScopeAndBindM [] prog = prog
 addScopeAndBindM binds prog = do
     st <- getState
@@ -62,9 +62,9 @@ addScopeAndBindM binds prog = do
 throwError :: ErrorMessage -> a
 throwError err = throwSourceError [err]
 
-getParentProcName :: EvaluationMonad (Maybe ProcName)
+getParentProcName :: EvaluationMonad ops (Maybe (ProcName ops))
 getParentProcName = gets parentProcName
 
-updateParentProcName :: ProcName -> EvaluationMonad a -> EvaluationMonad a
+updateParentProcName :: ProcName ops -> EvaluationMonad ops a -> EvaluationMonad ops a
 updateParentProcName pn prog =
     modify (\ st -> st { parentProcName = Just pn }) prog

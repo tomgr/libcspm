@@ -4,6 +4,7 @@
 --
 -- We cannot just use the built in set implementation as FDR assumes in several
 -- places that infinite sets are allowed.
+{-# LANGUAGE FlexibleContexts, ScopedTypeVariables, UndecidableInstances #-}
 module CSPM.Evaluator.ValueSet (
     -- * Construction
     ValueSet(Integers, Processes, IntSetFrom),
@@ -34,32 +35,32 @@ import qualified CSPM.Compiler.Events as CE
 import Util.Exception
 import Util.PrettyPrint hiding (empty)
 
-data ValueSet = 
+data ValueSet ops = 
     -- | Set of all integers
     Integers
     -- | Set of all processes
     | Processes
     -- | An explicit set of values
-    | ExplicitSet (S.Set Value)
+    | ExplicitSet (S.Set (Value ops))
     -- | The infinite set of integers starting at lb.
     | IntSetFrom Int -- {lb..}
     -- | A set of two value sets. Note that the tree of sets may be infinite.
     -- NB. Composite sets are always infinite.
-    | CompositeSet ValueSet ValueSet
+    | CompositeSet (ValueSet ops) (ValueSet ops)
     -- Only used for the internal set representation
     deriving Ord
 
-instance Hashable ValueSet where
+instance Hashable (ValueSet ops) where
     hash Integers = 1
     hash Processes = 2
     hash (ExplicitSet s) = combine 3 (hash (S.toList s))
     hash (IntSetFrom lb) = combine 4 lb
     hash (CompositeSet vs1 vs2) = panic "Hash of an infinite set"
 
-instance Eq ValueSet where
+instance Eq (ValueSet ops) where
     s1 == s2 = compareValueSets s1 s2 == Just EQ
 
-instance PrettyPrintable ValueSet where
+instance PrettyPrintable (UProc ops) => PrettyPrintable (ValueSet ops) where
     prettyPrint Integers = text "Integers"
     prettyPrint Processes = text "Proc"
     prettyPrint (IntSetFrom lb) = braces (int lb <> text "...")
@@ -68,7 +69,7 @@ instance PrettyPrintable ValueSet where
     prettyPrint (CompositeSet s1 s2) =
         text "union" <> parens (prettyPrint s1 <> comma <+> prettyPrint s2)
     
-instance Show ValueSet where
+instance PrettyPrintable (UProc ops) => Show (ValueSet ops) where
     show = show . prettyPrint
 
 flipOrder :: Maybe Ordering -> Maybe Ordering
@@ -78,7 +79,7 @@ flipOrder (Just LT) = Just GT
 flipOrder (Just GT) = Just LT
 
 -- | Compares two value sets using subseteq (as per the specification).
-compareValueSets :: ValueSet -> ValueSet -> Maybe Ordering
+compareValueSets :: ValueSet ops -> ValueSet ops -> Maybe Ordering
 -- Processes
 compareValueSets Processes Processes = Just EQ
 compareValueSets _ Processes = Just LT
@@ -120,53 +121,53 @@ compareValueSets s (CompositeSet s1 s2) =
 
 -- | Produces a ValueSet of the carteisan product of several ValueSets, 
 -- using 'vc' to convert each sequence of values into a single value.
-cartesianProduct :: ([Value] -> Value) -> [ValueSet] -> ValueSet
+cartesianProduct :: ([Value ops] -> Value ops) -> [ValueSet ops] -> ValueSet ops
 cartesianProduct vc = fromList . map vc . sequence . map toList
 
 -- | Returns the powerset of a ValueSet. This requires
-powerset :: ValueSet -> ValueSet
+powerset :: ValueSet ops -> ValueSet ops
 powerset = fromList . map (VSet . fromList) . 
             filterM (\x -> [True, False]) . toList
 
 -- | Returns the set of all sequences over the input set. This is infinite
 -- so we use a CompositeSet.
-allSequences :: ValueSet -> ValueSet
+allSequences :: forall ops . ValueSet ops -> ValueSet ops
 allSequences s = if empty s then emptySet else 
     let 
-        itemsAsList :: [Value]
+        itemsAsList :: [Value ops]
         itemsAsList = toList s
 
-        list :: Integer -> [Value]
+        list :: Integer -> [Value ops]
         list 0 = [VList []]
         list n = concatMap (\x -> map (app x) (list (n-1)))  itemsAsList
             where
-                app :: Value -> Value -> Value
+                app :: Value ops -> Value ops -> Value ops
                 app x (VList xs) = VList $ x:xs
         
-        yielder :: [Value] -> ValueSet
+        yielder :: [Value ops] -> ValueSet ops
         yielder (x:xs) = CompositeSet (ExplicitSet (S.singleton x)) (yielder xs)
 
-        allSequences :: [Value]
+        allSequences :: [Value ops]
         allSequences = concatMap list [0..]
     in yielder allSequences
 
 -- | The empty set
-emptySet :: ValueSet
+emptySet :: ValueSet ops
 emptySet = ExplicitSet S.empty
 
 -- | Converts a list to a set
-fromList :: [Value] -> ValueSet
+fromList :: [Value ops] -> ValueSet ops
 fromList = ExplicitSet . S.fromList
 
 -- | Converts a set to list.
-toList :: ValueSet -> [Value]
+toList :: ValueSet ops -> [Value ops]
 toList (ExplicitSet s) = S.toList s
 toList (IntSetFrom lb) = map VInt [lb..]
 toList (CompositeSet s1 s2) = toList s1 ++ toList s2
 toList Integers = throwSourceError [cannotConvertIntegersToListMessage]
 toList Processes = throwSourceError [cannotConvertProcessesToListMessage]
 
-toSeq :: ValueSet -> Sq.Seq Value
+toSeq :: ValueSet ops -> Sq.Seq (Value ops)
 toSeq (ExplicitSet s) = F.foldMap Sq.singleton s
 toSeq (IntSetFrom lb) = fmap VInt (Sq.fromList [lb..])
 toSeq (CompositeSet s1 s2) = toSeq s1 Sq.>< toSeq s2
@@ -174,16 +175,16 @@ toSeq Integers = throwSourceError [cannotConvertIntegersToListMessage]
 toSeq Processes = throwSourceError [cannotConvertProcessesToListMessage]
 
 -- | Returns the value iff the set contains one item only.
-singletonValue :: ValueSet -> Maybe Value
+singletonValue :: ValueSet ops -> Maybe (Value ops)
 singletonValue s =
     let
-        isSingleton :: ValueSet -> Bool
+        isSingleton :: ValueSet ops -> Bool
         isSingleton (ExplicitSet s) = S.size s == 1
         isSingleton _ = False
     in if isSingleton s then Just (head (toList s)) else Nothing
 
 -- | Is the specified value a member of the set.
-member :: Value -> ValueSet -> Bool
+member :: Value ops -> ValueSet ops -> Bool
 member v (ExplicitSet s) = S.member v s
 member (VInt i) Integers = True
 member (VInt i) (IntSetFrom lb) = i >= lb
@@ -193,12 +194,12 @@ member (VProc p) Processes = True
 member v s1 = throwSourceError [cannotCheckSetMembershipError v s1]
 
 -- | The cardinality of the set. Throws an error if the set is infinite.
-card :: ValueSet -> Integer
+card :: ValueSet ops -> Integer
 card (ExplicitSet s) = toInteger (S.size s)
 card s = throwSourceError [cardOfInfiniteSetMessage s]
 
 -- | Is the specified set empty?
-empty :: ValueSet -> Bool
+empty :: ValueSet ops -> Bool
 empty (ExplicitSet s) = S.null s
 empty (CompositeSet s1 s2) = False
 empty (IntSetFrom lb) = False
@@ -206,17 +207,17 @@ empty Processes = False
 empty Integers = False
 
 -- | Replicated union.
-unions :: [ValueSet] -> ValueSet
+unions :: [ValueSet ops] -> ValueSet ops
 unions vs = foldr union (ExplicitSet S.empty) vs
 
 -- | Replicated intersection.
-intersections :: [ValueSet] -> ValueSet
+intersections :: [ValueSet ops] -> ValueSet ops
 intersections [] = emptySet
 intersections (v:vs) = foldr1 intersection vs
 
 -- | Union two sets throwing an error if it cannot be done in a way that will
 -- terminate.
-union :: ValueSet -> ValueSet -> ValueSet
+union :: ValueSet ops -> ValueSet ops -> ValueSet ops
 -- Process unions
 union _ Processes = Processes
 union Processes _ = Processes
@@ -239,7 +240,7 @@ union (IntSetFrom lb) (ExplicitSet s1) =
 
 -- | Intersects two sets throwing an error if it cannot be done in a way that 
 -- will terminate.
-intersection :: ValueSet -> ValueSet -> ValueSet
+intersection :: ValueSet ops -> ValueSet ops -> ValueSet ops
 -- Explicit intersections
 intersection (ExplicitSet s1) (ExplicitSet s2) =
     ExplicitSet (S.intersection s1 s2)
@@ -265,7 +266,7 @@ intersection x Processes = x
 -- finite way.
 intersection s1 s2 = throwSourceError [cannotIntersectSetsMessage s1 s2]
 
-difference :: ValueSet -> ValueSet -> ValueSet
+difference :: ValueSet ops -> ValueSet ops -> ValueSet ops
 difference (ExplicitSet s1) (ExplicitSet s2) = ExplicitSet (S.difference s1 s2)
 difference (IntSetFrom lb1) (IntSetFrom lb2) = fromList (map VInt [lb1..(lb2-1)])
 difference _ Integers = ExplicitSet S.empty
@@ -288,5 +289,5 @@ difference (ExplicitSet s1) (IntSetFrom lb1) =
     ExplicitSet (S.fromList [VInt i | VInt i <- S.toList s1, i < lb1])
 difference s1 s2 = throwSourceError [cannotDifferenceSetsMessage s1 s2]
 
-valueSetToEventSet :: ValueSet -> CE.EventSet
+valueSetToEventSet :: ValueSet ops -> CE.EventSet ops
 valueSetToEventSet = CE.fromList . map valueEventToEvent . toList

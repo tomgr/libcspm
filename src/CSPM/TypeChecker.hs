@@ -25,6 +25,7 @@ import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Unification
 import Util.Annotated
 import Util.Exception
+import Util.PrettyPrint
 
 runFromStateToState :: TypeInferenceState -> TypeCheckMonad a -> 
             IO (a, [ErrorMessage], TypeInferenceState)
@@ -48,7 +49,10 @@ typeCheckExpect t exp = TC.typeCheckExpect exp t >> mcompress exp
 typeCheck :: (Compressable a, TC.TypeCheckable a b) => a -> TypeCheckMonad a
 typeCheck exp = TC.typeCheck exp >> mcompress exp
 
-typeOfExp :: TCExp -> TypeCheckMonad Type
+typeOfExp :: 
+    (Compressable (p Name), Eq (p Name), Dependencies (p Name), 
+        PrettyPrintable (p Name), TC.TypeCheckable (p Name) Type)
+        => TCExp p -> TypeCheckMonad Type
 typeOfExp exp = do
     -- See if has been type checked, if so, return type,
     -- else type check
@@ -58,5 +62,8 @@ typeOfExp exp = do
         Nothing -> typeCheck exp >> typeOfExp exp
 
 -- | Returns the list of names that this expression depends on
-dependenciesOfExp :: TCExp -> TypeCheckMonad [Name]
+dependenciesOfExp :: 
+    (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+        TC.TypeCheckable (p Name) Type)
+        => TCExp p -> TypeCheckMonad [Name]
 dependenciesOfExp exp = dependencies exp

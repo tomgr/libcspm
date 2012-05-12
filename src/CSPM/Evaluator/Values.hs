@@ -1,6 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, UndecidableInstances, FlexibleContexts #-}
 module CSPM.Evaluator.Values (
-    Value(..), UProc, Proc(..), CSPOperator(..), ProcOperator(..), Event(..),
+    Value(..), UProc, Proc(..), ProcOperator(..), Event(..),
     compareValues,
     procId, annonymousProcId,
     valueEventToEvent,
@@ -27,46 +27,44 @@ import Util.Prelude
 import Util.PrettyPrint
 import qualified Util.TextPrettyPrint as T
 
-type UProc = UnCompiledProc
-
-data Value =
+data Value ops =
     VInt Int
     | VBool Bool
-    | VTuple [Value]
+    | VTuple [Value ops]
     -- | If A is a datatype clause that has 3 fields a b c then a runtime
     -- instantiation of this would be VDot [VDataType "A", a, b, c] where a,b
     -- and c can contain other VDots.
-    | VDot [Value]
+    | VDot [Value ops]
     -- The following two never appear on their own, they are always part of a 
     -- VDot (even if the VDot has no values).
     | VChannel Name
     | VDataType Name
-    | VList [Value]
-    | VSet ValueSet
-    | VFunction ([Value] -> EvaluationMonad Value)
-    | VProc UProc
-    | VThunk (EvaluationMonad Value)
+    | VList [Value ops]
+    | VSet (ValueSet ops)
+    | VFunction ([Value ops] -> EvaluationMonad ops (Value ops))
+    | VProc (UProc ops)
+    | VThunk (EvaluationMonad ops (Value ops))
 
 -- | Given a program that yields a value, returns a second program that can be
 -- inserted into the environment, but will cause the environment not to save
 -- the actual value, but to recompute it everytime. This is useful for cheap,
 -- to compute, but high cost in terms of memory, computations (like named
 -- processes).
-noSave :: EvaluationMonad Value -> EvaluationMonad Value
+noSave :: EvaluationMonad ops (Value ops) -> EvaluationMonad ops (Value ops)
 noSave prog = do
     pn <- getParentProcName
     return $ VThunk $ case pn of
                         Just x -> updateParentProcName x prog
                         Nothing -> prog
 
-removeThunk :: Value -> EvaluationMonad Value
+removeThunk :: Value ops -> EvaluationMonad ops (Value ops)
 removeThunk (VThunk p) = p
 removeThunk v = return v
 
-lookupVar :: Name -> EvaluationMonad Value
+lookupVar :: Name -> EvaluationMonad ops (Value ops)
 lookupVar n = lookupVarMaybeThunk n >>= removeThunk
 
-instance Hashable Value where
+instance Hashable (Value ops) where
     hash (VInt i) = combine 1 (hash i)
     hash (VBool b) = combine 2 (hash b)
     hash (VTuple vs) = combine 5 (hash vs)
@@ -79,7 +77,7 @@ instance Hashable Value where
     hash (VProc (PProcCall n _)) = combine 12 (hash n)
     hash (VProc _) = panic "Cannot hash a process"
 
-instance Eq Value where
+instance Eq (Value ops) where
     VInt i1 == VInt i2 = i1 == i2
     VBool b1 == VBool b2 = b1 == b2
     VTuple vs1 == VTuple vs2 = vs1 == vs2
@@ -93,7 +91,7 @@ instance Eq Value where
     v1 == v2 = False
     
 -- | Implements CSPM comparisons (note that Ord Value does not).
-compareValues :: Value -> Value -> Maybe Ordering
+compareValues :: Value ops -> Value ops -> Maybe Ordering
 -- The following are all orderable and comparable
 compareValues (VInt i1) (VInt i2) = Just (compare i1 i2)
 compareValues (VBool b1) (VBool b2) = Just (compare b1 b2)
@@ -127,10 +125,9 @@ compareValues (VDot vs1) (VDot vs2) =
     if vs1 == vs2 then Just EQ else Nothing
 
 -- Every other possibility is invalid
-compareValues v1 v2 = panic $
-    "Cannot compare "++show v1++" "++show v2
+compareValues v1 v2 = panic $ "Cannot compare."
 
-instance Ord Value where
+instance Ord (Value ops) where
     -- This implementation is used for various internal measures, but not
     -- for implementing actual comparisons in CSPM.
     compare (VInt i1) (VInt i2) = compare i1 i2
@@ -146,9 +143,9 @@ instance Ord Value where
     compare v1 v2 = panic $
         -- Must be as a result of a mixed set of values, which cannot happen
         -- as a result of type checking.
-        "Internal sets - cannot order "++show v1++" "++show v2
+        "Internal sets - cannot order."
 
-instance PrettyPrintable Value where
+instance PrettyPrintable (UProc ops) => PrettyPrintable (Value ops) where
     prettyPrint (VInt i) = int i
     prettyPrint (VBool True) = text "true"
     prettyPrint (VBool False) = text "false"
@@ -162,7 +159,7 @@ instance PrettyPrintable Value where
     prettyPrint (VProc p) = prettyPrint p
     prettyPrint (VThunk th) = text "<thunk>"
 
-instance T.FastPrettyPrintable Value where
+instance PrettyPrintable (UProc ops) => T.FastPrettyPrintable (Value ops) where
     toBuilder (VInt i) = T.integral i
     toBuilder (VBool b) = if b then T.stext "true" else T.stext "false"
     toBuilder (VTuple vs) = T.parens (T.list (map T.toBuilder vs))
@@ -172,26 +169,26 @@ instance T.FastPrettyPrintable Value where
     toBuilder (VList vs) = T.angles (T.list (map T.toBuilder vs))
     toBuilder (VSet vs) = T.text (show (prettyPrint vs))
     toBuilder (VFunction _) = T.stext "<function>"
-    toBuilder (VProc (PProcCall pn _)) = T.text (show (prettyPrint pn))
-    toBuilder (VProc p) = T.text (show (prettyPrint p))
+    --toBuilder (VProc (PProcCall pn _)) = T.text (show (prettyPrint pn))
+    --toBuilder (VProc p) = T.text (show (prettyPrint p))
     toBuilder (VThunk th) = T.stext "<thunk>"
 
-instance Show Value where
+instance PrettyPrintable (UProc ops) => Show (Value ops) where
     show v = show (prettyPrint v)
 
 -- | The number of fields this datatype or channel has.
-arityOfDataTypeClause :: Name -> EvaluationMonad Int
+arityOfDataTypeClause :: Name -> EvaluationMonad ops Int
 arityOfDataTypeClause n = do
     VTuple [_, VInt a,_] <- lookupVar n
     return a
 
 -- | Takes two values and dots then together appropriately.
-combineDots :: Value -> Value -> EvaluationMonad Value
+combineDots :: Value ops -> Value ops -> EvaluationMonad ops (Value ops)
 combineDots v1 v2 =
     let
         -- | Dots the given value onto the right of the given base, providing
         -- the left hand value is a field.
-        maybeDotFieldOn :: Value -> Value -> EvaluationMonad (Maybe Value)
+        maybeDotFieldOn :: Value ops -> Value ops -> EvaluationMonad ops (Maybe (Value ops))
         maybeDotFieldOn (VDot (nd:vs)) v = do
             let 
                 mn = case nd of
@@ -224,12 +221,12 @@ combineDots v1 v2 =
         -- the right value is a dot list combines them into one dot list.
         -- This function assumes that any data values are not meant to be split
         -- apart.
-        dotAndReduce :: Value -> Value -> Value
+        dotAndReduce :: Value ops -> Value ops -> Value ops
         dotAndReduce v1 v2 = VDot (splitIntoFields v1 ++ splitIntoFields v2)
 
         -- | Given a base value and the value of a field dots the field onto
         -- the right of the base. Assumes that the value provided is a field.
-        dotFieldOn :: Value -> Value -> EvaluationMonad Value
+        dotFieldOn :: Value ops -> Value ops -> EvaluationMonad ops (Value ops)
         dotFieldOn vBase vField = do
             mv <- maybeDotFieldOn vBase vField
             case mv of
@@ -237,14 +234,14 @@ combineDots v1 v2 =
                 Nothing -> return $ dotAndReduce vBase vField
         
         -- | Split a value up into the values that could be used as fields.
-        splitIntoFields :: Value -> [Value]
+        splitIntoFields :: Value ops -> [Value ops]
         splitIntoFields (v@(VDot (VDataType n:_))) = [v]
         splitIntoFields (VDot vs) = vs
         splitIntoFields v = [v]
 
         -- | Given a base value and a list of many fields dots the fields onto
         -- the base. Assumes that the values provided are fields.
-        dotManyFieldsOn :: Value -> [Value] -> EvaluationMonad Value
+        dotManyFieldsOn :: Value ops -> [Value ops] -> EvaluationMonad ops (Value ops)
         dotManyFieldsOn v [] = return v
         dotManyFieldsOn vBase (v:vs) = do
             vBase' <- dotFieldOn vBase v
@@ -253,19 +250,19 @@ combineDots v1 v2 =
         -- Split v2 up into its composite fields and then dot them onto v1.
         dotManyFieldsOn v1 (splitIntoFields v2)
         
-procId :: Name -> [[Value]] -> Maybe ProcName -> ProcName
+procId :: Name -> [[Value ops]] -> Maybe (ProcName ops) -> (ProcName ops)
 procId n vss pn = ProcName n vss pn
 
-annonymousProcId :: [[Value]] -> Maybe ProcName -> ProcName
+annonymousProcId :: [[Value ops]] -> Maybe (ProcName ops) -> (ProcName ops)
 annonymousProcId vss pn = AnnonymousProcName vss pn
 
 -- | This assumes that the value is a VDot with the left is a VChannel
-valueEventToEvent :: Value -> Event
+valueEventToEvent :: Value ops -> (Event ops)
 valueEventToEvent = UserEvent
 
 -- | Returns an x such that ev.x has been extended by exactly one atomic field.
 -- This could be inside a subfield or elsewhere.
-oneFieldExtensions :: Value -> EvaluationMonad [Value]
+oneFieldExtensions :: Value ops -> EvaluationMonad ops [Value ops]
 oneFieldExtensions (VDot (dn:vs)) = do
     let 
        mn = case dn of
@@ -300,7 +297,7 @@ oneFieldExtensions _ = return [VDot []]
 -- | Takes a datatype or a channel value and then computes all x such that 
 -- ev.x is a full datatype/event. Each of the returned values is guaranteed
 -- to be a VDot.
-extensions :: Value -> EvaluationMonad [Value]
+extensions :: Value ops -> EvaluationMonad ops [Value ops]
 extensions (VDot (dn:vs)) = do
     let 
        mn = case dn of
@@ -332,7 +329,7 @@ extensions v = return [VDot []]
 
 -- | Takes a datatype or a channel value and computes v.x for all x that
 -- complete the value.
-productions :: Value -> EvaluationMonad [Value]
+productions :: Value ops -> EvaluationMonad ops [Value ops]
 productions v = do
     pss <- extensions v
     mapM (combineDots v) pss

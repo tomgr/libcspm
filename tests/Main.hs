@@ -9,6 +9,7 @@ import System.FilePath
 
 import CSPM
 import CSPM.Compiler.Processes
+import CSPM.Operators.CSP
 import Monad
 import Util.Annotated
 import Util.Exception
@@ -76,7 +77,7 @@ runSections = do
         ) sections
     return $ concat fs
 
-runTest :: FilePath -> (FilePath -> Test a) -> RunResult -> IO Bool
+runTest :: FilePath -> (FilePath -> TestM a) -> RunResult -> IO Bool
 runTest fp test expectedResult = do
     putStr $ "Running test "++fp++"..."
     s <- initTestState
@@ -112,14 +113,14 @@ testFunctions = [
         ("evaluator", evaluatorTest)
     ]
 
-typeCheckerTest :: FilePath -> Test ()
+typeCheckerTest :: FilePath -> TestM ()
 typeCheckerTest fp = do
     ms <- disallowErrors (parseFile fp)
     ms <- CSPM.renameFile ms
     typeCheckFile ms
     return ()
 
-parserTest :: FilePath -> Test ()
+parserTest :: FilePath -> TestM ()
 parserTest fp = do
     ms <- parseFile fp
     -- Force evaluation of the whole of ms. We can't just use seq
@@ -127,14 +128,14 @@ parserTest fp = do
     -- the length of the string representing ms and then compute the length
     (length (show ms)) `seq` (return ())
 
-prettyPrinterTest :: FilePath -> Test ()
+prettyPrinterTest :: FilePath -> TestM ()
 prettyPrinterTest fp = do
     ms <- disallowErrors (parseFile fp)
     let str = show (prettyPrint ms)
     ms' <- parseStringAsFile str
     if ms /= ms' then throwException UserError else return ()
 
-disallowErrors :: Test a -> Test a
+disallowErrors :: TestM a -> TestM a
 disallowErrors a = do
     res <- tryM a
     case res of
@@ -142,10 +143,10 @@ disallowErrors a = do
                     $$ tabIndent (text (show e))
         Right v -> return v
 
-evaluatorTest :: FilePath -> Test ()
+evaluatorTest :: FilePath -> TestM ()
 evaluatorTest fp = do
     let 
-        evalExpr :: String -> Type -> Test Value
+        evalExpr :: String -> Type -> TestM (Value UnCompiledCSPOp)
         evalExpr s t = do
             tce <- disallowErrors $ do
                 e <- parseExpression s

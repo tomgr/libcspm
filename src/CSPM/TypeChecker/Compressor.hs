@@ -1,6 +1,6 @@
 -- | Traverses the AST filling in all the type information, ensuring that each
 -- type is fully compressed.
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 module CSPM.TypeChecker.Compressor(
     Compressable, mcompress
 ) where
@@ -45,7 +45,7 @@ instance (Compressable a, Compressable b) => Compressable (a, b) where
         v1' <- mcompress v1
         v2' <- mcompress v2
         return (v1', v2')
-instance Compressable (Exp a) where
+instance Compressable (p a) => Compressable (Exp a p) where
     mcompress (App e es) = return App $$ mcompress e $$ mcompress es
     mcompress (BooleanBinaryOp op e1 e2) = return 
         (BooleanBinaryOp op) $$ mcompress e1 $$ mcompress e2
@@ -67,6 +67,7 @@ instance Compressable (Exp a) where
     mcompress (MathsUnaryOp op e) = return (MathsUnaryOp op) $$ mcompress e
     -- TODO: do we want to do this?
     mcompress (Paren e) = return unAnnotate $$ mcompress e
+    mcompress (Process p) = return Process $$ mcompress p
     mcompress (Set es) = return Set $$ mcompress es
     mcompress (SetComp es stmts) = return SetComp $$ mcompress es $$ mcompress stmts
     mcompress (SetEnum es) = return SetEnum $$ mcompress es
@@ -76,44 +77,10 @@ instance Compressable (Exp a) where
     mcompress (Tuple es) = return Tuple $$ mcompress es
     mcompress (Var n) = return (Var n)
 
-    mcompress (AlphaParallel e1 e2 e3 e4) = return
-        AlphaParallel $$ mcompress e1 $$ mcompress e2 $$ mcompress e3 $$ mcompress e4
-    mcompress (Exception e1 e2 e3) = return
-        Exception $$ mcompress e1 $$ mcompress e2 $$ mcompress e3
-    mcompress (ExternalChoice e1 e2) = return ExternalChoice $$ mcompress e1 $$ mcompress e2
-    mcompress (GenParallel e1 e2 e3) = return
-        GenParallel $$ mcompress e1 $$ mcompress e2 $$ mcompress e3
-    mcompress (GuardedExp e1 e2) = return GuardedExp $$ mcompress e1 $$ mcompress e2
-    mcompress (Hiding e1 e2) = return Hiding $$ mcompress e1 $$ mcompress e2
-    mcompress (InternalChoice e1 e2) = return InternalChoice $$ mcompress e1 $$ mcompress e2
-    mcompress (Interrupt e1 e2) = return Interrupt $$ mcompress e1 $$ mcompress e2
-    mcompress (Interleave e1 e2) = return Interleave $$ mcompress e1 $$ mcompress e2
-    mcompress (LinkParallel e1 ties stmts e2) = return 
-        LinkParallel $$ mcompress e1 $$ mcompress ties $$ mcompress stmts $$ mcompress e2
-    mcompress (Prefix e1 fs e2) = return Prefix $$ mcompress e1 $$ mcompress fs $$ mcompress e2
-    mcompress (Rename e1 ties stmts) = return
-        Rename $$ mcompress e1 $$ mcompress ties $$ mcompress stmts
-    mcompress (SequentialComp e1 e2) = return SequentialComp $$ mcompress e1 $$ mcompress e2
-    mcompress (SlidingChoice e1 e2) = return SlidingChoice $$ mcompress e1 $$ mcompress e2
-    
-    mcompress (ReplicatedAlphaParallel stmts e1 e2) =
-        return ReplicatedAlphaParallel $$ mcompress stmts $$ mcompress e1 $$ mcompress e2
-    mcompress (ReplicatedInterleave stmts e) =
-        return ReplicatedInterleave $$ mcompress stmts $$ mcompress e
-    mcompress (ReplicatedExternalChoice stmts e) =
-        return ReplicatedExternalChoice $$ mcompress stmts $$ mcompress e
-    mcompress (ReplicatedInternalChoice stmts e) =
-        return ReplicatedInternalChoice $$ mcompress stmts $$ mcompress e
-    mcompress (ReplicatedParallel stmts e1 e2) =
-        return ReplicatedParallel $$ mcompress stmts $$ mcompress e1 $$ mcompress e2
-    mcompress (ReplicatedLinkParallel ties tiesStmts stmts e) =
-        return ReplicatedLinkParallel $$ mcompress ties $$ mcompress tiesStmts 
-                                        $$ mcompress stmts $$ mcompress e
-    
-instance Compressable (Module a) where
+instance Compressable (p a) => Compressable (Module a p) where
     mcompress (GlobalModule ds) = return GlobalModule $$ mcompress ds
 
-instance Compressable (Decl a) where
+instance Compressable (p a) => Compressable (Decl a p) where
     mcompress (FunBind n ms) = return (FunBind n) $$ mcompress ms
     mcompress (PatBind p e) = return PatBind $$ mcompress p $$ mcompress e
     mcompress (Assert a) = return Assert $$ mcompress a
@@ -123,31 +90,26 @@ instance Compressable (Decl a) where
     mcompress (DataType n cs) = return (DataType n) $$ mcompress cs
     mcompress (NameType n e) = return (NameType n) $$ mcompress e
 
-instance Compressable (Assertion a) where
+instance Compressable (p a) => Compressable (Assertion a p) where
     mcompress (Refinement e1 m e2 opts) = return 
         Refinement $$ mcompress e1 $$ mcompress m $$ mcompress e2 $$ mcompress opts
     mcompress (PropertyCheck e p m) = return 
         PropertyCheck $$ mcompress e $$ mcompress p $$ mcompress m
 
-instance Compressable (ModelOption a) where
+instance Compressable (p a) => Compressable (ModelOption a p) where
     mcompress (TauPriority e) = return TauPriority $$ mcompress e
 
-instance Compressable (DataTypeClause a) where
+instance Compressable (p a) => Compressable (DataTypeClause a p) where
     mcompress (DataTypeClause n me) = return (DataTypeClause n) $$ mcompress me
 
-instance Compressable (Match a) where
+instance Compressable (p a) => Compressable (Match a p) where
     mcompress (Match pss e) = return Match $$ mcompress pss $$ mcompress e
 
-instance Compressable (Field a) where
-    mcompress (Output e) = return Output $$ mcompress e
-    mcompress (Input p e) = return Input $$ mcompress p $$ mcompress e
-    mcompress (NonDetInput p e) = return NonDetInput $$ mcompress p $$ mcompress e
-
-instance Compressable (Stmt a) where
+instance Compressable (p a) => Compressable (Stmt a p) where
     mcompress (Generator p e) = return Generator $$ mcompress p $$ mcompress e
     mcompress (Qualifier e) = return Qualifier $$ mcompress e
 
-instance Compressable (InteractiveStmt a) where
+instance Compressable (p a) => Compressable (InteractiveStmt a p) where
     mcompress (Bind d) = return Bind $$ mcompress d
     mcompress (Evaluate e) = return Evaluate $$ mcompress e
     mcompress (RunAssertion a) = return RunAssertion $$ mcompress a

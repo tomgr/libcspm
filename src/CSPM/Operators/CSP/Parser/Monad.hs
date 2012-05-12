@@ -1,4 +1,4 @@
-module CSPM.Parser.Monad (
+module CSPM.Operators.CSP.Parser.Monad (
     ParseMonad, ParserState(..), 
     FileParserState(..), movePos,
     setParserState, getParserState, 
@@ -20,8 +20,8 @@ import System.FilePath
 import System.IO
 import System.IO.Error hiding (catch)
 
-import CSPM.DataStructures.Tokens
-import CSPM.Parser.Exceptions
+import CSPM.Operators.CSP.Parser.Exceptions
+import CSPM.Operators.CSP.Parser.Tokens
 import Util.Annotated
 
 -- *************************************************************************

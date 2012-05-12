@@ -1,4 +1,4 @@
-module CSPM.Parser.Exceptions (
+module CSPM.Operators.CSP.Parser.Exceptions (
     invalidPatternErrorMessage,
     invalidDeclarationErrorMessage,
     invalidExpressionErrorMessage,
@@ -12,21 +12,23 @@ module CSPM.Parser.Exceptions (
 where
 
 import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Tokens
+import CSPM.Operators.CSP.Parser.Tokens
+import CSPM.Operators.CSP.PrettyPrinter
+import CSPM.Operators.CSP.Syntax
 import CSPM.PrettyPrinter
 import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 
-invalidPatternErrorMessage :: PExp -> ErrorMessage
+invalidPatternErrorMessage :: PExp CSPProcess -> ErrorMessage
 invalidPatternErrorMessage e = mkErrorMessage (loc e) $
     hang (prettyPrint e) tabWidth (text "is not a valid pattern")
     
-invalidDeclarationErrorMessage :: PDecl -> ErrorMessage
+invalidDeclarationErrorMessage :: PDecl CSPProcess -> ErrorMessage
 invalidDeclarationErrorMessage d = mkErrorMessage (loc d) $
     hang (prettyPrint d) tabWidth (text "is not a valid declaration")
 
-invalidExpressionErrorMessage :: PExp -> ErrorMessage
+invalidExpressionErrorMessage :: PExp CSPProcess -> ErrorMessage
 invalidExpressionErrorMessage e = mkErrorMessage (loc e) $
     hang (prettyPrint e) tabWidth (text "is not a valid expression")
 

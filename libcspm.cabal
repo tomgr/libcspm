@@ -58,7 +58,7 @@ Library
         hashable >= 1.1,
         mtl >= 2.0, 
         pretty >= 1.0,
-        text >= 0.11 && < 0.12,
+        text >= 0.11,
         value-supply >= 0.6
 
     Exposed-Modules:
@@ -68,7 +68,6 @@ Library
         CSPM.DataStructures.Literals,
         CSPM.DataStructures.Names,
         CSPM.DataStructures.Syntax,
-        CSPM.DataStructures.Tokens,
         CSPM.DataStructures.Types,
         CSPM.Desugar,
         CSPM.Evaluator,
@@ -81,12 +80,22 @@ Library
         CSPM.Evaluator.Monad,
         CSPM.Evaluator.PatBind,
         CSPM.Evaluator.Values,
-        CSPM.Evaluator.ValueSet
+        CSPM.Evaluator.ValueSet,
+        CSPM.Operators.CSP,
+        CSPM.Operators.CSP.Desugar,
+        CSPM.Operators.CSP.Evaluator,
+        CSPM.Operators.CSP.Parser,
+        CSPM.Operators.CSP.Parser.Exceptions,
+        CSPM.Operators.CSP.Parser.Lexer,
+        CSPM.Operators.CSP.Parser.Monad,
+        CSPM.Operators.CSP.Parser.Parser,
+        CSPM.Operators.CSP.Parser.Tokens,
+        CSPM.Operators.CSP.PrettyPrinter,
+        CSPM.Operators.CSP.Processes,
+        CSPM.Operators.CSP.Renamer,
+        CSPM.Operators.CSP.Syntax,
+        CSPM.Operators.CSP.TypeChecker,
         CSPM.Parser,
-        CSPM.Parser.Exceptions,
-        CSPM.Parser.Lexer,
-        CSPM.Parser.Monad,
-        CSPM.Parser.Parser,
         CSPM.PrettyPrinter,
         CSPM.Prelude,
         CSPM.Renamer,
@@ -129,6 +138,8 @@ Test-Suite unit-tests
     Main-is: Main.hs
 
     Extensions: DoAndIfThenElse
+    
+    GHC-Options: -O3
     
     Hs-Source-Dirs: tests
     

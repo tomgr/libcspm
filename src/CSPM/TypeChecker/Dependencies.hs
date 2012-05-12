@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 module CSPM.TypeChecker.Dependencies (
-    Dependencies, dependencies, namesBoundByDecl, namesBoundByDecl',
-    FreeVars, freeVars
+    namesBoundByDecl, namesBoundByDecl',
+    Dependencies(..), dependenciesStmts,
+    FreeVars(..),
 ) where
 
 import Control.Monad
@@ -22,7 +23,7 @@ import Util.Monad
 -- Clearly these depend on each other heavily as a name is free iff
 -- it is not a dependency.
 
-namesBoundByDecl :: AnDecl Name -> TypeCheckMonad [Name]
+namesBoundByDecl :: AnDecl Name p -> TypeCheckMonad [Name]
 namesBoundByDecl =  namesBoundByDecl' . unAnnotate
 namesBoundByDecl' (FunBind n ms) = return [n]
 namesBoundByDecl' (PatBind p ms) = freeVars p
@@ -70,7 +71,7 @@ instance Dependencies (Pat Name) where
         fvs2 <- dependencies' p2
         return $ fvs1++fvs2
     
-instance Dependencies (Exp Name) where
+instance Dependencies (p Name) => Dependencies (Exp Name p) where
     dependencies' (App e es) = dependencies' (e:es)
     dependencies' (BooleanBinaryOp _ e1 e2) = dependencies' [e1,e2]
     dependencies' (BooleanUnaryOp _ e) = dependencies' e
@@ -101,6 +102,7 @@ instance Dependencies (Exp Name) where
     dependencies' (MathsBinaryOp _ e1 e2) = dependencies' [e1,e2]
     dependencies' (MathsUnaryOp _ e1) = dependencies' e1
     dependencies' (Paren e) = dependencies' e
+    dependencies' (Process p) = dependencies' p
     dependencies' (Set es) = dependencies es
     dependencies' (SetComp es stmts) = do
         fvStmts <- freeVars stmts
@@ -119,58 +121,12 @@ instance Dependencies (Exp Name) where
     dependencies' (SetEnum es) = dependencies' es
     dependencies' (Tuple es) = dependencies' es
     dependencies' (Var n) = return [n]
-    
-    -- Processes
-    dependencies' (AlphaParallel e1 e2 e3 e4) = dependencies' [e1,e2,e3,e4]
-    dependencies' (Exception e1 e2 e3) = dependencies' [e1,e2,e3]
-    dependencies' (ExternalChoice e1 e2) = dependencies' [e1,e2]
-    dependencies' (GenParallel e1 e2 e3) = dependencies' [e1,e2,e3]
-    dependencies' (GuardedExp e1 e2) = dependencies' [e1,e2]
-    dependencies' (Hiding e1 e2) = dependencies' [e1,e2]
-    dependencies' (InternalChoice e1 e2) = dependencies' [e1,e2]
-    dependencies' (Interrupt e1 e2) = dependencies' [e1,e2]
-    dependencies' (LinkParallel e1 links stmts e2) = do
-        ds1 <- dependencies [e1,e2]
-        ds2 <- dependenciesStmts stmts (concat (map (\ (x,y) -> x:y:[]) links))
-        return $ ds1++ds2
-    dependencies' (Interleave e1 e2) = dependencies' [e1,e2]
-    dependencies' (Prefix e1 fields e2) = do
-        depse <- dependencies' [e1,e2]
-        depsfields <- dependencies fields
-        fvfields <- freeVars fields
-        let fvse = nub (fvfields++depsfields++depse)
-        return $ fvse \\ fvfields
-    dependencies' (Rename e1 renames stmts) = do
-        d1 <- dependencies' e1
-        d2 <- dependenciesStmts stmts (es++es')
-        return $ d1++d2
-        where (es, es') = unzip renames
-    dependencies' (SequentialComp e1 e2) = dependencies' [e1,e2]
-    dependencies' (SlidingChoice e1 e2) = dependencies' [e1,e2]
-
-    dependencies' (ReplicatedAlphaParallel stmts e1 e2) = 
-        dependenciesStmts stmts [e1,e2]
-    dependencies' (ReplicatedInterleave stmts e1) = 
-        dependenciesStmts stmts [e1]
-    dependencies' (ReplicatedExternalChoice stmts e1) = 
-        dependenciesStmts stmts [e1]
-    dependencies' (ReplicatedInternalChoice stmts e1) = 
-        dependenciesStmts stmts [e1]
-    dependencies' (ReplicatedLinkParallel ties tiesStmts stmts e) = do
-        d1 <- dependenciesStmts tiesStmts (es++es')
-        d2 <- dependenciesStmts stmts e
-        -- The ties may depend on variables bound by stmts too
-        fvsstmts <- freeVars stmts
-        return $ (d1 \\ fvsstmts)++d2
-        where  (es, es') = unzip ties
-    dependencies' (ReplicatedParallel e1 stmts e2) = dependenciesStmts stmts [e1,e2]
-    
-    dependencies' x = panic ("TCDependencies.hs: unrecognised exp "++show x)
 
 -- Recall that a later stmt can depend on values that appear in an ealier stmt
 -- For example, consider <x | x <- ..., f(x)>. Therefore we do a foldr to correctly
 -- consider cases like <x | f(x), x <- ... >
-dependenciesStmts :: Dependencies a => [TCStmt] -> a -> TypeCheckMonad [Name]
+dependenciesStmts :: (Dependencies a, Dependencies (p Name)) => 
+    [TCStmt p] -> a -> TypeCheckMonad [Name]
 dependenciesStmts [] e = dependencies e
 dependenciesStmts (stmt:stmts) e = do
     depse <- dependenciesStmts stmts e
@@ -179,19 +135,14 @@ dependenciesStmts (stmt:stmts) e = do
     let depse' = nub (depsstmt++depse)
     return $ depse' \\ fvstmt
 
-instance Dependencies (Stmt Name) where
+instance Dependencies (p Name) => Dependencies (Stmt Name p) where
     dependencies' (Generator p e) = do
         ds1 <- dependencies p
         ds2 <- dependencies e
         return $ ds1++ds2
     dependencies' (Qualifier e) = dependencies e
 
-instance Dependencies (Field Name) where
-    dependencies' (Input p e) = dependencies e
-    dependencies' (NonDetInput p e) = dependencies e
-    dependencies' (Output e) = dependencies e
-
-instance Dependencies (Decl Name) where
+instance Dependencies (p Name) => Dependencies (Decl Name p) where
     dependencies' (FunBind n ms) = do
         fvsms <- dependencies ms
         return $ fvsms
@@ -207,7 +158,7 @@ instance Dependencies (Decl Name) where
     dependencies' (Transparent ns) = return []
     dependencies' (Assert a) = dependencies a
 
-instance Dependencies (Assertion Name) where
+instance Dependencies (p Name) => Dependencies (Assertion Name p) where
     dependencies' (Refinement e1 m e2 opts) = do
         d1 <- dependencies [e1, e2]
         d2 <- dependencies opts
@@ -216,10 +167,10 @@ instance Dependencies (Assertion Name) where
     dependencies' (BoolAssertion e1) = dependencies [e1]
     dependencies' (ASNot a) = dependencies a
 
-instance Dependencies (ModelOption Name) where
+instance Dependencies (p Name) => Dependencies (ModelOption Name p) where
     dependencies' (TauPriority e) = dependencies' e
     
-instance Dependencies (Match Name) where
+instance Dependencies (p Name) => Dependencies (Match Name p) where
     dependencies' (Match ps e) =
         do
             fvs1 <- freeVars ps
@@ -227,7 +178,7 @@ instance Dependencies (Match Name) where
             fvs2 <- dependencies e
             return $ (fvs2 \\ fvs1) ++ depsPs
 
-instance Dependencies (DataTypeClause Name) where
+instance Dependencies (p Name) => Dependencies (DataTypeClause Name p) where
     dependencies' (DataTypeClause n Nothing) = return []
     dependencies' (DataTypeClause n (Just e)) = dependencies' e
 
@@ -261,11 +212,6 @@ instance FreeVars (Pat Name) where
         fvs2 <- freeVars p2
         return $ fvs1++fvs2
 
-instance FreeVars (Stmt Name) where
+instance FreeVars (Stmt Name p) where
     freeVars (Qualifier e) = return []
     freeVars (Generator p e) = freeVars p
-
-instance FreeVars (Field Name) where
-    freeVars (Input p e) = freeVars p
-    freeVars (NonDetInput p e) = freeVars p
-    freeVars (Output e) = return []

@@ -11,12 +11,12 @@ import CSPM.DataStructures.Names
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.Exception
 
-data Environment = Environment [M.IntMap Value]
+newtype Environment ops = Environment [M.IntMap (Value ops)]
 
-new :: Environment
+new :: Environment ops
 new = Environment []
 
-lookup :: Environment -> Name -> Value
+lookup :: Environment ops -> Name -> Value ops
 lookup (Environment env) n = 
     let
         nv = nameUnique n
@@ -27,7 +27,7 @@ lookup (Environment env) n =
                 Nothing -> lookupInLayers ms
     in lookupInLayers env
 
-newLayerAndBind :: Environment -> [(Name, Value)] -> Environment
+newLayerAndBind :: Environment ops -> [(Name, Value ops)] -> Environment ops
 newLayerAndBind (Environment ms) nvs =
     let ms' = M.fromList [(nameUnique n, v) | (n,v) <- nvs] : ms
     in Environment ms'

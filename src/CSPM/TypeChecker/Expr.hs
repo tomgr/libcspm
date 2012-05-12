@@ -1,5 +1,7 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances #-}
-module CSPM.TypeChecker.Expr () where
+{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances #-}
+module CSPM.TypeChecker.Expr (
+    typeCheckStmts,
+) where
 
 import Control.Monad
 import Control.Monad.Trans
@@ -22,7 +24,10 @@ import Util.List
 import Util.Monad
 import Util.PrettyPrint
 
-checkFunctionCall :: Doc -> [TCExp] -> [Type] -> TypeCheckMonad ()
+checkFunctionCall ::
+    (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+        TypeCheckable (p Name) Type)
+    => Doc -> [TCExp p] -> [Type] -> TypeCheckMonad ()
 checkFunctionCall func args expectedTypes = do
     actTypes <- mapM typeCheck args
     let
@@ -50,7 +55,9 @@ checkFunctionCall func args expectedTypes = do
     mapM unifyArg as
     return ()
 
-instance TypeCheckable TCExp Type where
+instance (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+            TypeCheckable (p Name) Type)
+        => TypeCheckable (TCExp p) Type where
     errorContext an = Nothing
     typeCheck' an = do
         t <- setSrcSpan (loc an) $ typeCheck (inner an)
@@ -61,7 +68,9 @@ instance TypeCheckable TCExp Type where
         t <- setSrcSpan (loc an) $ typeCheckExpect (inner an) texp
         setPType (snd (annotation an)) t
         return t
-instance TypeCheckable (Exp Name) Type where
+instance (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+            TypeCheckable (p Name) Type)
+        => TypeCheckable (Exp Name p) Type where
     typeCheckExpect obj texp =
         case errorContext obj of
             Just c -> addErrorContext c m
@@ -146,6 +155,7 @@ instance TypeCheckable (Exp Name) Type where
         ensureIsInt e1
         return TInt
     typeCheck' (Paren e) = typeCheck e
+    typeCheck' (Process p) = typeCheck' p
     typeCheck' (Set es) = do
         t <- ensureAreEqual es
         ensureHasConstraint Eq t
@@ -183,153 +193,12 @@ instance TypeCheckable (Exp Name) Type where
         t <- getType n
         instantiate t
 
-    -- Processes
-    typeCheck' (AlphaParallel e1 a1 a2 e2) = do
-        ensureIsProc e1
-        ensureIsProc e2
-        typeCheckExpect a1 (TSet TEvent)
-        typeCheckExpect a2 (TSet TEvent)
-        return TProc
-    typeCheck' (Exception e1 a e2) = do
-        ensureIsProc e1
-        ensureIsProc e2
-        typeCheckExpect a (TSet TEvent)
-        return TProc
-    typeCheck' (ExternalChoice e1 e2) = do
-        ensureIsProc e1
-        ensureIsProc e2
-        return TProc
-    typeCheck' (Hiding e1 e2) = do
-        ensureIsProc e1
-        typeCheckExpect e2 (TSet TEvent)
-        return TProc
-    typeCheck' (GenParallel e1 a e2) = do
-        ensureIsProc e1
-        ensureIsProc e2
-        typeCheckExpect a (TSet TEvent)
-        return TProc
-    typeCheck' (GuardedExp e1 e2) = do
-        ensureIsBool e1
-        ensureIsProc e2
-        return TProc
-    typeCheck' (InternalChoice e1 e2) = do
-        ensureIsProc e1
-        ensureIsProc e2
-        return TProc
-    typeCheck' (Interrupt e1 e2) = do
-        ensureIsProc e1
-        ensureIsProc e2
-        return TProc
-    typeCheck' (Interleave e1 e2) = do
-        ensureIsProc e1
-        ensureIsProc e2
-        return TProc        
-    typeCheck' (SequentialComp e1 e2) = do
-        ensureIsProc e1
-        ensureIsProc e2
-        return TProc
-    typeCheck' (SlidingChoice e1 e2) = do
-        ensureIsProc e1
-        ensureIsProc e2
-        return TProc
-    typeCheck' (Prefix e1 [] e2) = do
-        ensureIsEvent e1
-        ensureIsProc e2
-        return TProc
-    typeCheck' (Prefix e1 fields e2) = do
-        fvsByField <- mapM (\f -> do
-                fvs <- freeVars f
-                return (f, fvs)) fields
-        let 
-            fvs = concatMap snd fvsByField
-            namesToLocations = 
-                [(n, loc f) | (f, fvs) <- fvsByField, n <- fvs]
-        -- Throw an error if a name is defined multiple times
-        when (not (noDups fvs)) (panic "Dupes found in prefix after renaming.")
-
-        t1 <- typeCheck e1
-        let 
-            tcfs [] tsfields = do
-                unify TEvent (TDot t1 (foldr1 TDot (reverse tsfields)))
-                ensureIsProc e2
-            tcfs (f:fs) tsfields =
-                typeCheckField f (\ t -> tcfs fs (t:tsfields))
-        local fvs (tcfs fields [])
-
-    typeCheck' (LinkParallel e1 ties stmts e2) = do
-        ensureIsProc e1
-        ensureIsProc e2
-        typeCheckReplicatedOp stmts $ do
-            let (as, bs) = unzip ties
-            ast <- mapM ensureIsChannel as
-            zipWithM typeCheckExpect bs ast
-            return TProc
-
-    typeCheck' (Rename e1 exps stmts) = do
-        ensureIsProc e1
-        typeCheckReplicatedOp stmts $ do
-            let (as, bs) = unzip exps
-            -- Unify the pairs of channels
-            ast <- mapM ensureIsChannel as
-            zipWithM typeCheckExpect bs ast
-            return TProc
-            
-    -- Replicated Operators
-    typeCheck' (ReplicatedAlphaParallel stmts alpha proc) =
-        typeCheckReplicatedOp stmts $ do
-            t1 <- typeCheck alpha
-            unify (TSet TEvent) t1
-            ensureIsProc proc
-    typeCheck' (ReplicatedParallel alpha stmts proc) =
-        typeCheckReplicatedOp stmts $ do
-            typeCheckExpect alpha (TSet TEvent)
-            ensureIsProc proc
-    typeCheck' (ReplicatedLinkParallel ties tiesStmts stmts proc) = do
-        typeCheckStmts TSeq stmts $ do
-            typeCheckStmts TSet tiesStmts $ do
-                let (as, bs) = unzip ties
-                ast <- mapM ensureIsChannel as
-                zipWithM typeCheckExpect bs ast
-                ensureIsProc proc
-        return $ TProc
-    typeCheck' (ReplicatedInterleave stmts e1) =
-        typeCheckReplicatedOp stmts (ensureIsProc e1)
-    typeCheck' (ReplicatedExternalChoice stmts e1) =
-        typeCheckReplicatedOp stmts (ensureIsProc e1)
-    typeCheck' (ReplicatedInternalChoice stmts e1) =
-        typeCheckReplicatedOp stmts (ensureIsProc e1)
-    typeCheck' x = panic ("No case for type checking a "++show x)
-
-
-typeCheckField :: TCField -> (Type -> TypeCheckMonad a) -> TypeCheckMonad a
-typeCheckField field tc = 
-    let
-        errCtxt = hang (text "In the field:") tabWidth (prettyPrint field)
-        checkInput p e = do
-            t <- typeCheck e
-            tp <- addErrorContext errCtxt (do
-                    -- We don't enforce that tp is Inputable as users are free 
-                    -- to do what they wish when they specify the set where 
-                    -- the items come from.
-                    tp <- typeCheck p
-                    unify (TSet tp) t
-                    return tp)
-            tc tp
-        chkInputNoSet p = do
-            t <- addErrorContext errCtxt $ do
-                    t <- typeCheck p
-                    ensureHasConstraint Inputable t
-            tc t
-        check (NonDetInput p (Just e)) = checkInput p e
-        check (Input p (Just e)) = checkInput p e
-        check (NonDetInput p Nothing) = chkInputNoSet p
-        check (Input p Nothing) = chkInputNoSet p
-        check (Output e) = addErrorContext errCtxt (typeCheck e) >>= tc
-    in setSrcSpan (loc field) (check (unAnnotate field))
-
 -- | The first argument is a type constructor, which given a type, returns
 -- that type encapsulate in some other type.
-typeCheckStmt :: (Type -> Type) -> TCStmt -> TypeCheckMonad a -> TypeCheckMonad a
+typeCheckStmt :: 
+    (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+        TypeCheckable (p Name) Type)
+        => (Type -> Type) -> TCStmt p -> TypeCheckMonad a -> TypeCheckMonad a
 typeCheckStmt typc stmt tc = 
     let
         errCtxt = hang (text "In the statement of a comprehension:") tabWidth
@@ -348,7 +217,10 @@ typeCheckStmt typc stmt tc =
 
 -- | Type check a series of statements. For each statement a new scope is added
 -- to ensure that clauses only depend on variables already bound.
-typeCheckStmts :: (Type -> Type) -> [TCStmt] -> TypeCheckMonad a -> TypeCheckMonad a
+typeCheckStmts :: 
+    (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+        TypeCheckable (p Name) Type)
+        => (Type -> Type) -> [TCStmt p] -> TypeCheckMonad a -> TypeCheckMonad a
 typeCheckStmts typc stmts tc = do
         fvsByStmt <- mapM (\stmt -> do
                 fvs <- freeVars stmt
@@ -364,7 +236,3 @@ typeCheckStmts typc stmts tc = do
     where
         check [] = tc
         check (stmt:stmts) = typeCheckStmt typc stmt (check stmts)
-
--- | Shortcut for replicated operators
-typeCheckReplicatedOp :: [TCStmt] -> TypeCheckMonad a -> TypeCheckMonad a
-typeCheckReplicatedOp = typeCheckStmts TSet

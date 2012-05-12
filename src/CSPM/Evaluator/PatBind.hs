@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances, MultiParamTypeClasses, FlexibleInstances,
+    FlexibleContexts, UndecidableInstances #-}
 module CSPM.Evaluator.PatBind where
 
 import Control.Monad
@@ -14,13 +15,13 @@ import Util.Exception
 import Util.PrettyPrint
 
 -- Bind :: Pattern, value -> (Matches Pattern, Values to Bind
-class Bindable a where
-    bind :: a -> Value -> (Bool, [(Name, Value)])
+class Bindable a ops where
+    bind :: a -> Value ops -> (Bool, [(Name, Value ops)])
 
-instance Bindable a => Bindable (Annotated b a) where
+instance Bindable a ops => Bindable (Annotated b a) ops where
     bind (An _ _ a) v = bind a v
 
-instance Bindable (Pat Name) where
+instance PrettyPrintable (UProc ops) => Bindable (Pat Name) ops where
     -- We can decompose any PConcat pattern into three patterns representing:
     -- Begining (of the form PList), middle (either PWildcard or PVar)
     -- and end (of the form PList), With both begining and end possible empty
@@ -49,7 +50,6 @@ instance Bindable (Pat Name) where
         let 
             -- Matches a compiled dot pattern, given a list of patterns for
             -- the fields and the values that each field takes.
-            matchCompDot :: [Pat Name] -> [Value] -> (Bool, [(Name, Value)])
             matchCompDot [] [] = (True, [])
             matchCompDot (PVar n:ps) (VDot (VDataType n':vfs):vs2) | isNameDataConstructor n = 
                 -- In this case, we are matching within a subfield of the
@@ -92,7 +92,7 @@ instance Bindable (Pat Name) where
     bind PWildCard v = (True, [])
     bind _ _ = (False, [])
 
-bindAll :: Bindable a => [a] -> [Value] -> (Bool, [(Name, Value)])
+bindAll :: Bindable a ops => [a] -> [Value ops] -> (Bool, [(Name, Value ops)])
 bindAll ps xs =
     let
         rs = zipWith bind ps xs

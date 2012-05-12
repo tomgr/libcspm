@@ -1,15 +1,15 @@
 {
 {-# OPTIONS_GHC -fno-warn-lazy-unlifted-bindings #-}
-module CSPM.Parser.Lexer where
+module CSPM.Operators.CSP.Parser.Lexer where
 
 import Data.ByteString.Internal (c2w)
 import Data.List
 import Data.Word
 
 import Control.Monad.Trans
-import CSPM.DataStructures.Tokens
-import CSPM.Parser.Exceptions
-import CSPM.Parser.Monad
+import CSPM.Operators.CSP.Parser.Exceptions
+import CSPM.Operators.CSP.Parser.Monad
+import CSPM.Operators.CSP.Parser.Tokens
 import Util.Annotated
 import Util.Exception
 

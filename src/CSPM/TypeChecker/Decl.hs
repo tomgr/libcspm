@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, TypeSynonymInstances #-}
 module CSPM.TypeChecker.Decl (typeCheckDecls) where
 
 import Control.Monad
@@ -27,7 +27,9 @@ import Util.PartialFunctions
 import Util.PrettyPrint
 
 -- | Type check a list of possibly mutually recursive functions
-typeCheckDecls :: [TCDecl] -> TypeCheckMonad ()
+typeCheckDecls :: 
+    (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+        TypeCheckable (p Name) Type) => [TCDecl p] -> TypeCheckMonad ()
 typeCheckDecls decls = do
     let 
         -- | Map from declarations to integer identifiers
@@ -106,7 +108,7 @@ typeCheckDecls decls = do
 -- that we can identify when a particular pattern uses these clauses and
 -- channels. We do this by injecting them into the symbol table earlier
 -- than normal.
-registerChannelsAndDataTypes :: Decl Name -> TypeCheckMonad ()
+registerChannelsAndDataTypes :: Decl Name p -> TypeCheckMonad ()
 registerChannelsAndDataTypes (DataType n cs) = do
     mapM_ (\ c -> case unAnnotate c of
             DataTypeClause n' _ -> addDataTypeOrChannel n'
@@ -118,7 +120,10 @@ registerChannelsAndDataTypes _ = return ()
 -- | Type checks a group of certainly mutually recursive functions. Only 
 -- functions that are mutually recursive should be included otherwise the
 -- types could end up being less general.
-typeCheckMutualyRecursiveGroup :: [TCDecl] -> TypeCheckMonad ()
+typeCheckMutualyRecursiveGroup ::
+    (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+        TypeCheckable (p Name) Type)
+        => [TCDecl p] -> TypeCheckMonad ()
 typeCheckMutualyRecursiveGroup ds' = do
     -- TODO: fix temporary hack
     let 
@@ -170,11 +175,15 @@ evalTypeExpression t = do
     unify t (TSet fv)
     return fv
 
-instance TypeCheckable TCDecl [(Name, Type)] where
+instance (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+            TypeCheckable (p Name) Type)
+        => TypeCheckable (TCDecl p) [(Name, Type)] where
     errorContext an = Nothing
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
 
-instance TypeCheckable (Decl Name) [(Name, Type)] where
+instance (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+            TypeCheckable (p Name) Type)
+        => TypeCheckable (Decl Name p) [(Name, Type)] where
     errorContext (FunBind n ms) = Just $ 
         -- This will only be helpful if the equations don't match in
         -- type
@@ -260,7 +269,9 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
     typeCheck' (External ns) = return []
     typeCheck' (Assert a) = typeCheck a >> return []
 
-instance TypeCheckable (Assertion Name) () where
+instance (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+            TypeCheckable (p Name) Type)
+        => TypeCheckable (Assertion Name p) () where
     errorContext a = Just $ 
         hang (text "In the assertion" <> colon) tabWidth (prettyPrint a)
     typeCheck' (PropertyCheck e1 p m) = do
@@ -271,17 +282,23 @@ instance TypeCheckable (Assertion Name) () where
         ensureIsProc e2
         mapM_ typeCheck opts
 
-instance TypeCheckable (ModelOption Name) () where
+instance (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+            TypeCheckable (p Name) Type)
+        => TypeCheckable (ModelOption Name p) () where
     errorContext a = Nothing
     typeCheck' (TauPriority e) = do
         typeCheckExpect e (TSet TEvent)
         return ()
 
-instance TypeCheckable TCDataTypeClause (Name, [Type]) where
+instance (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+            TypeCheckable (p Name) Type)
+        => TypeCheckable (TCDataTypeClause p) (Name, [Type]) where
     errorContext an = Nothing
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
 
-instance TypeCheckable (DataTypeClause Name) (Name, [Type]) where
+instance (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+            TypeCheckable (p Name) Type)
+        => TypeCheckable (DataTypeClause Name p) (Name, [Type]) where
     errorContext c = Just $
         hang (text "In the data type clause" <> colon) tabWidth 
             (prettyPrint c)
@@ -293,10 +310,14 @@ instance TypeCheckable (DataTypeClause Name) (Name, [Type]) where
         dotList <- typeToDotList valueType
         return (n', dotList)
 
-instance TypeCheckable TCMatch Type where
+instance (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+            TypeCheckable (p Name) Type)
+        => TypeCheckable (TCMatch p) Type where
     errorContext an = Nothing
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
-instance TypeCheckable (Match Name) Type where
+instance (Eq (p Name), Dependencies (p Name), PrettyPrintable (p Name), 
+            TypeCheckable (p Name) Type)
+        => TypeCheckable (Match Name p) Type where
     -- We create the error context in FunBind as that has access
     -- to the name
     errorContext (Match groups exp) = Nothing

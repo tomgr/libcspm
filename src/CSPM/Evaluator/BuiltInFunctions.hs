@@ -1,6 +1,7 @@
 module CSPM.Evaluator.BuiltInFunctions (
     injectBuiltInFunctions,
-    builtInName
+    BuiltInFunctions(..),
+    makeFunction, builtInName,
 ) where
 
 import Control.Monad
@@ -18,7 +19,7 @@ import Util.Exception
 bMap = M.fromList [(stringName b, name b) | b <- builtins True]
 builtInName s = M.findWithDefault (panic "builtin not found") s bMap
 
-builtInFunctions :: [(Name, Value)]
+builtInFunctions :: BuiltInFunctions ops => [(Name, Value ops)]
 builtInFunctions = 
     let
         nameForString s = builtInName s
@@ -37,7 +38,6 @@ builtInFunctions =
         cspm_Seq [VSet s] = S.allSequences s
         cspm_seq [VSet s] = S.toList s
         
-        
         cspm_length [VList xs] = VInt $ length xs
         cspm_null [VList xs] = VBool $ null xs
         cspm_head [VList []] = throwError headEmptyListMessage
@@ -46,15 +46,6 @@ builtInFunctions =
         cspm_tail [VList (x:xs)] = xs
         cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
         cspm_elem [v, VList vs] = VBool $ v `elem` vs
-        csp_chaos [VSet a] = VProc chaosCall
-            where
-                chaosCall = PProcCall n p
-                n = procId (nameForString "CHAOS") [[VSet a]] Nothing
-                evSet = S.valueSetToEventSet a
-                branches :: Sq.Seq UProc
-                branches = fmap (\ ev -> PUnaryOp (PPrefix ev) chaosCall) evSet
-                stopProc = PProcCall (procId (nameForString "STOP") [] Nothing) csp_stop
-                p = POp PInternalChoice (stopProc Sq.<| branches)
         
         cspm_extensions [v] = do
             exs <- extensions v
@@ -76,47 +67,32 @@ builtInFunctions =
             ("seq", cspm_seq), ("tail", cspm_tail), ("concat", cspm_concat)
             ]
         
-        -- | Functions that mutate processes (like compression functions).
-        proc_operators = [
-            ("chase", Chase),
-            ("diamond", Diamond),
-            ("explicate", Explicate),
-            ("normal", Normalize),
-            ("model_compress", ModelCompress),
-            ("sbisim", StrongBisim),
-            ("tau_loop_factor", TauLoopFactor),
-            ("wbisim", WeakBisim)
-            ]
-        
         -- | Functions that return something else
         other_funcs = [
             ("length", cspm_length), ("null", cspm_null), 
             ("head", cspm_head), ("elem", cspm_elem),
             ("member", cspm_member), ("card", cspm_card),
-            ("empty", cspm_empty), ("CHAOS", csp_chaos)
+            ("empty", cspm_empty)
             ]
 
         -- | Functions that require a monadic context.
         monadic_funcs = [
             ("productions", cspm_productions), ("extensions", cspm_extensions)
             ]
+
+        proc_operators = [
+                ("chase", Chase),
+                ("diamond", Diamond),
+                ("explicate", Explicate),
+                ("normal", Normalize),
+                ("model_compress", ModelCompress),
+                ("sbisim", StrongBisim),
+                ("tau_loop_factor", TauLoopFactor),
+                ("wbisim", WeakBisim)
+                ]
         
-        mkFunc (s, f) = (nameForString s, VFunction (\ vs -> return (f vs)))
         mkMonadicFunc (s, f) = (nameForString s, VFunction f)
 
-        procs = [
-            ("STOP", csp_stop),
-            ("SKIP", csp_skip)
-            ]
-        
-        csp_skip_id = procId (nameForString "SKIP") [] Nothing
-        csp_stop_id = procId (nameForString "STOP") [] Nothing
-        -- We actually inline stop, for efficiency
-        csp_stop = POp PExternalChoice Sq.empty
-        csp_skip = PUnaryOp (PPrefix Tick) csp_stop
-        
-        mkProc (s, p) = (nameForString s, VProc p)
-        
         cspm_true = ("true", VBool True)
         cspm_false = ("false", VBool False)
         cspm_True = ("True", VBool True)
@@ -134,15 +110,17 @@ builtInFunctions =
         
         mkConstant (s, v) = (nameForString s, v)
     in
-        map mkFunc (
+        map makeFunction (
             map (\ (n, f) -> (n, VSet . f)) set_funcs
             ++ map (\ (n, f) -> (n, VList . f)) seq_funcs
             ++ map (\ (n, po) -> 
-                        (n,\[VProc p]-> VProc $ PUnaryOp (POperator po) p)) proc_operators
+                        (n,\[VProc p]-> VProc $ PUnaryOp (compressionOperator po) p)) proc_operators
             ++ other_funcs)
         ++ map mkMonadicFunc monadic_funcs
-        ++ map mkProc procs
         ++ map mkConstant constants
+        ++ extraBuiltInsDefinitions
 
-injectBuiltInFunctions :: EvaluationMonad a -> EvaluationMonad a
+injectBuiltInFunctions :: BuiltInFunctions ops => EvaluationMonad ops a -> EvaluationMonad ops a
 injectBuiltInFunctions = addScopeAndBind builtInFunctions
+
+makeFunction (s, f) = (builtInName s, VFunction (\ vs -> return (f vs)))

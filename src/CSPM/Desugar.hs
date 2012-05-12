@@ -1,5 +1,5 @@
-{-# LANGUAGE FlexibleInstances #-}
-module CSPM.Desugar where
+{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
+module CSPM.Desugar (Desugarable(..)) where
 
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
@@ -28,10 +28,10 @@ instance Desugarable a => Desugarable (Annotated b a) where
 instance (Desugarable a, Desugarable b) => Desugarable (a,b) where
     desugar (a,b) = (desugar a, desugar b)
 
-instance Desugarable (Module Name) where
+instance Desugarable (p Name) => Desugarable (Module Name p) where
     desugar (GlobalModule ds) = GlobalModule (desugar ds)
 
-instance Desugarable (Decl Name) where
+instance Desugarable (p Name) => Desugarable (Decl Name p) where
     desugar (FunBind n ms) = FunBind n (desugar ms)
     desugar (PatBind p e) = PatBind (desugar p) (desugar e)
     desugar (Assert a) = Assert (desugar a)
@@ -41,22 +41,22 @@ instance Desugarable (Decl Name) where
     desugar (DataType n cs) = DataType n (desugar cs)
     desugar (NameType n e) = NameType n (desugar e)
 
-instance Desugarable (Assertion Name) where
+instance Desugarable (p Name) => Desugarable (Assertion Name p) where
     desugar (Refinement e1 m e2 opts) = 
         Refinement (desugar e1) m (desugar e2) (desugar opts)
     desugar (PropertyCheck e p m) = 
         PropertyCheck (desugar e) p m
 
-instance Desugarable (ModelOption Name) where
+instance Desugarable (p Name) => Desugarable (ModelOption Name p) where
     desugar (TauPriority e) = TauPriority (desugar e)
 
-instance Desugarable (DataTypeClause Name) where
+instance Desugarable (p Name) => Desugarable (DataTypeClause Name p) where
     desugar (DataTypeClause n me) = DataTypeClause n (desugar me)
 
-instance Desugarable (Match Name) where
+instance Desugarable (p Name) => Desugarable (Match Name p) where
     desugar (Match pss e) = Match (desugar pss) (desugar e)
 
-instance Desugarable (Exp Name) where
+instance Desugarable (p Name) => Desugarable (Exp Name p) where
     desugar (App e es) = App (desugar e) (desugar es)
     desugar (BooleanBinaryOp op e1 e2) = 
         BooleanBinaryOp op (desugar e1) (desugar e2)
@@ -80,6 +80,7 @@ instance Desugarable (Exp Name) where
     -- expression, which would then not have parenthesis needed to
     -- remove ambiguity
     desugar (Paren e) = unAnnotate (desugar e)
+    desugar (Process p) = Process (desugar p)
     desugar (Set es) = Set (desugar es)
     desugar (SetComp es stmts) = SetComp (desugar es) (desugar stmts)
     desugar (SetEnum es) = SetEnum (desugar es)
@@ -89,50 +90,11 @@ instance Desugarable (Exp Name) where
     desugar (Tuple es) = Tuple (desugar es)
     desugar (Var n) = Var n
 
-    desugar (AlphaParallel e1 e2 e3 e4) =
-        AlphaParallel (desugar e1) (desugar e2) (desugar e3) (desugar e4)
-    desugar (Exception e1 e2 e3) =
-        Exception (desugar e1) (desugar e2) (desugar e3)
-    desugar (ExternalChoice e1 e2) = ExternalChoice (desugar e1) (desugar e2)
-    desugar (GenParallel e1 e2 e3) =
-        GenParallel (desugar e1) (desugar e2) (desugar e3)
-    desugar (GuardedExp e1 e2) = GuardedExp (desugar e1) (desugar e2)
-    desugar (Hiding e1 e2) = Hiding (desugar e1) (desugar e2)
-    desugar (InternalChoice e1 e2) = InternalChoice (desugar e1) (desugar e2)
-    desugar (Interrupt e1 e2) = Interrupt (desugar e1) (desugar e2)
-    desugar (Interleave e1 e2) = Interleave (desugar e1) (desugar e2)
-    desugar (LinkParallel e1 ties stmts e2) = 
-        LinkParallel (desugar e1) (desugar ties) (desugar stmts) (desugar e2)
-    desugar (Prefix e1 fs e2) = Prefix (desugar e1) (desugar fs) (desugar e2)
-    desugar (Rename e1 ties stmts) =
-        Rename (desugar e1) (desugar ties) (desugar stmts)
-    desugar (SequentialComp e1 e2) = SequentialComp (desugar e1) (desugar e2)
-    desugar (SlidingChoice e1 e2) = SlidingChoice (desugar e1) (desugar e2)
-    
-    desugar (ReplicatedAlphaParallel stmts e1 e2) =
-        ReplicatedAlphaParallel (desugar stmts) (desugar e1) (desugar e2)
-    desugar (ReplicatedInterleave stmts e) =
-        ReplicatedInterleave (desugar stmts) (desugar e)
-    desugar (ReplicatedExternalChoice stmts e) =
-        ReplicatedExternalChoice (desugar stmts) (desugar e)
-    desugar (ReplicatedInternalChoice stmts e) =
-        ReplicatedInternalChoice (desugar stmts) (desugar e)
-    desugar (ReplicatedParallel stmts e1 e2) =
-        ReplicatedParallel (desugar stmts) (desugar e1) (desugar e2)
-    desugar (ReplicatedLinkParallel ties tiesStmts stmts e) =
-        ReplicatedLinkParallel (desugar ties) (desugar tiesStmts) 
-                                (desugar stmts) (desugar e)
-    
-instance Desugarable (Field Name) where
-    desugar (Output e) = Output (desugar e)
-    desugar (Input p e) = Input (desugar p) (desugar e)
-    desugar (NonDetInput p e) = NonDetInput (desugar p) (desugar e)
-
-instance Desugarable (Stmt Name) where
+instance Desugarable (p Name) => Desugarable (Stmt Name p) where
     desugar (Generator p e) = Generator (desugar p) (desugar e)
     desugar (Qualifier e) = Qualifier (desugar e)
 
-instance Desugarable (InteractiveStmt Name) where
+instance Desugarable (p Name) => Desugarable (InteractiveStmt Name p) where
     desugar (Bind d) = Bind (desugar d)
     desugar (Evaluate e) = Evaluate (desugar e)
     desugar (RunAssertion a) = RunAssertion (desugar a)

@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Renames all variables to unique Names, in the process converting all
 -- UnRenamedName into Name. This simplifies many subsequent phases as every
 -- name is guaranteed to be unique so flat maps may be used, rather than
@@ -13,9 +14,12 @@ module CSPM.Renamer (
     RenamerMonad,
     runFromStateToState,
     initRenamer,
-    rename,
     newScope,
     getBoundNames,
+    -- * Internal Classes
+    FreeVars(..), Renamable(..),
+    renamePattern, reAnnotatePure, addScope,
+    internalNameMaker, renameStatements, checkDuplicates,
 )  where
 
 import Control.Monad.State
@@ -135,7 +139,8 @@ reAnnotate (An a b _) m = do
     return $ An a b v
 
 -- | Renames the declarations in the current scope.
-renameDeclarations :: Bool -> [PDecl] -> RenamerMonad a -> RenamerMonad ([TCDecl], a)
+renameDeclarations :: forall p p' a . Renamable (p UnRenamedName) (p' Name) => 
+    Bool -> [PDecl p] -> RenamerMonad a -> RenamerMonad ([TCDecl p'], a)
 renameDeclarations topLevel ds prog = do
     -- Firstly, check for duplicates amongst the definitions
     checkDuplicates ds
@@ -166,7 +171,7 @@ renameDeclarations topLevel ds prog = do
             Just v <- lookupName rn
             return v
 
-        insertChannelsAndDataTypes :: PDecl -> RenamerMonad ()
+        insertChannelsAndDataTypes :: PDecl p -> RenamerMonad ()
         insertChannelsAndDataTypes ad = case unAnnotate ad of
             Channel ns _ -> mapM_ (\ rn -> do
                 n' <- externalNameMaker True (loc ad) rn
@@ -178,7 +183,7 @@ renameDeclarations topLevel ds prog = do
                     ) cs
             _ -> return ()
     
-        insertBoundNames :: PDecl -> RenamerMonad ()
+        insertBoundNames :: PDecl p -> RenamerMonad ()
         insertBoundNames pd = case unAnnotate pd of
             Assert _ -> return ()
             Channel _ _ -> return ()
@@ -207,7 +212,7 @@ renameDeclarations topLevel ds prog = do
                             let err = mkErrorMessage (loc pd) (transparentFunctionNotRecognised rn)
                             in throwSourceError [err]) ns
 
-        renameRightHandSide :: PDecl -> RenamerMonad TCDecl
+        renameRightHandSide :: PDecl p -> RenamerMonad (TCDecl p')
         renameRightHandSide pd = reAnnotate pd $ case unAnnotate pd of
             Assert e -> do
                 e' <- addScope $ rename e
@@ -305,52 +310,8 @@ renameVarRHS n = do
         Just x -> return x
         Nothing -> throwSourceError [mkErrorMessage loc (varNotInScopeMessage n)]
 
-renameFields :: [PField] -> RenamerMonad a -> RenamerMonad ([TCField], a)
-renameFields fs inner = do
-    checkDuplicates fs
-    -- No duplicates, so we can just add one scope
-    addScope (do
-        -- We do the fields left to right, to ensure that the scoping is correct
-
-        -- Recall that c?x$y is equiv to |~| y:... @ [] x:... @ ... and hence
-        -- the nondet fields bind first.
-
-        -- Firstly, we do the nondet fields.
-        fsNonDet <- mapM (\afd -> 
-                case unAnnotate afd of
-                    Output e -> return Nothing
-                    Input p me -> return Nothing
-                    NonDetInput p me -> do
-                        me' <- rename me
-                        p' <- renamePattern internalNameMaker p
-                        return $ Just $ reAnnotatePure afd $ NonDetInput p' me') fs
-
-        fsDet <- mapM (\ afd ->
-                case unAnnotate afd of
-                    Output e -> do
-                        e' <- rename e
-                        return $ Just $ reAnnotatePure afd $ Output e'
-                    Input p me -> do
-                        -- Rename me first, as it can't depend on p
-                        me' <- rename me
-                        p' <- renamePattern internalNameMaker p
-                        return $ Just $ reAnnotatePure afd $ Input p' me'
-                    NonDetInput p me -> return Nothing) fs
-        
-        let 
-            combineJusts :: [Maybe a] -> [Maybe a] -> [a]
-            combineJusts [] [] = []
-            combineJusts (Just x:xs) (Nothing:ys) = x:combineJusts xs ys
-            combineJusts (Nothing:xs) (Just y:ys) = y:combineJusts xs ys
-
-            fs' :: [TCField]
-            fs' = combineJusts fsNonDet fsDet
-
-        -- all fields renamed, now rename the inner thing
-        a <- inner
-        return (fs', a))
-
-renameStatements :: [PStmt] -> RenamerMonad a -> RenamerMonad ([TCStmt], a)
+renameStatements :: Renamable (p UnRenamedName) (p' Name) => 
+    [PStmt p] -> RenamerMonad a -> RenamerMonad ([TCStmt p'], a)
 renameStatements stmts inner = do
     checkDuplicates stmts
     -- No duplicates, so we can just add one scope
@@ -371,26 +332,30 @@ renameStatements stmts inner = do
         a <- inner
         return (stmts', a))
 
-instance Renamable (Match UnRenamedName) (Match Name) where
+instance Renamable (p UnRenamedName) (p' Name) => 
+        Renamable (Match UnRenamedName p) (Match Name p') where
     rename (Match pss e) = addScope $ do
         checkDuplicates (concat pss)
         pss' <- mapM (mapM (renamePattern internalNameMaker)) pss
         e' <- rename e
         return $ Match pss' e'
 
-instance Renamable (InteractiveStmt UnRenamedName) (InteractiveStmt Name) where
+instance Renamable (p UnRenamedName) (p' Name) => 
+        Renamable (InteractiveStmt UnRenamedName p) (InteractiveStmt Name p') where
     rename (Bind d) = do
         ([d'],_) <- renameDeclarations True [d] (return ())
         return $ Bind d'
     rename (Evaluate e) = return Evaluate $$ rename e
     rename (RunAssertion a) = return RunAssertion $$ rename a
 
-instance Renamable (Module UnRenamedName) (Module Name) where
+instance Renamable (p UnRenamedName) (p' Name) => 
+        Renamable (Module UnRenamedName p) (Module Name p') where
     rename (GlobalModule ds) = do
         (ds', _) <- renameDeclarations True ds (return ())
         return $ GlobalModule ds'
 
-instance Renamable (Assertion UnRenamedName) (Assertion Name) where
+instance Renamable (p UnRenamedName) (p' Name) => 
+        Renamable (Assertion UnRenamedName p) (Assertion Name p') where
     rename (ASNot e) =
         return ASNot $$ rename e
     rename (BoolAssertion e) =
@@ -400,10 +365,12 @@ instance Renamable (Assertion UnRenamedName) (Assertion Name) where
     rename (PropertyCheck e1 p m) =
         return PropertyCheck $$ rename e1 $$ return p $$ return m
 
-instance Renamable (ModelOption UnRenamedName) (ModelOption Name) where
+instance Renamable (p UnRenamedName) (p' Name) => 
+        Renamable (ModelOption UnRenamedName p) (ModelOption Name p') where
     rename (TauPriority e) = return TauPriority $$ rename e
 
-instance Renamable (Exp UnRenamedName) (Exp Name) where
+instance Renamable (p UnRenamedName) (p' Name) => 
+        Renamable (Exp UnRenamedName p) (Exp Name p') where
     rename (App e es) = return App $$ rename e $$ rename es
     rename (BooleanBinaryOp op e1 e2) = return 
         (BooleanBinaryOp op) $$ rename e1 $$ rename e2
@@ -433,6 +400,7 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
         (MathsBinaryOp op) $$ rename e1 $$ rename e2
     rename (MathsUnaryOp op e) = return (MathsUnaryOp op) $$ rename e
     rename (Paren e) = return Paren $$ rename e
+    rename (Process p) = return Process $$ rename p
     rename (Set es) = return Set $$ rename es
     rename (SetComp es stmts) = do
         (stmts', es') <- renameStatements stmts (rename es)
@@ -445,60 +413,6 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
     rename (SetEnumFromTo e1 e2) = return SetEnumFromTo $$ rename e1 $$ rename e2
     rename (Tuple es) = return Tuple $$ rename es
     rename (Var n) = return Var $$ renameVarRHS n
-
-    rename (AlphaParallel e1 e2 e3 e4) = return
-        AlphaParallel $$ rename e1 $$ rename e2 $$ rename e3 $$ rename e4
-    rename (Exception e1 e2 e3) = return
-        Exception $$ rename e1 $$ rename e2 $$ rename e3
-    rename (ExternalChoice e1 e2) = return ExternalChoice $$ rename e1 $$ rename e2
-    rename (GenParallel e1 e2 e3) = return
-        GenParallel $$ rename e1 $$ rename e2 $$ rename e3
-    rename (GuardedExp e1 e2) = return GuardedExp $$ rename e1 $$ rename e2
-    rename (Hiding e1 e2) = return Hiding $$ rename e1 $$ rename e2
-    rename (InternalChoice e1 e2) = return InternalChoice $$ rename e1 $$ rename e2
-    rename (Interrupt e1 e2) = return Interrupt $$ rename e1 $$ rename e2
-    rename (Interleave e1 e2) = return Interleave $$ rename e1 $$ rename e2
-    rename (LinkParallel e1 ties stmts e2) = do
-        e1' <- rename e1
-        e2' <- rename e2
-        (stmts', ties') <- renameStatements stmts (rename ties)
-        return $ LinkParallel e1' ties' stmts' e2'
-    rename (Prefix e1 fs e2) = do
-        e1' <- rename e1
-        (fs', e2') <- renameFields fs (rename e2)
-        return $ Prefix e1' fs' e2'
-    rename (Rename e1 ties stmts) = do
-        e1' <- rename e1
-        (stmts', ties') <- renameStatements stmts (rename ties)
-        return $ Rename e1' ties' stmts'
-    rename (SequentialComp e1 e2) = return SequentialComp $$ rename e1 $$ rename e2
-    rename (SlidingChoice e1 e2) = return SlidingChoice $$ rename e1 $$ rename e2
-    
-    rename (ReplicatedAlphaParallel stmts e1 e2) = do
-        (stmts', (e1', e2')) <- renameStatements stmts (do
-            e1' <- rename e1
-            e2' <- rename e2
-            return (e1', e2'))
-        return $ ReplicatedAlphaParallel stmts' e1' e2'
-    rename (ReplicatedInterleave stmts e) = do
-        (stmts', e') <- renameStatements stmts (rename e)
-        return $ ReplicatedInterleave stmts' e'
-    rename (ReplicatedExternalChoice stmts e) = do
-        (stmts', e') <- renameStatements stmts (rename e)
-        return $ ReplicatedExternalChoice stmts' e'
-    rename (ReplicatedInternalChoice stmts e) = do
-        (stmts', e') <- renameStatements stmts (rename e)
-        return $ ReplicatedInternalChoice stmts' e'
-    rename (ReplicatedParallel e1 stmts e2) = do
-        e1' <- rename e1
-        (stmts', e2') <- renameStatements stmts (rename e2)
-        return $ ReplicatedParallel e1' stmts' e2'
-    rename (ReplicatedLinkParallel ties tiesStmts stmts e) = do
-        (stmts', (e', ties', tiesStmts')) <- renameStatements stmts (do
-            e' <- rename e
-            (tiesStmts', ties') <- renameStatements tiesStmts (rename ties)
-            return (e', ties', tiesStmts'))
-        return $ ReplicatedLinkParallel ties' tiesStmts' stmts' e'
 
 class FreeVars a where
     freeVars :: a -> RenamerMonad [UnRenamedName]
@@ -531,16 +445,11 @@ instance FreeVars (Pat UnRenamedName) where
             _ -> return [n]
     freeVars (PWildCard) = return []
 
-instance FreeVars (Stmt UnRenamedName) where
+instance FreeVars (Stmt UnRenamedName p) where
     freeVars (Qualifier e) = return []
     freeVars (Generator p e) = freeVars p
 
-instance FreeVars (Field UnRenamedName) where
-    freeVars (Input p e) = freeVars p
-    freeVars (NonDetInput p e) = freeVars p
-    freeVars (Output e) = return []
-
-instance FreeVars (Decl UnRenamedName) where
+instance FreeVars (Decl UnRenamedName p) where
     freeVars (Assert _) = return []
     freeVars (External ns) = return ns
     freeVars (Channel ns _) = return ns

@@ -1,9 +1,11 @@
+{-# LANGUAGE FlexibleContexts #-}
 module CSPM.Evaluator (
     evaluateExp, evaluateDecl, evaluateFile,
     addToEnvironment,
     
     initEvaluator, runFromStateToState,
     EvaluationMonad, runEvaluator, EvaluationState,
+    Evaluatable,
 ) where
 
 import CSPM.DataStructures.Names
@@ -16,9 +18,10 @@ import CSPM.Evaluator.Expr
 import CSPM.Evaluator.Module
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
+import Util.PrettyPrint
 
-runFromStateToState :: EvaluationState -> EvaluationMonad a -> 
-    (a, EvaluationState)
+runFromStateToState :: EvaluationState ops -> EvaluationMonad ops a -> 
+    (a, EvaluationState ops)
 runFromStateToState st prog = runEvaluator st $ do
     r <- prog
     s <- getState
@@ -26,20 +29,24 @@ runFromStateToState st prog = runEvaluator st $ do
 
 -- | The environment to use initially. This uses the IO monad as 
 -- the EvaluationMonad cannot be used without a valid environment.
-initEvaluator :: EvaluationState
+initEvaluator :: BuiltInFunctions ops => EvaluationState ops
 initEvaluator = runEvaluator (EvaluationState new Nothing) $
     injectBuiltInFunctions getState
 
-evaluateExp :: TCExp -> EvaluationMonad Value
+evaluateExp :: (Evaluatable (p Name) ops, PrettyPrintable (UProc ops)) =>
+    TCExp p -> EvaluationMonad ops (Value ops)
 evaluateExp e = eval e
 
 -- | Evaluates the declaration but doesn't add it to the current environment.
-evaluateDecl :: TCDecl -> EvaluationMonad [(Name, EvaluationMonad Value)]
+evaluateDecl :: (Evaluatable (p Name) ops, PrettyPrintable (UProc ops)) => 
+    TCDecl p -> EvaluationMonad ops [(Name, EvaluationMonad ops (Value ops))]
 evaluateDecl d = bindDecls [d]
 
 -- | Evaluates the declaration but doesn't add it to the current environment.
-evaluateFile :: [TCModule] -> EvaluationMonad [(Name, EvaluationMonad Value)]
+evaluateFile :: (Evaluatable (p Name) ops, PrettyPrintable (UProc ops)) => 
+    [TCModule p] -> EvaluationMonad ops [(Name, EvaluationMonad ops (Value ops))]
 evaluateFile ms = bindModules ms
 
-addToEnvironment :: [(Name, EvaluationMonad Value)] -> EvaluationMonad EvaluationState
+addToEnvironment :: (PrettyPrintable (UProc ops)) => 
+    [(Name, EvaluationMonad ops (Value ops))] -> EvaluationMonad ops (EvaluationState ops)
 addToEnvironment bs = addScopeAndBindM bs getState

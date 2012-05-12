@@ -4,7 +4,8 @@ module CSPM.Prelude (
     BuiltIn(..),
     builtins,
     transparentFunctionForOccName,
-    externalFunctionForOccName
+    externalFunctionForOccName,
+    BuiltInFunctions(..),
 ) 
 where
 
@@ -12,6 +13,13 @@ import System.IO.Unsafe
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Types
+import CSPM.Compiler.Processes (ProcOperator)
+import CSPM.Evaluator.Values (Value)
+
+class BuiltInFunctions op where
+    compressionOperator :: ProcOperator -> op
+    extraBuiltInsDefinitions :: [(Name, Value op)]
+    --extraBuiltIns :: [BuiltIn]
 
 data BuiltIn = 
     BuiltIn {

@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -w #-}
 {-# OPTIONS -fglasgow-exts -cpp #-}
-module CSPM.Parser.Parser (
+module CSPM.Operators.CSP.Parser.Parser (
     parseFile_, parseInteractiveStmt_, parseExpression_
 ) 
 where
@@ -16,17 +16,19 @@ import Data.Char
 
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Tokens
+import CSPM.DataStructures.Syntax hiding 
+    (PAssertion, PDataTypeClause, PDecl, PExp, PInteractiveStmt, PMatch, PStmt, PModule)
 import CSPM.DataStructures.Types hiding (TDot)
-import CSPM.Parser.Exceptions
-import CSPM.Parser.Lexer
-import CSPM.Parser.Monad
+import CSPM.Operators.CSP.Parser.Exceptions
+import CSPM.Operators.CSP.Parser.Lexer
+import CSPM.Operators.CSP.Parser.Monad
+import CSPM.Operators.CSP.Parser.Tokens
+import CSPM.Operators.CSP.Syntax
 import Util.Annotated
 import qualified Data.Array as Happy_Data_Array
 import qualified GHC.Exts as Happy_GHC_Exts
 
--- parser produced by Happy Version 1.18.6
+-- parser produced by Happy Version 1.18.9
 
 newtype HappyAbsSyn t8 t9 t27 t28 = HappyAbsSyn HappyAny
 #if __GLASGOW_HASKELL__ >= 607
@@ -94,10 +96,10 @@ happyIn15 x = Happy_GHC_Exts.unsafeCoerce# x
 happyOut15 :: (HappyAbsSyn t8 t9 t27 t28) -> (PDecl)
 happyOut15 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut15 #-}
-happyIn16 :: (Assertion UnRenamedName) -> (HappyAbsSyn t8 t9 t27 t28)
+happyIn16 :: (Assertion UnRenamedName CSPProcess) -> (HappyAbsSyn t8 t9 t27 t28)
 happyIn16 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyIn16 #-}
-happyOut16 :: (HappyAbsSyn t8 t9 t27 t28) -> (Assertion UnRenamedName)
+happyOut16 :: (HappyAbsSyn t8 t9 t27 t28) -> (Assertion UnRenamedName CSPProcess)
 happyOut16 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut16 #-}
 happyIn17 :: (SemanticProperty) -> (HappyAbsSyn t8 t9 t27 t28)
@@ -106,10 +108,10 @@ happyIn17 x = Happy_GHC_Exts.unsafeCoerce# x
 happyOut17 :: (HappyAbsSyn t8 t9 t27 t28) -> (SemanticProperty)
 happyOut17 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut17 #-}
-happyIn18 :: (ModelOption UnRenamedName) -> (HappyAbsSyn t8 t9 t27 t28)
+happyIn18 :: (PModelOption) -> (HappyAbsSyn t8 t9 t27 t28)
 happyIn18 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyIn18 #-}
-happyOut18 :: (HappyAbsSyn t8 t9 t27 t28) -> (ModelOption UnRenamedName)
+happyOut18 :: (HappyAbsSyn t8 t9 t27 t28) -> (PModelOption)
 happyOut18 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut18 #-}
 happyIn19 :: (PDataTypeClause) -> (HappyAbsSyn t8 t9 t27 t28)
@@ -1314,7 +1316,7 @@ happyReduction_92 (happy_x_4 `HappyStk`
 	case happyOut39 happy_x_2 of { happy_var_2 -> 
 	case happyOut30 happy_x_4 of { happy_var_4 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_4 (Prefix happy_var_1 happy_var_2 happy_var_4)
+		 (annotate2 happy_var_1 happy_var_4 (Process $ Prefix happy_var_1 happy_var_2 happy_var_4)
 	) `HappyStk` happyRest}}}
 
 happyReduce_93 = happySpecReduce_3  25# happyReduction_93
@@ -1324,7 +1326,7 @@ happyReduction_93 happy_x_3
 	 =  case happyOut30 happy_x_1 of { happy_var_1 -> 
 	case happyOut30 happy_x_3 of { happy_var_3 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_3 (Prefix happy_var_1 [] happy_var_3)
+		 (annotate2 happy_var_1 happy_var_3 (Process $ Prefix happy_var_1 [] happy_var_3)
 	)}}
 
 happyReduce_94 = happySpecReduce_3  25# happyReduction_94
@@ -1334,7 +1336,7 @@ happyReduction_94 happy_x_3
 	 =  case happyOut30 happy_x_1 of { happy_var_1 -> 
 	case happyOut30 happy_x_3 of { happy_var_3 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_3 (ExternalChoice happy_var_1 happy_var_3)
+		 (annotate2 happy_var_1 happy_var_3 (Process $ ExternalChoice happy_var_1 happy_var_3)
 	)}}
 
 happyReduce_95 = happySpecReduce_3  25# happyReduction_95
@@ -1344,7 +1346,7 @@ happyReduction_95 happy_x_3
 	 =  case happyOut30 happy_x_1 of { happy_var_1 -> 
 	case happyOut30 happy_x_3 of { happy_var_3 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_3 (Hiding happy_var_1 happy_var_3)
+		 (annotate2 happy_var_1 happy_var_3 (Process $ Hiding happy_var_1 happy_var_3)
 	)}}
 
 happyReduce_96 = happySpecReduce_3  25# happyReduction_96
@@ -1354,7 +1356,7 @@ happyReduction_96 happy_x_3
 	 =  case happyOut30 happy_x_1 of { happy_var_1 -> 
 	case happyOut30 happy_x_3 of { happy_var_3 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_3 (InternalChoice happy_var_1 happy_var_3)
+		 (annotate2 happy_var_1 happy_var_3 (Process $ InternalChoice happy_var_1 happy_var_3)
 	)}}
 
 happyReduce_97 = happySpecReduce_3  25# happyReduction_97
@@ -1364,7 +1366,7 @@ happyReduction_97 happy_x_3
 	 =  case happyOut30 happy_x_1 of { happy_var_1 -> 
 	case happyOut30 happy_x_3 of { happy_var_3 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_3 (Interleave happy_var_1 happy_var_3)
+		 (annotate2 happy_var_1 happy_var_3 (Process $ Interleave happy_var_1 happy_var_3)
 	)}}
 
 happyReduce_98 = happyReduce 5# 25# happyReduction_98
@@ -1378,7 +1380,7 @@ happyReduction_98 (happy_x_5 `HappyStk`
 	case happyOut30 happy_x_3 of { happy_var_3 -> 
 	case happyOut30 happy_x_5 of { happy_var_5 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_5 (GenParallel happy_var_1 happy_var_3 happy_var_5)
+		 (annotate2 happy_var_1 happy_var_5 (Process $ GenParallel happy_var_1 happy_var_3 happy_var_5)
 	) `HappyStk` happyRest}}}
 
 happyReduce_99 = happyReduce 7# 25# happyReduction_99
@@ -1395,7 +1397,7 @@ happyReduction_99 (happy_x_7 `HappyStk`
 	case happyOut30 happy_x_5 of { happy_var_5 -> 
 	case happyOut30 happy_x_7 of { happy_var_7 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_7 (AlphaParallel happy_var_1 happy_var_3 happy_var_5 happy_var_7)
+		 (annotate2 happy_var_1 happy_var_7 (Process $ AlphaParallel happy_var_1 happy_var_3 happy_var_5 happy_var_7)
 	) `HappyStk` happyRest}}}}
 
 happyReduce_100 = happySpecReduce_3  25# happyReduction_100
@@ -1405,7 +1407,7 @@ happyReduction_100 happy_x_3
 	 =  case happyOut30 happy_x_1 of { happy_var_1 -> 
 	case happyOut30 happy_x_3 of { happy_var_3 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_3 (Interrupt happy_var_1 happy_var_3)
+		 (annotate2 happy_var_1 happy_var_3 (Process $ Interrupt happy_var_1 happy_var_3)
 	)}}
 
 happyReduce_101 = happyReduce 5# 25# happyReduction_101
@@ -1419,7 +1421,7 @@ happyReduction_101 (happy_x_5 `HappyStk`
 	case happyOut30 happy_x_3 of { happy_var_3 -> 
 	case happyOut30 happy_x_5 of { happy_var_5 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_5 (Exception happy_var_1 happy_var_3 happy_var_5)
+		 (annotate2 happy_var_1 happy_var_5 (Process $ Exception happy_var_1 happy_var_3 happy_var_5)
 	) `HappyStk` happyRest}}}
 
 happyReduce_102 = happySpecReduce_3  25# happyReduction_102
@@ -1429,7 +1431,7 @@ happyReduction_102 happy_x_3
 	 =  case happyOut30 happy_x_1 of { happy_var_1 -> 
 	case happyOut30 happy_x_3 of { happy_var_3 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_3 (SlidingChoice happy_var_1 happy_var_3)
+		 (annotate2 happy_var_1 happy_var_3 (Process $ SlidingChoice happy_var_1 happy_var_3)
 	)}}
 
 happyReduce_103 = happySpecReduce_3  25# happyReduction_103
@@ -1439,7 +1441,7 @@ happyReduction_103 happy_x_3
 	 =  case happyOut30 happy_x_1 of { happy_var_1 -> 
 	case happyOut30 happy_x_3 of { happy_var_3 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_3 (SequentialComp happy_var_1 happy_var_3)
+		 (annotate2 happy_var_1 happy_var_3 (Process $ SequentialComp happy_var_1 happy_var_3)
 	)}}
 
 happyReduce_104 = happySpecReduce_3  25# happyReduction_104
@@ -1449,7 +1451,7 @@ happyReduction_104 happy_x_3
 	 =  case happyOut30 happy_x_1 of { happy_var_1 -> 
 	case happyOut30 happy_x_3 of { happy_var_3 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_3 (GuardedExp happy_var_1 happy_var_3)
+		 (annotate2 happy_var_1 happy_var_3 (Process $ GuardedExp happy_var_1 happy_var_3)
 	)}}
 
 happyReduce_105 = happyReduce 5# 25# happyReduction_105
@@ -1464,7 +1466,7 @@ happyReduction_105 (happy_x_5 `HappyStk`
 	case happyOut45 happy_x_4 of { happy_var_4 -> 
 	case happyOutTok happy_x_5 of { happy_var_5 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_5 (Rename happy_var_1 happy_var_3 happy_var_4)
+		 (annotate2 happy_var_1 happy_var_5 (Process $ Rename happy_var_1 happy_var_3 happy_var_4)
 	) `HappyStk` happyRest}}}}
 
 happyReduce_106 = happyReduce 6# 25# happyReduction_106
@@ -1480,7 +1482,7 @@ happyReduction_106 (happy_x_6 `HappyStk`
 	case happyOut45 happy_x_4 of { happy_var_4 -> 
 	case happyOut30 happy_x_6 of { happy_var_6 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_6 (LinkParallel happy_var_1 happy_var_3 happy_var_4 happy_var_6)
+		 (annotate2 happy_var_1 happy_var_6 (Process $ LinkParallel happy_var_1 happy_var_3 happy_var_4 happy_var_6)
 	) `HappyStk` happyRest}}}}
 
 happyReduce_107 = happyReduce 4# 25# happyReduction_107
@@ -1493,7 +1495,7 @@ happyReduction_107 (happy_x_4 `HappyStk`
 	case happyOut47 happy_x_2 of { happy_var_2 -> 
 	case happyOut30 happy_x_4 of { happy_var_4 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_4 (ReplicatedInterleave happy_var_2 happy_var_4)
+		 (annotate2 happy_var_1 happy_var_4 (Process $ ReplicatedInterleave happy_var_2 happy_var_4)
 	) `HappyStk` happyRest}}}
 
 happyReduce_108 = happyReduce 4# 25# happyReduction_108
@@ -1506,7 +1508,7 @@ happyReduction_108 (happy_x_4 `HappyStk`
 	case happyOut47 happy_x_2 of { happy_var_2 -> 
 	case happyOut30 happy_x_4 of { happy_var_4 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_4 (ReplicatedExternalChoice happy_var_2 happy_var_4)
+		 (annotate2 happy_var_1 happy_var_4 (Process $ ReplicatedExternalChoice happy_var_2 happy_var_4)
 	) `HappyStk` happyRest}}}
 
 happyReduce_109 = happyReduce 4# 25# happyReduction_109
@@ -1519,7 +1521,7 @@ happyReduction_109 (happy_x_4 `HappyStk`
 	case happyOut47 happy_x_2 of { happy_var_2 -> 
 	case happyOut30 happy_x_4 of { happy_var_4 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_4 (ReplicatedInternalChoice happy_var_2 happy_var_4)
+		 (annotate2 happy_var_1 happy_var_4 (Process $ ReplicatedInternalChoice happy_var_2 happy_var_4)
 	) `HappyStk` happyRest}}}
 
 happyReduce_110 = happyReduce 7# 25# happyReduction_110
@@ -1536,7 +1538,7 @@ happyReduction_110 (happy_x_7 `HappyStk`
 	case happyOut30 happy_x_5 of { happy_var_5 -> 
 	case happyOut30 happy_x_7 of { happy_var_7 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_7 (ReplicatedAlphaParallel happy_var_2 happy_var_5 happy_var_7)
+		 (annotate2 happy_var_1 happy_var_7 (Process $ ReplicatedAlphaParallel happy_var_2 happy_var_5 happy_var_7)
 	) `HappyStk` happyRest}}}}
 
 happyReduce_111 = happyReduce 6# 25# happyReduction_111
@@ -1552,7 +1554,7 @@ happyReduction_111 (happy_x_6 `HappyStk`
 	case happyOut47 happy_x_4 of { happy_var_4 -> 
 	case happyOut30 happy_x_6 of { happy_var_6 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_6 (ReplicatedParallel happy_var_2 happy_var_4 happy_var_6)
+		 (annotate2 happy_var_1 happy_var_6 (Process $ ReplicatedParallel happy_var_2 happy_var_4 happy_var_6)
 	) `HappyStk` happyRest}}}}
 
 happyReduce_112 = happyReduce 7# 25# happyReduction_112
@@ -1570,7 +1572,7 @@ happyReduction_112 (happy_x_7 `HappyStk`
 	case happyOut47 happy_x_5 of { happy_var_5 -> 
 	case happyOut30 happy_x_7 of { happy_var_7 -> 
 	happyIn31
-		 (annotate2 happy_var_1 happy_var_7 (ReplicatedLinkParallel happy_var_2 happy_var_3 happy_var_5 happy_var_7)
+		 (annotate2 happy_var_1 happy_var_7 (Process $ ReplicatedLinkParallel happy_var_2 happy_var_3 happy_var_5 happy_var_7)
 	) `HappyStk` happyRest}}}}}
 
 happyReduce_113 = happySpecReduce_2  26# happyReduction_113
@@ -1913,7 +1915,8 @@ happyNewToken action sts stk
 	_ -> happyError' tk
 	})
 
-happyError_ tk = happyError' tk
+happyError_ 79# tk = happyError' tk
+happyError_ _ tk = happyError' tk
 
 happyThen :: () => ParseMonad a -> (a -> ParseMonad b) -> ParseMonad b
 happyThen = (>>=)
@@ -1937,6 +1940,16 @@ parseExpression_ = happySomeParser where
 happySeq = happyDontSeq
 
 
+type PAssertion = AnAssertion UnRenamedName CSPProcess
+type PDataTypeClause = AnDataTypeClause UnRenamedName CSPProcess
+type PDecl = AnDecl UnRenamedName CSPProcess
+type PExp = AnExp UnRenamedName CSPProcess
+type PInteractiveStmt = AnInteractiveStmt UnRenamedName CSPProcess
+type PMatch = AnMatch UnRenamedName CSPProcess
+type PModelOption = ModelOption UnRenamedName CSPProcess
+type PModule = AnModule UnRenamedName CSPProcess
+type PStmt = AnStmt UnRenamedName CSPProcess
+
 combineDecls :: [PDecl] -> [PDecl]
 combineDecls [] = []
 combineDecls ((An loc1 b (FunBind n ms)):(An loc2 c (FunBind n' ms')):ds) | n == n' = 
@@ -1949,7 +1962,7 @@ convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) =
         span = combineSpans loc1 loc2
 
         -- REMEMBER: needs to reverse pts
-        getPats :: Exp UnRenamedName -> ([[PPat]], UnRenamedName)
+        getPats :: Exp UnRenamedName CSPProcess -> ([[PPat]], UnRenamedName)
         getPats (App f args) = 
                 ((map convPat args):ps, n)
             where
@@ -1984,7 +1997,7 @@ checkLetDecls decls = map checkDecl decls
 checkExp :: PExp -> PExp
 checkExp (anExp@(An a b exp)) =
     let 
-        check :: Exp UnRenamedName -> Exp UnRenamedName
+        check :: Exp UnRenamedName CSPProcess -> Exp UnRenamedName CSPProcess
         check (App e es) = App (checkExp e) (map checkExp es)
         check (BooleanBinaryOp op e1 e2) = BooleanBinaryOp op (checkExp e1) (checkExp e2)
         check (BooleanUnaryOp op e) = BooleanUnaryOp op (checkExp e)
@@ -2002,6 +2015,7 @@ checkExp (anExp@(An a b exp)) =
         check (MathsBinaryOp op e1 e2) = MathsBinaryOp op (checkExp e1) (checkExp e2)
         check (MathsUnaryOp op e) = MathsUnaryOp op (checkExp e)
         check (Paren e) = Paren (checkExp e)
+        check (Process p) = Process (check' p)
         check (Set es) = Set (map checkExp es)
         check (SetComp es stmts) = SetComp (map checkExp es) stmts
         check (SetEnumFrom e) = SetEnumFrom (checkExp e)
@@ -2012,42 +2026,43 @@ checkExp (anExp@(An a b exp)) =
         check (SetEnumComp es stmts) = SetEnumComp (map checkExp es) stmts
         check (Tuple es) = Tuple (map checkExp es)
         check (Var qname) = Var qname
+        check x = throwSourceError [invalidExpressionErrorMessage anExp]
 
-        check (AlphaParallel e1 e2 e3 e4) = 
+        check' (AlphaParallel e1 e2 e3 e4) = 
             AlphaParallel (checkExp e1) (checkExp e2) (checkExp e3) (checkExp e4)
-        check (Exception e1 e2 e3) = Exception (checkExp e1) (checkExp e2) (checkExp e3)
-        check (ExternalChoice e1 e2) = ExternalChoice (checkExp e1) (checkExp e2)
-        check (GenParallel e1 e2 e3) = GenParallel (checkExp e1) (checkExp e2) (checkExp e3)
-        check (GuardedExp e1 e2) = GuardedExp (checkExp e1) (checkExp e2)
-        check (Hiding e1 e2) = Hiding (checkExp e1) (checkExp e2)
-        check (InternalChoice e1 e2) = InternalChoice (checkExp e1) (checkExp e2)
-        check (Interrupt e1 e2) = Interrupt (checkExp e1) (checkExp e2)
-        check (Interleave e1 e2) = Interleave (checkExp e1) (checkExp e2)
-        check (LinkParallel e1 ties stmts e2) = 
+        check' (Exception e1 e2 e3) = Exception (checkExp e1) (checkExp e2) (checkExp e3)
+        check' (ExternalChoice e1 e2) = ExternalChoice (checkExp e1) (checkExp e2)
+        check' (GenParallel e1 e2 e3) = GenParallel (checkExp e1) (checkExp e2) (checkExp e3)
+        check' (GuardedExp e1 e2) = GuardedExp (checkExp e1) (checkExp e2)
+        check' (Hiding e1 e2) = Hiding (checkExp e1) (checkExp e2)
+        check' (InternalChoice e1 e2) = InternalChoice (checkExp e1) (checkExp e2)
+        check' (Interrupt e1 e2) = Interrupt (checkExp e1) (checkExp e2)
+        check' (Interleave e1 e2) = Interleave (checkExp e1) (checkExp e2)
+        check' (LinkParallel e1 ties stmts e2) = 
             LinkParallel (checkExp e1) ties stmts (checkExp e2)
-        check (Prefix e1 fields e2) = Prefix (checkExp e1) fields (checkExp e2)
-        check (Rename e ties stmts) = Rename (checkExp e) ties stmts
-        check (SequentialComp e1 e2) = SequentialComp (checkExp e1) (checkExp e2)
-        check (SlidingChoice e1 e2) = SlidingChoice (checkExp e1) (checkExp e2)
+        check' (Prefix e1 fields e2) = Prefix (checkExp e1) fields (checkExp e2)
+        check' (Rename e ties stmts) = Rename (checkExp e) ties stmts
+        check' (SequentialComp e1 e2) = SequentialComp (checkExp e1) (checkExp e2)
+        check' (SlidingChoice e1 e2) = SlidingChoice (checkExp e1) (checkExp e2)
 
-        check (ReplicatedAlphaParallel stmts e1 e2) = 
+        check' (ReplicatedAlphaParallel stmts e1 e2) = 
             ReplicatedAlphaParallel stmts (checkExp e1) (checkExp e2)
-        check (ReplicatedInterleave stmts e1) = ReplicatedInterleave stmts (checkExp e1)
-        check (ReplicatedExternalChoice stmts e1) = ReplicatedExternalChoice stmts (checkExp e1)
-        check (ReplicatedInternalChoice stmts e1) = ReplicatedInternalChoice stmts (checkExp e1)
-        check (ReplicatedParallel e1 stmts e2) = 
+        check' (ReplicatedInterleave stmts e1) = ReplicatedInterleave stmts (checkExp e1)
+        check' (ReplicatedExternalChoice stmts e1) = ReplicatedExternalChoice stmts (checkExp e1)
+        check' (ReplicatedInternalChoice stmts e1) = ReplicatedInternalChoice stmts (checkExp e1)
+        check' (ReplicatedParallel e1 stmts e2) = 
             ReplicatedParallel (checkExp e1) stmts (checkExp e2)
-        check (ReplicatedLinkParallel ties tiesStmts stmts e) = 
+        check' (ReplicatedLinkParallel ties tiesStmts stmts e) = 
             ReplicatedLinkParallel ties tiesStmts stmts (checkExp e)
         
-        check x = throwSourceError [invalidExpressionErrorMessage anExp]
+        check' x = throwSourceError [invalidExpressionErrorMessage anExp]
     in
         An a b (check exp)
 
 dotAppToList :: PExp -> [PExp]
 dotAppToList (An a b exp) = 
     let 
-        list :: Exp UnRenamedName -> [PExp]
+        list :: Exp UnRenamedName CSPProcess -> [PExp]
         list (DotApp e1 e2) = (dotAppToList e1) ++ (dotAppToList e2)
         list x = [An a b x]
     in
@@ -2056,7 +2071,7 @@ dotAppToList (An a b exp) =
 convPat :: PExp -> PPat
 convPat (anExp@ (An a b exp)) = 
     let
-        trans :: Exp UnRenamedName -> Pat UnRenamedName
+        trans :: Exp UnRenamedName CSPProcess -> Pat UnRenamedName
         trans (Concat e1 e2) = PConcat (convPat e1) (convPat e2)
         trans (DotApp e1 e2) = PDotApp (convPat e1) (convPat e2)
         trans (List xs) = PList (map convPat xs)
@@ -2304,9 +2319,10 @@ happyGoto nt j tk st =
 -- Error recovery (0# is the error token)
 
 -- parse error if we are in recovery and we fail again
-happyFail  0# tk old_st _ stk =
+happyFail 0# tk old_st _ stk@(x `HappyStk` _) =
+     let (i) = (case Happy_GHC_Exts.unsafeCoerce# x of { (Happy_GHC_Exts.I# (i)) -> i }) in
 --	trace "failing" $ 
-    	happyError_ tk
+        happyError_ i tk
 
 {-  We don't need state discarding for our restricted implementation of
     "error".  In fact, it can cause some bogus parses, so I've disabled it

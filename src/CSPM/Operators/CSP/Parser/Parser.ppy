@@ -1,5 +1,5 @@
 {
-module CSPM.Parser.Parser (
+module CSPM.Operators.CSP.Parser.Parser (
     parseFile_, parseInteractiveStmt_, parseExpression_
 ) 
 where
@@ -15,12 +15,14 @@ import Data.Char
 
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Tokens
+import CSPM.DataStructures.Syntax hiding 
+    (PAssertion, PDataTypeClause, PDecl, PExp, PInteractiveStmt, PMatch, PStmt, PModule)
 import CSPM.DataStructures.Types hiding (TDot)
-import CSPM.Parser.Exceptions
-import CSPM.Parser.Lexer
-import CSPM.Parser.Monad
+import CSPM.Operators.CSP.Parser.Exceptions
+import CSPM.Operators.CSP.Parser.Lexer
+import CSPM.Operators.CSP.Parser.Monad
+import CSPM.Operators.CSP.Parser.Tokens
+import CSPM.Operators.CSP.Syntax
 import Util.Annotated
 }
 
@@ -210,7 +212,7 @@ DeclA :: { PDecl }
     | "assert" Assertion                        { AN (Assert $2) }
     | "nametype" Name "=" CExp                  { AN2 (NameType (unLoc $2) $4) }
 
-Assertion :: { Assertion UnRenamedName }
+Assertion :: { Assertion UnRenamedName CSPProcess }
     :
     CExp refines CExp                       { (Refinement $1 (getRefinesModel $2) $3 []) }
     | CExp refines CExp ModelOption         { (Refinement $1 (getRefinesModel $2) $3 [$4]) }
@@ -223,7 +225,7 @@ SemanticProperty :: { SemanticProperty }
     | "divergence free"                         { LivelockFreedom }
     | "deterministic"                           { Deterministic }
 
-ModelOption :: { ModelOption UnRenamedName }
+ModelOption :: { PModelOption }
     :
     "tau priority" CExp                         { TauPriority $2 }
 
@@ -348,31 +350,31 @@ ExpA :: { PExp }
     | Exp "@@" Exp                  { LL (ExpPatDoublePattern $1 $3) }
 
     -- Processes
-    | Exp FieldList "->" Exp        { AN2 (Prefix $1 $2 $4) }
-    | Exp "->" Exp                  { AN2 (Prefix $1 [] $3) }
+    | Exp FieldList "->" Exp        { AN2 (Process $ Prefix $1 $2 $4) }
+    | Exp "->" Exp                  { AN2 (Process $ Prefix $1 [] $3) }
 
-    | Exp "[]" Exp                  { AN2 (ExternalChoice $1 $3) }
-    | Exp "\\" Exp                  { AN2 (Hiding $1 $3) }
-    | Exp "|~|" Exp                 { AN2 (InternalChoice $1 $3) }
-    | Exp "|||" Exp                 { AN2 (Interleave $1 $3) }
-    | Exp "[|" Exp "|]" Exp         { AN2 (GenParallel $1 $3 $5) }
-    | Exp "[" Exp "||" Exp "]" Exp  { AN2 (AlphaParallel $1 $3 $5 $7) }
-    | Exp "/\\" Exp                 { AN2 (Interrupt $1 $3) }
-    | Exp "[|" Exp "|>" Exp         { AN2 (Exception $1 $3 $5) }
-    | Exp "[>" Exp                  { AN2 (SlidingChoice $1 $3) }
-    | Exp ";" Exp                   { AN2 (SequentialComp $1 $3) }
-    | Exp "&" Exp                   { AN2 (GuardedExp $1 $3) }
+    | Exp "[]" Exp                  { AN2 (Process $ ExternalChoice $1 $3) }
+    | Exp "\\" Exp                  { AN2 (Process $ Hiding $1 $3) }
+    | Exp "|~|" Exp                 { AN2 (Process $ InternalChoice $1 $3) }
+    | Exp "|||" Exp                 { AN2 (Process $ Interleave $1 $3) }
+    | Exp "[|" Exp "|]" Exp         { AN2 (Process $ GenParallel $1 $3 $5) }
+    | Exp "[" Exp "||" Exp "]" Exp  { AN2 (Process $ AlphaParallel $1 $3 $5 $7) }
+    | Exp "/\\" Exp                 { AN2 (Process $ Interrupt $1 $3) }
+    | Exp "[|" Exp "|>" Exp         { AN2 (Process $ Exception $1 $3 $5) }
+    | Exp "[>" Exp                  { AN2 (Process $ SlidingChoice $1 $3) }
+    | Exp ";" Exp                   { AN2 (Process $ SequentialComp $1 $3) }
+    | Exp "&" Exp                   { AN2 (Process $ GuardedExp $1 $3) }
     --- TODO: check all on LHS are generators only
     -- TODO: check LHS all use <- only
-    | Exp "[[" RenameList1 OptStmtList "]]" { AN2 (Rename $1 $3 $4) }
-    | Exp "[" TieList1 OptStmtList "]" Exp  { AN2 (LinkParallel $1 $3 $4 $6) }
+    | Exp "[[" RenameList1 OptStmtList "]]" { AN2 (Process $ Rename $1 $3 $4) }
+    | Exp "[" TieList1 OptStmtList "]" Exp  { AN2 (Process $ LinkParallel $1 $3 $4 $6) }
 
-    | "|||" StmtCommaList "@" Exp   { AN2 (ReplicatedInterleave $2 $4) }
-    | "[]" StmtCommaList "@" Exp    { AN2 (ReplicatedExternalChoice $2 $4) }
-    | "|~|" StmtCommaList "@" Exp   { AN2 (ReplicatedInternalChoice $2 $4) }
-    | "||" StmtCommaList "@" "[" Exp "]" Exp { AN2 (ReplicatedAlphaParallel $2 $5 $7) }
-    | "[|" Exp "|]" StmtCommaList "@" Exp { AN2 (ReplicatedParallel $2 $4 $6) }
-    | "[" TieList1 OptStmtList "]" StmtCommaList "@" Exp { AN2 (ReplicatedLinkParallel $2 $3 $5 $7) }
+    | "|||" StmtCommaList "@" Exp   { AN2 (Process $ ReplicatedInterleave $2 $4) }
+    | "[]" StmtCommaList "@" Exp    { AN2 (Process $ ReplicatedExternalChoice $2 $4) }
+    | "|~|" StmtCommaList "@" Exp   { AN2 (Process $ ReplicatedInternalChoice $2 $4) }
+    | "||" StmtCommaList "@" "[" Exp "]" Exp { AN2 (Process $ ReplicatedAlphaParallel $2 $5 $7) }
+    | "[|" Exp "|]" StmtCommaList "@" Exp { AN2 (Process $ ReplicatedParallel $2 $4 $6) }
+    | "[" TieList1 OptStmtList "]" StmtCommaList "@" Exp { AN2 (Process $ ReplicatedLinkParallel $2 $3 $5 $7) }
 
 Field :: { PField }
     :
@@ -449,6 +451,16 @@ rStmtCommaList :: { [PStmt] }
     | Stmt                          { [$1] }
 
 {
+type PAssertion = AnAssertion UnRenamedName CSPProcess
+type PDataTypeClause = AnDataTypeClause UnRenamedName CSPProcess
+type PDecl = AnDecl UnRenamedName CSPProcess
+type PExp = AnExp UnRenamedName CSPProcess
+type PInteractiveStmt = AnInteractiveStmt UnRenamedName CSPProcess
+type PMatch = AnMatch UnRenamedName CSPProcess
+type PModelOption = ModelOption UnRenamedName CSPProcess
+type PModule = AnModule UnRenamedName CSPProcess
+type PStmt = AnStmt UnRenamedName CSPProcess
+
 combineDecls :: [PDecl] -> [PDecl]
 combineDecls [] = []
 combineDecls ((An loc1 b (FunBind n ms)):(An loc2 c (FunBind n' ms')):ds) | n == n' = 
@@ -461,7 +473,7 @@ convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) =
         span = combineSpans loc1 loc2
 
         -- REMEMBER: needs to reverse pts
-        getPats :: Exp UnRenamedName -> ([[PPat]], UnRenamedName)
+        getPats :: Exp UnRenamedName CSPProcess -> ([[PPat]], UnRenamedName)
         getPats (App f args) = 
                 ((map convPat args):ps, n)
             where
@@ -496,7 +508,7 @@ checkLetDecls decls = map checkDecl decls
 checkExp :: PExp -> PExp
 checkExp (anExp@(An a b exp)) =
     let 
-        check :: Exp UnRenamedName -> Exp UnRenamedName
+        check :: Exp UnRenamedName CSPProcess -> Exp UnRenamedName CSPProcess
         check (App e es) = App (checkExp e) (map checkExp es)
         check (BooleanBinaryOp op e1 e2) = BooleanBinaryOp op (checkExp e1) (checkExp e2)
         check (BooleanUnaryOp op e) = BooleanUnaryOp op (checkExp e)
@@ -514,6 +526,7 @@ checkExp (anExp@(An a b exp)) =
         check (MathsBinaryOp op e1 e2) = MathsBinaryOp op (checkExp e1) (checkExp e2)
         check (MathsUnaryOp op e) = MathsUnaryOp op (checkExp e)
         check (Paren e) = Paren (checkExp e)
+        check (Process p) = Process (check' p)
         check (Set es) = Set (map checkExp es)
         check (SetComp es stmts) = SetComp (map checkExp es) stmts
         check (SetEnumFrom e) = SetEnumFrom (checkExp e)
@@ -524,42 +537,43 @@ checkExp (anExp@(An a b exp)) =
         check (SetEnumComp es stmts) = SetEnumComp (map checkExp es) stmts
         check (Tuple es) = Tuple (map checkExp es)
         check (Var qname) = Var qname
+        check x = throwSourceError [invalidExpressionErrorMessage anExp]
 
-        check (AlphaParallel e1 e2 e3 e4) = 
+        check' (AlphaParallel e1 e2 e3 e4) = 
             AlphaParallel (checkExp e1) (checkExp e2) (checkExp e3) (checkExp e4)
-        check (Exception e1 e2 e3) = Exception (checkExp e1) (checkExp e2) (checkExp e3)
-        check (ExternalChoice e1 e2) = ExternalChoice (checkExp e1) (checkExp e2)
-        check (GenParallel e1 e2 e3) = GenParallel (checkExp e1) (checkExp e2) (checkExp e3)
-        check (GuardedExp e1 e2) = GuardedExp (checkExp e1) (checkExp e2)
-        check (Hiding e1 e2) = Hiding (checkExp e1) (checkExp e2)
-        check (InternalChoice e1 e2) = InternalChoice (checkExp e1) (checkExp e2)
-        check (Interrupt e1 e2) = Interrupt (checkExp e1) (checkExp e2)
-        check (Interleave e1 e2) = Interleave (checkExp e1) (checkExp e2)
-        check (LinkParallel e1 ties stmts e2) = 
+        check' (Exception e1 e2 e3) = Exception (checkExp e1) (checkExp e2) (checkExp e3)
+        check' (ExternalChoice e1 e2) = ExternalChoice (checkExp e1) (checkExp e2)
+        check' (GenParallel e1 e2 e3) = GenParallel (checkExp e1) (checkExp e2) (checkExp e3)
+        check' (GuardedExp e1 e2) = GuardedExp (checkExp e1) (checkExp e2)
+        check' (Hiding e1 e2) = Hiding (checkExp e1) (checkExp e2)
+        check' (InternalChoice e1 e2) = InternalChoice (checkExp e1) (checkExp e2)
+        check' (Interrupt e1 e2) = Interrupt (checkExp e1) (checkExp e2)
+        check' (Interleave e1 e2) = Interleave (checkExp e1) (checkExp e2)
+        check' (LinkParallel e1 ties stmts e2) = 
             LinkParallel (checkExp e1) ties stmts (checkExp e2)
-        check (Prefix e1 fields e2) = Prefix (checkExp e1) fields (checkExp e2)
-        check (Rename e ties stmts) = Rename (checkExp e) ties stmts
-        check (SequentialComp e1 e2) = SequentialComp (checkExp e1) (checkExp e2)
-        check (SlidingChoice e1 e2) = SlidingChoice (checkExp e1) (checkExp e2)
+        check' (Prefix e1 fields e2) = Prefix (checkExp e1) fields (checkExp e2)
+        check' (Rename e ties stmts) = Rename (checkExp e) ties stmts
+        check' (SequentialComp e1 e2) = SequentialComp (checkExp e1) (checkExp e2)
+        check' (SlidingChoice e1 e2) = SlidingChoice (checkExp e1) (checkExp e2)
 
-        check (ReplicatedAlphaParallel stmts e1 e2) = 
+        check' (ReplicatedAlphaParallel stmts e1 e2) = 
             ReplicatedAlphaParallel stmts (checkExp e1) (checkExp e2)
-        check (ReplicatedInterleave stmts e1) = ReplicatedInterleave stmts (checkExp e1)
-        check (ReplicatedExternalChoice stmts e1) = ReplicatedExternalChoice stmts (checkExp e1)
-        check (ReplicatedInternalChoice stmts e1) = ReplicatedInternalChoice stmts (checkExp e1)
-        check (ReplicatedParallel e1 stmts e2) = 
+        check' (ReplicatedInterleave stmts e1) = ReplicatedInterleave stmts (checkExp e1)
+        check' (ReplicatedExternalChoice stmts e1) = ReplicatedExternalChoice stmts (checkExp e1)
+        check' (ReplicatedInternalChoice stmts e1) = ReplicatedInternalChoice stmts (checkExp e1)
+        check' (ReplicatedParallel e1 stmts e2) = 
             ReplicatedParallel (checkExp e1) stmts (checkExp e2)
-        check (ReplicatedLinkParallel ties tiesStmts stmts e) = 
+        check' (ReplicatedLinkParallel ties tiesStmts stmts e) = 
             ReplicatedLinkParallel ties tiesStmts stmts (checkExp e)
         
-        check x = throwSourceError [invalidExpressionErrorMessage anExp]
+        check' x = throwSourceError [invalidExpressionErrorMessage anExp]
     in
         An a b (check exp)
 
 dotAppToList :: PExp -> [PExp]
 dotAppToList (An a b exp) = 
     let 
-        list :: Exp UnRenamedName -> [PExp]
+        list :: Exp UnRenamedName CSPProcess -> [PExp]
         list (DotApp e1 e2) = (dotAppToList e1) ++ (dotAppToList e2)
         list x = [An a b x]
     in
@@ -568,7 +582,7 @@ dotAppToList (An a b exp) =
 convPat :: PExp -> PPat
 convPat (anExp@ (An a b exp)) = 
     let
-        trans :: Exp UnRenamedName -> Pat UnRenamedName
+        trans :: Exp UnRenamedName CSPProcess -> Pat UnRenamedName
         trans (Concat e1 e2) = PConcat (convPat e1) (convPat e2)
         trans (DotApp e1 e2) = PDotApp (convPat e1) (convPat e2)
         trans (List xs) = PList (map convPat xs)

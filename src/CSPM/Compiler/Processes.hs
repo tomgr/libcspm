@@ -1,15 +1,14 @@
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, TypeSynonymInstances, 
+    OverloadedStrings, UndecidableInstances #-}
 -- | This module provides the input data structure to the compiler.
 module CSPM.Compiler.Processes (
-    Proc(..), UnCompiledProc,
-    CSPOperator(..),
+    Proc(..), UProc,
     ProcOperator(..), 
     ProcName(..),
     operator, components,
     prettyPrintAllRequiredProcesses,
 ) where
 
-import CSPM.Compiler.Events
 import CSPM.DataStructures.Names
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import qualified Data.Foldable as F
@@ -19,30 +18,32 @@ import Data.Hashable
 import Util.PrettyPrint
 import qualified Util.TextPrettyPrint as T
 
+type UProc ops = Proc ops (ProcName ops)
+
 -- | ProcNames uniquely identify processes.
-data ProcName =
+data ProcName ops =
     ProcName {
         -- | The name of this process (recal Name s are unique).
         name :: Name,
         -- | The arguments applied to this process, in case it was a function
         -- call.
-        arguments :: [[Value]],
+        arguments :: [[Value ops]],
         -- | The parent of this proc name. This is used in let expressions.
-        parent :: Maybe ProcName
+        parent :: Maybe (ProcName ops)
     }
     -- | A proccess that has no name, but needs disambgiuation. These are
     -- used in prefixing to avoid problems with things like:
     -- P = c?x -> (let Q = ... within Q) as the ... can depend on x.
     | AnnonymousProcName {
-        arguments :: [[Value]],
-        parent :: Maybe ProcName
+        arguments :: [[Value ops]],
+        parent :: Maybe (ProcName ops)
     }
     deriving Eq
 
-instance Hashable ProcName where
+instance Hashable (ProcName ops) where
     hash (ProcName n vss p) = combine 1 (combine (hash n) (combine (hash vss) (hash p)))
     hash (AnnonymousProcName as ps) = combine 2 (combine (hash as) (hash ps))
-instance PrettyPrintable ProcName where
+instance PrettyPrintable (UProc ops) => PrettyPrintable (ProcName ops) where
     prettyPrint (ProcName n args Nothing) =
         prettyPrint n
         <> hcat (map (\as -> parens (list (map prettyPrint as))) args)
@@ -53,10 +54,10 @@ instance PrettyPrintable ProcName where
         <> hcat (map (\as -> parens (list (map prettyPrint as))) args)
     prettyPrint (AnnonymousProcName args (Just pn)) =
         prettyPrint pn <> colon<>colon <> prettyPrint (AnnonymousProcName args Nothing)
-instance Show ProcName where
+instance PrettyPrintable (UProc ops) => Show (ProcName ops) where
     show pn = show (prettyPrint pn)
 
-instance T.FastPrettyPrintable ProcName where
+instance PrettyPrintable (UProc ops) => T.FastPrettyPrintable (ProcName ops) where
     toBuilder (ProcName n args Nothing) =
         T.toBuilder n
         T.<> T.hcat (map (\as -> T.parens (T.list (map T.toBuilder as))) args)
@@ -93,115 +94,41 @@ instance PrettyPrintable ProcOperator where
 instance Show ProcOperator where
     show p = show (prettyPrint p)
 
-type UnCompiledProc = 
-    Proc S.Seq CSPOperator ProcName Event (S.Seq Event) (S.Seq (Event, Event))
-
-data CSPOperator seq ev evs evm =
-    PAlphaParallel (seq evs)
-    | PException evs
-    | PExternalChoice
-    | PGenParallel evs
-    | PHide evs
-    | PInternalChoice
-    | PInterrupt
-    | PInterleave
-    -- Map from event of left process, to event of right that it synchronises
-    -- with. (Left being p1, Right being p2 ps ps).
-    | PLinkParallel evm
-    | POperator ProcOperator
-    | PPrefix ev
-    -- Map from Old -> New event
-    | PRename evm
-    | PSequentialComp
-    | PSlidingChoice
-
 -- | A compiled process. Note this is an infinite data structure (due to
 -- PProcCall) as this makes compilation easy (we can easily chase
 -- dependencies).
-data Proc seq op pn ev evs evm = 
-    PUnaryOp (op seq ev evs evm) (Proc seq op pn ev evs evm)
-    | PBinaryOp (op seq ev evs evm) (Proc seq op pn ev evs evm) (Proc seq op pn ev evs evm)
-    | POp (op seq ev evs evm) (seq (Proc seq op pn ev evs evm))
+data Proc op pn = 
+    PUnaryOp op (Proc op pn)
+    | PBinaryOp op (Proc op pn) (Proc op pn)
+    | POp op (S.Seq (Proc op pn))
     -- | Labels the process this contains. This allows infinite loops to be
     -- spotted.
-    | PProcCall pn (Proc seq op pn ev evs evm)
+    | PProcCall pn (Proc op pn)
 
 -- | Gives the operator of a process. If the process is a ProcCall an error is
 -- thrown.
-operator :: Proc seq op pn ev evs evm -> op seq ev evs evm
+operator :: Proc op pn -> op
 operator (PUnaryOp op _) = op
 operator (PBinaryOp op _ _)=  op
 operator (POp op _) = op
 
 -- | Returns the components of a given process.
-components :: Proc S.Seq op pn ev evs evm -> S.Seq (Proc S.Seq op pn ev evs evm)
+components :: Proc op pn -> S.Seq (Proc op pn)
 components (PBinaryOp _ p1 p2) = p1 S.<| p2 S.<| S.empty
 components (POp _ ps) = ps
 components (PUnaryOp _ p1) = S.singleton p1
 
-slist :: S.Seq Doc -> Doc
-slist s = list (F.toList s)
-
-instance PrettyPrintable UnCompiledProc where
-    prettyPrint (POp (PAlphaParallel as) ps) =
-        text "||" <+> braces (slist (S.zipWith (\ a p -> 
-            parens (prettyPrint a <> char ',' <+> prettyPrint p)) as ps))
-    prettyPrint (PBinaryOp (PException a) p1 p2) =
-        prettyPrint p1 <+> text "[|" <> prettyPrint a <> text "|>" 
-            <+> prettyPrint p2
-    prettyPrint (POp PExternalChoice ps) =
-        let flatten (POp PExternalChoice ps) = F.msum (F.fmap flatten ps)
-            flatten p = S.singleton p
-            ps' = flatten (POp PExternalChoice ps)
-        in sep (punctuateFront (text "[] ") (map prettyPrint $ F.toList ps'))
-    prettyPrint (POp (PGenParallel a) ps) =
-        text "||" <+> brackets (prettyPrint a) 
-                <+> braces (list (map prettyPrint $ F.toList ps))
-    prettyPrint (PUnaryOp (PHide a) p) =
-        prettyPrint p <+> char '\\' <+> prettyPrint a
-    prettyPrint (POp PInternalChoice ps) =
-        let flatten (POp PInternalChoice ps) = F.msum (F.fmap flatten ps)
-            flatten p = S.singleton p
-            ps' = flatten (POp PInternalChoice ps)
-        in sep (punctuateFront (text "|~| ") (map prettyPrint $ F.toList ps'))
-    prettyPrint (POp PInterleave ps) =
-        sep (punctuateFront (text "||| ") (map prettyPrint $ F.toList ps))
-    prettyPrint (PBinaryOp (PLinkParallel evm) p1 p2) =
-        prettyPrint p1 <+> text "[" <>
-            list (map (\(evLeft, evRight) -> prettyPrint evLeft <+> text "<-" 
-                                        <+> prettyPrint evRight) $ F.toList evm)
-        <> text "]" <+> prettyPrint p2
-    prettyPrint (PUnaryOp (POperator op) p) = 
-        prettyPrint op <> parens (prettyPrint p)
-    prettyPrint (PUnaryOp (PPrefix e) p) =
-        prettyPrint e <+> text "->" <+> prettyPrint p
-    prettyPrint (PUnaryOp (PRename evm) p) =
-        prettyPrint p <> text "[[" 
-        <> list (map (\ (evOld, evNew) -> 
-                            prettyPrint evOld <+> text "<-" 
-                            <+> prettyPrint evNew) $ F.toList evm) 
-        <> text "]]"
-    prettyPrint (PBinaryOp PSequentialComp p1 p2) =
-        prettyPrint p1 <+> text "->" <+> prettyPrint p2
-    prettyPrint (PBinaryOp PSlidingChoice p1 p2) =
-        prettyPrint p1 <+> text "|>" <+> prettyPrint p2
-    prettyPrint (PProcCall n _) = prettyPrint n
-
-instance Show UnCompiledProc where
-    show p = show (prettyPrint p)
-
 -- | Given a process, returns the initial process and all processes that it
 -- calls.
-splitProcIntoComponents :: UnCompiledProc -> (UnCompiledProc, [(ProcName, UnCompiledProc)])
+splitProcIntoComponents :: 
+    Proc op (ProcName op) -> (Proc op (ProcName op), [(ProcName op, Proc op (ProcName op))])
 splitProcIntoComponents p =
     let
         explored pns n = n `elem` (map fst pns)
 
-        exploreAll :: [(ProcName, UnCompiledProc)] -> [UnCompiledProc] -> [(ProcName, UnCompiledProc)]
         exploreAll pns [] = pns
         exploreAll pns (p:ps) = exploreAll (explore pns p) ps
 
-        explore :: [(ProcName, UnCompiledProc)] -> UnCompiledProc -> [(ProcName, UnCompiledProc)]
         explore pns (PUnaryOp _ p) = explore pns p
         explore pns (PBinaryOp _ p1 p2) = exploreAll pns [p1,p2]
         explore pns (POp _ ps) = exploreAll pns (F.toList ps)
@@ -211,7 +138,7 @@ splitProcIntoComponents p =
     in (p, explore [] p)
 
 -- | Pretty prints the given process and all processes that it depends upon.
-prettyPrintAllRequiredProcesses :: UnCompiledProc -> Doc
+prettyPrintAllRequiredProcesses :: PrettyPrintable (UProc op) => Proc op (ProcName op) -> Doc
 prettyPrintAllRequiredProcesses p =
     let
         (pInit, namedPs) = splitProcIntoComponents p
