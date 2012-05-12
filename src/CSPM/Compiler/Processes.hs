@@ -18,7 +18,7 @@ import Data.Hashable
 import Util.PrettyPrint
 import qualified Util.TextPrettyPrint as T
 
-type UProc ops = Proc ops (ProcName ops)
+type UProc ops = Proc S.Seq ops (ProcName ops)
 
 -- | ProcNames uniquely identify processes.
 data ProcName ops =
@@ -97,31 +97,31 @@ instance Show ProcOperator where
 -- | A compiled process. Note this is an infinite data structure (due to
 -- PProcCall) as this makes compilation easy (we can easily chase
 -- dependencies).
-data Proc op pn = 
-    PUnaryOp op (Proc op pn)
-    | PBinaryOp op (Proc op pn) (Proc op pn)
-    | POp op (S.Seq (Proc op pn))
+data Proc seq op pn = 
+    PUnaryOp op (Proc seq op pn)
+    | PBinaryOp op (Proc seq op pn) (Proc seq op pn)
+    | POp op (seq (Proc seq op pn))
     -- | Labels the process this contains. This allows infinite loops to be
     -- spotted.
-    | PProcCall pn (Proc op pn)
+    | PProcCall pn (Proc seq op pn)
 
 -- | Gives the operator of a process. If the process is a ProcCall an error is
 -- thrown.
-operator :: Proc op pn -> op
+operator :: Proc seq op pn -> op
 operator (PUnaryOp op _) = op
 operator (PBinaryOp op _ _)=  op
 operator (POp op _) = op
 
 -- | Returns the components of a given process.
-components :: Proc op pn -> S.Seq (Proc op pn)
+components :: Proc S.Seq op pn -> S.Seq (Proc S.Seq op pn)
 components (PBinaryOp _ p1 p2) = p1 S.<| p2 S.<| S.empty
 components (POp _ ps) = ps
 components (PUnaryOp _ p1) = S.singleton p1
 
 -- | Given a process, returns the initial process and all processes that it
 -- calls.
-splitProcIntoComponents :: 
-    Proc op (ProcName op) -> (Proc op (ProcName op), [(ProcName op, Proc op (ProcName op))])
+splitProcIntoComponents :: F.Foldable seq =>
+    Proc seq op (ProcName op) -> (Proc seq op (ProcName op), [(ProcName op, Proc seq op (ProcName op))])
 splitProcIntoComponents p =
     let
         explored pns n = n `elem` (map fst pns)
@@ -138,7 +138,7 @@ splitProcIntoComponents p =
     in (p, explore [] p)
 
 -- | Pretty prints the given process and all processes that it depends upon.
-prettyPrintAllRequiredProcesses :: PrettyPrintable (UProc op) => Proc op (ProcName op) -> Doc
+prettyPrintAllRequiredProcesses :: PrettyPrintable (UProc op) => UProc op -> Doc
 prettyPrintAllRequiredProcesses p =
     let
         (pInit, namedPs) = splitProcIntoComponents p

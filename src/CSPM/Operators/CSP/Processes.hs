@@ -12,7 +12,7 @@ import qualified Data.Functor as F
 import qualified Data.Sequence as S
 import Util.PrettyPrint
 
-type UnCompiledCSPProc = Proc UnCompiledCSPOp (ProcName UnCompiledCSPOp)
+type UnCompiledCSPProc = Proc S.Seq UnCompiledCSPOp (ProcName UnCompiledCSPOp)
 newtype UnCompiledCSPOp = UCSPOp {
         uncompiledCSPOp :: CSPOperator S.Seq 
                             (Event UnCompiledCSPOp) 
