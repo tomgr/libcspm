@@ -1,5 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-module CSPM.Operators.Custom ( ) where
+module CSPM.Operators.Custom (newParserContext) where
 
 import CSPM
 import CSPM.Operators.Custom.CSPMParser
