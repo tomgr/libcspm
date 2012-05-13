@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 -- | A module that parses CSPM modules.
 -- 
 -- The biggest problem with parsing CSPM is that > means both greater than
@@ -55,17 +56,17 @@ import CSPM.Operators.CSP.Syntax
 import CSPM.Parser
 import Util.Annotated
 
-instance Parseable CSPProcess where
-    parseInteractiveStmt dirName str = flip runParser dirName $ do
+instance Parseable () CSPProcess where
+    parseInteractiveStmt () dirName str = flip runParser dirName $ do
         pushFileContents "<interactive>" str
         parseInteractiveStmt_
-    parseExpression dirName str = flip runParser dirName $ do
+    parseExpression () dirName str = flip runParser dirName $ do
         pushFileContents "<interactive>" str
         parseExpression_
-    parseFile dirName fname = flip runParser dirName $ do
+    parseFile () dirName fname = flip runParser dirName $ do
         decls <- pushFile fname parseFile_
         return [An Unknown dummyAnnotation (GlobalModule decls)]
-    parseStringAsFile dirName str = flip runParser dirName $ do
+    parseStringAsFile () dirName str = flip runParser dirName $ do
         pushFileContents "<interactive>" str
         decls <- parseFile_
         return [An Unknown dummyAnnotation (GlobalModule decls)]

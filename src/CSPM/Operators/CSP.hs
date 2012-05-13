@@ -20,4 +20,4 @@ import CSPM.Operators.CSP.Processes
 import CSPM.Operators.CSP.Syntax
 import CSPM.Operators.CSP.TypeChecker
 
-instance CSPLike CSPProcess UnCompiledCSPOp where
+instance CSPLike () CSPProcess UnCompiledCSPOp where
