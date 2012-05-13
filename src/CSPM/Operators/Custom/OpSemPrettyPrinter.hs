@@ -1,28 +1,12 @@
-module OpSemPrettyPrinter where
+module CSPM.Operators.Custom.OpSemPrettyPrinter where
 import Text.PrettyPrint.HughesPJ
 
-import OpSemDataStructures
-
--- *********************************************************************
--- Pretty Printer Extensions
--- *********************************************************************
-angles :: Doc -> Doc
-angles d = char '<' <> d <> char '>'
-
-list :: [Doc] -> Doc
-list docs = 
-    fsep (punctuate (text ",") docs)
-
-tabHang :: Doc -> Doc -> Doc
-tabHang d1 d2 = hang d1 4 d2
-
+import CSPM.Operators.Custom.OpSemDataStructures
+import Util.PrettyPrint
 
 -- *********************************************************************
 -- Basic instances
 -- *********************************************************************
-class PrettyPrintable a where
-    prettyPrint :: a -> Doc
-
 instance PrettyPrintable Int where
     prettyPrint n = int n
 instance (PrettyPrintable a, PrettyPrintable b) =>

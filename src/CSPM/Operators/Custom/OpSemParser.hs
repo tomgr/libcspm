@@ -1,8 +1,9 @@
-module OpSemParser(parseOpSemFile) where
+module CSPM.Operators.Custom.OpSemParser (parseOpSemFile) where
 
-import OpSemDataStructures
-import OperatorParsers
-import Util
+import CSPM.Operators.Custom.OpSemDataStructures
+import CSPM.Operators.Custom.OperatorParsers
+import Util.Exception
+import Util.PartialFunctions
 
 import Control.Monad(liftM, sequence)
 import Control.Monad.Error
@@ -67,7 +68,7 @@ PT.TokenParser{ PT.parens = parens,
             PT.commaSep = commaSep,
             PT.commaSep1 = commaSep1} = PT.makeTokenParser opSemLanguage
 
-parseOpSemFile :: String -> Tyger InputOpSemDefinition
+parseOpSemFile :: String -> IO InputOpSemDefinition
 parseOpSemFile fname = 
     let
         pass1 = 
@@ -90,10 +91,10 @@ parseOpSemFile fname =
         do 
             input <- liftIO $ readFile fname
             case runP pass1 [] fname input of
-                Left err            -> throwError $ OpSemParseError (show err)
+                Left err -> panic (show err)
                 Right opParseInfo   -> 
                     case runP pass2 opParseInfo fname input of
-                        Left err -> throwError $ OpSemParseError (show err)
+                        Left err -> panic (show err)
                         Right ops -> return ops
 
 channelSectionParser :: Parser [Channel]

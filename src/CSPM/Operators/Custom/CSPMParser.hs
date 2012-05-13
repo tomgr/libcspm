@@ -1,5 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
-module CSPMParser (parseCSPMFile, stringParser) where
+module CSPM.Operators.Custom.CSPMParser (parseCSPMFile, stringParser) where
 
 import Control.Monad(liftM, sequence)
 import Control.Monad.Trans
@@ -10,13 +10,20 @@ import Text.Parsec.Language
 import Text.Parsec
 import qualified Text.Parsec.Token as PT
 
-import qualified CSPMDataStructures as CSP
-import OpSemDataStructures
-import OperatorParsers
-import Util
+import qualified CSPM.DataStructures.Literals as CSP
+import qualified CSPM.DataStructures.Names as CSP
+import qualified CSPM.DataStructures.Syntax as CSP
+import qualified CSPM.DataStructures.Types as CSP
+import CSPM.Operators.Custom.OpSemDataStructures
+import CSPM.Operators.Custom.OperatorParsers
+import qualified CSPM.Operators.Custom.Syntax as CSP
+import qualified Util.Annotated as CSP
+import Util.Exception
+import Util.PartialFunctions
 
 data CSPMParserState = 
     CSPMParserState {
+        operatorDefinition :: OpSemDefinition,
         operatorSyntax :: PartialFunction Name (Maybe OperatorSyntax),
         repOperatorSyntax :: PartialFunction Name (Maybe OperatorSyntax),
         canUseAngles :: Bool
@@ -102,11 +109,13 @@ PT.TokenParser{ PT.parens = parens,
             PT.commaSep = commaSep,
             PT.commaSep1 = commaSep1} = PT.makeTokenParser cspmLanguage
 
-annotateTypeParser :: Parser a -> Parser (CSP.Annotated CSP.PType a)
-annotateTypeParser = annotateParser CSP.freshPType
+annotateTypeParser :: Parser a -> Parser (CSP.Annotated (Maybe CSP.Type, CSP.PType) a)
+annotateTypeParser = annotateParser $ do
+    t <- CSP.freshPType
+    return (Nothing, t)
 
-annotateTypeSchemeParser :: Parser a -> Parser (CSP.Annotated CSP.PTypeScheme a)
-annotateTypeSchemeParser = annotateParser CSP.freshPTypeScheme
+annotateTypeParser' :: Parser a -> Parser (CSP.Annotated CSP.PType a)
+annotateTypeParser' = annotateParser CSP.freshPType
 
 annotateNullParser :: Parser a -> Parser (CSP.Annotated () a)
 annotateNullParser = annotateParser (return ())
@@ -118,9 +127,9 @@ annotateParser mtyp p =
         startPos <- getPosition
         inner <- p
         endPos <- getPosition
-        let srcloc = (CSP.SrcLoc (sourceName startPos) 
+        let srcloc = (CSP.SrcSpanPoint (sourceName startPos) 
                         (sourceLine startPos) (sourceColumn startPos))
-        return $ CSP.Annotated srcloc typ inner
+        return $ CSP.An srcloc typ inner
 
 annotateFunctionParser 
     :: IO c -> Parser (a -> b) -> Parser (a -> CSP.Annotated c b)
@@ -130,9 +139,9 @@ annotateFunctionParser mtyp p =
         startPos <- getPosition
         inner <- p
         endPos <- getPosition
-        let srcloc = (CSP.SrcLoc (sourceName startPos) 
+        let srcloc = (CSP.SrcSpanPoint (sourceName startPos) 
                         (sourceLine startPos) (sourceColumn startPos))
-        return $ CSP.Annotated srcloc typ . inner
+        return $ CSP.An srcloc typ . inner
 annotateFunctionParser2
     :: IO d -> Parser (a -> b -> c) -> Parser (a -> b -> CSP.Annotated d c)
 annotateFunctionParser2 mtyp p =
@@ -141,9 +150,9 @@ annotateFunctionParser2 mtyp p =
         startPos <- getPosition
         inner <- p
         endPos <- getPosition
-        let srcloc = (CSP.SrcLoc (sourceName startPos) 
+        let srcloc = (CSP.SrcSpanPoint (sourceName startPos) 
                         (sourceLine startPos) (sourceColumn startPos))
-        return $ \ e1 e2 -> CSP.Annotated srcloc typ (inner e1 e2)
+        return $ \ e1 e2 -> CSP.An srcloc typ (inner e1 e2)
 annotateFunctionParser3
     :: IO e -> Parser (a -> b -> c -> d) -> Parser (a -> b -> c -> CSP.Annotated e d)
 annotateFunctionParser3 mtyp p =
@@ -152,36 +161,35 @@ annotateFunctionParser3 mtyp p =
         startPos <- getPosition
         inner <- p
         endPos <- getPosition
-        let srcloc = (CSP.SrcLoc (sourceName startPos) 
+        let srcloc = (CSP.SrcSpanPoint (sourceName startPos) 
                         (sourceLine startPos) (sourceColumn startPos))
-        return $ \ e1 e2 e3 -> CSP.Annotated srcloc typ (inner e1 e2 e3)
+        return $ \ e1 e2 e3 -> CSP.An srcloc typ (inner e1 e2 e3)
         
-stringParser :: String -> [Operator] -> Tyger [CSP.PModule]
-stringParser s ops =
+stringParser :: String -> OpSemDefinition -> IO [CSP.CustomModule]
+stringParser s opSemDef =
     do
-        let opMap = [(n, syntax) | Operator n _ _ syntax <- ops]
-        let repOpMap = [(n, syntax) | ReplicatedOperator n _ _ _ syntax <- ops]
+        let opMap = [(n, syntax) | Operator n _ _ syntax <- operators opSemDef]
+            repOpMap = [(n, syntax) | ReplicatedOperator n _ _ _ syntax <- operators opSemDef]
         res <- liftIO $ runParserT fileParser 
-                                    (CSPMParserState opMap repOpMap True) 
+                                    (CSPMParserState opSemDef opMap repOpMap True) 
                                     "<stdin>" s
         case res of
-            Left err -> throwError $ CSPMParseError (show err)
+            Left err -> panic (show err)
             Right v -> return v
 
-parseCSPMFile :: String -> OpSemDefinition -> Tyger [CSP.PModule]
+parseCSPMFile :: String -> OpSemDefinition -> IO [CSP.CustomModule]
 parseCSPMFile fname opSemDef = 
     do 
         input <- liftIO $ readFile fname
         let opMap = [(n, syntax) | Operator n _ _ syntax <- operators opSemDef]
-        let repOpMap = 
-            [(n, syntax) | ReplicatedOperator n _ _ _ syntax <- operators opSemDef]
-        res <- liftIO $ runParserT fileParser (CSPMParserState opMap repOpMap True) 
+            repOpMap = [(n, syntax) | ReplicatedOperator n _ _ _ syntax <- operators opSemDef]
+        res <- liftIO $ runParserT fileParser (CSPMParserState opSemDef opMap repOpMap True) 
                                     fname input
         case res of
-            Left err -> throwError $ CSPMParseError (show err)
+            Left err -> panic (show err)
             Right v -> return v
 
-fileParser :: Parser [CSP.PModule]
+fileParser :: Parser [CSP.CustomModule]
 fileParser = 
     do
         m <- annotateNullParser $
@@ -192,26 +200,30 @@ fileParser =
                 return $ CSP.GlobalModule decls
         return [m]
 
-dotAppToList :: CSP.PExp -> [CSP.PExp]
-dotAppToList (CSP.Annotated a b exp) = 
+dotAppToList :: CSP.CustomExp -> [CSP.CustomExp]
+dotAppToList (CSP.An a b exp) = 
     let
         dotAppToList' (CSP.DotApp e1 e2) = dotAppToList e1++dotAppToList e2
-        dotAppToList' x = [CSP.Annotated a b x]
+        dotAppToList' x = [CSP.An a b x]
     in
         dotAppToList' exp
     
-declarationParser :: Parser CSP.PDecl
-declarationParser = annotateParser CSP.freshPSymbolTable (
+freshSymbolTable = do
+    pt <- CSP.freshPSymbolTable
+    return (Nothing, pt)
+
+declarationParser :: Parser CSP.CustomDecl
+declarationParser = annotateParser freshSymbolTable (
     (try (reserved "external") >> liftM CSP.External (commaSep nameParser))
     <|> (try (reserved "transparent") >> liftM CSP.Transparent (commaSep nameParser))
     <|> do
             try (reserved "channel")
             names <- commaSep1 nameParser
-            option (CSP.Channel names []) (
+            option (CSP.Channel names Nothing) (
                 do
                     symbol ":"
                     exp <- expressionParser
-                    return $ CSP.Channel names (dotAppToList exp))
+                    return $ CSP.Channel names (Just exp))
     <|> 
         do
             try (reserved "datatype")
@@ -220,11 +232,12 @@ declarationParser = annotateParser CSP.freshPSymbolTable (
             es <- sepBy (annotateNullParser $
                     do
                         name <- nameParser
-                        ts <- option [] (
+                        ts <- option Nothing (
                             do
                                 dot
                                 exp <- expressionParser
-                                return $ dotAppToList exp)
+                                return $ Just exp
+                                )
                         return $ CSP.DataTypeClause name ts) (symbol "|")
             return $ CSP.DataType name es
     <|> do
@@ -232,7 +245,7 @@ declarationParser = annotateParser CSP.freshPSymbolTable (
             e1 <- expressionParser
             m <- modelParser
             e2 <- expressionParser
-            return $ CSP.Assert e1 e2 m
+            return $ CSP.Assert $ CSP.Refinement e1 m e2 []
     <|> do
         pat <- try (
                 do
@@ -248,11 +261,12 @@ declarationParser = annotateParser CSP.freshPSymbolTable (
     <|> do
         name <- lookAhead identifier
         typ <- typeAnnotationParser name
+        -- ignore the type
         matches <- many1 (matchParser name)
-        return $ CSP.FunBind (CSP.Name name) matches typ
+        return $ CSP.FunBind (CSP.UnQual (CSP.OccName name)) matches
     <?> "declaration")
 
-typeAnnotationParser :: String -> Parser (Maybe [CSP.AnExp])
+typeAnnotationParser :: String -> Parser (Maybe [CSP.CustomExp])
 typeAnnotationParser n =
     (do
         try (lexeme (string n) >> lookAhead (string "::"))
@@ -276,7 +290,7 @@ modelParser =
         whiteSpace
         return model
 
-matchParser :: String -> Parser CSP.PMatch
+matchParser :: String -> Parser CSP.CustomMatch
 matchParser fname = annotateNullParser $
     do
         -- Test to see if the function name is the same
@@ -287,7 +301,7 @@ matchParser fname = annotateNullParser $
         exp <- expressionParser
         return $ CSP.Match groups exp
 
-patternParser :: Parser CSP.PPat
+patternParser :: Parser CSP.CustomPat
 patternParser = 
     let
         sequence = liftM CSP.PList . angles . commaSep $ patternParser
@@ -331,13 +345,10 @@ patternParser =
         infixParser
         <|> term
 
-nameParser :: Parser CSP.Name
-nameParser = liftM CSP.Name identifier
+nameParser :: Parser CSP.UnRenamedName
+nameParser = liftM (CSP.UnQual . CSP.OccName) identifier
 
-qNameParser :: Parser CSP.QualifiedName
-qNameParser = liftM (CSP.UnQual . CSP.Name) identifier
-
-expressionParser :: Parser CSP.PExp
+expressionParser :: Parser CSP.CustomExp
 expressionParser =
     let
         sequence =
@@ -390,7 +401,7 @@ expressionParser =
                                     stmts <- commaSep1 stmtParser
                                     return (CSP.SetComp (e1:es) stmts))]))
 
-                    
+        letExp :: Parser (CSP.Exp CSP.UnRenamedName CSP.Process)
         letExp =
             do
                 reserved "let"                  
@@ -425,7 +436,7 @@ expressionParser =
                     mathsOp "*" CSP.Times E.AssocLeft 2,
                     mathsOp "+" CSP.Plus E.AssocLeft 2,
                     mathsOp "-" CSP.Minus E.AssocLeft 2,
-                    prefixOp "-" CSP.NegApp 1,
+                    prefixOp "-" (CSP.MathsUnaryOp CSP.Negate) 1,
                     booleanOp "<" CSP.LessThan E.AssocNone 4,
                     booleanOp "<=" CSP.LessThanEq E.AssocNone 4,
                     prefixOp "not" (CSP.BooleanUnaryOp CSP.Not) 1,
@@ -442,18 +453,17 @@ expressionParser =
                     binaryOp pat (CSP.BooleanBinaryOp sem) assoc int
                 binaryOp pat sem assoc int =
                     (int, E.Infix 
-                        (annotateFunctionParser2 CSP.freshPType 
+                        (annotateFunctionParser2 freshType 
                             (reservedOp pat >> return sem)) assoc)
                 prefixOp pat sem int =
-                    (int, E.Prefix (annotateFunctionParser CSP.freshPType 
+                    (int, E.Prefix (annotateFunctionParser freshType 
                         (reservedOp pat >> return sem)))
                 functionApp int =
-                    (int, E.Postfix (annotateFunctionParser CSP.freshPType $
+                    (int, E.Postfix (annotateFunctionParser freshType $
                         try (do
                             args:rest <- 
                                 many (parens(commaSep expressionParser))
-                            freshPTypes <- 
-                                replicateM (length rest) CSP.freshPType
+                            freshPTypes <- liftIO $ replicateM (length rest) freshType
                             -- TODO
                             -- The below allows us to differentiate between
                             -- x = y(a,b) ... and
@@ -462,37 +472,40 @@ expressionParser =
                             -- (a,b) = ...
                             notFollowedBy (reservedOp "=" >> return '=')
                             
-                            let mkApplication 
-                                        (func @ (CSP.Annotated srcloc _ _)) =
+                            let mkApplication (func @ (CSP.An srcloc _ _)) =
                                     foldr (\ (typ, args) f -> 
                                                 CSP.App 
-                                                    (CSP.Annotated srcloc typ f) 
+                                                    (CSP.An srcloc typ f) 
                                                     args)
                                         (CSP.App func args) (zip freshPTypes rest)
-                            let mkApplicationOrOperator 
-                                        (f @ (CSP.Annotated _ _ node)) =
+                                mkApplicationOrOperator (f @ (CSP.An _ _ node)) =
                                     case node of
-                                        CSP.UserOperator n [] ->
+                                        CSP.Process (CSP.UserOperator n [] opdefn) ->
                                             if length rest /= 0 then error "TODO"
                                             else
-                                                CSP.UserOperator n args
+                                                CSP.Process $ CSP.UserOperator n args opdefn
                                         _   -> mkApplication f
                             return mkApplication)))
         
+        freshType :: IO (Maybe CSP.Type, CSP.PType)
+        freshType = do
+            t <- CSP.freshPType
+            return (Nothing, t)
+
         infixOperatorParser =
             do
                 useAngles <- gets canUseAngles
                 ops <- gets operatorSyntax
                 repOps <- gets repOperatorSyntax
                 typ <- CSP.freshPType
+                opdefn <- gets operatorDefinition
                 let srcloc = CSP.SrcLoc "" 0 0
                 constructParseTable (builtInOps useAngles) ops repOps
-                        (annotateFunctionParser2 CSP.freshPType (
-                            return (\ (Name s) es -> 
-                                        CSP.UserOperator (CSP.Name s) es)))
-                        (annotateFunctionParser3 CSP.freshPType (
-                            return (\ (Name s) gens args -> 
-                                CSP.ReplicatedUserOperator (CSP.Name s) args gens)))
+                        (annotateFunctionParser2 freshType (
+                            return (\ s es -> CSP.Process (CSP.UserOperator s es opdefn))))
+                        (annotateFunctionParser3 freshType (
+                            return (\ s gens args -> 
+                                CSP.Process (CSP.ReplicatedUserOperator s args gens opdefn))))
                         term
                         (annotateNullParser (
                             try (do
@@ -512,7 +525,7 @@ expressionParser =
                 exp <- expressionParser
                 return (CSP.Lambda pat exp)
         
-        tupleOrExpressionParser :: Parser CSP.PExp
+        tupleOrExpressionParser :: Parser CSP.CustomExp
         tupleOrExpressionParser =
             do
                 e1 <- expressionParser
@@ -523,13 +536,16 @@ expressionParser =
         
         variableParser =
             do
+                opdefn <- gets operatorDefinition
                 ops <- gets operatorSyntax
                 let opNames = map (\ (Name s, _) -> s) ops
-                (n @ (CSP.UnQual (CSP.Name s))) <- qNameParser
-                if s `elem` opNames then return $ CSP.UserOperator (CSP.Name s) []
-                    else return $ CSP.Var n
+                n <- nameParser
+                return $ 
+                    if show n `elem` opNames then 
+                        CSP.Process (CSP.UserOperator (Name (show n)) [] opdefn)
+                    else CSP.Var n
                 
-        term :: Parser CSP.PExp
+        term :: Parser CSP.CustomExp
         term =  choice [allowAngles $ parens tupleOrExpressionParser,
                         annotateTypeParser letExp,
                         annotateTypeParser ifExp,
@@ -541,7 +557,7 @@ expressionParser =
         in
             try (infixOperatorParser) <|> term
 
-stmtParser :: Parser CSP.PStmt
+stmtParser :: Parser CSP.CustomStmt
 stmtParser = annotateNullParser (
     try (do
             pat <- patternParser
@@ -553,6 +569,6 @@ stmtParser = annotateNullParser (
 
 literalParser :: Parser CSP.Literal
 literalParser =
-    liftM CSP.Int natural
+    liftM (CSP.Int . fromIntegral) natural
     <|> (try (reserved "true") >> (return $ CSP.Bool True))
     <|> (try (reserved "false") >> (return $ CSP.Bool False))

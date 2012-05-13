@@ -1,14 +1,18 @@
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
-module OpSemTypeChecker (typeCheckOperators, varsBound) where
+module CSPM.Operators.Custom.OpSemTypeChecker (typeCheckOperators, varsBound) where
 
 import Data.IORef
 import Control.Monad.Error
 import Control.Monad.State
+import CSPM.Operators.Custom.OpSemPrettyPrinter
+import CSPM.Operators.Custom.OpSemDataStructures
 import Data.List
-import Util
+import Util.Exception
+import Util.List
+import Util.Monad
+import Util.PrettyPrint
+import Util.PartialFunctions
 import Text.PrettyPrint.HughesPJ
-import OpSemPrettyPrinter
-import OpSemDataStructures
 
 identityRule = 
     -- We specify identity's argument as not recursive since it is special
@@ -58,6 +62,8 @@ prettyPrintType = show
 
 showList' :: Show a => [a] -> String
 showList' xs = show $ hsep (punctuate comma (map text (map show xs)))
+
+indentEveryLine = unlines . map ("    "++) . lines
 
 instance Show TypeCheckError where
     show (ErrorWithOperator n err) =
@@ -125,7 +131,7 @@ data TypeInferenceState = TypeInferenceState {
     deriving Show
     
 type TypeCheckMonad = 
-    ErrorT TypeCheckError (StateT TypeInferenceState Tyger)
+    ErrorT TypeCheckError (StateT TypeInferenceState IO)
 
 errorIfFalse :: Bool -> TypeCheckError -> TypeCheckMonad ()
 errorIfFalse True e = return ()
@@ -434,7 +440,7 @@ instance TypeCheckable Pattern Type where
             t <- unifyAll ts
             return $ TSet t
 
-typeCheckOperators :: InputOpSemDefinition -> Tyger OpSemDefinition
+typeCheckOperators :: InputOpSemDefinition -> IO OpSemDefinition
 typeCheckOperators (InputOpSemDefinition ops chans) =
     let
         chanNames = [n | Channel n _ <- chans]
@@ -454,7 +460,7 @@ typeCheckOperators (InputOpSemDefinition ops chans) =
         (lh, st) <- 
             runStateT (runErrorT typeCheckOps) (TypeInferenceState [[]] 0 False)
         case lh of
-            Left err -> throwError $ OpSemTypeCheckError (show err)
+            Left err -> panic (show err)
             Right ops -> return ops     
 
 -- TODO: below, enforcing left application is operator, need to check this
@@ -485,8 +491,7 @@ typeCheckOperator (InputOperator n argsSt rules replicatedOp syntax) =
                                 TVar _          -> TOffProcess Unknown
                                 _               -> t) ts'
             
-            let argsTypes = 
-                zipWith (\ (arg, st) t ->
+            let argsTypes = zipWith (\ (arg, st) t ->
                     case t of
                         -- Check that it actually is an on process
                         -- e.g it might infer that it is on because of a
@@ -590,7 +595,7 @@ typeCheckInductiveRule args
             typeCheck opApp1
             
             let discardedProcResults = 
-                intersect (freeVars opApp2) (map fst onPreProcs)
+                    intersect (freeVars opApp2) (map fst onPreProcs)
             errorIfFalse (length discardedProcResults == 0)
                 (ResultingProcessDiscarded discardedProcResults)
             -- We use set type as they cannot be in scope

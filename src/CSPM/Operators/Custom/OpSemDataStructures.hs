@@ -1,7 +1,7 @@
-module OpSemDataStructures where
+module CSPM.Operators.Custom.OpSemDataStructures where
 
 import Data.IORef
-import Util
+import Util.PartialFunctions
 import Text.PrettyPrint.HughesPJ
 
 -- *************************************************************************
@@ -211,9 +211,17 @@ data CompiledOp =
     deriving Show
 
 data CompiledRule =
-    CompiledRule (PartialFunction ProcId Event) Event (String, [Exp])
-        (PartialFunction ProcId ProcId) (PartialFunction ProcId ProcId) 
-        (PartialFunction ProcId ProcId) [ProcId] [Name] [Stmt]
+    CompiledRule {
+        crComponentEvents :: PartialFunction ProcId Event,
+        crResultEvent :: Event,
+        crResultingOperatorName :: (String, [Exp]),
+        crF :: PartialFunction ProcId ProcId,
+        crPsi :: PartialFunction ProcId ProcId,
+        crChi :: PartialFunction ProcId ProcId,
+        crDiscards :: [ProcId],
+        crBoundVars :: [Name],
+        crGenerators :: [Stmt]
+    }
     deriving Show
 
 data Stmt = 

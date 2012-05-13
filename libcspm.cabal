@@ -26,12 +26,6 @@ Description:
     The main module of interest will be the "CSPM" module. This packages up 
     most of the functionality of the library in an easy to use, relatively
     high level format. See "CSPM" for an example of how to use this module.
-    .
-    Version Numbering Policy: point releases (i.e. from @x.y.z@ to @x.y.z'@)
-    are guaranteed to be backwards compatible. Minor releases (i.e. 
-    from @x.y.z@ to @x.y'.z'@) will not be backwards compatible, but should be
-    relatively easy to port to. Major changes (i.e. from @x.y.z@ to @x'.y'.z'@)
-    will not be backwards compatible and may include large API redesigns.
 Version: 0.3.0
 Extra-source-files: 
     README.md,
@@ -56,7 +50,8 @@ Library
         filepath >= 1.2, 
         graph-wrapper >= 0.2,
         hashable >= 1.1,
-        mtl >= 2.0, 
+        mtl >= 2.0,
+        parsec >= 3.1,
         pretty >= 1.0,
         text >= 0.11,
         value-supply >= 0.6
@@ -95,6 +90,16 @@ Library
         CSPM.Operators.CSP.Renamer,
         CSPM.Operators.CSP.Syntax,
         CSPM.Operators.CSP.TypeChecker,
+        CSPM.Operators.Custom,
+        CSPM.Operators.Custom.CSPMParser,
+        CSPM.Operators.Custom.Evaluator,
+        CSPM.Operators.Custom.OperatorParsers,
+        CSPM.Operators.Custom.OpSemDataStructures,
+        CSPM.Operators.Custom.OpSemParser,
+        CSPM.Operators.Custom.OpSemPrettyPrinter,
+        CSPM.Operators.Custom.OpSemRules,
+        CSPM.Operators.Custom.OpSemTypeChecker,
+        CSPM.Operators.Custom.Syntax,
         CSPM.Parser,
         CSPM.PrettyPrinter,
         CSPM.Prelude,

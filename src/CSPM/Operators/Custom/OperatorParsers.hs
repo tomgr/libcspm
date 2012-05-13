@@ -1,10 +1,10 @@
-module OperatorParsers where
+module CSPM.Operators.Custom.OperatorParsers where
 
-import OpSemDataStructures
+import CSPM.Operators.Custom.OpSemDataStructures
 
 import Data.Char
 import Control.Monad.Identity
-import Control.Monad(liftM, sequence)
+import Control.Monad (liftM, sequence)
 import Data.List
 import Text.Parsec
 import Text.Parsec.Char
