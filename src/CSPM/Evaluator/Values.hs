@@ -7,7 +7,7 @@ module CSPM.Evaluator.Values (
     combineDots,
     extensions, oneFieldExtensions,
     productions,
-    noSave, removeThunk, lookupVar,
+    noSave, maybeSave, removeThunk, lookupVar,
 ) where
 
 import Control.Monad
@@ -18,6 +18,7 @@ import CSPM.Compiler.Events
 import CSPM.Compiler.Processes
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
+import CSPM.DataStructures.Types
 import CSPM.Evaluator.Monad
 import {-# SOURCE #-} CSPM.Evaluator.ValueSet hiding (cartesianProduct)
 import CSPM.PrettyPrinter
@@ -58,6 +59,10 @@ noSave prog = do
     return $ VThunk $ case pn of
                         Just x -> updateParentProcName x prog
                         Nothing -> prog
+
+maybeSave :: Type -> EvaluationMonad Value -> EvaluationMonad Value
+maybeSave TProc prog = noSave prog
+maybeSave _ prog = prog
 
 removeThunk :: Value -> EvaluationMonad Value
 removeThunk (VThunk p) = p

@@ -10,6 +10,7 @@ import System.IO.Unsafe
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
+import CSPM.DataStructures.Types
 import CSPM.Evaluator.BuiltInFunctions
 import CSPM.Evaluator.Exceptions
 import {-# SOURCE #-} CSPM.Evaluator.Expr
@@ -70,10 +71,10 @@ bindDecl (an@(An _ _ (FunBind n ms))) = do
         collectArgs n ass =
             return $ VFunction $ \ vs -> collectArgs (n-1) (vs:ass)
     return $ [(n, collectArgs argGroupCount [])]
-bindDecl (an@(An _ _ (PatBind (An _ _ (PVar n)) e))) | not (nameIsConstructor n) = do
+bindDecl (an@(An _ _ (PatBind (p@(An _ _ (PVar n))) e))) | not (nameIsConstructor n) = do
     -- Optimise for this case
     parentPid <- getParentProcName
-    let ev = noSave $ do
+    let ev = maybeSave (getType e) $ do
             val <- eval e
             case val of
                 VProc p -> return $ VProc $ PProcCall (procId n [] parentPid) p
@@ -86,8 +87,16 @@ bindDecl (an@(An _ _ (PatBind p e))) = do
         -- lifed out of the lambda (and thus only being performed once).
         nV = unsafePerformIO (p `seq` mkFreshInternalName)
         {-# NOINLINE nV #-}
+
+        typeOf :: Name -> Type
+        typeOf n = head [t | (n', ForAll _ t) <- getSymbolTable an, n' == n]
+
+        shouldSaveValue = [n | (n, ForAll [] TProc) <- getSymbolTable an] == []
+
+        value = if shouldSaveValue then eval e else noSave (eval e)
+
         extractor :: Name -> EvaluationMonad Value
-        extractor n = noSave $ do
+        extractor n = maybeSave (typeOf n) $ do
             v <- lookupVar nV
             let 
                 nvs = case bind p v of
@@ -100,7 +109,7 @@ bindDecl (an@(An _ _ (PatBind p e))) = do
             case val of
                 VProc p -> return $ VProc $ PProcCall (procId n [] parentPid) p
                 _ -> return $ val
-    return $ (nV, noSave (eval e)):[(fv, extractor fv) | fv <- freeVars p]
+    return $ (nV, value):[(fv, extractor fv) | fv <- freeVars p]
 bindDecl (an@(An _ _ (Channel ns me))) =
     let
         mkChan :: Name -> EvaluationMonad Value
