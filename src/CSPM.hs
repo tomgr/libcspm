@@ -286,26 +286,22 @@ runTypeCheckerInCurrentState p = withSession $ \s -> do
 typeCheckFile :: (CSPLike c p ops, CSPMMonad m c ops) => [TCModule p] -> m c ops [TCModule p]
 typeCheckFile ms = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheck ms
-    return ms
 
 -- | Type checks a 'PInteractiveStmt'.
 typeCheckInteractiveStmt :: (CSPLike c p ops, CSPMMonad m c ops) => TCInteractiveStmt p -> m c ops (TCInteractiveStmt p)
 typeCheckInteractiveStmt pstmt = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheck pstmt
-    return pstmt
 
 -- | Type checkes a 'PExp', returning the desugared and annotated version.
 typeCheckExpression :: (CSPLike c p ops, CSPMMonad m c ops) => TCExp p -> m c ops (TCExp p)
 typeCheckExpression exp = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheck exp
-    return exp
 
 -- | Given a 'Type', ensures that the 'PExp' is of that type. It returns the
 -- annoated and desugared expression.
 ensureExpressionIsOfType :: (CSPLike c p ops, CSPMMonad m c ops) => Type -> TCExp p -> m c ops (TCExp p)
 ensureExpressionIsOfType t exp = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheckExpect t exp
-    return exp
 
 -- | Gets the type of the expression in the current context.
 typeOfExpression :: (CSPLike c p ops, CSPMMonad m c ops) => TCExp p -> m c ops Type
