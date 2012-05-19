@@ -275,7 +275,7 @@ getSymbolInformation n = do
     -- If we don't do this the error is deferred until later
     case Env.maybeLookup env n of
         Just symb -> return symb
-        Nothing -> panic "Name not found after renaming."
+        Nothing -> panic $ "Name '"++show n++ "' not found after renaming."
 
 -- | Get the type of 'n' and throw an exception if it doesn't exist.
 getType :: Name -> TypeCheckMonad TypeScheme
