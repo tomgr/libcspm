@@ -245,9 +245,31 @@ declarationParser = annotateParser freshSymbolTable (
     <|> do
             try (reserved "assert")
             e1 <- expressionParser
-            m <- modelParser
-            e2 <- expressionParser
-            return $ CSP.Assert $ CSP.Refinement e1 m e2 []
+            whiteSpace
+            a <- do 
+                    char '['
+                    m <- modelParser
+                    char '='
+                    whiteSpace
+                    e2 <- expressionParser
+                    return $ CSP.Refinement e1 m e2 []
+                <|> do
+                    string ":["
+                    whiteSpace
+                    string "deadlock"
+                    (string "-" <|> (whiteSpace >> return ""))
+                    string "free"
+                    whiteSpace
+                    m <- option Nothing $ do
+                            char '['
+                            m <- modelParser
+                            char ']'
+                            return $ Just m
+                    whiteSpace
+                    string "]"
+                    whiteSpace
+                    return $ CSP.PropertyCheck e1 CSP.DeadlockFreedom m
+            return $ CSP.Assert a
     <|> do
         pat <- try (
                 do
@@ -282,14 +304,10 @@ typeAnnotationParser n =
 modelParser :: Parser CSP.Model
 modelParser =
     do
-        whiteSpace
-        char '['
         model <- choice [
             string "T" >> return CSP.Traces,
             try (string "FD" >> return CSP.FailuresDivergences),
             string "F" >> return CSP.Failures]
-        char '='
-        whiteSpace
         return model
 
 matchParser :: String -> Parser CSP.CustomMatch
