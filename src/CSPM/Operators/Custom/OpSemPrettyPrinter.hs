@@ -1,6 +1,7 @@
 module CSPM.Operators.Custom.OpSemPrettyPrinter where
 import Text.PrettyPrint.HughesPJ
 
+import CSPM.DataStructures.Names
 import CSPM.Operators.Custom.OpSemDataStructures
 import Util.PrettyPrint
 
@@ -14,17 +15,14 @@ instance (PrettyPrintable a, PrettyPrintable b) =>
     prettyPrint (a,b) = parens (list [prettyPrint a, prettyPrint b])
 instance PrettyPrintable a => PrettyPrintable [a] where
     prettyPrint xs = angles (list (map prettyPrint xs))
-    
-instance PrettyPrintable Name where
-    prettyPrint (Name s)    = text s
 
-instance PrettyPrintable Event where
+instance PrettyPrintable id => PrettyPrintable (Event id) where
     prettyPrint Tau = text "tau"
     prettyPrint (Event s) = prettyPrint s
     prettyPrint (ChanEvent n ns) = 
         hcat $ punctuate (char '.') (prettyPrint n:map prettyPrint ns)
 
-instance PrettyPrintable Exp where
+instance PrettyPrintable id => PrettyPrintable (Exp id) where
     prettyPrint (OperatorApp n es) = 
         prettyPrint n <> parens (list (map prettyPrint es))
     prettyPrint (Tuple es) = 
@@ -37,7 +35,6 @@ instance PrettyPrintable Exp where
     
     prettyPrint (SigmaPrime) = text "SigmaPrime"
     prettyPrint (Sigma) = text "Sigma"
-    prettyPrint (ProcArgs) = text "ProcArgs"
     prettyPrint (InductiveCase) = text "InductiveCase"
     prettyPrint (Powerset e) = text "Set" <> parens (prettyPrint e)
     prettyPrint (SetMinus s1 s2) = 
@@ -50,23 +47,23 @@ instance PrettyPrintable Exp where
         text "Union" <> parens (prettyPrint e)
     prettyPrint (Set es) =
         braces (list (map prettyPrint es))
-instance PrettyPrintable ProcessRelation where
+instance PrettyPrintable id => PrettyPrintable (ProcessRelation id) where
     prettyPrint (Performs e1 ev e2) = 
         prettyPrint e1 <+> text "="<> prettyPrint ev <> text"=>" <+> prettyPrint e2
 
-instance PrettyPrintable Pattern where
+instance PrettyPrintable id => PrettyPrintable (Pat id) where
     prettyPrint (PVar n) = prettyPrint n
     prettyPrint (PTuple ps) = 
         (parens . hsep . punctuate comma . map prettyPrint) ps
     prettyPrint (PSet ps) =
         (braces . hsep . punctuate comma . map prettyPrint) ps
 
-instance PrettyPrintable SideCondition where
+instance PrettyPrintable id => PrettyPrintable (SideCondition id) where
     prettyPrint (SCGenerator pat exp) = 
         prettyPrint pat <+> text "<-" <+> prettyPrint exp
     prettyPrint (Formula f) = prettyPrint f
 
-instance PrettyPrintable PropositionalFormula where
+instance PrettyPrintable id => PrettyPrintable (Formula id) where
     prettyPrint (Member pat exp) =
         text "member" <> parens (prettyPrint pat <> comma <+> prettyPrint exp)
     prettyPrint (Equals e1 e2) = prettyPrint e1 <+> text "==" <+> prettyPrint e2
@@ -78,7 +75,7 @@ instance PrettyPrintable PropositionalFormula where
     prettyPrint (PFalse) = text "false"
     prettyPrint (PTrue) = text "true"
 
-instance PrettyPrintable InductiveRule where
+instance PrettyPrintable id => PrettyPrintable (InductiveRule id) where
     prettyPrint (InductiveRule pres post scs) =
         let
             presString = show (vcat (map prettyPrint pres))

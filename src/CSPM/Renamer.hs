@@ -13,13 +13,13 @@ module CSPM.Renamer (
     RenamerState,
     RenamerMonad,
     runFromStateToState,
-    initRenamer,
+    initRenamer, initRenamerNoBuiltins,
     newScope,
     getBoundNames,
     -- * Internal Classes
-    FreeVars(..), Renamable(..),
-    renamePattern, reAnnotatePure, addScope,
-    internalNameMaker, renameStatements, checkDuplicates,
+    FreeVars(..), Renamable(..), renameVarRHS, setName,
+    renamePattern, reAnnotatePure, addScope, lookupName,
+    externalNameMaker, internalNameMaker, renameStatements, checkDuplicates,
 )  where
 
 import Control.Monad.State
@@ -51,6 +51,13 @@ initRenamer = do
     return $ RenamerState {
         -- We insert a new layer to allow builtins to be overridden
         environment = HM.newLayer (HM.updateMulti HM.new bs),
+        srcSpan = Unknown
+    }
+
+initRenamerNoBuiltins :: IO (RenamerState)
+initRenamerNoBuiltins = do
+    return $ RenamerState {
+        environment = HM.new,
         srcSpan = Unknown
     }
 

@@ -27,17 +27,23 @@ type CustomDataTypeClause = PDataTypeClause Process
 type CustomAssertion = PAssertion Process
 type CustomInteractiveStmt = PInteractiveStmt Process
 
+data CustomParserContext = CustomParserContext {
+        uncompiledOperators :: OpSem.OpSemDefinition,
+        compiledOperators :: [OpSem.CompiledOp]
+    }
+    deriving Show
+
 data Process id =
     ReplicatedUserOperator {
-        repOperatorName :: OpSem.Name,
+        repOperatorName :: Name,
         repOperatorArguments :: [AnExp id Process],
         repOperatorStatments :: [AnStmt id Process],
-        operatorDefinition :: OpSem.OpSemDefinition
+        operatorDefinition :: CustomParserContext
     }
     | UserOperator {
-        userOperatorName :: OpSem.Name,
+        userOperatorName :: Name,
         userOperatorArguments :: [AnExp id Process],
-        operatorDefinition :: OpSem.OpSemDefinition
+        operatorDefinition :: CustomParserContext
     }
 
 instance Eq id => Eq (Process id) where
@@ -85,7 +91,8 @@ instance TypeCheckable (Process Name) Type where
     errorContext _ = Nothing
     --typeCheck' (ReplicatedUserOperator op es stmts) =
     typeCheck' (UserOperator opname es defn) = do
-        let op = head [op | op <- OpSem.operators defn, OpSem.opFriendlyName op == opname]
+        let op = head [op | op <- OpSem.operators (uncompiledOperators defn),
+                                OpSem.opFriendlyName op == opname]
         ts <- zipWithM (\ e (n, t) -> typeCheckExpect e (opSemTypeToType t)) es (OpSem.opArgs op)
         return $ TProc
 

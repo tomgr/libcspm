@@ -1,5 +1,6 @@
-module CSPM.Operators.Custom.OperatorParsers where
+module CSPM.Operators.Custom.OperatorParsers (constructParseTable) where
 
+import CSPM.DataStructures.Names
 import CSPM.Operators.Custom.OpSemDataStructures
 
 import Data.Char
@@ -10,12 +11,12 @@ import Text.Parsec
 import Text.Parsec.Char
 import qualified Text.Parsec.Expr as E
 
-constructParseTable :: (Monad m) => 
+constructParseTable :: (Eq id, Monad m) => 
     [(Integer, E.Operator String u m a)] ->
-    [(Name, Maybe OperatorSyntax)] ->
-    [(Name, Maybe OperatorSyntax)] ->
-    ParsecT String u m (Name -> [a] -> a) ->
-    ParsecT String u m (Name -> [b] -> [a] -> a) ->
+    [(id, Maybe OperatorSyntax)] ->
+    [(id, Maybe OperatorSyntax)] ->
+    ParsecT String u m (id -> [a] -> a) ->
+    ParsecT String u m (id -> [b] -> [a] -> a) ->
     ParsecT String u m a -> 
     ParsecT String u m b ->
     ParsecT String u m a

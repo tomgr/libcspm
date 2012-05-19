@@ -1,43 +1,39 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, FunctionalDependencies #-}
 module CSPM.Operators.Custom.OpSemTypeChecker (typeCheckOperators, varsBound) where
 
 import Data.IORef
 import Control.Monad.Error
 import Control.Monad.State
+import CSPM.DataStructures.Names
+import CSPM.Renamer hiding (FreeVars, freeVars)
+import qualified CSPM.Renamer as RN
 import CSPM.Operators.Custom.OpSemPrettyPrinter
 import CSPM.Operators.Custom.OpSemDataStructures
 import Data.List
+import qualified Util.Annotated as An
 import Util.Exception
 import Util.List
 import Util.Monad
-import Util.PrettyPrint
+import Util.PrettyPrint hiding (($$))
 import Util.PartialFunctions
-import Text.PrettyPrint.HughesPJ
+import Text.PrettyPrint.HughesPJ hiding (($$))
 
 identityRule = 
     -- We specify identity's argument as not recursive since it is special
-    InputOperator (Name "Identity") [(Name "P", NotRecursive)] [
+    InputOperator (UnQual (OccName "Identity")) [(UnQual (OccName "P"), NotRecursive)] [
         InductiveRule
-            [Performs (Var (Name "P")) (Event (Name "a")) (Var (Name "P'"))]
+            [Performs (Var (UnQual (OccName"P"))) (Event (UnQual (OccName "a"))) (Var (UnQual (OccName "P'")))]
             (Performs
-                (OperatorApp (Name "Identity") [Var (Name "P")])
-                (Event (Name "a"))
-                (OperatorApp (Name "Identity") [Var (Name "P'")]))
-            [SCGenerator (PVar (Name "a")) SigmaPrime],
-        InductiveRule
-            [Performs (Var (Name "P")) (ChanEvent (Name "callProc") [Var (Name "p")]) 
-                        (Var (Name "P'"))]
-            (Performs
-                (OperatorApp (Name "Identity") [Var (Name "P")])
-                (ChanEvent (Name "callProc") [Var (Name "p")])
-                (OperatorApp (Name "Identity") [Var (Name "P'")]))
-            [SCGenerator (PVar (Name "p")) ProcArgs]
+                (OperatorApp (UnQual (OccName "Identity")) [Var (UnQual (OccName "P"))])
+                (Event (UnQual (OccName "a")))
+                (OperatorApp (UnQual (OccName "Identity")) [Var (UnQual (OccName "P'"))]))
+            [SCGenerator (PVar (UnQual (OccName "a"))) SigmaPrime]
     ] Nothing Nothing
 
 data TypeCheckError =
     ErrorWithOperator Name TypeCheckError
-    | ErrorWithRule InductiveRule TypeCheckError
-    | ErrorWithExpression Exp TypeCheckError
+    | ErrorWithRule (InductiveRule Name) TypeCheckError
+    | ErrorWithExpression (Exp Name) TypeCheckError
     
     -- ** Specific Errors (i.e. errors that indicate their cause)
     -- Name appears multiple times in some context
@@ -107,11 +103,11 @@ addOperatorToError :: Name -> TypeCheckMonad a -> TypeCheckMonad a
 addOperatorToError n m = 
     m `catchError` (\ e -> throwError $ ErrorWithOperator n e)
 
-addRuleToError :: InductiveRule -> TypeCheckMonad a -> TypeCheckMonad a
+addRuleToError :: InductiveRule Name -> TypeCheckMonad a -> TypeCheckMonad a
 addRuleToError n m = 
     m `catchError` (\ e -> throwError $ ErrorWithRule n e)
 
-addExpToError :: Exp -> TypeCheckMonad a -> TypeCheckMonad a
+addExpToError :: Exp Name -> TypeCheckMonad a -> TypeCheckMonad a
 addExpToError exp m = 
     m `catchError` (\ e -> throwError $ ErrorWithExpression exp e)
 
@@ -254,32 +250,31 @@ compress t = return t
 -- ***************************************************************************
 -- Dependency Analyisis
 -- ***************************************************************************
-class VarsBound a where
+class VarsBound a id where
     -- There should never be any duplicates
-    varsBound :: a -> [Name]
-instance VarsBound a => VarsBound [a] where
+    varsBound :: a -> [id]
+instance VarsBound a id => VarsBound [a] id where
     varsBound = concatMap varsBound
-instance VarsBound Pattern where
+instance VarsBound (Pat id) id where
     varsBound (PVar n) = [n]
     varsBound (PTuple ps) = varsBound ps
     varsBound (PSet ps) = varsBound ps
-instance VarsBound SideCondition where
+instance VarsBound (SideCondition id) id where
     varsBound (SCGenerator p e) = varsBound p
     varsBound (Formula p) = []
 
-class FreeVars a where
-    freeVars :: a -> [Name]
+class Eq id => FreeVars a id where
+    freeVars :: a -> [id]
     freeVars = nub . freeVars'
-    freeVars' :: a -> [Name]
-instance FreeVars a => FreeVars [a] where
+    freeVars' :: a -> [id]
+instance (Eq id, FreeVars a id) => FreeVars [a] id where
     freeVars' = concatMap freeVars
-instance FreeVars Exp where
+instance Eq id => FreeVars (Exp id) id where
     freeVars' (Tuple es) = freeVars' es
     freeVars' (Var n) = [n]
     freeVars' (Sigma) = []
     freeVars' (SigmaPrime) = []
     freeVars' (Powerset e) = freeVars' e
-    freeVars' (ProcArgs) = []
     freeVars' (SetMinus e1 e2) = freeVars' e1 ++ freeVars' e2
     freeVars' (Set es) = freeVars' es
     freeVars' (Union e1 e2) = freeVars' e1 ++ freeVars' e2
@@ -289,10 +284,10 @@ instance FreeVars Exp where
     freeVars' (ReplicatedUnion e) = freeVars' e
     freeVars' (SetComprehension es scs) = 
         (freeVars' es++freeVars' scs) \\ varsBound scs
-instance FreeVars SideCondition where
+instance Eq id => FreeVars (SideCondition id) id where
     freeVars' (SCGenerator p e) = freeVars' e
     freeVars' (Formula p) = freeVars p
-instance FreeVars PropositionalFormula where
+instance Eq id => FreeVars (Formula id) id where
     freeVars' (Subset e1 e2) = freeVars' [e1,e2]
     freeVars' (Member p e) = freeVars' e++freeVars' p
     freeVars' (Equals e1 e2) = freeVars' [e1,e2]
@@ -301,11 +296,11 @@ instance FreeVars PropositionalFormula where
     freeVars' (Not e1) = freeVars' e1
     freeVars' PFalse = []
     freeVars' PTrue = []
-instance FreeVars Pattern where
+instance Eq id => FreeVars (Pat id) id where
     freeVars' (PVar n) = [n]
     freeVars' (PTuple ns) = freeVars' ns
     freeVars' (PSet ps) = freeVars' ps
-instance FreeVars Event where
+instance Eq id => FreeVars (Event id) id where
     freeVars' (Tau) = []
     freeVars' (Event n) = [n]
     freeVars' (ChanEvent n es) = n:(concatMap freeVars' es)
@@ -317,7 +312,7 @@ class TypeCheckable a b | a -> b where
         typeCheck' e `catchError` (throwError . errorConstructor e)
     typeCheck' :: a -> TypeCheckMonad b
     
-instance TypeCheckable SideCondition () where
+instance TypeCheckable (SideCondition Name) () where
     errorConstructor x = id
     typeCheck' (SCGenerator p generator) =
         do
@@ -326,7 +321,7 @@ instance TypeCheckable SideCondition () where
             unify tgen (TSet tpat)
             return ()
     typeCheck' (Formula f) = typeCheck f
-instance TypeCheckable PropositionalFormula () where
+instance TypeCheckable (Formula Name) () where
     errorConstructor x = id
     typeCheck' (Subset e1 e2) =
         do
@@ -353,11 +348,10 @@ instance TypeCheckable PropositionalFormula () where
     typeCheck' (Or sc1 sc2) = typeCheck sc1 >> typeCheck sc2
     typeCheck' PTrue = return ()
     typeCheck' PFalse = return ()
-instance TypeCheckable Exp Type where
+instance TypeCheckable (Exp Name) Type where
     errorConstructor = ErrorWithExpression
     typeCheck' Sigma = return $ TSet TEvent
     typeCheck' SigmaPrime = return $ TSet TEvent
-    typeCheck' ProcArgs = return $ TSet TProcArg
     typeCheck' (Powerset e) = 
         do
             t <- typeCheck e
@@ -426,7 +420,7 @@ instance TypeCheckable Exp Type where
             
             return $ TOnProcess Unknown
 
-instance TypeCheckable Pattern Type where
+instance TypeCheckable (Pat Name) Type where
     errorConstructor x = id
     typeCheck' (PVar n) = getType n
     typeCheck' (PTuple ps) =
@@ -440,15 +434,160 @@ instance TypeCheckable Pattern Type where
             t <- unifyAll ts
             return $ TSet t
 
-typeCheckOperators :: InputOpSemDefinition -> IO OpSemDefinition
-typeCheckOperators (InputOpSemDefinition ops chans) =
+instance Renamable (InputOperator UnRenamedName) (InputOperator Name) where
+    rename (InputOperator name args rules repOp parseInfo) = do
+        let renameProcPair (n, p) = do
+                n' <- renameVarRHS n
+                return (n', p)
+        return InputOperator $$ renameVarRHS name $$ mapM renameProcPair args 
+            $$ rename rules $$ rename repOp $$ return parseInfo
+
+instance Renamable (InputReplicatedOperator UnRenamedName) (InputReplicatedOperator Name) where
+    rename (InputReplicatedOperator name base inductive parseInfo) = do
+        let renameBase (ps, e) = do
+                ps' <- mapM renameOpSemPattern ps
+                e' <- rename e
+                return (ps', e')
+            renameInductive (ns, e) = do
+                ns' <- mapM renameVarRHS ns
+                e' <- rename e
+                return (ns', e')
+        return InputReplicatedOperator $$ mapM renameVarRHS name 
+            $$ renameBase base $$ renameInductive inductive $$ return parseInfo
+
+instance Renamable (InductiveRule UnRenamedName) (InductiveRule Name) where
+    rename (InductiveRule rs rs' ss) = do
+        (scs', (rs, rs')) <- renameOpSemStatements ss $ do
+            rs <- rename rs
+            rs' <- rename rs'
+            return (rs, rs')
+        return $ InductiveRule rs rs' scs'
+
+instance Renamable (ProcessRelation UnRenamedName) (ProcessRelation Name) where
+    rename (Performs e1 ev e2) =
+        return Performs $$ rename e1 $$ rename ev $$ rename e2
+
+instance Renamable (Event UnRenamedName) (Event Name) where
+    rename (Event n) = return Event $$ renameVarRHS n
+    rename (ChanEvent n es) = return ChanEvent $$ renameVarRHS n $$ rename es
+    rename Tau = return Tau
+
+instance Renamable (Formula UnRenamedName) (Formula Name) where
+    rename (Member e1 e2) = return Member $$ rename e1 $$ rename e2
+    rename (Equals e1 e2) = return Equals $$ rename e1 $$ rename e2
+    rename (Subset e1 e2) = return Subset $$ rename e1 $$ rename e2
+    rename (Not f) = return Not $$ rename f
+    rename (And f1 f2) = return And $$ rename f1 $$ rename f2
+    rename (Or f1 f2) = return Or $$ rename f1 $$ rename f2
+    rename PFalse = return PFalse
+    rename PTrue = return PTrue
+
+instance Renamable (Exp UnRenamedName) (Exp Name) where
+    rename (OperatorApp n es) = return OperatorApp $$ renameVarRHS n $$ rename es
+    rename InductiveCase = return InductiveCase
+    rename (Tuple es) = return Tuple $$ rename es
+    rename (Var n) = return Var $$ renameVarRHS n
+    rename SigmaPrime = return SigmaPrime
+    rename Sigma = return Sigma
+    rename (SetComprehension es cs) = do
+        (stmts', cs') <- renameOpSemStatements cs (rename es)
+        return $ SetComprehension cs' stmts'
+    rename (Set es) = return Set $$ rename es
+    rename (SetMinus e1 e2) = return SetMinus $$ rename e1 $$ rename e2
+    rename (Union e1 e2) = return Union $$ rename e1 $$ rename e2
+    rename (Intersection e1 e2) = return Intersection $$ rename e1 $$ rename e2
+    rename (Powerset e1) = return Powerset $$ rename e1
+    rename (ReplicatedUnion e) = return ReplicatedUnion $$ rename e
+
+instance Renamable (Channel UnRenamedName) (Channel Name) where
+    rename (Channel n fs) = return Channel $$ renameVarRHS n $$ rename fs
+
+instance RN.FreeVars (Pat UnRenamedName) where
+    freeVars (PTuple ps) = RN.freeVars ps
+    freeVars (PSet ps) = RN.freeVars ps
+    freeVars (PVar n) = do
+        mn <- lookupName n
+        case mn of
+            Just n | isNameDataConstructor n -> return []
+            _ -> return [n]
+instance RN.FreeVars (SideCondition UnRenamedName) where
+    freeVars (SCGenerator p e) = RN.freeVars p
+    freeVars _ = return []
+
+renameOpSemPattern :: Pat UnRenamedName -> RenamerMonad (Pat Name)
+renameOpSemPattern pn = do
+    let
+        renamePat :: Pat UnRenamedName -> RenamerMonad (Pat Name)
+        renamePat (PTuple ps) = return PTuple $$ mapM renamePat ps
+        renamePat (PSet ps) = return PSet $$ mapM renamePat ps
+        renamePat (PVar v) = do
+            -- In this case, we should lookup the variable in the map and see if it is
+            -- bound. If it is and is a datatype constructor, then we should return
+            -- return that, otherwise we create a new internal var.
+            mn <- lookupName v
+            case mn of
+                Just n | isNameDataConstructor n ->
+                    -- Just return the name
+                    return $ PVar n
+                _ -> do
+                    -- Create the name
+                    n <- internalNameMaker An.Unknown v
+                    setName v n
+                    return $ PVar n
+    checkDuplicates' [pn]
+    renamePat pn
+
+checkDuplicates' :: (Show a, RN.FreeVars a) => [a] -> RenamerMonad ()
+checkDuplicates' xs = do
+    vss <- mapM RN.freeVars xs
+    when (not (noDups (sort (concat vss)))) $ panic ("Duplicate variables "++show xs)
+
+renameOpSemStatements :: [SideCondition UnRenamedName] -> RenamerMonad a -> 
+    RenamerMonad ([SideCondition Name], a)
+renameOpSemStatements stmts prog = do
+    checkDuplicates' stmts
+    -- No duplicates, so we can just add one scope
+    addScope $ do
+        stmts' <- mapM (\ astmt -> 
+                case astmt of
+                    SCGenerator p e -> do
+                        -- Rename e first, as it can't depend on p
+                        e' <- rename e
+                        p' <- renameOpSemPattern p
+                        return $ SCGenerator p' e'
+                    Formula e -> do
+                        e' <- rename e
+                        return $ Formula e'
+            ) stmts
+        a <- prog
+        return (stmts', a)
+
+typeCheckOperators :: InputOpSemDefinition UnRenamedName -> IO OpSemDefinition
+typeCheckOperators (InputOpSemDefinition ops chans) = do
+    let chanNames = [n | Channel n _ <- chans] 
+    when (not (noDups chanNames)) $ panic (show "Dup chan names")
+
+    renamerSt <- initRenamerNoBuiltins
+    ((identityRule, chans, ops), _) <- runFromStateToState renamerSt $ do
+        -- Inject the channels
+        mapM (\ ocn -> do
+            rcn <- externalNameMaker True An.Unknown ocn
+            setName ocn rcn) chanNames
+        -- Inject the operators
+        mapM (\ op -> do
+            rcn <- externalNameMaker False An.Unknown (iopFriendlyName op)
+            setName (iopFriendlyName op) rcn) ops
+        -- Rename everyt
+        identityRule <- rename identityRule
+        ops <- rename ops
+        chans <- rename chans
+        return $ (identityRule, chans, ops)
+
     let
         chanNames = [n | Channel n _ <- chans]
         typeCheckOps =
             do
                 errorIfFalse (noDups chanNames) (DuplicatedNameError chanNames)
-                setType (Name "callProc") (TChannel [TSet TProcArg])
-                -- TODO: check for name collisions between oeprators and channels
                 mapM injectChannelType chans
                 ops <- concatMapM typeCheckOperator (identityRule:ops)
                 return $ OpSemDefinition ops chans
@@ -456,17 +595,17 @@ typeCheckOperators (InputOpSemDefinition ops chans) =
             do
                 ts <- mapM typeCheck es
                 setType n (TChannel ts)
-    in do
-        (lh, st) <- 
-            runStateT (runErrorT typeCheckOps) (TypeInferenceState [[]] 0 False)
-        case lh of
-            Left err -> panic (show err)
-            Right ops -> return ops     
+
+    (lh, st) <- 
+        runStateT (runErrorT typeCheckOps) (TypeInferenceState [[]] 0 False)
+    case lh of
+        Left err -> panic (show err)
+        Right ops -> return ops     
 
 -- TODO: below, enforcing left application is operator, need to check this
 -- and in general, need to check the syntatic conditions we enforce via pattern
 -- matching
-typeCheckOperator :: InputOperator -> TypeCheckMonad [Operator]
+typeCheckOperator :: InputOperator Name -> TypeCheckMonad [Operator]
 typeCheckOperator (InputOperator n argsSt rules replicatedOp syntax) = 
     let
         args = map fst argsSt
@@ -510,8 +649,8 @@ typeCheckOperator (InputOperator n argsSt rules replicatedOp syntax) =
                     Nothing     -> return [op])
 
 typeCheckReplicatedOperator 
-    :: Name -> InputReplicatedOperator -> TypeCheckMonad Operator
-typeCheckReplicatedOperator (Name n) (InputReplicatedOperator args 
+    :: Name -> InputReplicatedOperator Name -> TypeCheckMonad Operator
+typeCheckReplicatedOperator n (InputReplicatedOperator args 
         (basePats, baseCase)
         (inductiveVars, inductiveCase) syntax) =
     do
@@ -538,14 +677,14 @@ typeCheckReplicatedOperator (Name n) (InputReplicatedOperator args
         
         ts <- mapM compress operatorArgTypes
 
-        return $ ReplicatedOperator (Name ("Replicated"++n))
+        return $ ReplicatedOperator n
                     (zip args ts) (basePats, baseCase)
                     (inductiveVars, inductiveCase) syntax
 
 -- Returns a type inference monad that, when called, will typecheck the
 -- operator calls
 typeCheckInductiveRule 
-    :: [Name] -> InductiveRule -> TypeCheckMonad ()
+    :: [Name] -> InductiveRule Name -> TypeCheckMonad ()
 typeCheckInductiveRule args
         (rule @ (InductiveRule pres (post @ (Performs opApp1 ev opApp2)) sc)) =
     addRuleToError rule (
@@ -628,7 +767,7 @@ ensureIsProc t =
             TOffProcess _   -> return ()
             _               -> unify t (TOnProcess Unknown) >> return ()
 
-ensureIsChannel :: Name -> [Exp] -> TypeCheckMonad ()
+ensureIsChannel :: Name -> [Exp Name] -> TypeCheckMonad ()
 ensureIsChannel n es =
     do
         freshVars <- replicateM (length es) freshTypeVar

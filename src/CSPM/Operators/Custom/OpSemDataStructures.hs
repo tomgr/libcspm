@@ -1,104 +1,99 @@
 module CSPM.Operators.Custom.OpSemDataStructures where
 
+import CSPM.DataStructures.Names
 import Data.IORef
 import Util.PartialFunctions
-import Text.PrettyPrint.HughesPJ
+import Util.PrettyPrint
 
 -- *************************************************************************
 -- Rule input data types
 -- *************************************************************************
 
-newtype Name = Name String deriving (Eq)
-
-instance Show Name where
-    show (Name n) = show n
-
-data Event = 
-    Event Name
-    | ChanEvent Name [Exp]      -- The channel must carry events only
+data Event id = 
+    Event id
+    | ChanEvent id [Exp id]      -- The channel must carry events only
     | Tau                       -- and thus its type must be UserEvents.UserEvents...
     deriving (Eq, Show)
 
-data Exp = 
-    OperatorApp Name [Exp]
+data Exp id =
+    OperatorApp id [Exp id]
     | InductiveCase
-    | Tuple [Exp]
-    | Var Name
+    | Tuple [Exp id]
+    | Var id
 
     | SigmaPrime    -- SigmaPrime = SystemEvents
     | Sigma         -- i.e. UserEvents
-    | ProcArgs
-    | SetComprehension [Exp] [SideCondition]
-    | Set [Exp]
-    | SetMinus Exp Exp
-    | Union Exp Exp
-    | Intersection Exp Exp
-    | Powerset Exp
+    | SetComprehension [Exp id] [SideCondition id]
+    | Set [Exp id]
+    | SetMinus (Exp id) (Exp id)
+    | Union (Exp id) (Exp id)
+    | Intersection (Exp id) (Exp id)
+    | Powerset (Exp id)
     
-    | ReplicatedUnion Exp
+    | ReplicatedUnion (Exp id)
     deriving (Eq, Show)
     
-data ProcessRelation =
-    Performs Exp Event Exp
+data ProcessRelation id =
+    Performs (Exp id) (Event id) (Exp id)
     deriving Show
 
-data Pattern = 
-    PVar Name
-    | PTuple [Pattern]
-    | PSet [Pattern]
+data Pat id = 
+    PVar id 
+    | PTuple [Pat id]
+    | PSet [Pat id]
     deriving (Eq, Show)
 
 -- A side condition should always be equal to SCGenerator p e1 e2
 -- TODO: prefix side condition is true, need to sort this out in
 -- the typechecker
-data SideCondition =
-    SCGenerator Pattern Exp
-    | Formula PropositionalFormula
+data SideCondition id =
+    SCGenerator (Pat id) (Exp id)
+    | Formula (Formula id)
     deriving (Eq, Show)
     
-data PropositionalFormula =
-    Member Pattern Exp
-    | Equals Exp Exp
-    | Subset Exp Exp
-    | Not PropositionalFormula
-    | And PropositionalFormula PropositionalFormula
-    | Or PropositionalFormula PropositionalFormula
+data Formula id =
+    Member (Exp id) (Exp id)
+    | Equals (Exp id) (Exp id)
+    | Subset (Exp id) (Exp id)
+    | Not (Formula id)
+    | And (Formula id) (Formula id)
+    | Or (Formula id) (Formula id)
     | PFalse
     | PTrue
     deriving (Eq, Show)
     
 -- TODO: precondition can only be of the form P -> Q
 -- i.e. no operators may be applied
-data InductiveRule =
-    InductiveRule [ProcessRelation] ProcessRelation [SideCondition]
+data InductiveRule id =
+    InductiveRule [ProcessRelation id] (ProcessRelation id) [SideCondition id]
     deriving Show
 
 -- Always omit tau promotion rules
-data InputOperator = 
+data InputOperator id = 
     InputOperator {
-        iopFriendlyName :: Name,
-        iopArgs :: [(Name, ProcessSubtype)],
-        iopRules :: [InductiveRule],
-        iopReplicatedOperator :: Maybe InputReplicatedOperator,
+        iopFriendlyName :: id,
+        iopArgs :: [(id, ProcessSubtype)],
+        iopRules :: [InductiveRule id],
+        iopReplicatedOperator :: Maybe (InputReplicatedOperator id),
         iopParsingInformation :: Maybe OperatorSyntax
     }
     deriving Show
 
-data InputReplicatedOperator =
+data InputReplicatedOperator id =
     InputReplicatedOperator {
-        irepOpArgs :: [Name],
-        irepOpBaseCase :: ([Pattern], Exp),
+        irepOpArgs :: [id],
+        irepOpBaseCase :: ([Pat id], (Exp id)),
         -- List of vars for this case, list of vars for recursive case
         -- lengths should all be equal to the args length
-        irepOpInductiveCase :: ([Name], Exp),
+        irepOpInductiveCase :: ([id], (Exp id)),
         irepOpParsingInformation :: Maybe OperatorSyntax
     }
     deriving Show
     
-data InputOpSemDefinition = 
+data InputOpSemDefinition id = 
     InputOpSemDefinition {
-        inputOperators :: [InputOperator],
-        inputChannels :: [Channel]
+        inputOperators :: [InputOperator id],
+        inputChannels :: [Channel id]
     }
     deriving Show
     
@@ -173,26 +168,29 @@ data Operator =
     Operator {
         opFriendlyName :: Name,
         opArgs :: [(Name, Type)],
-        opRules :: [InductiveRule],
+        opRules :: [InductiveRule Name],
         opParsingInformation :: Maybe OperatorSyntax
     }
     | ReplicatedOperator {
         opFriendlyName :: Name,
         opArgs :: [(Name, Type)],
-        repOpBaseCase :: ([Pattern], Exp),
+        repOpBaseCase :: ([Pat Name], (Exp Name)),
         -- List of vars for this case, list of vars for recursive case
         -- lengths should all be equal to the args length
-        repOpInductiveCase :: ([Name], Exp),
+        repOpInductiveCase :: ([Name], (Exp Name)),
         opParsingInformation :: Maybe OperatorSyntax
     }
     deriving Show
 
-data Channel = Channel Name [Exp]
+data Channel id = Channel {
+        channelName :: id,
+        channelFields :: [Exp id]
+    }
     deriving Show
 
 data OpSemDefinition = OpSemDefinition {
         operators :: [Operator],
-        channels :: [Channel]
+        channels :: [Channel Name]
     }
     deriving Show
 
@@ -203,7 +201,7 @@ type ProcId = Int
 
 data CompiledOp =
     CompiledOp {
-        copFriendlyName :: String,
+        copFriendlyName :: Name,
         copArgs :: [(Name, Type)],
         copRules :: [CompiledRule],
         copDiscards :: [ProcId]
@@ -212,19 +210,19 @@ data CompiledOp =
 
 data CompiledRule =
     CompiledRule {
-        crComponentEvents :: PartialFunction ProcId Event,
-        crResultEvent :: Event,
-        crResultingOperatorName :: (String, [Exp]),
+        crComponentEvents :: PartialFunction ProcId (Event Name),
+        crResultEvent :: Event Name,
+        crResultingOperatorName :: (Name, [Exp Name]),
         crF :: PartialFunction ProcId ProcId,
         crPsi :: PartialFunction ProcId ProcId,
         crChi :: PartialFunction ProcId ProcId,
         crDiscards :: [ProcId],
         crBoundVars :: [Name],
-        crGenerators :: [Stmt]
+        crGenerators :: [Stmt Name]
     }
     deriving Show
 
-data Stmt = 
-    Generator Pattern Exp
-    | PropFormula PropositionalFormula
+data Stmt id = 
+    Generator (Pat id) (Exp id)
+    | PropFormula (Formula id)
     deriving (Show)

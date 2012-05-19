@@ -1,5 +1,6 @@
 module CSPM.Operators.Custom.OpSemParser (parseOpSemFile) where
 
+import CSPM.DataStructures.Names
 import CSPM.Operators.Custom.OpSemDataStructures
 import CSPM.Operators.Custom.OperatorParsers
 import Util.Exception
@@ -13,7 +14,7 @@ import Text.Parsec.Language
 import Text.Parsec
 import qualified Text.Parsec.Token as PT
 
-type Parser = Parsec String (PartialFunction Name (Maybe OperatorSyntax))
+type Parser = Parsec String (PartialFunction UnRenamedName (Maybe OperatorSyntax))
 
 dotSep p = sepBy p dot
 braces = between (symbol "{") (symbol "}")
@@ -68,7 +69,7 @@ PT.TokenParser{ PT.parens = parens,
             PT.commaSep = commaSep,
             PT.commaSep1 = commaSep1} = PT.makeTokenParser opSemLanguage
 
-parseOpSemFile :: String -> IO InputOpSemDefinition
+parseOpSemFile :: String -> IO (InputOpSemDefinition UnRenamedName)
 parseOpSemFile fname = 
     let
         pass1 = 
@@ -97,63 +98,68 @@ parseOpSemFile fname =
                         Left err -> panic (show err)
                         Right ops -> return ops
 
-channelSectionParser :: Parser [Channel]
+channelSectionParser :: Parser [Channel UnRenamedName]
 channelSectionParser =
     do
         reserved "Channels"
         chans <- many (do
-                        name <- identifier
+                        name <- nameParser
                         typ <- option [] (do
                                     lexeme (string ":")
                                     components <- dotSep expressionParser
                                     return components)
-                        return $ Channel (Name name) typ
+                        return $ Channel name typ
             )
         reserved "EndChannels"
         return chans
 
-operatorPhase1Parser :: Parser (Name, Maybe OperatorSyntax)
+nameParser :: Parser UnRenamedName
+nameParser = do
+    s <- identifier
+    return $ UnQual (OccName s)
+
+operatorPhase1Parser :: Parser (UnRenamedName, Maybe OperatorSyntax)
 operatorPhase1Parser = 
     do
         reserved "Operator"
-        friendlyName <- identifier
+        friendlyName <- nameParser
         args <- option [] (parens (commaSep nameSubtypeParser))
         syntax <- option Nothing (liftM Just syntaxParser)
         manyTill anyChar (reserved "EndOperator")
-        return (Name friendlyName, syntax)
+        return (friendlyName, syntax)
 
-operatorParser :: Parser InputOperator
+operatorParser :: Parser (InputOperator UnRenamedName)
 operatorParser =
     do
         reserved "Operator"
-        friendlyName <- identifier
+        friendlyName <- nameParser
         args <- option [] (parens (commaSep nameSubtypeParser))
         syntax <- option Nothing (liftM Just syntaxParser)
         rules <- many ruleParser
         replicatedOp <- option Nothing (liftM Just replicatedOpParser)
         reserved "EndOperator"
-        return $ InputOperator (Name friendlyName) 
+        return $ InputOperator friendlyName
                                 args
                                 rules 
                                 replicatedOp 
                                 syntax
 
-nameSubtypeParser :: Parser (Name, ProcessSubtype)
+nameSubtypeParser :: Parser (UnRenamedName, ProcessSubtype)
 nameSubtypeParser = 
     do
-        id <- identifier 
+        id <- nameParser 
         st <- ((lexeme (string ":") >>
                 choice [
                     lexeme (string "FinRec") >> return FinitelyRecursive,
                     lexeme (string "InfRec") >> return InfinitelyRecursive])
                 <|> return Unknown)
-        return (Name id, st)
+        return (id, st)
 
-replicatedOpParser :: Parser InputReplicatedOperator
+replicatedOpParser :: Parser (InputReplicatedOperator UnRenamedName)
 replicatedOpParser =
     do
         reserved "Replicated"
-        args <- option [] (parens (commaSep identifier))
+        args <- option [] (parens (commaSep nameParser))
         syntax <- option Nothing (liftM Just syntaxParser)
         
         reserved "BaseCase"
@@ -161,16 +167,16 @@ replicatedOpParser =
         baseCase <- expressionParser
         reserved "EndBaseCase"
         reserved "InductiveCase"
-        recursiveArgs <- parens (commaSep identifier)
+        recursiveArgs <- parens (commaSep nameParser)
         inductiveCase <- expressionParser
         reserved "EndInductiveCase"
         
         reserved "EndReplicated"
 
-        return $ InputReplicatedOperator (map Name args) (basePats, baseCase) 
-                    (map Name recursiveArgs, inductiveCase) syntax
+        return $ InputReplicatedOperator args (basePats, baseCase) 
+                    (recursiveArgs, inductiveCase) syntax
         
-ruleParser :: Parser InductiveRule
+ruleParser :: Parser (InductiveRule UnRenamedName)
 ruleParser =
     do
         reserved "Rule"
@@ -222,7 +228,7 @@ parseComponentParser =
     <|> (operator >>= (\ n -> return (String n)))
     <|> (identifier >>= (\ n -> return (String n)))
 
-processRelationParser :: Bool -> Parser ProcessRelation
+processRelationParser :: Bool -> Parser (ProcessRelation UnRenamedName)
 processRelationParser isPost =
     do
         e1 <- expressionParser
@@ -232,10 +238,10 @@ processRelationParser isPost =
         e2 <- expressionParser
         case (isPost,e2) of
             (True, Var n)   -> return (Performs e1 ev 
-                                        (OperatorApp (Name "Identity") [e2]))
+                                        (OperatorApp (UnQual (OccName "Identity")) [e2]))
             _               -> return (Performs e1 ev e2)
 
-expressionParser :: Parser Exp
+expressionParser :: Parser (Exp UnRenamedName)
 expressionParser =
     do 
         st <- getState
@@ -251,7 +257,7 @@ expressionParser =
                     [e1,e2] <- parens (commaSep expressionParser)
                     return (e e1 e2)
                                     
-            normalOperatorNames = [s | (s, _) <- st]
+            normalOperatorNames = map fst st
             exprParser = constructParseTable [] st []
                             (return (\ n es -> OperatorApp n es)) 
                             (error "generator sem called")
@@ -271,7 +277,7 @@ expressionParser =
                     ),
                     try (
                         do 
-                            opName <- liftM Name identifier
+                            opName <- nameParser
                             args <- option [] (parens (commaSep expressionParser))
                             if (elem opName normalOperatorNames) then 
                                     return (OperatorApp opName args)
@@ -282,7 +288,7 @@ expressionParser =
                             ),
                     -- identifier uses try, hence we can use it here and it will
                     -- not consume any input
-                    liftM (Var . Name) identifier,
+                    liftM Var nameParser,
                     (reserved "Sigma" >> return Sigma),
                     (reserved "InductiveCase" >> return InductiveCase),
                     parseFunctionCall1 "Set" Powerset,
@@ -296,7 +302,7 @@ expressionParser =
                 <|> term)
 
 
-sideConditionParser :: Parser SideCondition
+sideConditionParser :: Parser (SideCondition UnRenamedName)
 sideConditionParser =
     let
         table = [
@@ -316,7 +322,7 @@ sideConditionParser =
                     reserved "member"
                     parens (
                         do
-                            p <- patternParser
+                            p <- expressionParser
                             comma
                             e <- expressionParser
                             return (Member p e)))
@@ -345,18 +351,18 @@ sideConditionParser =
         <|>
             liftM Formula booleanParser
 
-patternParser :: Parser Pattern
+patternParser :: Parser (Pat UnRenamedName)
 patternParser =
     liftM PTuple (parens (commaSep patternParser))
     <|> liftM PSet (braces (commaSep patternParser))
-    <|> liftM (PVar . Name) identifier
+    <|> liftM PVar nameParser
 
-eventParser :: Parser Event
+eventParser :: Parser (Event UnRenamedName)
 eventParser =
     try (reserved "tau" >> return Tau)
     <|> do 
-            chanName <- identifier
-            option (Event (Name chanName)) (do
+            chanName <- nameParser
+            option (Event chanName) $ do
                 dot
                 dataComponents <- dotSep expressionParser
-                return $ ChanEvent (Name chanName) dataComponents)
+                return $ ChanEvent chanName dataComponents

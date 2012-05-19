@@ -23,9 +23,9 @@ import Util.PartialFunctions
 
 data CSPMParserState = 
     CSPMParserState {
-        operatorDefinition :: OpSemDefinition,
-        operatorSyntax :: PartialFunction Name (Maybe OperatorSyntax),
-        repOperatorSyntax :: PartialFunction Name (Maybe OperatorSyntax),
+        operatorDefinition :: CSP.CustomParserContext,
+        operatorSyntax :: PartialFunction CSP.Name (Maybe OperatorSyntax),
+        repOperatorSyntax :: PartialFunction CSP.Name (Maybe OperatorSyntax),
         canUseAngles :: Bool
     }
     deriving Show
@@ -165,25 +165,27 @@ annotateFunctionParser3 mtyp p =
                         (sourceLine startPos) (sourceColumn startPos))
         return $ \ e1 e2 e3 -> CSP.An srcloc typ (inner e1 e2 e3)
         
-stringParser :: String -> OpSemDefinition -> IO [CSP.CustomModule]
-stringParser s opSemDef =
+stringParser :: String -> CSP.CustomParserContext -> IO [CSP.CustomModule]
+stringParser s ctxt =
     do
-        let opMap = [(n, syntax) | Operator n _ _ syntax <- operators opSemDef]
+        let opSemDef = CSP.uncompiledOperators ctxt
+            opMap = [(n, syntax) | Operator n _ _ syntax <- operators opSemDef]
             repOpMap = [(n, syntax) | ReplicatedOperator n _ _ _ syntax <- operators opSemDef]
         res <- liftIO $ runParserT fileParser 
-                                    (CSPMParserState opSemDef opMap repOpMap True) 
+                                    (CSPMParserState ctxt opMap repOpMap True) 
                                     "<stdin>" s
         case res of
             Left err -> panic (show err)
             Right v -> return v
 
-parseCSPMFile :: String -> OpSemDefinition -> IO [CSP.CustomModule]
-parseCSPMFile fname opSemDef = 
+parseCSPMFile :: String -> CSP.CustomParserContext -> IO [CSP.CustomModule]
+parseCSPMFile fname ctxt = 
     do 
         input <- liftIO $ readFile fname
-        let opMap = [(n, syntax) | Operator n _ _ syntax <- operators opSemDef]
+        let opSemDef = CSP.uncompiledOperators ctxt
+            opMap = [(n, syntax) | Operator n _ _ syntax <- operators opSemDef]
             repOpMap = [(n, syntax) | ReplicatedOperator n _ _ _ syntax <- operators opSemDef]
-        res <- liftIO $ runParserT fileParser (CSPMParserState opSemDef opMap repOpMap True) 
+        res <- liftIO $ runParserT fileParser (CSPMParserState ctxt opMap repOpMap True) 
                                     fname input
         case res of
             Left err -> panic (show err)
@@ -538,12 +540,10 @@ expressionParser =
             do
                 opdefn <- gets operatorDefinition
                 ops <- gets operatorSyntax
-                let opNames = map (\ (Name s, _) -> s) ops
                 n <- nameParser
-                return $ 
-                    if show n `elem` opNames then 
-                        CSP.Process (CSP.UserOperator (Name (show n)) [] opdefn)
-                    else CSP.Var n
+                return $ case [n' | (n', _) <- ops, show n' == show n] of
+                            [n] -> CSP.Process (CSP.UserOperator n [] opdefn)
+                            [] -> CSP.Var n
                 
         term :: Parser CSP.CustomExp
         term =  choice [allowAngles $ parens tupleOrExpressionParser,

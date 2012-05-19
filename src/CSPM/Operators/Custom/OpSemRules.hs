@@ -4,6 +4,7 @@ module CSPM.Operators.Custom.OpSemRules (
 import Data.List
 import Text.PrettyPrint.HughesPJ
 
+import CSPM.DataStructures.Names
 import CSPM.Operators.Custom.OpSemDataStructures
 import CSPM.Operators.Custom.OpSemTypeChecker
 import Util.PartialFunctions
@@ -17,15 +18,14 @@ compileOperators opSemDefn =
         ops = operators opSemDefn
         transformOperator (op @ (Operator name args rules _)) =
             let
-                Name cname = name
                 cargs = args
                 crules = map (transformInductiveRule ops op) rules
             in
-                CompiledOp cname cargs crules (discardableArguments crules)
+                CompiledOp name cargs crules (discardableArguments crules)
     in
         map transformOperator [op | op @ (Operator _ _ _ _) <- ops]
 
-transformInductiveRule :: [Operator] -> Operator -> InductiveRule -> CompiledRule
+transformInductiveRule :: [Operator] -> Operator -> InductiveRule Name -> CompiledRule
 transformInductiveRule ops op (InductiveRule pre post conditions) =
     let     
         (Performs (OperatorApp name currentOperatorArgs) resultingEvent 
@@ -50,8 +50,7 @@ transformInductiveRule ops op (InductiveRule pre post conditions) =
         resultingOperatorName = (name,
                 [exp | (exp, (_, t)) <- zip newArgs resultingOperatorArgs, 
                         not (typeIsProc t)])
-            where
-                Name name = newOperator
+            where name = newOperator
         resultingOperatorProcessArgs = 
             zip [0..] [arg | (Var arg, (_, TOnProcess _)) 
                                 <- zip newArgs resultingOperatorArgs]
@@ -109,7 +108,7 @@ transformInductiveRule ops op (InductiveRule pre post conditions) =
         CompiledRule phi resultingEvent resultingOperatorName f psi 
             chi discards boundVars generators
             
-transformSideCondition :: SideCondition -> Stmt
+transformSideCondition :: SideCondition Name -> Stmt Name
 transformSideCondition (SCGenerator p e) = Generator p e
 transformSideCondition (Formula f) = PropFormula f
 
@@ -125,11 +124,11 @@ getArgType (Operator _ args _ _) n =
 -- visible event
 offProcs :: Operator -> [Name]
 offProcs (op @ (Operator n args rules _)) = 
-    [Name pr | (Name pr, TOffProcess _) <- args]
+    [pr | (pr, TOffProcess _) <- args]
 
 onProcs :: Operator -> [Name]
 onProcs (op @ (Operator _ args rules _)) = 
-    [Name pr | (Name pr, TOnProcess _) <- args]
+    [pr | (pr, TOnProcess _) <- args]
 
 getId :: Operator -> Name -> ProcId
 getId op n =
