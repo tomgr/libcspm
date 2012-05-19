@@ -93,7 +93,8 @@ instance TypeCheckable (Process Name) Type where
         let op = head [op | op@(OpSem.ReplicatedOperator _ _ _ _ _) <- 
                                 OpSem.operators (uncompiledOperators defn),
                                 OpSem.opFriendlyName op == opname]
-        zipWithM (\ e (n, t) -> typeCheckExpect e (opSemTypeToType t)) es (OpSem.opArgs op)
+        typeCheckStmts TSet stmts $ do
+            zipWithM (\ e (n, t) -> typeCheckExpect e (opSemTypeToType t)) es (OpSem.opArgs op)
         return $ TProc
     typeCheck' (UserOperator opname es defn) = do
         let op = head [op | op <- OpSem.operators (uncompiledOperators defn),
