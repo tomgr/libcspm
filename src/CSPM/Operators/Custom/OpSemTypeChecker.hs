@@ -22,7 +22,7 @@ identityRule =
     -- We specify identity's argument as not recursive since it is special
     InputOperator (UnQual (OccName "Identity")) [(UnQual (OccName "P"), NotRecursive)] [
         InductiveRule
-            [Performs (Var (UnQual (OccName"P"))) (Event (UnQual (OccName "a"))) (Var (UnQual (OccName "P'")))]
+            [Performs (Var (UnQual (OccName "P"))) (Event (UnQual (OccName "a"))) (Var (UnQual (OccName "P'")))]
             (Performs
                 (OperatorApp (UnQual (OccName "Identity")) [Var (UnQual (OccName "P"))])
                 (Event (UnQual (OccName "a")))
@@ -437,30 +437,40 @@ instance TypeCheckable (Pat Name) Type where
 instance Renamable (InputOperator UnRenamedName) (InputOperator Name) where
     rename (InputOperator name args rules repOp parseInfo) = do
         let renameProcPair (n, p) = do
-                n' <- renameVarRHS n
+                n' <- internalNameMaker An.Unknown n
+                setName n n'
                 return (n', p)
         return InputOperator $$ renameVarRHS name $$ mapM renameProcPair args 
             $$ rename rules $$ rename repOp $$ return parseInfo
 
 instance Renamable (InputReplicatedOperator UnRenamedName) (InputReplicatedOperator Name) where
     rename (InputReplicatedOperator name base inductive parseInfo) = do
-        let renameBase (ps, e) = do
+        let renameBase (ps, e) = addScope $ do
                 ps' <- mapM renameOpSemPattern ps
                 e' <- rename e
                 return (ps', e')
-            renameInductive (ns, e) = do
-                ns' <- mapM renameVarRHS ns
+            renameInductive (ns, e) = addScope $ do
+                pns' <- mapM (renameOpSemPattern . PVar) ns
                 e' <- rename e
-                return (ns', e')
+                return (map (\ (PVar n) -> n) pns', e')
         return InputReplicatedOperator $$ mapM renameVarRHS name 
             $$ renameBase base $$ renameInductive inductive $$ return parseInfo
 
 instance Renamable (InductiveRule UnRenamedName) (InductiveRule Name) where
     rename (InductiveRule rs rs' ss) = do
-        (scs', (rs, rs')) <- renameOpSemStatements ss $ do
-            rs <- rename rs
-            rs' <- rename rs'
-            return (rs, rs')
+        let renamePres :: [ProcessRelation UnRenamedName] -> RenamerMonad a ->
+                RenamerMonad ([ProcessRelation Name], a)
+            renamePres [] prog = do
+                v <- prog
+                return ([], v)
+            renamePres (Performs (Var n) ev (Var n') : prs) prog = do
+                n <- renameVarRHS n
+                ev <- rename ev
+                n'' <- internalNameMaker An.Unknown n'
+                setName n' n''
+                (rest, a) <- renamePres prs prog
+                return $ (Performs (Var n) ev (Var n'') : rest, a)
+        (scs', (rs, rs')) <- renameOpSemStatements ss $ addScope $ renamePres rs (rename rs')
         return $ InductiveRule rs rs' scs'
 
 instance Renamable (ProcessRelation UnRenamedName) (ProcessRelation Name) where
@@ -576,7 +586,7 @@ typeCheckOperators (InputOpSemDefinition ops chans) = do
         -- Inject the operators
         mapM (\ op -> do
             rcn <- externalNameMaker False An.Unknown (iopFriendlyName op)
-            setName (iopFriendlyName op) rcn) ops
+            setName (iopFriendlyName op) rcn) (identityRule:ops)
         -- Rename everyt
         identityRule <- rename identityRule
         ops <- rename ops
