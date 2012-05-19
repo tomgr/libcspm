@@ -19,9 +19,7 @@ import CSPM.Operators.Custom.OpSemRules
 import CSPM.Operators.Custom.Syntax
 import CSPM.Parser
 import CSPM.Prelude
-import Data.IORef
-
--- TODO: remove this hack
+import System.FilePath
 
 instance BuiltInFunctions UnCompiledOperator where
     compressionOperator = ProcOperator
@@ -30,7 +28,8 @@ instance BuiltInFunctions UnCompiledOperator where
 instance Parseable CustomParserContext Process where
     parseInteractiveStmt = error "unsupported"
     parseExpression = error "unsupported"
-    parseFile opSemDefn dirName fileName = parseCSPMFile fileName opSemDefn
+    parseFile opSemDefn dirName fileName =
+        parseCSPMFile (joinPath [dirName, fileName]) opSemDefn
     parseStringAsFile opSemDefn dirName string = stringParser string opSemDefn
 
 instance CSPLike CustomParserContext Process UnCompiledOperator where
