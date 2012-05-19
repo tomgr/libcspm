@@ -1,6 +1,8 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Main where
 
 import Control.Monad
+import Control.Monad.State
 import Control.Monad.Trans
 import Data.List
 import System.Console.GetOpt
@@ -14,13 +16,14 @@ import qualified Paths_cspmchecker as C
 import Data.Version (showVersion)
 
 import CSPM
+import CSPM.Operators.CSP
 import CSPM.PrettyPrinter
 import Monad
 import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 
-countSuccesses :: [Checker Bool] -> Checker ()
+countSuccesses :: [Checker c ops Bool] -> Checker c ops ()
 countSuccesses tasks = do
     results <- sequence tasks
     let 
@@ -44,7 +47,7 @@ getFilesFromDir path = do
     fss <- mapM getFilesFromDir [dir | dir <- dirs']
     return $ files'++concat fss
 
-doFile :: FilePath -> Checker Bool
+doFile :: CSPLike () p ops => FilePath -> Checker () ops Bool
 doFile fp = do
     liftIO $ putStr $ "Checking "++fp++"....."
     res <- tryM $ do
@@ -52,7 +55,7 @@ doFile fp = do
         rms <- CSPM.renameFile ms
         typeCheckFile rms
         return ()
-    ws <- getState lastWarnings
+    ws <- gets lastWarnings
     resetCSPM
     case res of
         Left e -> do
@@ -64,7 +67,7 @@ doFile fp = do
             else return ()
             return True
 
-printError :: String -> Checker ()
+printError :: String -> Checker p ops ()
 printError s = liftIO $ putStrLn $ "\ESC[1;31m\STX"++s++"\ESC[0m\STX"
 
 data Options = Options {
@@ -97,7 +100,7 @@ header = "Usage: cspmchecker [OPTION...] files..."
 main :: IO ()
 main = do
     args <- getArgs
-    st <- initCheckerState
+    st <- initCheckerState :: IO (CheckerState () UnCompiledCSPOp)
     runChecker st $ case getOpt RequireOrder options args of
         (_,_,e:es) -> liftIO $ putStr $ show $ concat (e:es) ++ usageInfo header options
         (o,files, []) -> do
