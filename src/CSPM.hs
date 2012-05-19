@@ -148,7 +148,8 @@ class (
         PrettyPrintable (p Name),
         PrettyPrintable (UProc ops),
         RN.Renamable (p UnRenamedName) (p Name),
-        TC.TypeCheckable (p Name) Type) => CSPLike c p ops | ops -> p, p -> c where
+        TC.TypeCheckable (p Name) Type) => CSPLike c p ops 
+            | ops -> p, p -> c, c -> p, p -> ops where
       
 -- | A 'CSPMSession' represents the internal states of all the various
 -- components.
