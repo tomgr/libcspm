@@ -89,7 +89,12 @@ instance Compressable (Process Name) where
 
 instance TypeCheckable (Process Name) Type where
     errorContext _ = Nothing
-    --typeCheck' (ReplicatedUserOperator op es stmts) =
+    typeCheck' (ReplicatedUserOperator opname es stmts defn) = do
+        let op = head [op | op@(OpSem.ReplicatedOperator _ _ _ _ _) <- 
+                                OpSem.operators (uncompiledOperators defn),
+                                OpSem.opFriendlyName op == opname]
+        zipWithM (\ e (n, t) -> typeCheckExpect e (opSemTypeToType t)) es (OpSem.opArgs op)
+        return $ TProc
     typeCheck' (UserOperator opname es defn) = do
         let op = head [op | op <- OpSem.operators (uncompiledOperators defn),
                                 OpSem.opFriendlyName op == opname]
