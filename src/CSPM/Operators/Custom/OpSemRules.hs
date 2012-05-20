@@ -85,7 +85,7 @@ transformInductiveRule ops op (InductiveRule pre post conditions) =
         discards = 
             currentOnProcs
             \\ (map (getId op) (mapPF procMap (functionImage resultingOnProcs)))
-        generators = map transformSideCondition conditions
+        generators = conditions
         boundVars = varsBound conditions
     in
 {-      error (
@@ -108,10 +108,6 @@ transformInductiveRule ops op (InductiveRule pre post conditions) =
         CompiledRule phi resultingEvent resultingOperatorName f psi 
             chi discards boundVars generators
             
-transformSideCondition :: SideCondition Name -> Stmt Name
-transformSideCondition (SCGenerator p e) = Generator p e
-transformSideCondition (Formula f) = PropFormula f
-
 getOp :: [Operator] -> Name -> Operator
 getOp ops n =
     head [op | (op @ (Operator n' _ _ _)) <- ops, n==n']

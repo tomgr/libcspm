@@ -218,11 +218,6 @@ data CompiledRule =
         crChi :: PartialFunction ProcId ProcId,
         crDiscards :: [ProcId],
         crBoundVars :: [Name],
-        crGenerators :: [Stmt Name]
+        crGenerators :: [SideCondition Name]
     }
     deriving Show
-
-data Stmt id = 
-    Generator (Pat id) (Exp id)
-    | PropFormula (Formula id)
-    deriving (Show)
