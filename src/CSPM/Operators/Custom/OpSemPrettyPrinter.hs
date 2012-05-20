@@ -13,8 +13,6 @@ instance PrettyPrintable Int where
 instance (PrettyPrintable a, PrettyPrintable b) =>
         PrettyPrintable (a,b) where
     prettyPrint (a,b) = parens (list [prettyPrint a, prettyPrint b])
-instance PrettyPrintable a => PrettyPrintable [a] where
-    prettyPrint xs = angles (list (map prettyPrint xs))
 
 instance PrettyPrintable id => PrettyPrintable (Event id) where
     prettyPrint Tau = text "tau"
