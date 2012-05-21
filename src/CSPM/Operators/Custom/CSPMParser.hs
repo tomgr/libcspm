@@ -20,6 +20,7 @@ import qualified CSPM.Operators.Custom.Syntax as CSP
 import qualified Util.Annotated as CSP
 import Util.Exception
 import Util.PartialFunctions
+import Util.PrettyPrint (prettyPrint)
 
 data CSPMParserState = 
     CSPMParserState {
@@ -559,7 +560,7 @@ expressionParser =
                 opdefn <- gets operatorDefinition
                 ops <- gets operatorSyntax
                 n <- nameParser
-                return $ case [n' | (n', _) <- ops, show n' == show n] of
+                return $ case [n' | (n', _) <- ops, show (prettyPrint n') == show (prettyPrint n)] of
                             [n] -> CSP.Process (CSP.UserOperator n [] opdefn)
                             [] -> CSP.Var n
                 
