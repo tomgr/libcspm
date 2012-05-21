@@ -22,7 +22,7 @@ import CSPM.Prelude
 import System.FilePath
 
 instance BuiltInFunctions UnCompiledOperator where
-    compressionOperator = ProcOperator
+    compressionOperator = UnCOp . ProcOperator
     extraBuiltInsDefinitions = []
 
 instance Parseable CustomParserContext Process where
