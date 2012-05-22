@@ -395,10 +395,10 @@ opSemEvalRule thisFmtId binds compiledRule = do
                 -- getProc pid returns the process id of the component that is
                 -- the pid^th component of the new operator.
                 getProc :: Int -> Int
-                getProc pid | pid < currentOnProcCount = 
-                    PF.apply (OpSem.crPsi compiledRule) pid
-                getProc pid = -- must be a newly turned on proc
-                    PF.apply offpmap (PF.apply (OpSem.crF compiledRule) (pid - currentOnProcCount))
+                getProc pid = 
+                    let v = PF.apply (OpSem.crPsi compiledRule) pid
+                    in if v < currentOnProcCount then v
+                        else PF.apply offpmap (PF.apply (OpSem.crF compiledRule) (v - currentOnProcCount))
                 pmap' = map (\pid -> (pid, getProc pid)) [0..newProcCount-1]
                 pstates' :: PF.PartialFunction Int ProcState
                 pstates' = map (\ (cid, st) ->

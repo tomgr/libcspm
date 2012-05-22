@@ -27,7 +27,7 @@ compileOperators opSemDefn =
 
 transformInductiveRule :: [Operator] -> Operator -> InductiveRule Name -> CompiledRule
 transformInductiveRule ops op (InductiveRule pre post conditions) =
-    let     
+    let
         (Performs (OperatorApp name currentOperatorArgs) resultingEvent 
                         (OperatorApp newOperator newArgs)) = post
         -- All arguments of the operator of type proc
@@ -54,7 +54,7 @@ transformInductiveRule ops op (InductiveRule pre post conditions) =
         resultingOperatorProcessArgs = 
             zip [0..] [arg | (Var arg, (_, TOnProcess _)) 
                                 <- zip newArgs resultingOperatorArgs]
-            ++ zip [(-length (offProcs resultingOperator))..(-1)] 
+            ++ zip [(-1),(-2)..] 
                             [arg | (Var arg, (_, TOffProcess _)) 
                                 <- zip newArgs resultingOperatorArgs]
         -- PartialFunction from arg id of resulting op to argument value
@@ -77,7 +77,7 @@ transformInductiveRule ops op (InductiveRule pre post conditions) =
             zip [pid' | (pid, pid') <- onProcMap, elem pid' currentOffProcs] [0..]
         
         phi = [(getId op n, ev) | Performs (Var n) ev (Var n') <- pre]
-        psi = [(pid, if pid' < 0 then apply newProcMap pid' else pid')
+        psi = [(pid, if pid' < 0 then length currentOnProcs + apply newProcMap pid' else pid')
                 | (pid, pid') <- onProcMap]
         f = invert newProcMap
         chi = 
@@ -87,24 +87,27 @@ transformInductiveRule ops op (InductiveRule pre post conditions) =
             \\ (map (getId op) (mapPF procMap (functionImage resultingOnProcs)))
         generators = conditions
         boundVars = varsBound conditions
-    in
-{-      error (
-            show resultingOperator ++"\n\n"
-            ++ show resultingOperatorProcessArgs ++"\n\n"
-            ++ show resultingOnProcs ++"\n\n"
-            ++ show resultingOffProcs ++"\n\n"
-            ++ show procMap++"\n\n"
-            ++ show phi ++"\n\n"
-            ++ show psi ++"\n\n"
-            
-            ++show resultingOperatorName++"\n\n"
-            ++show resultingEvent++"\n\n"           
-            ++show f++"\n\n"
-            ++show chi++"\n\n"
-            ++show discards++"\n\n"
-            ++show generators++"\n\n"
-        )
--}
+    in 
+        --if (length pre == 0 && show (opFriendlyName op) == "Timeout") then
+        --  error (
+        --        show resultingOperator ++"\n\n"
+        --        ++ show resultingOperatorProcessArgs ++"\n\n"
+        --        ++ show resultingOnProcs ++"\n\n"
+        --        ++ show resultingOffProcs ++"\n\n"
+        --        ++ show procMap++"\n\n"
+        --        ++ show phi ++"\n\n"
+        --        ++ show psi ++"\n\n"
+        --        ++ show onProcMap++"\n\n"
+        --        ++ show newProcMap++"\n\n"
+                
+        --        ++show resultingOperatorName++"\n\n"
+        --        ++show resultingEvent++"\n\n"           
+        --        ++show f++"\n\n"
+        --        ++show chi++"\n\n"
+        --        ++show discards++"\n\n"
+        --        ++show generators++"\n\n"
+        --    )
+        --else 
         CompiledRule phi resultingEvent resultingOperatorName f psi 
             chi discards boundVars generators
             
@@ -129,7 +132,7 @@ onProcs (op @ (Operator _ args rules _)) =
 getId :: Operator -> Name -> ProcId
 getId op n =
     head ([id | (n', id) <- zip (onProcs op) [0..], n==n']
-            ++[id | (n', id) <- zip (offProcs op) [-(length (offProcs op))..(-1)], 
+            ++[id | (n', id) <- zip (offProcs op) [(-1),(-2)..], 
                     n==n']
     )
 
