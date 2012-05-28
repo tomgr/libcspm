@@ -34,9 +34,6 @@ $notid = [[^0-9a-zA-Z_]\(\[$whitechar]
 @comment = (\-\-.*) 
 @nltok = (@comment|())\n@nl
 
--- *************************************************************************
--- TODO: get correct lambda function syntax
-
 -- Note that we allow newlines to preceed all tokens, except for those that
 -- may possibly be at the start of a new expression. Therefore, for example,
 -- as a + may never be at the start of an expression we allow newlines before
@@ -73,6 +70,7 @@ tokens :-
 
     <soak>((\-\-.*\n)|$whitechar)+  { skip }
     <soak>""/$not_white         { begin 0 }
+    <soak>@nl"{-"                  { nestedComment }
 
     <0>@white_no_nl             { skip }
 
