@@ -454,7 +454,6 @@ data Decl id =
     | NameType id (AnExp id)
     deriving (Eq, Show)
 
--- TODO: annotate
 data Assertion id = 
     -- | A refinement assertion, e.g. @assert P [F= Q@.
     Refinement {
@@ -494,7 +493,6 @@ data SemanticProperty =
     | LivelockFreedom
     deriving (Eq, Show)
     
--- TODO: annotate
 -- | The clause of a datatype, e.g. if a datatype declaration was:
 --
 -- > datatype T = A.Int.Bool | B.Bool | C
