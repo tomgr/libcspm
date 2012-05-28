@@ -48,6 +48,7 @@ data Token =
     | TLambdaDot
     | TChannel
     | TAssert
+    | TAssertNot
     | TDataType
     | TExternal
     | TTransparent
@@ -146,6 +147,7 @@ instance PrettyPrintable Token where
     prettyPrint TLambdaDot = char '@'
     prettyPrint TChannel = text "channel"
     prettyPrint TAssert = text "assert"
+    prettyPrint TAssertNot = text "not"
     prettyPrint TDataType = text "datatype"
     prettyPrint TExternal = text "external"
     prettyPrint TTransparent = text "transparent"

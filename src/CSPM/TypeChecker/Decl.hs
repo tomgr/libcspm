@@ -270,6 +270,7 @@ instance TypeCheckable (Assertion Name) () where
         ensureIsProc e1
         ensureIsProc e2
         mapM_ typeCheck opts
+    typeCheck' (ASNot a) = typeCheck a
 
 instance TypeCheckable (ModelOption Name) () where
     errorContext a = Nothing

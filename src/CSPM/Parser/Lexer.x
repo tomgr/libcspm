@@ -33,6 +33,7 @@ $notid = [[^0-9a-zA-Z_]\(\[$whitechar]
 @nl = ((\-\-.*\n)|$whitechar)*
 @comment = (\-\-.*) 
 @nltok = (@comment|())\n@nl
+@notnot = [^n]|(n[^o])|(no[^t])
 
 -- Note that we allow newlines to preceed all tokens, except for those that
 -- may possibly be at the start of a new expression. Therefore, for example,
@@ -68,9 +69,14 @@ tokens :-
     <0>@nl"[R="@nl              { tok (TRefines Refusals) }
     <0>@nl"[RD="@nl             { tok (TRefines RefusalsDivergences) }
 
-    <soak>((\-\-.*\n)|$whitechar)+  { skip }
+    <soak>((\-\-.*\n)|$whitechar)+ { skip }
     <soak>""/$not_white         { begin 0 }
-    <soak>@nl"{-"                  { nestedComment }
+    <soak>@nl"{-"               { nestedComment }
+
+    <assert>((\-\-.*\n)|$whitechar)+ { skip }
+    <assert>@nl"not"/$notid     { begin' soak TAssertNot }
+    <assert>""/@notnot          { begin 0 }
+    <assert>@nl"{-"             { nestedComment }
 
     <0>@white_no_nl             { skip }
 
@@ -142,7 +148,7 @@ tokens :-
     <0>@nl"let"/$notid          { soakTok TLet }
     <0>@nl"within"/$notid       { soakTok TWithin }
     <0>"channel"/$notid         { soakTok TChannel }
-    <0>"assert"/$notid          { soakTok TAssert }
+    <0>"assert"/$notid          { soakTok' TAssert }
     <0>"datatype"/$notid        { soakTok TDataType }
     <0>"external"/$notid        { soakTok TExternal }
     <0>"transparent"/$notid     { soakTok TTransparent }
@@ -215,6 +221,9 @@ gt inp len = do
 
 soakTok :: Token -> AlexInput -> Int -> ParseMonad LToken
 soakTok t inp len = setCurrentStartCode soak >> tok t inp len
+
+soakTok' :: Token -> AlexInput -> Int -> ParseMonad LToken
+soakTok' t inp len = setCurrentStartCode assert >> tok t inp len
 
 -- TODO: don't count whitespace in the tokens
 tok :: Token -> AlexInput -> Int -> ParseMonad LToken
@@ -296,6 +305,9 @@ type AlexInput = ParserState
 
 begin :: Int -> AlexInput -> Int -> ParseMonad LToken
 begin sc' st len = setCurrentStartCode sc' >> getNextToken
+
+begin' :: Int -> Token -> AlexInput -> Int -> ParseMonad LToken
+begin' sc' t st len = setCurrentStartCode sc' >> tok t st len
 
 alexInputPrevChar :: AlexInput -> Char
 alexInputPrevChar (ParserState { fileStack = fps:_ })= previousChar fps

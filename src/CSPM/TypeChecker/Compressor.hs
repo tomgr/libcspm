@@ -128,6 +128,7 @@ instance Compressable (Assertion a) where
         Refinement $$ mcompress e1 $$ mcompress m $$ mcompress e2 $$ mcompress opts
     mcompress (PropertyCheck e p m) = return 
         PropertyCheck $$ mcompress e $$ mcompress p $$ mcompress m
+    mcompress (ASNot a) = return ASNot $$ mcompress a
 
 instance Compressable (ModelOption a) where
     mcompress (TauPriority e) = return TauPriority $$ mcompress e

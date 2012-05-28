@@ -1,0 +1,16 @@
+assert
+    {- why? -}
+    STOP [T=  STOP
+
+assert not STOP [T= STOP
+
+assert
+    -- testing 1 2 3
+    not
+    -- testing again really
+    {- really testing
+
+
+
+    -}
+    STOP [T= STOP
