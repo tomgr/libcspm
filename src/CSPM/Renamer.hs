@@ -393,8 +393,6 @@ instance Renamable (Module UnRenamedName) (Module Name) where
 instance Renamable (Assertion UnRenamedName) (Assertion Name) where
     rename (ASNot e) =
         return ASNot $$ rename e
-    rename (BoolAssertion e) =
-        return BoolAssertion $$ rename e
     rename (Refinement e1 m e2 mopts) = 
         return Refinement $$ rename e1 $$ return m $$ rename e2 $$ rename mopts
     rename (PropertyCheck e1 p m) =

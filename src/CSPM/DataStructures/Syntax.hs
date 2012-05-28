@@ -470,8 +470,6 @@ data Assertion id =
         propertyCheckProperty :: SemanticProperty,
         propertyCheckModel :: Maybe Model
     }
-    -- | A boolean assertion, not currently supported.
-    | BoolAssertion (AnExp id)
     -- | The negation of an assertion, not currently supported.
     | ASNot (Assertion id)
     deriving (Eq, Show)

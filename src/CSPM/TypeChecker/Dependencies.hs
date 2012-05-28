@@ -213,7 +213,6 @@ instance Dependencies (Assertion Name) where
         d2 <- dependencies opts
         return $ d1++d2
     dependencies' (PropertyCheck e1 p m) = dependencies [e1]
-    dependencies' (BoolAssertion e1) = dependencies [e1]
     dependencies' (ASNot a) = dependencies a
 
 instance Dependencies (ModelOption Name) where
