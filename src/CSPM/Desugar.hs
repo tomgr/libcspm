@@ -46,6 +46,7 @@ instance Desugarable (Assertion Name) where
         Refinement (desugar e1) m (desugar e2) (desugar opts)
     desugar (PropertyCheck e p m) = 
         PropertyCheck (desugar e) p m
+    desugar (ASNot a) = ASNot (desugar a)
 
 instance Desugarable (ModelOption Name) where
     desugar (TauPriority e) = TauPriority (desugar e)
