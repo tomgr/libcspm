@@ -62,7 +62,7 @@ instance PrettyPrintable id => PrettyPrintable (Assertion id) where
     prettyPrint (PropertyCheck e1 prop (Just m)) =
         hang (prettyPrint e1) tabWidth
             (colon <> brackets (prettyPrint prop <+> brackets (prettyPrint m)))
-    prettyPrint (Not a) = text "not" <+> prettyPrint a
+    prettyPrint (ASNot a) = text "not" <+> prettyPrint a
 
 instance PrettyPrintable Model where
     prettyPrint Traces = text "T"
