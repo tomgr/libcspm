@@ -48,6 +48,8 @@ instance PrettyPrintable id => PrettyPrintable (Decl id) where
     prettyPrint (DataType n dtcs) =
         text "datatype" <+> prettyPrint n <+> text "=" 
             <+> fsep (punctuate (text "|") (map prettyPrint dtcs))
+    prettyPrint (NameType n e) =
+        text "nametype" <+> prettyPrint n <+> text "=" <+> prettyPrint e
     prettyPrint (Assert a) =
         text "assert" <+> prettyPrint a
         
