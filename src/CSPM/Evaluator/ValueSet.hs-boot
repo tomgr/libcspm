@@ -12,6 +12,7 @@ instance Eq ValueSet
 instance Hashable ValueSet
 instance Ord ValueSet
 instance PrettyPrintable ValueSet
+instance Show ValueSet
 
 toList :: ValueSet -> [Value]
 fromList :: [Value] -> ValueSet
@@ -19,3 +20,4 @@ cartesianProduct :: CartProductType -> [ValueSet] -> ValueSet
 compareValueSets :: ValueSet -> ValueSet -> Maybe Ordering
 member :: Value -> ValueSet -> Bool
 isFinitePrintable :: ValueSet -> Bool
+unDotProduct :: ValueSet -> Maybe [ValueSet]

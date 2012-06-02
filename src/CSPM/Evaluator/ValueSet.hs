@@ -20,6 +20,7 @@ module CSPM.Evaluator.ValueSet (
     singletonValue,
     valueSetToEventSet,
     isFinitePrintable,
+    unDotProduct,
 )
 where
 
@@ -34,6 +35,7 @@ import CSPM.Evaluator.Values
 import qualified CSPM.Compiler.Events as CE
 import Util.Exception
 import qualified Util.List as UL
+import Util.Monad
 import Util.PrettyPrint hiding (empty)
 
 data CartProductType = CartDot | CartTuple deriving (Eq, Ord)
@@ -351,3 +353,23 @@ difference s1 s2 = difference (fromList (toList s1)) (fromList (toList s2))
 
 valueSetToEventSet :: ValueSet -> CE.EventSet
 valueSetToEventSet = CE.fromList . map valueEventToEvent . toList
+
+-- | Attempts to decompose the set into a cartesian product, returning Nothing
+-- if it cannot.
+unDotProduct :: ValueSet -> Maybe [ValueSet]
+unDotProduct (CartesianProduct vs vc) = return [CartesianProduct vs vc]
+unDotProduct (AllSequences vs) = return [AllSequences vs]
+unDotProduct (IntSetFrom i1) = return [IntSetFrom i1]
+unDotProduct Integers = return [Integers]
+unDotProduct Processes = return [Processes]
+unDotProduct (CompositeSet s1 s2) = do
+    vs1 <- unDotProduct s1
+    vs2 <- unDotProduct s1
+    case (vs1, vs2) of
+        ([_], [_]) -> Just [CompositeSet s1 s2]
+        _ -> Nothing
+unDotProduct (ExplicitSet s) | S.null s = return [ExplicitSet s]
+unDotProduct (ExplicitSet s) =
+    case head (S.toList s) of
+        VDot _ -> Nothing
+        _ -> Just [ExplicitSet s]

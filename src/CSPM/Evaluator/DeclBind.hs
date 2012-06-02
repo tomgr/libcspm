@@ -22,8 +22,6 @@ import Util.Annotated
 import Util.Exception
 import Util.Monad
 
-import Debug.Trace
-
 -- | Given a list of declarations, returns a sequence of names bounds to
 -- values that can be passed to 'addScopeAndBind' in order to bind them in
 -- the current scope.
@@ -114,7 +112,7 @@ bindDecl (an@(An _ _ (Channel ns me))) =
         mkChan :: Name -> EvaluationMonad Value
         mkChan n = do
             vss <- case me of
-                Just e -> eval e >>= return . evalTypeExprToList
+                Just e -> eval e >>= evalTypeExprToList
                 Nothing -> return []
             
             let arity = fromIntegral (length vss)
@@ -130,7 +128,7 @@ bindDecl (an@(An _ _ (DataType n cs))) =
         mkDataTypeClause :: DataTypeClause Name -> (Name, EvaluationMonad Value)
         mkDataTypeClause (DataTypeClause nc me) = (nc, do
             vss <- case me of
-                Just e -> eval e >>= return . evalTypeExprToList
+                Just e -> eval e >>= evalTypeExprToList
                 Nothing -> return []
             let arity = fromIntegral (length vss)
             return $ VTuple [VDot [VDataType nc], VInt arity, VList (map VSet vss)])
@@ -148,7 +146,8 @@ bindDecl (an@(An _ _ (DataType n cs))) =
 bindDecl (an@(An _ _ (NameType n e))) = return $
     [(n, do
         v <- eval e
-        return $ VSet $ evalTypeExpr v)]
+        sets <- evalTypeExprToList v
+        return $ VSet $ cartesianProduct CartDot sets)]
 
 bindDecl (an@(An _ _ (Assert _))) = return []
 bindDecl (an@(An _ _ (External ns))) = return []
@@ -156,12 +155,11 @@ bindDecl (an@(An _ _ (Transparent ns))) = return []
 
 evalTypeExpr :: Value -> ValueSet
 evalTypeExpr (VSet s) = s
-evalTypeExpr (VDot vs) = cartesianProduct CartDot (map evalTypeExpr vs)
 evalTypeExpr (VTuple vs) = cartesianProduct CartTuple (map evalTypeExpr vs)
 
-evalTypeExprToList :: Value -> [ValueSet]
-evalTypeExprToList (VDot vs) = concatMap evalTypeExprToList vs
-evalTypeExprToList v = [evalTypeExpr v]
+evalTypeExprToList :: Value -> EvaluationMonad [ValueSet]
+evalTypeExprToList (VDot vs) = concatMapM evalTypeExprToList vs
+evalTypeExprToList v = splitIntoFields (evalTypeExpr v)
 
 class FreeVars a where
     freeVars :: a -> [Name]

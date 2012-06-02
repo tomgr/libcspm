@@ -6,7 +6,7 @@ module CSPM.Evaluator.Values (
     valueEventToEvent,
     combineDots,
     extensions, oneFieldExtensions,
-    productions,
+    productions, splitIntoFields,
     noSave, maybeSave, removeThunk, lookupVar,
 ) where
 
@@ -14,7 +14,8 @@ import Control.Monad
 import Data.Foldable (foldrM)
 import Data.Hashable
 
-import CSPM.Compiler.Events
+import Debug.Trace
+import CSPM.Compiler.Events hiding (fromList)
 import CSPM.Compiler.Processes
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
@@ -219,10 +220,9 @@ combineDots v1 v2 =
                         mv <- maybeDotFieldOn (last vs) v
                         case mv of
                             Just vLast -> do
-                                b <- checkIsValidForField mn (VDot (nd:replaceLast vs vLast)) (fieldCount-1) vLast
-                                if b then 
-                                    return $ Just (VDot (nd:replaceLast vs vLast))
-                                else return Nothing
+                                let newValue = VDot (nd:replaceLast vs vLast)
+                                b <- checkIsValidForField mn newValue (fieldCount-1) vLast
+                                return $ if b then Just newValue else Nothing
                             -- Start a new field, or return nothing if we
                             -- are full
                             Nothing | fieldCount < a -> do
@@ -232,10 +232,21 @@ combineDots v1 v2 =
                             Nothing | fieldCount > a -> panic "Malformed dot encountered."
         maybeDotFieldOn vbase v = return Nothing
 
+        isComplete :: Value -> EvaluationMonad Bool
+        isComplete (VDot (VChannel n : vs)) = do
+            VTuple [_, VInt arity, _] <- lookupVar n
+            return $ length vs == arity
+        isComplete (VDot (VDataType n : vs)) = do
+            VTuple [_, VInt arity, _] <- lookupVar n
+            return $ length vs == arity
+        isComplete _ = return True
+
         checkIsValidForField :: Maybe Name -> Value -> Int -> Value -> EvaluationMonad Bool
         checkIsValidForField Nothing overallValue field v = return True
         checkIsValidForField (Just n) overallValue field v = do
-            VTuple [_, _, VList fieldSets] <- lookupVar n
+            b <- isComplete v
+            if not b then return True else do
+            VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
             let VSet vs = fieldSets!!field
             if member v vs then return True
             else throwError $ dotIsNotValidMessage overallValue field v vs
@@ -359,3 +370,46 @@ productions :: Value -> EvaluationMonad [Value]
 productions v = do
     pss <- extensions v
     mapM (combineDots v) pss
+
+takeFields :: Int -> [Value] -> EvaluationMonad ([Value], [Value])
+takeFields 0 vs = return ([], vs)
+takeFields 1 vs = do
+    (f, vs) <- takeFirstField vs
+    return ([f], vs)
+takeFields n vs = do
+    (f, vs') <- takeFirstField vs
+    (fs, vs'') <- takeFields (n-1) vs'
+    return (f:fs, vs'')
+
+takeFirstField :: [Value] -> EvaluationMonad (Value, [Value])
+takeFirstField (VDataType n : vs) = do
+    VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
+    (fs, vs) <- takeFields arity vs
+    return $ (VDot (VDataType n : fs), vs)
+takeFirstField (VChannel n : vs) = do
+    VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
+    (fs, vs) <- takeFields arity vs
+    return $ (VDot (VChannel n : fs), vs)
+takeFirstField (v:vs) = return (v, vs)
+
+splitIntoFields :: ValueSet -> EvaluationMonad [ValueSet]
+splitIntoFields vs = do
+    let values = toList vs
+        extract (VDot vs) = vs
+        split [] = return []
+        split vs = do
+            (v, vs') <- takeFirstField vs
+            ss <- split vs'
+            return $ v:ss
+    case unDotProduct vs of
+        Just ss -> return ss
+        Nothing -> case values of
+                        (VDot fs : _) -> do
+                            splitValues <- mapM (split . extract) values
+                            if splitValues == [] then return [] else do
+                            let fieldCount = length (head splitValues)
+                                combine [] = replicate fieldCount []
+                                combine (vs:vss) = zipWith (:) vs (combine vss)
+                                sets = map fromList $ combine splitValues
+                            return $ sets
+                        _ -> return $ [vs]

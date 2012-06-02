@@ -1,0 +1,15 @@
+datatype Y = X.A
+
+A = { x.y | x <- {0..1}, y <- {0..2}}
+
+channel c : Y
+channel d : Y.Y
+channel e : Z
+channel f : { X.x.y | x <- {0..1}, y <- {0..2}}
+
+Z = { x.y | x <- Y, y <- Y}
+
+test1 = {| c.X.0 |} == { c.X.0.0, c.X.0.1, c.X.0.2 }
+test2 = (X.0.1) != (X.0.2)
+test3 = {x | e.x <- {| e |}} == {x | d.x <- {| d |}}
+test4 = {x | f.x <- {| f |}} == {x | c.x <- {| c |}}
