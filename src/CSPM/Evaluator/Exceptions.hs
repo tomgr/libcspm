@@ -42,6 +42,13 @@ replicatedInternalChoiceOverEmptySetMessage l p = mkErrorMessage l $
     ) tabWidth
     (text "evaluated to the empty set. However, replicated internal choice is not defined for the empty set.")
 
+replicatedInternalChoiceOverEmptySetMessage' :: SrcSpan -> Pat Name -> ErrorMessage
+replicatedInternalChoiceOverEmptySetMessage' l p = mkErrorMessage l $
+    hang (
+        hang (text "The pattern"<>colon) tabWidth (prettyPrint p)
+    ) tabWidth
+    (text "matched no elements of the channel set. However, replicated internal choice is not defined for the empty set.")
+
 typeCheckerFailureMessage :: String -> ErrorMessage
 typeCheckerFailureMessage s = mkErrorMessage Unknown $
     hang (text "The program caused a runtime error that should have been caught by the typechecker:")
@@ -62,14 +69,6 @@ cannotCheckSetMembershipError v vs = mkErrorMessage Unknown $
 cardOfInfiniteSetMessage :: ValueSet -> ErrorMessage
 cardOfInfiniteSetMessage vs = mkErrorMessage Unknown $
     text "Attempt to take the cardinatlity of an infinite set."
-
-cannotUnionSetsMessage :: ValueSet -> ValueSet -> ErrorMessage
-cannotUnionSetsMessage vs1 vs2 = mkErrorMessage Unknown $
-    text "Cannot union the supplied sets."
-
-cannotIntersectSetsMessage :: ValueSet -> ValueSet -> ErrorMessage
-cannotIntersectSetsMessage vs1 vs2 = mkErrorMessage Unknown $
-    text "Cannot intersect the supplied sets."
 
 cannotDifferenceSetsMessage :: ValueSet -> ValueSet -> ErrorMessage
 cannotDifferenceSetsMessage vs1 vs2 = mkErrorMessage Unknown $

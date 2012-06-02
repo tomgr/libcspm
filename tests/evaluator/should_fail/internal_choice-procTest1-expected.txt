@@ -1,0 +1,5 @@
+P =
+
+procTest1 = P
+
+procTest1

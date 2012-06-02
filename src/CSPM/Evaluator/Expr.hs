@@ -237,9 +237,14 @@ instance Evaluatable (Exp Name) where
             evalNonDetFields evBase (NonDetInput p (Just e):fs) = do
                 VSet s <- eval e
                 ps <- evalInputField evBase fs p s evalNonDetFields
-                return $ POp PInternalChoice ps
-            evalNonDetFields evBase (NonDetInput p Nothing:fs) =
-                evalInputField2 evBase fs (unAnnotate p) evalNonDetFields (POp PInternalChoice)
+                if Sq.null ps then
+                    throwError $ replicatedInternalChoiceOverEmptySetMessage (loc e) (unAnnotate e)
+                else return $ POp PInternalChoice ps
+            evalNonDetFields evBase (NonDetInput p Nothing:fs) = do
+                POp _ ps <- evalInputField2 evBase fs (unAnnotate p) evalNonDetFields (POp PInternalChoice)
+                if Sq.null ps then
+                    throwError $ replicatedInternalChoiceOverEmptySetMessage' (loc p) (unAnnotate p)
+                else return $ POp PInternalChoice ps
             evalNonDetFields evBase fs = evalFields evBase fs
 
             evalFields :: Value -> [Field Name] -> EvaluationMonad UProc
