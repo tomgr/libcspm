@@ -20,7 +20,6 @@ import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import Util.Annotated
 import Util.Exception
-import qualified Util.List as UL
 import Util.Monad
 
 import Debug.Trace
@@ -119,7 +118,7 @@ bindDecl (an@(An _ _ (Channel ns me))) =
                 Nothing -> return []
             
             let arity = fromIntegral (length vss)
-            return $ VTuple [VDot [VChannel n], VInt arity, VList (map VList vss)]
+            return $ VTuple [VDot [VChannel n], VInt arity, VList (map VSet vss)]
         eventSetValue :: EvaluationMonad Value
         eventSetValue = do
             ss <- mapM (\ n -> completeEvent (VDot [VChannel n])) ns
@@ -134,17 +133,17 @@ bindDecl (an@(An _ _ (DataType n cs))) =
                 Just e -> eval e >>= return . evalTypeExprToList
                 Nothing -> return []
             let arity = fromIntegral (length vss)
-            return $ VTuple [VDot [VDataType nc], VInt arity, VList (map VList vss)])
+            return $ VTuple [VDot [VDataType nc], VInt arity, VList (map VSet vss)])
         computeSetOfValues :: EvaluationMonad Value
         computeSetOfValues =
             let 
                 mkSet nc = do
                     VTuple [_, _, VList fields] <- lookupVar nc
-                    let cp = UL.cartesianProduct (map (\(VList vs) -> vs) fields)
-                    return $ map (\vs -> VDot ((VDataType nc):vs)) cp
+                    let fs = fromList [VDataType nc] : map (\(VSet vs) -> vs) fields
+                    return $ cartesianProduct CartDot fs
             in do
-                vs <- concatMapM mkSet [nc | DataTypeClause nc _ <- map unAnnotate cs]
-                return $ VSet (fromList vs)
+                vs <- mapM mkSet [nc | DataTypeClause nc _ <- map unAnnotate cs]
+                return $ VSet (unions vs)
     in return $ (n, computeSetOfValues):(map mkDataTypeClause (map unAnnotate cs))
 bindDecl (an@(An _ _ (NameType n e))) = return $
     [(n, do
@@ -157,12 +156,12 @@ bindDecl (an@(An _ _ (Transparent ns))) = return []
 
 evalTypeExpr :: Value -> ValueSet
 evalTypeExpr (VSet s) = s
-evalTypeExpr (VDot vs) = cartesianProduct VDot (map evalTypeExpr vs)
-evalTypeExpr (VTuple vs) = cartesianProduct VTuple (map evalTypeExpr vs)
+evalTypeExpr (VDot vs) = cartesianProduct CartDot (map evalTypeExpr vs)
+evalTypeExpr (VTuple vs) = cartesianProduct CartTuple (map evalTypeExpr vs)
 
-evalTypeExprToList :: Value -> [[Value]]
+evalTypeExprToList :: Value -> [ValueSet]
 evalTypeExprToList (VDot vs) = concatMap evalTypeExprToList vs
-evalTypeExprToList v = [toList (evalTypeExpr v)]
+evalTypeExprToList v = [evalTypeExpr v]
 
 class FreeVars a where
     freeVars :: a -> [Name]

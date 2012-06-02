@@ -15,10 +15,11 @@ module CSPM.Evaluator.ValueSet (
     intersection, intersections,
     difference,
     -- * Derived functions
-    cartesianProduct, powerset, allSequences,
+    CartProductType(..), cartesianProduct, powerset, allSequences,
     -- * Specialised Functions
     singletonValue,
-    valueSetToEventSet
+    valueSetToEventSet,
+    isFinitePrintable,
 )
 where
 
@@ -32,7 +33,10 @@ import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Values
 import qualified CSPM.Compiler.Events as CE
 import Util.Exception
+import qualified Util.List as UL
 import Util.PrettyPrint hiding (empty)
+
+data CartProductType = CartDot | CartTuple deriving (Eq, Ord)
 
 data ValueSet = 
     -- | Set of all integers
@@ -42,10 +46,13 @@ data ValueSet =
     -- | An explicit set of values
     | ExplicitSet (S.Set Value)
     -- | The infinite set of integers starting at lb.
-    | IntSetFrom Int -- {lb..}
-    -- | A set of two value sets. Note that the tree of sets may be infinite.
-    -- NB. Composite sets are always infinite.
+    | IntSetFrom Int
+    -- | A union of two sets.
     | CompositeSet ValueSet ValueSet
+    -- | A set containing all sequences over the given set.
+    | AllSequences ValueSet
+    -- | A cartesian product of several sets.
+    | CartesianProduct [ValueSet] CartProductType
     -- Only used for the internal set representation
     deriving Ord
 
@@ -54,7 +61,9 @@ instance Hashable ValueSet where
     hash Processes = 2
     hash (ExplicitSet s) = combine 3 (hash (S.toList s))
     hash (IntSetFrom lb) = combine 4 lb
-    hash (CompositeSet vs1 vs2) = panic "Hash of an infinite set"
+    hash (AllSequences vs) = combine 5 (hash vs)
+    hash (CompositeSet vs1 vs2) = combine 6 (combine (hash vs1) (hash vs2))
+    hash (CartesianProduct vss _) = combine 7 (hash vss)
 
 instance Eq ValueSet where
     s1 == s2 = compareValueSets s1 s2 == Just EQ
@@ -63,6 +72,11 @@ instance PrettyPrintable ValueSet where
     prettyPrint Integers = text "Integers"
     prettyPrint Processes = text "Proc"
     prettyPrint (IntSetFrom lb) = braces (int lb <> text "...")
+    prettyPrint (AllSequences vs) = text "Seq" <> parens (prettyPrint vs)
+    prettyPrint (CartesianProduct vss CartDot) =
+        hcat (punctuate (text ".") (map prettyPrint vss))
+    prettyPrint (CartesianProduct vss CartTuple) =
+        parens (hcat (punctuate (text ",") (map prettyPrint vss)))
     prettyPrint (ExplicitSet s) =
         braces (list (map prettyPrint $ S.toList s))
     prettyPrint (CompositeSet s1 s2) =
@@ -70,6 +84,16 @@ instance PrettyPrintable ValueSet where
     
 instance Show ValueSet where
     show = show . prettyPrint
+
+isFinitePrintable :: ValueSet -> Bool
+isFinitePrintable (ExplicitSet vs) = True
+isFinitePrintable Integers = True
+isFinitePrintable Processes = True
+isFinitePrintable (IntSetFrom v1) = True
+isFinitePrintable (CompositeSet v1 v2) =
+    isFinitePrintable v1 && isFinitePrintable v2
+isFinitePrintable (CartesianProduct vss _) = and (map isFinitePrintable vss)
+isFinitePrintable (AllSequences vs) = isFinitePrintable vs
 
 flipOrder :: Maybe Ordering -> Maybe Ordering
 flipOrder Nothing = Nothing
@@ -103,7 +127,6 @@ compareValueSets (IntSetFrom lb1) (ExplicitSet s2) =
     in if lb1 <= lb2 then Just GT else Nothing
 compareValueSets (ExplicitSet s1) (IntSetFrom lb1) =
     flipOrder (compareValueSets (IntSetFrom lb1) (ExplicitSet s1))
-
 -- Composite Sets
 compareValueSets (CompositeSet s1 s2) s =
     case (compareValueSets s1 s, compareValueSets s2 s) of
@@ -114,14 +137,32 @@ compareValueSets (CompositeSet s1 s2) s =
         (Just GT, Just x)   -> if x /= LT then Just GT else Nothing
 compareValueSets s (CompositeSet s1 s2) = 
     flipOrder (compareValueSets (CompositeSet s1 s2) s)
-
+compareValueSets s1 s2 | empty s1 && empty s2 = Just EQ
+compareValueSets s1 s2 | empty s1 && not (empty s2) = Just LT
+compareValueSets s1 s2 | not (empty s1) && empty s2 = Just GT
+-- AllSequences+ExplicitSet sets
+compareValueSets (ExplicitSet vs) (AllSequences vss) =
+    if and (map (flip member (AllSequences vss)) (S.toList vs)) then Just LT
+    -- Otherwise, there is some item in vs that is not in vss. However, unless
+    -- vss is empty there must be some value in the second set that is not in
+    -- the first, since (AllSequences vss) is infinite and, if the above
+    -- finishes, we know the first set is finite. Hence, they would be
+    -- incomparable.
+    else Nothing
+compareValueSets (AllSequences vss) (ExplicitSet vs) =
+    flipOrder (compareValueSets (ExplicitSet vs) (AllSequences vss))
+-- CartesianProduct+ExplicitSet sets
+compareValueSets (ExplicitSet vs) (CartesianProduct vsets vc) =
+    compareValueSets (ExplicitSet vs) (fromList (toList (CartesianProduct vsets vc)))
+compareValueSets (CartesianProduct vsets vc) (ExplicitSet vs) =
+    flipOrder (compareValueSets (ExplicitSet vs) (CartesianProduct vsets vc))
 -- Anything else is incomparable
---compareValueSets _ _ = Nothing
+compareValueSets _ _ = Nothing
 
 -- | Produces a ValueSet of the carteisan product of several ValueSets, 
 -- using 'vc' to convert each sequence of values into a single value.
-cartesianProduct :: ([Value] -> Value) -> [ValueSet] -> ValueSet
-cartesianProduct vc = fromList . map vc . sequence . map toList
+cartesianProduct :: CartProductType -> [ValueSet] -> ValueSet
+cartesianProduct vc vss = CartesianProduct vss vc
 
 -- | Returns the powerset of a ValueSet. This requires
 powerset :: ValueSet -> ValueSet
@@ -131,24 +172,7 @@ powerset = fromList . map (VSet . fromList) .
 -- | Returns the set of all sequences over the input set. This is infinite
 -- so we use a CompositeSet.
 allSequences :: ValueSet -> ValueSet
-allSequences s = if empty s then emptySet else 
-    let 
-        itemsAsList :: [Value]
-        itemsAsList = toList s
-
-        list :: Integer -> [Value]
-        list 0 = [VList []]
-        list n = concatMap (\x -> map (app x) (list (n-1)))  itemsAsList
-            where
-                app :: Value -> Value -> Value
-                app x (VList xs) = VList $ x:xs
-        
-        yielder :: [Value] -> ValueSet
-        yielder (x:xs) = CompositeSet (ExplicitSet (S.singleton x)) (yielder xs)
-
-        allSequences :: [Value]
-        allSequences = concatMap list [0..]
-    in yielder allSequences
+allSequences s = AllSequences s
 
 -- | The empty set
 emptySet :: ValueSet
@@ -163,13 +187,37 @@ toList :: ValueSet -> [Value]
 toList (ExplicitSet s) = S.toList s
 toList (IntSetFrom lb) = map VInt [lb..]
 toList (CompositeSet s1 s2) = toList s1 ++ toList s2
-toList Integers = throwSourceError [cannotConvertIntegersToListMessage]
+toList Integers =
+    let merge (x:xs) ys = x:merge ys xs in map VInt $ merge [0..] [(-1),(-2)..]
 toList Processes = throwSourceError [cannotConvertProcessesToListMessage]
+toList (AllSequences vs) =
+    if empty vs then [] else 
+    let 
+        itemsAsList :: [Value]
+        itemsAsList = toList vs
+
+        list :: Integer -> [Value]
+        list 0 = [VList []]
+        list n = concatMap (\x -> map (app x) (list (n-1)))  itemsAsList
+            where
+                app :: Value -> Value -> Value
+                app x (VList xs) = VList $ x:xs
+        
+        allSequences :: [Value]
+        allSequences = concatMap list [0..]
+    in allSequences
+toList (CartesianProduct vss ct) =
+    let cp = UL.cartesianProduct (map toList vss)
+    in case ct of
+            CartTuple -> map VTuple cp
+            CartDot -> map VDot cp
 
 toSeq :: ValueSet -> Sq.Seq Value
 toSeq (ExplicitSet s) = F.foldMap Sq.singleton s
 toSeq (IntSetFrom lb) = fmap VInt (Sq.fromList [lb..])
 toSeq (CompositeSet s1 s2) = toSeq s1 Sq.>< toSeq s2
+toSeq (AllSequences vs) = Sq.fromList (toList (AllSequences vs))
+toSeq (CartesianProduct vss ct) = Sq.fromList (toList (CartesianProduct vss ct))
 toSeq Integers = throwSourceError [cannotConvertIntegersToListMessage]
 toSeq Processes = throwSourceError [cannotConvertProcessesToListMessage]
 
@@ -190,18 +238,25 @@ member (VInt i) (IntSetFrom lb) = i >= lb
 member v (CompositeSet s1 s2) = member v s1 || member v s2
 -- FDR does actually try and given the correct value here.
 member (VProc p) Processes = True
+member (VList vs) (AllSequences s) = and (map (flip member s) vs)
+member (VDot vs) (CartesianProduct vss CartDot) = and (zipWith member vs vss)
+member (VTuple vs) (CartesianProduct vss CartTuple) = and (zipWith member vs vss)
 member v s1 = throwSourceError [cannotCheckSetMembershipError v s1]
 
 -- | The cardinality of the set. Throws an error if the set is infinite.
 card :: ValueSet -> Integer
 card (ExplicitSet s) = toInteger (S.size s)
+card (CompositeSet s1 s2) = card s1 + card s2
+card (CartesianProduct vss _) = product (map card vss)
 card s = throwSourceError [cardOfInfiniteSetMessage s]
 
 -- | Is the specified set empty?
 empty :: ValueSet -> Bool
 empty (ExplicitSet s) = S.null s
-empty (CompositeSet s1 s2) = False
+empty (CompositeSet s1 s2) = empty s1 && empty s2
 empty (IntSetFrom lb) = False
+empty (AllSequences s) = empty s
+empty (CartesianProduct vss _) = or (map empty vss)
 empty Processes = False
 empty Integers = False
 
@@ -224,18 +279,9 @@ union Processes _ = Processes
 union (IntSetFrom lb1) (IntSetFrom lb2) = IntSetFrom (min lb1 lb2)
 union _ Integers = Integers
 union Integers _ = Integers
--- Composite unions
-union s1 (s2 @ (CompositeSet _ _)) = CompositeSet s1 s2
-union (s1 @ (CompositeSet _ _)) s2 = CompositeSet s1 s2
 -- Explicit unions
 union (ExplicitSet s1) (ExplicitSet s2) = ExplicitSet (S.union s1 s2)
-union (ExplicitSet s1) (IntSetFrom lb) =
-    CompositeSet (ExplicitSet s1) (IntSetFrom lb)
-union (IntSetFrom lb) (ExplicitSet s1) =
-    CompositeSet (ExplicitSet s1) (IntSetFrom lb)
-
--- The above are all the well typed possibilities
---union s1 s2 = throwSourceError [cannotUnionSetsMessage s1 s2]
+union s1 s2 = CompositeSet s1 s2
 
 -- | Intersects two sets throwing an error if it cannot be done in a way that 
 -- will terminate.
@@ -261,9 +307,21 @@ intersection (IntSetFrom lb1) (ExplicitSet s2) =
 intersection Processes Processes = Processes
 intersection Processes x = x
 intersection x Processes = x
--- Composite sets are always infinite and therefore cannot be intersected in any
--- finite way.
-intersection s1 s2 = throwSourceError [cannotIntersectSetsMessage s1 s2]
+-- Composite Sets
+intersection (CompositeSet s1 s2) s =
+    CompositeSet (intersection s1 s) (intersection s2 s)
+intersection s (CompositeSet s1 s2) =
+    CompositeSet (intersection s s1) (intersection s s2)
+-- Cartesian product and all sequences - here we simpy convert to a list and
+-- compare.
+intersection (CartesianProduct vss vc) s =
+    intersection (fromList (toList (CartesianProduct vss vc))) s
+intersection s (CartesianProduct vss vc) =
+    intersection (fromList (toList (CartesianProduct vss vc))) s
+intersection (AllSequences vs) s =
+    intersection (fromList (toList (AllSequences vs))) s
+intersection s (AllSequences vs) =
+    intersection (fromList (toList (AllSequences vs))) s
 
 difference :: ValueSet -> ValueSet -> ValueSet
 difference (ExplicitSet s1) (ExplicitSet s2) = ExplicitSet (S.difference s1 s2)
@@ -286,7 +344,9 @@ difference (IntSetFrom lb1) (ExplicitSet s1) =
             throwSourceError [cannotDifferenceSetsMessage s1' s2']
 difference (ExplicitSet s1) (IntSetFrom lb1) =
     ExplicitSet (S.fromList [VInt i | VInt i <- S.toList s1, i < lb1])
-difference s1 s2 = throwSourceError [cannotDifferenceSetsMessage s1 s2]
+difference (CompositeSet s1 s2) s = CompositeSet (difference s1 s) (difference s2 s)
+difference s (CompositeSet s1 s2) = difference (difference s s1) s2
+difference s1 s2 = difference (fromList (toList s1)) (fromList (toList s2))
 
 valueSetToEventSet :: ValueSet -> CE.EventSet
 valueSetToEventSet = CE.fromList . map valueEventToEvent . toList

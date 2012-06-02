@@ -6,6 +6,7 @@ import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.PrettyPrint
 
 data ValueSet
+data CartProductType
 
 instance Eq ValueSet
 instance Hashable ValueSet
@@ -14,5 +15,7 @@ instance PrettyPrintable ValueSet
 
 toList :: ValueSet -> [Value]
 fromList :: [Value] -> ValueSet
-cartesianProduct :: ([Value] -> Value) -> [ValueSet] -> ValueSet
+cartesianProduct :: CartProductType -> [ValueSet] -> ValueSet
 compareValueSets :: ValueSet -> ValueSet -> Maybe Ordering
+member :: Value -> ValueSet -> Bool
+isFinitePrintable :: ValueSet -> Bool
