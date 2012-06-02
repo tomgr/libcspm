@@ -131,18 +131,14 @@ compareValueSets (ExplicitSet s1) (IntSetFrom lb1) =
     flipOrder (compareValueSets (IntSetFrom lb1) (ExplicitSet s1))
 -- Composite Sets
 compareValueSets (CompositeSet s1 s2) s =
-    case (compareValueSets s1 s, compareValueSets s2 s) of
-        (Nothing, _)        -> Nothing
-        (_, Nothing)        -> Nothing
-        (Just LT, Just x)   -> if x /= GT then Just LT else Nothing
-        (Just EQ, Just x)   -> Just x
-        (Just GT, Just x)   -> if x /= LT then Just GT else Nothing
+    compareValueSets (fromList (toList (CompositeSet s1 s2))) s
 compareValueSets s (CompositeSet s1 s2) = 
     flipOrder (compareValueSets (CompositeSet s1 s2) s)
 compareValueSets s1 s2 | empty s1 && empty s2 = Just EQ
 compareValueSets s1 s2 | empty s1 && not (empty s2) = Just LT
 compareValueSets s1 s2 | not (empty s1) && empty s2 = Just GT
 -- AllSequences+ExplicitSet sets
+compareValueSets (AllSequences vs1) (AllSequences vs2) = compareValueSets vs1 vs2
 compareValueSets (ExplicitSet vs) (AllSequences vss) =
     if and (map (flip member (AllSequences vss)) (S.toList vs)) then Just LT
     -- Otherwise, there is some item in vs that is not in vss. However, unless
@@ -154,6 +150,14 @@ compareValueSets (ExplicitSet vs) (AllSequences vss) =
 compareValueSets (AllSequences vss) (ExplicitSet vs) =
     flipOrder (compareValueSets (ExplicitSet vs) (AllSequences vss))
 -- CartesianProduct+ExplicitSet sets
+compareValueSets (CartesianProduct vss1 vc1) (CartesianProduct vss2 vc2) | vc1 == vc2 =
+    let os = zipWith compareValueSets vss1 vss2
+        order v [] = v
+        order (Just LT) (Just x : xs) | x /= GT = order (Just LT) xs
+        order (Just EQ) (Just x : xs) = order (Just x) xs
+        order (Just GT) (Just x : xs) | x /= LT = order (Just GT) xs
+        order _ _ = Nothing
+    in order (head os) os
 compareValueSets (ExplicitSet vs) (CartesianProduct vsets vc) =
     compareValueSets (ExplicitSet vs) (fromList (toList (CartesianProduct vsets vc)))
 compareValueSets (CartesianProduct vsets vc) (ExplicitSet vs) =
@@ -208,6 +212,10 @@ toList (AllSequences vs) =
         allSequences :: [Value]
         allSequences = concatMap list [0..]
     in allSequences
+toList (CartesianProduct [vs] CartDot) =
+    let maybeWrap (VDot vs) = VDot vs
+        maybeWrap v = VDot [v]
+    in map maybeWrap (toList vs)
 toList (CartesianProduct vss ct) =
     let cp = UL.cartesianProduct (map toList vss)
     in case ct of
