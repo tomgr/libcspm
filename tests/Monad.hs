@@ -17,23 +17,23 @@ initTestState = do
     sess <- newCSPMSession
     return $ TestState sess []
 
-resetCSPM :: Test ()
+resetCSPM :: TestM ()
 resetCSPM = do
     sess <- liftIO $ newCSPMSession
     modify (\st -> st { cspmSession = sess, lastWarnings = [] })
 
-type Test = StateT TestState IO
+type TestM = StateT TestState IO
 
-runTestM :: TestState -> Test a -> IO a
+runTestM :: TestState -> TestM a -> IO a
 runTestM st a = runStateT a st >>= return . fst
 
-getState :: (TestState -> a) -> Test a
+getState :: (TestState -> a) -> TestM a
 getState = gets
 
-modifyState :: (TestState -> TestState) -> Test ()
+modifyState :: (TestState -> TestState) -> TestM ()
 modifyState = modify
 
-instance CSPMMonad Test where
+instance CSPMMonad TestM where
     getSession = gets cspmSession
     setSession s = modify (\ st -> st { cspmSession = s })
     handleWarnings ws = modify (\ st -> st { lastWarnings = ws })

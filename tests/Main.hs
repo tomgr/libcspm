@@ -1,15 +1,18 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Main (main) where
 
 import Control.Monad
 import Control.Monad.Trans
 import Data.List
-import System.Directory
-import System.Exit (exitFailure, exitSuccess)
-import System.FilePath
-
 import CSPM
 import CSPM.Compiler.Processes
 import Monad
+import System.Directory
+import System.Exit (exitFailure, exitSuccess)
+import System.FilePath
+import Test.Framework
+import qualified Test.Framework.Providers.API as T
+import Test.Framework.Runners.Console
 import Util.Annotated
 import Util.Exception
 import Util.Monad hiding (($$))
@@ -24,14 +27,7 @@ data RunResult =
 main :: IO ()
 main = do
     tests <- runSections
-    results <- sequence tests
-    let
-        failureCount = length results - successCount
-        successCount = length (filter id results)
-    putStrLn $ show $ 
-        int failureCount <+> text "failures" 
-        <+> int successCount <+> text "passes"
-    if failureCount == 0 then exitSuccess else exitFailure
+    defaultMain tests
 
 getAndFilterDirectoryContents :: FilePath -> IO [FilePath]
 getAndFilterDirectoryContents fp = do
@@ -48,7 +44,35 @@ getAndFilterDirectoryContents fp = do
             else if takeExtension n == ".csp" then return [n]
             else return []) ns
 
-runSections ::IO [IO Bool]
+data LibCSPMTest = IOTestFunction (IO LibCSPMTestResult)
+data LibCSPMTestRunning = LibCSPMTestRunning
+data LibCSPMTestResult =
+    LibCSPMTestResult RunResult RunResult
+
+instance Show LibCSPMTestRunning where
+    show _ = "Running"
+instance Show LibCSPMTestResult where
+    show (LibCSPMTestResult r1 r2) | r1 == r2 = "OK"
+    show (LibCSPMTestResult ErrorOccured PassedNoWarnings) = 
+        "Failed (test should have failed but passed)"
+    show (LibCSPMTestResult ErrorOccured WarningsEmitted) = 
+        "Failed (test should have failed but only warned)"
+    show (LibCSPMTestResult WarningsEmitted PassedNoWarnings) =
+        "Failed (test passed but should have emitted warnings)"
+    show (LibCSPMTestResult WarningsEmitted ErrorOccured) =
+        "Failed (test failed but should have only emitted warnings)"
+    show (LibCSPMTestResult PassedNoWarnings WarningsEmitted) =
+        "Failed (test emitted warnings but should have passed)"
+    show (LibCSPMTestResult PassedNoWarnings ErrorOccured) =
+        "Failed (test failed but should have passed)"
+instance T.TestResultlike LibCSPMTestRunning LibCSPMTestResult where
+    testSucceeded (LibCSPMTestResult r1 r2) = r1 == r2
+
+instance T.Testlike LibCSPMTestRunning LibCSPMTestResult LibCSPMTest where
+    runTest topts (IOTestFunction func) = T.runImprovingIO $ T.liftIO func
+    testTypeName _ = "Test Cases"
+
+runSections :: IO [Test]
 runSections = do
     let 
         testDir = "tests"
@@ -65,45 +89,27 @@ runSections = do
             case lookup section testFunctions of
                 Just test ->
                     let
-                        pf = [runTest (joinPath [testDir, section, "should_pass", f]) 
-                            test PassedNoWarnings | f <- shouldPassFiles]
-                        ff = [runTest (joinPath [testDir, section, "should_fail", f]) 
-                            test ErrorOccured | f <- shouldFailFiles]
-                        wf = [runTest (joinPath [testDir, section, "should_warn", f]) 
-                            test WarningsEmitted | f <- shouldWarnFiles]
-                    in return $ pf++ff++wf
+                        mkTest dir1 f expectedResult =
+                            let path = joinPath [testDir, section, dir1, f]
+                            in T.Test f (IOTestFunction $ makeTest path test expectedResult)
+                        pf = [mkTest "should_pass" f PassedNoWarnings | f <- shouldPassFiles]
+                        ff = [mkTest "should_fail" f ErrorOccured | f <- shouldFailFiles]
+                        wf = [mkTest "should_warn" f WarningsEmitted | f <- shouldWarnFiles]
+                    in return [testGroup section (pf++ff++wf)]
                 Nothing -> return []
         ) sections
     return $ concat fs
 
-runTest :: FilePath -> (FilePath -> Test a) -> RunResult -> IO Bool
-runTest fp test expectedResult = do
-    putStr $ "Running test "++fp++"..."
+makeTest :: FilePath -> (FilePath -> TestM a) -> RunResult -> IO LibCSPMTestResult
+makeTest fp test expectedResult = do
     s <- initTestState
     res <- tryM $ runTestM s $ do
         test fp
         getState lastWarnings
-    let
-        failed :: Maybe Doc -> IO Bool
-        failed (Just e) = do
-            putStrLn "FAILED"
-            putStrLn $ show e
-            return False
-        failed Nothing = do
-            putStrLn "FAILED"
-            return False
-        passed = do
-            putStrLn "Passed"
-            return True
-        
-        shouldPass = expectedResult == PassedNoWarnings
-        shouldFail = expectedResult == ErrorOccured
-        shouldWarn = expectedResult == WarningsEmitted
-    case res of 
-        Left (SourceError e) -> if shouldFail then passed else failed (Just (prettyPrint e))
-        Right [] -> if shouldPass then passed else failed Nothing
-        Right ws -> if shouldWarn then passed else failed (Just (prettyPrint ws))
-        _ -> failed (Just (text "Internal Error"))
+    return $! case res of 
+                Left (SourceError e) -> LibCSPMTestResult expectedResult ErrorOccured
+                Right [] -> LibCSPMTestResult expectedResult PassedNoWarnings
+                Right ws -> LibCSPMTestResult expectedResult WarningsEmitted
 
 testFunctions = [
         ("parser", parserTest),
@@ -112,14 +118,14 @@ testFunctions = [
         ("evaluator", evaluatorTest)
     ]
 
-typeCheckerTest :: FilePath -> Test ()
+typeCheckerTest :: FilePath -> TestM ()
 typeCheckerTest fp = do
     ms <- disallowErrors (parseFile fp)
     ms <- CSPM.renameFile ms
     typeCheckFile ms
     return ()
 
-parserTest :: FilePath -> Test ()
+parserTest :: FilePath -> TestM ()
 parserTest fp = do
     ms <- parseFile fp
     -- Force evaluation of the whole of ms. We can't just use seq
@@ -127,14 +133,14 @@ parserTest fp = do
     -- the length of the string representing ms and then compute the length
     (length (show ms)) `seq` (return ())
 
-prettyPrinterTest :: FilePath -> Test ()
+prettyPrinterTest :: FilePath -> TestM ()
 prettyPrinterTest fp = do
     ms <- disallowErrors (parseFile fp)
     let str = show (prettyPrint ms)
     ms' <- parseStringAsFile str
     if ms /= ms' then throwException UserError else return ()
 
-disallowErrors :: Test a -> Test a
+disallowErrors :: TestM a -> TestM a
 disallowErrors a = do
     res <- tryM a
     case res of
@@ -142,10 +148,10 @@ disallowErrors a = do
                     $$ tabIndent (text (show e))
         Right v -> return v
 
-evaluatorTest :: FilePath -> Test ()
+evaluatorTest :: FilePath -> TestM ()
 evaluatorTest fp = do
     let 
-        evalExpr :: String -> Type -> Test Value
+        evalExpr :: String -> Type -> TestM Value
         evalExpr s t = do
             tce <- disallowErrors $ do
                 e <- parseExpression s

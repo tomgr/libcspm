@@ -134,7 +134,8 @@ Test-Suite unit-tests
     
     Build-depends: 
         base,
+        directory >= 1.0,
         libcspm,
         filepath >= 1.2, 
         mtl >= 2.0,
-        directory >= 1.0
+        test-framework >= 0.6 && < 0.7
