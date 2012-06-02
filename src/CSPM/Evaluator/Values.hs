@@ -14,7 +14,6 @@ import Control.Monad
 import Data.Foldable (foldrM)
 import Data.Hashable
 
-import Debug.Trace
 import CSPM.Compiler.Events hiding (fromList)
 import CSPM.Compiler.Processes
 import CSPM.DataStructures.Names
@@ -23,6 +22,7 @@ import CSPM.DataStructures.Types
 import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
 import {-# SOURCE #-} CSPM.Evaluator.ValueSet hiding (cartesianProduct)
+import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
 import CSPM.PrettyPrinter
 import Util.Exception
 import Util.List
@@ -411,5 +411,8 @@ splitIntoFields vs = do
                                 combine [] = replicate fieldCount []
                                 combine (vs:vss) = zipWith (:) vs (combine vss)
                                 sets = map fromList $ combine splitValues
-                            return $ sets
+                                cartProduct = S.cartesianProduct S.CartDot sets
+                            if cartProduct /= vs then
+                                throwError $ setNotRectangularErrorMessage vs cartProduct
+                            else return $ sets
                         _ -> return $ [vs]

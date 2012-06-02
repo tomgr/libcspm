@@ -82,3 +82,13 @@ dotIsNotValidMessage value field fieldValue fieldOptions = mkErrorMessage Unknow
     $$ if isFinitePrintable fieldOptions then
             hang (text "is not a member of the set") tabWidth (prettyPrint fieldOptions)
         else text "is not a member of the required set."
+
+setNotRectangularErrorMessage :: ValueSet -> ValueSet -> ErrorMessage
+setNotRectangularErrorMessage s1 s2 = mkErrorMessage Unknown $
+    hang (text "The set:") tabWidth (prettyPrint s1)
+    $$ text "cannot be decomposed into a cartesian product (i.e. it is not rectangular)."
+    $$ hang (text "The cartesian product is equal to:") tabWidth 
+        -- Force evaluation to a proper set, not a cart product.
+        (prettyPrint (fromList (toList s2)))
+    $$ hang (text "and thus the following values are missing:") tabWidth
+        (prettyPrint (difference s2 s1))
