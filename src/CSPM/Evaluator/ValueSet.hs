@@ -262,7 +262,8 @@ empty Integers = False
 
 -- | Replicated union.
 unions :: [ValueSet] -> ValueSet
-unions vs = foldr union (ExplicitSet S.empty) vs
+unions [] = emptySet
+unions vs = foldr1 union vs
 
 -- | Replicated intersection.
 intersections :: [ValueSet] -> ValueSet
