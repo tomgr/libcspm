@@ -19,6 +19,7 @@ import CSPM.Compiler.Processes
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
+import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
 import {-# SOURCE #-} CSPM.Evaluator.ValueSet hiding (cartesianProduct)
 import CSPM.PrettyPrinter
@@ -209,28 +210,45 @@ combineDots v1 v2 =
                     a <- arityOfDataTypeClause n
                     let fieldCount = length vs
                     if a == 0 then return Nothing
-                    else if length vs == 0 then
-                        return $ Just (VDot [nd, v])
+                    else if fieldCount == 0 then do
+                        b <- checkIsValidForField mn (VDot [nd, v]) 0 v
+                        if b then return $ Just (VDot [nd, v])
+                        else return $ Nothing
                     else do
                         -- Try and dot it onto our last field
                         mv <- maybeDotFieldOn (last vs) v
                         case mv of
-                            Just vLast ->
-                                return $ Just (VDot (nd:replaceLast vs vLast))
+                            Just vLast -> do
+                                b <- checkIsValidForField mn (VDot (nd:replaceLast vs vLast)) (fieldCount-1) vLast
+                                if b then 
+                                    return $ Just (VDot (nd:replaceLast vs vLast))
+                                else return Nothing
                             -- Start a new field, or return nothing if we
                             -- are full
-                            Nothing | fieldCount < a -> 
+                            Nothing | fieldCount < a -> do
+                                checkIsValidForField mn (VDot (nd:vs++[v])) fieldCount v
                                 return $ Just (VDot (nd:vs++[v]))
                             Nothing | fieldCount == a -> return Nothing
                             Nothing | fieldCount > a -> panic "Malformed dot encountered."
         maybeDotFieldOn vbase v = return Nothing
+
+        checkIsValidForField :: Maybe Name -> Value -> Int -> Value -> EvaluationMonad Bool
+        checkIsValidForField Nothing overallValue field v = return True
+        checkIsValidForField (Just n) overallValue field v = do
+            VTuple [_, _, VList fieldSets] <- lookupVar n
+            let VSet vs = fieldSets!!field
+            if member v vs then return True
+            else throwError $ dotIsNotValidMessage overallValue field v vs
 
         -- | Dots the two values together, ensuring that if either the left or
         -- the right value is a dot list combines them into one dot list.
         -- This function assumes that any data values are not meant to be split
         -- apart.
         dotAndReduce :: Value -> Value -> Value
-        dotAndReduce v1 v2 = VDot (splitIntoFields v1 ++ splitIntoFields v2)
+        -- We don't need to split v2 into fields because whenever we call
+        -- this function the second value is simply being dotted onto the right
+        -- and not put into a field of any sort
+        dotAndReduce v1 v2 = VDot (splitIntoFields v1 ++ [v2])
 
         -- | Given a base value and the value of a field dots the field onto
         -- the right of the base. Assumes that the value provided is a field.
@@ -299,7 +317,7 @@ oneFieldExtensions (VDot (dn:vs)) = do
                     if arity == fieldCount then [VDot []]
                     else -- We still have fields to complete
                         map (\ v -> VDot [v]) 
-                            (head [s | VList s <- drop (length vs) fieldSets])
+                            (head [toList s | VSet s <- drop (length vs) fieldSets])
 oneFieldExtensions _ = return [VDot []]
 
 -- | Takes a datatype or a channel value and then computes all x such that 
@@ -329,7 +347,7 @@ extensions (VDot (dn:vs)) = do
             else 
                 -- We still have fields to complete
                 let 
-                    remainingFields = [s | VList s <- drop (length vs) fieldSets]
+                    remainingFields = [toList s | VSet s <- drop (length vs) fieldSets]
                     combineDots ((VDot vs1):vs2) = VDot (vs1++vs2)
                     fields = exsLast:remainingFields
                 in return $ map combineDots (cartesianProduct fields)

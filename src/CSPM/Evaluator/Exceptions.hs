@@ -7,7 +7,7 @@ import Prelude
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.PrettyPrinter
-import CSPM.Evaluator.Values
+import {-# SOURCE #-} CSPM.Evaluator.Values
 import {-# SOURCE #-} CSPM.Evaluator.ValueSet
 import Util.Annotated
 import Util.Exception
@@ -75,10 +75,11 @@ cannotDifferenceSetsMessage :: ValueSet -> ValueSet -> ErrorMessage
 cannotDifferenceSetsMessage vs1 vs2 = mkErrorMessage Unknown $
     text "Cannot difference the supplied sets."
 
-eventIsNotValidMessage :: Value -> ErrorMessage
-eventIsNotValidMessage (v@(VDot (VChannel n:_))) = mkErrorMessage Unknown $
-    text "The event" 
-    <+> prettyPrint v 
-    <+> text "is not a member of its channel"
-    <+> prettyPrint n
-    <+> text "and therefore the event is not valid."
+dotIsNotValidMessage :: Value -> Int -> Value -> ValueSet -> ErrorMessage
+dotIsNotValidMessage value field fieldValue fieldOptions = mkErrorMessage Unknown $
+    hang (text "The value:") tabWidth (prettyPrint value)
+    $$ text "is invalid as it is not within the set of values defined for the datatype or channel in question."
+    $$ hang (text "In particular the" <+> speakNth (field+1) <+> text "field:") tabWidth (prettyPrint fieldValue)
+    $$ if isFinitePrintable fieldOptions then
+            hang (text "is not a member of the set") tabWidth (prettyPrint fieldOptions)
+        else text "is not a member of the required set."
