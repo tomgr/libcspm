@@ -1,12 +1,14 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, ScopedTypeVariables #-}
 module Main (main) where
 
+import Control.Exception
 import Control.Monad
 import Control.Monad.Trans
 import Data.List
 import CSPM
 import CSPM.Compiler.Processes
 import Monad
+import Prelude hiding (catch)
 import System.Directory
 import System.Exit (exitFailure, exitSuccess)
 import System.FilePath
@@ -47,27 +49,32 @@ getAndFilterDirectoryContents fp = do
 data LibCSPMTest = IOTestFunction (IO LibCSPMTestResult)
 data LibCSPMTestRunning = LibCSPMTestRunning
 data LibCSPMTestResult =
-    LibCSPMTestResult RunResult RunResult
+    LibCSPMTestResult RunResult RunResult [ErrorMessage] [ErrorMessage]
+    | LibCSPMTestPanic String
 
 instance Show LibCSPMTestRunning where
     show _ = "Running"
 instance Show LibCSPMTestResult where
-    show (LibCSPMTestResult r1 r2) | r1 == r2 = "OK"
-    show (LibCSPMTestResult ErrorOccured PassedNoWarnings) = 
+    show (LibCSPMTestResult r1 r2 _ _) | r1 == r2 = "OK"
+    show (LibCSPMTestResult ErrorOccured PassedNoWarnings es ws) = 
         "Failed (test should have failed but passed)"
-    show (LibCSPMTestResult ErrorOccured WarningsEmitted) = 
+    show (LibCSPMTestResult ErrorOccured WarningsEmitted es ws) = 
         "Failed (test should have failed but only warned)"
-    show (LibCSPMTestResult WarningsEmitted PassedNoWarnings) =
+    show (LibCSPMTestResult WarningsEmitted PassedNoWarnings es ws) =
         "Failed (test passed but should have emitted warnings)"
-    show (LibCSPMTestResult WarningsEmitted ErrorOccured) =
-        "Failed (test failed but should have only emitted warnings)"
-    show (LibCSPMTestResult PassedNoWarnings WarningsEmitted) =
-        "Failed (test emitted warnings but should have passed)"
-    show (LibCSPMTestResult PassedNoWarnings ErrorOccured) =
-        "Failed (test failed but should have passed)"
+    show (LibCSPMTestResult WarningsEmitted ErrorOccured es ws) =
+        "Failed (test failed but should have only emitted warnings)\n"
+        ++ show (prettyPrint es)
+    show (LibCSPMTestResult PassedNoWarnings WarningsEmitted es ws) =
+        "Failed (test emitted warnings but should have passed)\n"
+        ++ show (prettyPrint ws)
+    show (LibCSPMTestResult PassedNoWarnings ErrorOccured es ws) =
+        "Failed (test failed but should have passed)\n"
+        ++ show (prettyPrint es)
+    show (LibCSPMTestPanic es) = "Unexpected error\n"++es
 instance T.TestResultlike LibCSPMTestRunning LibCSPMTestResult where
-    testSucceeded (LibCSPMTestResult r1 r2) = r1 == r2
-
+    testSucceeded (LibCSPMTestResult r1 r2 _ _) = r1 == r2
+    testSucceeded (LibCSPMTestPanic _) = False
 instance T.Testlike LibCSPMTestRunning LibCSPMTestResult LibCSPMTest where
     runTest topts (IOTestFunction func) = T.runImprovingIO $ T.liftIO func
     testTypeName _ = "Test Cases"
@@ -101,15 +108,17 @@ runSections = do
     return $ concat fs
 
 makeTest :: FilePath -> (FilePath -> TestM a) -> RunResult -> IO LibCSPMTestResult
-makeTest fp test expectedResult = do
-    s <- initTestState
-    res <- tryM $ runTestM s $ do
-        test fp
-        getState lastWarnings
-    return $! case res of 
-                Left (SourceError e) -> LibCSPMTestResult expectedResult ErrorOccured
-                Right [] -> LibCSPMTestResult expectedResult PassedNoWarnings
-                Right ws -> LibCSPMTestResult expectedResult WarningsEmitted
+makeTest fp test expectedResult =
+    catch (do
+        s <- initTestState
+        res <- tryM $ runTestM s $ do
+                    test fp
+                    getState lastWarnings
+        return $! case res of 
+                    Left (SourceError e) -> LibCSPMTestResult expectedResult ErrorOccured e []
+                    Right [] -> LibCSPMTestResult expectedResult PassedNoWarnings [] []
+                    Right ws -> LibCSPMTestResult expectedResult WarningsEmitted [] ws
+    ) (\ (e :: SomeException) -> return $ LibCSPMTestPanic (show e))
 
 testFunctions = [
         ("parser", parserTest),
