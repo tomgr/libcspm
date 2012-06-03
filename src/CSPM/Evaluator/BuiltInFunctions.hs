@@ -112,8 +112,8 @@ builtInFunctions =
         csp_skip_id = procId (nameForString "SKIP") [] Nothing
         csp_stop_id = procId (nameForString "STOP") [] Nothing
         -- We actually inline stop, for efficiency
-        csp_stop = POp PExternalChoice Sq.empty
-        csp_skip = PUnaryOp (PPrefix Tick) csp_stop
+        csp_stop = PProcCall csp_stop_id (POp PExternalChoice Sq.empty)
+        csp_skip = PProcCall csp_skip_id (PUnaryOp (PPrefix Tick) csp_stop)
         
         mkProc (s, p) = (nameForString s, VProc p)
         
