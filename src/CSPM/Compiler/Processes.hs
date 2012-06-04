@@ -166,6 +166,8 @@ instance PrettyPrintable UnCompiledProc where
         in sep (punctuateFront (text "|~| ") (map prettyPrint $ F.toList ps'))
     prettyPrint (POp PInterleave ps) =
         sep (punctuateFront (text "||| ") (map prettyPrint $ F.toList ps))
+    prettyPrint (PBinaryOp PInterrupt p1 p2) =
+        sep [prettyPrint p1, text "/\\" <+> prettyPrint p2]
     prettyPrint (PBinaryOp (PLinkParallel evm) p1 p2) =
         prettyPrint p1 <+> text "[" <>
             list (map (\(evLeft, evRight) -> prettyPrint evLeft <+> text "<-" 
@@ -186,9 +188,6 @@ instance PrettyPrintable UnCompiledProc where
     prettyPrint (PBinaryOp PSlidingChoice p1 p2) =
         prettyPrint p1 <+> text "|>" <+> prettyPrint p2
     prettyPrint (PProcCall n _) = prettyPrint n
-
-instance Show UnCompiledProc where
-    show p = show (prettyPrint p)
 
 -- | Given a process, returns the initial process and all processes that it
 -- calls.
