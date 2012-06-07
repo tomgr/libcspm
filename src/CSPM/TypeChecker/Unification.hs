@@ -4,8 +4,7 @@ module CSPM.TypeChecker.Unification (
 ) where
 
 import Control.Monad
-import Control.Monad.Trans
-import Data.List (nub, (\\), intersect, group, sort)
+import Data.List (nub)
 import Prelude
 
 import CSPM.DataStructures.Names
@@ -15,7 +14,6 @@ import CSPM.TypeChecker.Exceptions
 import CSPM.TypeChecker.Monad
 import Util.Exception
 import Util.Monad
-import Util.PrettyPrint
 
 -- | Return the free type variables (and their constraints) for all 'TypeVar's 
 -- that occur in 'Type'.

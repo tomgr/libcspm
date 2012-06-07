@@ -2,24 +2,20 @@
 module CSPM.TypeChecker.Expr () where
 
 import Control.Monad
-import Control.Monad.Trans
 import Data.List
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax hiding (getType)
 import CSPM.DataStructures.Types
-import CSPM.TypeChecker.BuiltInFunctions
 import CSPM.TypeChecker.Common
 import {-# SOURCE #-} CSPM.TypeChecker.Decl
 import CSPM.TypeChecker.Dependencies
 import CSPM.TypeChecker.Exceptions
-import CSPM.TypeChecker.Pat
 import CSPM.TypeChecker.Monad
+import CSPM.TypeChecker.Pat()
 import CSPM.TypeChecker.Unification
 import Util.Annotated
-import Util.Exception
 import Util.List
-import Util.Monad
 import Util.PrettyPrint
 
 checkFunctionCall :: Doc -> [TCExp] -> [Type] -> TypeCheckMonad ()

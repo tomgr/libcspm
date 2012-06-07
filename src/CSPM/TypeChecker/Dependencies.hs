@@ -9,11 +9,8 @@ import Data.List (nub, (\\))
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Types
-import CSPM.TypeChecker.Exceptions
 import CSPM.TypeChecker.Monad
 import Util.Annotated
-import Util.List
 import Util.Monad
 
 -- This file exports two main type classes, Dependencies and FreeVars. The first

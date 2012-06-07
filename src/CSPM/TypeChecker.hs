@@ -17,10 +17,9 @@ import CSPM.TypeChecker.BuiltInFunctions
 import qualified CSPM.TypeChecker.Common as TC
 import CSPM.TypeChecker.Compressor
 import CSPM.TypeChecker.Dependencies
-import CSPM.TypeChecker.Environment
-import CSPM.TypeChecker.Expr
-import CSPM.TypeChecker.InteractiveStmt
-import CSPM.TypeChecker.Module
+import CSPM.TypeChecker.Expr()
+import CSPM.TypeChecker.InteractiveStmt()
+import CSPM.TypeChecker.Module()
 import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Unification
 import Util.Annotated

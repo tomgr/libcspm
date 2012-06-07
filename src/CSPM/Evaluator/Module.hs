@@ -4,8 +4,6 @@ module CSPM.Evaluator.Module (
 ) 
 where
 
-import Control.Monad
-
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.Evaluator.DeclBind

@@ -4,11 +4,8 @@ module CSPM.PrettyPrinter (
 )
 where
 
-import CSPM.DataStructures.Literals
-import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import Util.Annotated
-import Util.Exception
 import Util.PrettyPrint
 
 instance PrettyPrintable id => PrettyPrintable [Module id] where

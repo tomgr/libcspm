@@ -3,14 +3,11 @@ module CSPM.TypeChecker.InteractiveStmt where
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Types
 import CSPM.TypeChecker.Common
 import CSPM.TypeChecker.Decl
-import CSPM.TypeChecker.Expr
-import CSPM.TypeChecker.Monad
+import CSPM.TypeChecker.Expr()
 import CSPM.TypeChecker.Unification
 import Util.Annotated
-import Util.PrettyPrint
 
 instance TypeCheckable TCInteractiveStmt () where
     errorContext a = Nothing

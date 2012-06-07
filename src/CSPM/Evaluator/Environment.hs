@@ -3,7 +3,6 @@ module CSPM.Evaluator.Environment (
     new, lookup, newLayerAndBind,
 ) where
 
-import Data.List (nub, sort)
 import qualified Data.IntMap as M
 import Prelude hiding (lookup)
 

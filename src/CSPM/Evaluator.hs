@@ -8,7 +8,6 @@ module CSPM.Evaluator (
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Types
 import CSPM.Evaluator.BuiltInFunctions
 import CSPM.Evaluator.DeclBind
 import CSPM.Evaluator.Environment

@@ -10,17 +10,11 @@ module CSPM.TypeChecker.Exceptions (
 )
 where
 
-import Data.Typeable
-import Data.List (group, sort)
 import Prelude
 
 import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
 import CSPM.PrettyPrinter
-import Util.Annotated
-import Util.Exception
-import Util.PartialFunctions
 import Util.PrettyPrint
 
 type Error = Doc

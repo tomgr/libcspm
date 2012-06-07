@@ -3,7 +3,6 @@ module CSPM.TypeChecker.Module where
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Types
 import CSPM.TypeChecker.Common
 import CSPM.TypeChecker.Decl
 import CSPM.TypeChecker.Monad

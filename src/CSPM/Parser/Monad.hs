@@ -14,13 +14,9 @@ where
 
 import Control.Exception
 import Control.Monad.State
-import Data.Typeable
 import Prelude hiding (catch)
 import System.FilePath
-import System.IO
-import System.IO.Error hiding (catch)
 
-import CSPM.DataStructures.Tokens
 import CSPM.Parser.Exceptions
 import Util.Annotated
 

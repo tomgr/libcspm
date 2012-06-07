@@ -1,7 +1,6 @@
 module CSPM.Evaluator.Exceptions
 where
 
-import Data.Typeable
 import Prelude
 
 import CSPM.DataStructures.Names
@@ -75,10 +74,7 @@ cannotDifferenceSetsMessage vs1 vs2 = mkErrorMessage Unknown $
     text "Cannot difference the supplied sets."
 
 dotIsNotValidMessage :: Value -> Int -> Value -> ValueSet -> ErrorMessage
-dotIsNotValidMessage value field fieldValue fieldOptions = mkErrorMessage Unknown $
-    let 
-    VDot (h:_) = value 
-    in
+dotIsNotValidMessage (value@(VDot (h:_))) field fieldValue fieldOptions = mkErrorMessage Unknown $
     hang (text "The value:") tabWidth (prettyPrint value)
     $$ text "is invalid as it is not within the set of values defined for" <+>
         case h of

@@ -2,13 +2,9 @@
 module CSPM.TypeChecker.Common where
 
 import CSPM.DataStructures.Literals
-import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
-import CSPM.TypeChecker.BuiltInFunctions
-import CSPM.TypeChecker.Exceptions
 import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Unification
-import Util.PrettyPrint
 
 -- a -> b <=> We can't have two instances that match on a but differ on b
 class TypeCheckable a b | a -> b where

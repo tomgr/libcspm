@@ -35,7 +35,6 @@ import CSPM.Evaluator.Values
 import qualified CSPM.Compiler.Events as CE
 import Util.Exception
 import qualified Util.List as UL
-import Util.Monad
 import Util.PrettyPrint hiding (empty)
 
 data CartProductType = CartDot | CartTuple deriving (Eq, Ord)

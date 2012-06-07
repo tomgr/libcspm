@@ -3,9 +3,7 @@ module CSPM.Evaluator.DeclBind (
     bindDecls, 
 ) where
 
-import Control.Monad
 import Data.List (partition)
-import Data.Maybe
 import System.IO.Unsafe
 
 import CSPM.DataStructures.Names
@@ -20,7 +18,6 @@ import CSPM.Evaluator.PatBind
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import Util.Annotated
-import Util.Exception
 import Util.Monad
 
 -- | Given a list of declarations, returns a sequence of names bounds to

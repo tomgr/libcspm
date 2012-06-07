@@ -7,21 +7,16 @@ module CSPM.Evaluator.Values (
     noSave, maybeSave, removeThunk, lookupVar,
 ) where
 
-import Control.Monad
-import Data.Foldable (foldrM)
 import Data.Hashable
 
 import CSPM.Compiler.Events hiding (fromList)
 import CSPM.Compiler.Processes
 import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
 import CSPM.Evaluator.Monad
-import {-# SOURCE #-} CSPM.Evaluator.ValueSet hiding (cartesianProduct)
 import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
 import CSPM.PrettyPrinter
 import Util.Exception
-import Util.List
 import Util.Prelude
 import Util.PrettyPrint
 import qualified Util.TextPrettyPrint as T
@@ -41,7 +36,7 @@ data Value =
     | VChannel Name
     | VDataType Name
     | VList [Value]
-    | VSet ValueSet
+    | VSet S.ValueSet
     | VFunction ([Value] -> EvaluationMonad Value)
     | VProc UProc
     | VThunk (EvaluationMonad Value)
@@ -118,7 +113,7 @@ compareValues (VList vs1) (VList vs2) =
             -- x != y, hence neither can be a prefix of the other
             Nothing
     in cmp vs1 vs2
-compareValues (VSet s1) (VSet s2) = compareValueSets s1 s2
+compareValues (VSet s1) (VSet s2) = S.compareValueSets s1 s2
 
 -- The following can only be compared for equality, hence if they are not
 -- equal we return Nothing.

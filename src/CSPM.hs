@@ -112,10 +112,8 @@ module CSPM (
 where
 
 import Control.Monad.State
-import Control.Monad.Trans
 import Data.Version
 import System.FilePath
-import System.IO
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
@@ -127,7 +125,6 @@ import qualified CSPM.Renamer as RN
 import qualified CSPM.TypeChecker as TC
 import qualified CSPM.Desugar as DS
 import Paths_libcspm (version)
-import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 

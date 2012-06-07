@@ -3,10 +3,9 @@ module CSPM.Evaluator.Expr (
     Evaluatable, eval, completeEvent,
 ) where
 
-import Control.Monad.Trans
 import qualified Data.Foldable as F
 import Data.Maybe
-import Data.Sequence ((<|), (|>))
+import Data.Sequence ((<|))
 import qualified Data.Sequence as Sq
 
 import CSPM.DataStructures.Literals
@@ -15,7 +14,6 @@ import CSPM.DataStructures.Syntax
 import CSPM.Evaluator.BuiltInFunctions
 import CSPM.Evaluator.DeclBind
 import CSPM.Evaluator.Dot
-import CSPM.Evaluator.Environment
 import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.PatBind
@@ -23,9 +21,6 @@ import CSPM.Evaluator.Values
 import qualified CSPM.Evaluator.ValueSet as S
 import Util.Annotated
 import Util.Exception
-import Util.Monad
-import Util.Prelude
-import Util.PrettyPrint
 
 -- In order to keep lazy evaluation working properly only use pattern
 -- matching when you HAVE to know the value. (Hence why we delay pattern

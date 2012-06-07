@@ -12,7 +12,6 @@ module Util.PrettyPrint (
 where 
 
 import Numeric
-import Text.Printf
 import Text.PrettyPrint.HughesPJ
 
 class PrettyPrintable a where

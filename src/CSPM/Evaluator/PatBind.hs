@@ -1,12 +1,9 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module CSPM.Evaluator.PatBind where
 
-import Control.Monad
-
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
-import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import Util.Annotated

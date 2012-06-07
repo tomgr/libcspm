@@ -5,8 +5,6 @@ module CSPM.TypeChecker.BuiltInFunctions(
 
 import Control.Monad
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Types
 import CSPM.Prelude
 import CSPM.TypeChecker.Monad hiding (isDeprecated, isTypeUnsafe)
 

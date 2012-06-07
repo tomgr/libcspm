@@ -3,7 +3,6 @@ module CSPM.Evaluator.BuiltInFunctions (
     builtInName
 ) where
 
-import Control.Monad
 import qualified Data.Map as M
 import qualified Data.Sequence as Sq
 

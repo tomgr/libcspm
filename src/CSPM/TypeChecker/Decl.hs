@@ -2,7 +2,6 @@
 module CSPM.TypeChecker.Decl (typeCheckDecls) where
 
 import Control.Monad
-import Control.Monad.Trans
 import Data.Graph.Wrapper
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -12,13 +11,11 @@ import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax hiding (getType)
 import CSPM.DataStructures.Types
 import CSPM.PrettyPrinter
-import CSPM.TypeChecker.BuiltInFunctions
 import CSPM.TypeChecker.Common
 import CSPM.TypeChecker.Dependencies
-import CSPM.TypeChecker.Exceptions
-import CSPM.TypeChecker.Expr
+import CSPM.TypeChecker.Expr()
 import CSPM.TypeChecker.Monad
-import CSPM.TypeChecker.Pat
+import CSPM.TypeChecker.Pat()
 import CSPM.TypeChecker.Unification
 import Util.Annotated
 import Util.List
