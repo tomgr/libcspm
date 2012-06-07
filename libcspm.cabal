@@ -74,6 +74,7 @@ Library
         CSPM.Evaluator,
         CSPM.Evaluator.BuiltInFunctions,
         CSPM.Evaluator.DeclBind,
+        CSPM.Evaluator.Dot,
         CSPM.Evaluator.Environment,
         CSPM.Evaluator.Exceptions,
         CSPM.Evaluator.Expr,
