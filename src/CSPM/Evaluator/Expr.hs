@@ -14,6 +14,7 @@ import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.Evaluator.BuiltInFunctions
 import CSPM.Evaluator.DeclBind
+import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Environment
 import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad

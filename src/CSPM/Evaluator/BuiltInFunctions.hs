@@ -8,6 +8,7 @@ import qualified Data.Map as M
 import qualified Data.Sequence as Sq
 
 import CSPM.DataStructures.Names
+import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
