@@ -1,3 +1,5 @@
-procTest3 = c.0 -> ||| c.1 ->
+STOP =
+
+procTest3 = c.0 -> STOP ||| c.1 -> STOP
 
 procTest3

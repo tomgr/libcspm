@@ -1,6 +1,8 @@
-Dump((1, X.1)) =
+Dump((1, X.1)) = STOP
 
-Dump((0, X.0)) =
+STOP =
+
+Dump((0, X.0)) = STOP
 
 procTest6 =
     d.X.0.X.0 -> Dump((0, X.0)) |~| d.X.1.X.1 -> Dump((1, X.1))

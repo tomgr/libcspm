@@ -1,6 +1,8 @@
-DUMP(B) =
+STOP =
 
-P(B) = x.B -> DUMP(B) [] x.C ->
+DUMP(B) = STOP
+
+P(B) = x.B -> DUMP(B) [] x.C -> STOP
 
 procTest1 = P(B)
 

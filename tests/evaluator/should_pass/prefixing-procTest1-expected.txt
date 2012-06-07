@@ -1,26 +1,28 @@
-Dump((1, Y.1.true)) =
+Dump((1, Y.1.true)) = STOP
 
-Dump((1, Y.1.false)) =
+Dump((1, Y.1.false)) = STOP
 
-Dump((1, Y.0.true)) =
+Dump((1, Y.0.true)) = STOP
 
-Dump((1, Y.0.false)) =
+Dump((1, Y.0.false)) = STOP
 
-Dump((1, X.1)) =
+Dump((1, X.1)) = STOP
 
-Dump((1, X.0)) =
+Dump((1, X.0)) = STOP
 
-Dump((0, Y.1.true)) =
+Dump((0, Y.1.true)) = STOP
 
-Dump((0, Y.1.false)) =
+Dump((0, Y.1.false)) = STOP
 
-Dump((0, Y.0.true)) =
+Dump((0, Y.0.true)) = STOP
 
-Dump((0, Y.0.false)) =
+Dump((0, Y.0.false)) = STOP
 
-Dump((0, X.1)) =
+Dump((0, X.1)) = STOP
 
-Dump((0, X.0)) =
+STOP =
+
+Dump((0, X.0)) = STOP
 
 procTest1 =
     d.X.0.X.0 -> Dump((0, X.0))

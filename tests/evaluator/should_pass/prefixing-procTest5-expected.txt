@@ -1,74 +1,76 @@
-Dump((Y.1.true, Y.1.true)) =
+Dump((Y.1.true, Y.1.true)) = STOP
 
-Dump((Y.1.true, Y.1.false)) =
+Dump((Y.1.true, Y.1.false)) = STOP
 
-Dump((Y.1.true, Y.0.true)) =
+Dump((Y.1.true, Y.0.true)) = STOP
 
-Dump((Y.1.true, Y.0.false)) =
+Dump((Y.1.true, Y.0.false)) = STOP
 
-Dump((Y.1.true, X.1)) =
+Dump((Y.1.true, X.1)) = STOP
 
-Dump((Y.1.true, X.0)) =
+Dump((Y.1.true, X.0)) = STOP
 
-Dump((Y.1.false, Y.1.true)) =
+Dump((Y.1.false, Y.1.true)) = STOP
 
-Dump((Y.1.false, Y.1.false)) =
+Dump((Y.1.false, Y.1.false)) = STOP
 
-Dump((Y.1.false, Y.0.true)) =
+Dump((Y.1.false, Y.0.true)) = STOP
 
-Dump((Y.1.false, Y.0.false)) =
+Dump((Y.1.false, Y.0.false)) = STOP
 
-Dump((Y.1.false, X.1)) =
+Dump((Y.1.false, X.1)) = STOP
 
-Dump((Y.1.false, X.0)) =
+Dump((Y.1.false, X.0)) = STOP
 
-Dump((Y.0.true, Y.1.true)) =
+Dump((Y.0.true, Y.1.true)) = STOP
 
-Dump((Y.0.true, Y.1.false)) =
+Dump((Y.0.true, Y.1.false)) = STOP
 
-Dump((Y.0.true, Y.0.true)) =
+Dump((Y.0.true, Y.0.true)) = STOP
 
-Dump((Y.0.true, Y.0.false)) =
+Dump((Y.0.true, Y.0.false)) = STOP
 
-Dump((Y.0.true, X.1)) =
+Dump((Y.0.true, X.1)) = STOP
 
-Dump((Y.0.true, X.0)) =
+Dump((Y.0.true, X.0)) = STOP
 
-Dump((Y.0.false, Y.1.true)) =
+Dump((Y.0.false, Y.1.true)) = STOP
 
-Dump((Y.0.false, Y.1.false)) =
+Dump((Y.0.false, Y.1.false)) = STOP
 
-Dump((Y.0.false, Y.0.true)) =
+Dump((Y.0.false, Y.0.true)) = STOP
 
-Dump((Y.0.false, Y.0.false)) =
+Dump((Y.0.false, Y.0.false)) = STOP
 
-Dump((Y.0.false, X.1)) =
+Dump((Y.0.false, X.1)) = STOP
 
-Dump((Y.0.false, X.0)) =
+Dump((Y.0.false, X.0)) = STOP
 
-Dump((X.1, Y.1.true)) =
+Dump((X.1, Y.1.true)) = STOP
 
-Dump((X.1, Y.1.false)) =
+Dump((X.1, Y.1.false)) = STOP
 
-Dump((X.1, Y.0.true)) =
+Dump((X.1, Y.0.true)) = STOP
 
-Dump((X.1, Y.0.false)) =
+Dump((X.1, Y.0.false)) = STOP
 
-Dump((X.1, X.1)) =
+Dump((X.1, X.1)) = STOP
 
-Dump((X.1, X.0)) =
+Dump((X.1, X.0)) = STOP
 
-Dump((X.0, Y.1.true)) =
+Dump((X.0, Y.1.true)) = STOP
 
-Dump((X.0, Y.1.false)) =
+Dump((X.0, Y.1.false)) = STOP
 
-Dump((X.0, Y.0.true)) =
+Dump((X.0, Y.0.true)) = STOP
 
-Dump((X.0, Y.0.false)) =
+Dump((X.0, Y.0.false)) = STOP
 
-Dump((X.0, X.1)) =
+Dump((X.0, X.1)) = STOP
 
-Dump((X.0, X.0)) =
+STOP =
+
+Dump((X.0, X.0)) = STOP
 
 procTest5 =
     d.X.0.X.0 -> Dump((X.0, X.0))
