@@ -118,7 +118,13 @@ Library
     Other-Modules:
         Paths_libcspm
     
-    GHC-Options: -O3
+    GHC-Options:
+        -O3
+        -Werror
+        -fwarn-missing-fields
+        -fwarn-dodgy-imports
+        -fwarn-missing-methods
+        -fwarn-unused-imports
     GHC-Prof-Options: -auto-all -prof
     
     Hs-Source-Dirs: src
