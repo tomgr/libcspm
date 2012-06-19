@@ -1,4 +1,4 @@
-module CSPM.DataStructures.Tokens (
+module CSPM.Parser.Tokens (
     Token(..), LToken, Model(..),
 )
 where

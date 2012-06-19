@@ -17,11 +17,11 @@ import Data.Char
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Tokens
 import CSPM.DataStructures.Types hiding (TDot)
 import CSPM.Parser.Exceptions
 import CSPM.Parser.Lexer
 import CSPM.Parser.Monad
+import CSPM.Parser.Tokens
 import Util.Annotated
 import qualified Data.Array as Happy_Data_Array
 import qualified GHC.Exts as Happy_GHC_Exts

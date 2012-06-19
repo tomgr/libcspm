@@ -5,9 +5,9 @@ module CSPM.Parser.Lexer where
 import Data.ByteString.Internal (c2w)
 import Data.Word
 
-import CSPM.DataStructures.Tokens
 import CSPM.Parser.Exceptions
 import CSPM.Parser.Monad
+import CSPM.Parser.Tokens
 import Util.Annotated
 
 }

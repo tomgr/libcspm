@@ -12,7 +12,7 @@ module CSPM.Parser.Exceptions (
 where
 
 import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Tokens
+import CSPM.Parser.Tokens
 import CSPM.PrettyPrinter
 import Util.Annotated
 import Util.Exception
