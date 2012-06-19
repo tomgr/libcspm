@@ -106,8 +106,7 @@ Library
         Util.Monad,
         Util.PartialFunctions,
         Util.Prelude,
-        Util.PrettyPrint,
-        Util.TextPrettyPrint
+        Util.PrettyPrint
     
     Other-Modules:
         Paths_libcspm

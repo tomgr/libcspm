@@ -19,7 +19,6 @@ import CSPM.PrettyPrinter
 import Util.Exception
 import Util.Prelude
 import Util.PrettyPrint
-import qualified Util.TextPrettyPrint as T
 
 type UProc = UnCompiledProc
 
@@ -159,20 +158,6 @@ instance PrettyPrintable Value where
     prettyPrint (VFunction _) = text "<function>"
     prettyPrint (VProc p) = prettyPrint p
     prettyPrint (VThunk th) = text "<thunk>"
-
-instance T.FastPrettyPrintable Value where
-    toBuilder (VInt i) = T.integral i
-    toBuilder (VBool b) = if b then T.stext "true" else T.stext "false"
-    toBuilder (VTuple vs) = T.parens (T.list (map T.toBuilder vs))
-    toBuilder (VDot vs) = T.punctuate T.dot (map T.toBuilder vs)
-    toBuilder (VChannel n) = T.toBuilder n
-    toBuilder (VDataType n) = T.toBuilder n
-    toBuilder (VList vs) = T.angles (T.list (map T.toBuilder vs))
-    toBuilder (VSet vs) = T.text (show (prettyPrint vs))
-    toBuilder (VFunction _) = T.stext "<function>"
-    toBuilder (VProc (PProcCall pn _)) = T.text (show (prettyPrint pn))
-    toBuilder (VProc p) = T.text (show (prettyPrint p))
-    toBuilder (VThunk th) = T.stext "<thunk>"
 
 instance Show Value where
     show v = show (prettyPrint v)
