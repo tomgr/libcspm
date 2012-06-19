@@ -2,6 +2,7 @@ module CSPM.Evaluator.Dot (
     combineDots,
     extensions, oneFieldExtensions,
     productions, splitIntoFields,
+    compressIntoEnumeratedSet,
 ) where
 
 import CSPM.DataStructures.Names
@@ -10,6 +11,8 @@ import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet hiding (cartesianProduct)
 import qualified CSPM.Evaluator.ValueSet as S
+import Data.List (groupBy)
+import Data.Maybe (catMaybes)
 import Util.Exception
 import Util.List
 
@@ -209,10 +212,16 @@ takeFirstField (VChannel n : vs) = do
     return $ (VDot (VChannel n : fs), vs)
 takeFirstField (v:vs) = return (v, vs)
 
+-- | Takes a set of dotted values (i.e. a set of VDot _) and returns a list of
+-- sets such that the cartesian product is equal to the original set.
+--
+-- This throws an error if the set cannot be decomposed.
 splitIntoFields :: ValueSet -> EvaluationMonad [ValueSet]
 splitIntoFields vs = do
     let values = toList vs
         extract (VDot vs) = vs
+        -- | Splits a dot list into the separate fields.
+        split :: [Value] -> EvaluationMonad [Value]
         split [] = return []
         split vs = do
             (v, vs') <- takeFirstField vs
@@ -233,3 +242,69 @@ splitIntoFields vs = do
                                 throwError $ setNotRectangularErrorMessage vs cartProduct
                             else return $ sets
                         _ -> return $ [vs]
+
+-- | Takes a set and returns a list of values xs such that 
+-- Union({productions(x) | x <- xs}) == xs. For example, if c is a channel of
+-- type {0,1} then {c.0, c.1} would return [c].
+--
+-- This is primarily used for display purposes.
+compressIntoEnumeratedSet :: ValueSet -> EvaluationMonad (Maybe [Value])
+compressIntoEnumeratedSet vs =
+    let 
+        haveAllOfLastField :: [[Value]] -> EvaluationMonad Bool
+        haveAllOfLastField ys = do
+            let n = case head (head ys) of
+                        VDataType n -> n
+                        VChannel n -> n
+                fieldIx = length (head ys) - 2
+            VTuple [_, _, VList fieldSets] <- lookupVar n
+            let VSet s = fieldSets!!fieldIx
+            if fromList (map last ys) == s then
+                -- All values are used
+                return True
+            else return False
+
+        splitGroup :: [[Value]] -> EvaluationMonad (Maybe [Value])
+        splitGroup ([_]:_) = return Nothing
+        splitGroup vs = do
+            b <- haveAllOfLastField vs
+            if b then
+                -- have everything, and inits are equal, so can compress.
+                -- Since the inits are equal just take the init of the first
+                -- item.
+                return $ Just $ init (head vs)
+            else return $ Nothing
+
+        forceRepeatablyCompress :: [[Value]] -> EvaluationMonad [Value]
+        forceRepeatablyCompress vs = do
+            mt <- repeatablyCompress vs
+            return $! case mt of
+                        Just vs -> vs
+                        Nothing -> map VDot vs
+
+        -- | Repeatably compresses the supplied values from the back, returning
+        -- the compressed set.
+        repeatablyCompress :: [[Value]] -> EvaluationMonad (Maybe [Value])
+        repeatablyCompress [] = return Nothing
+        repeatablyCompress vs = do
+            let initiallyEqual :: [[[Value]]]
+                initiallyEqual = groupBy (\ xs ys ->
+                    head xs == head ys && init xs == init ys) vs
+                -- head is required above (consider [x]).
+                processNothing Nothing vs = [VDot vs]
+                processNothing (Just _) vs = []
+            gs <- mapM splitGroup initiallyEqual
+            let vsDone = zipWith processNothing gs vs
+            -- Now, repeatably compress the prefixes that were equal.
+            case catMaybes gs of
+                [] -> return Nothing
+                xs -> do
+                    vsRecursive <- forceRepeatablyCompress xs
+                    return $! Just (vsRecursive ++ concat vsDone)
+
+        setValues = toList vs
+    in case toList vs of
+            [] -> return Nothing
+            (vs @ (VDot ((VChannel _) :_) : _)) ->
+                repeatablyCompress (map (\ (VDot xs) -> xs) vs)
+            _ -> return Nothing -- must be a set that we cannot handle
