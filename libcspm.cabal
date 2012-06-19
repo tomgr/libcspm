@@ -104,6 +104,8 @@ Library
         Util.HierarchicalMap,
         Util.List,
         Util.Monad,
+        Util.MonadicPrettyPrint,
+        Util.MonadicPrettyPrintInternal,
         Util.PartialFunctions,
         Util.Prelude,
         Util.PrettyPrint
