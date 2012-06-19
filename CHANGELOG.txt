@@ -1,5 +1,26 @@
-0.2.2 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> TODO
+1.0.0 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> TODO
+    This is a major release that delivers a fully functional evaluator that
+    is both reasonably efficient and compatible with FDR2.
+
+    * Changes to the evaluator included:
+        * Major efficiency and memory improvements. In particular, when a
+          pattern binds to a process, the entire tree of operator applications
+          is not saved in the environment, meaning that memory usage is
+          minimised. This should have no noticeable performance impact.
+        * Fixed the naming of processes within let expressions.
+        * The ability to handle all processes.
+        * Misc fixes with dot handling, including within prefixes.
+        * Improvements to the handling of infinite sets.
+        * An error is thrown when a datatype is not rectangular.
+        * Events is now available.
+        * An error is thrown when an invalid event or datatype is constructed
+          (e.g. when c.1 is constructed, if c is a channel allowing only 0 as
+          its first field).
+    * The pretty printing structure has been overhauled to make it possible to
+      have side effects. This permits more attractive pretty printing of values.
     * Added Hashable instances for many of the built in datatypes.
+    * Allow negated assertions.
+    * Fixed a bug that prevented multiple assertions from being included.
     
 0.2.1 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> 2012-01-18
     * Fixed a bug in the typechecker that prevented certain (uncommon)

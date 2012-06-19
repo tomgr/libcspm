@@ -26,12 +26,6 @@ Description:
     The main module of interest will be the "CSPM" module. This packages up 
     most of the functionality of the library in an easy to use, relatively
     high level format. See "CSPM" for an example of how to use this module.
-    .
-    Version Numbering Policy: point releases (i.e. from @x.y.z@ to @x.y.z'@)
-    are guaranteed to be backwards compatible. Minor releases (i.e. 
-    from @x.y.z@ to @x.y'.z'@) will not be backwards compatible, but should be
-    relatively easy to port to. Major changes (i.e. from @x.y.z@ to @x'.y'.z'@)
-    will not be backwards compatible and may include large API redesigns.
 Version: 0.3.0
 Extra-source-files: 
     README.md,
