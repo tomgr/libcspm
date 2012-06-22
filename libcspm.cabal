@@ -57,8 +57,6 @@ Library
 
     Exposed-Modules:
         CSPM,
-        CSPM.Compiler.Events,
-        CSPM.Compiler.Processes,
         CSPM.DataStructures.Literals,
         CSPM.DataStructures.Names,
         CSPM.DataStructures.Syntax,
@@ -74,8 +72,9 @@ Library
         CSPM.Evaluator.Module,
         CSPM.Evaluator.Monad,
         CSPM.Evaluator.PatBind,
+        CSPM.Evaluator.ProcessValues,
         CSPM.Evaluator.Values,
-        CSPM.Evaluator.ValueSet
+        CSPM.Evaluator.ValueSet,
         CSPM.Parser,
         CSPM.Parser.Exceptions,
         CSPM.Parser.Lexer,

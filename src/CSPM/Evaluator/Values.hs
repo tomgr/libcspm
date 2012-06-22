@@ -7,15 +7,12 @@ module CSPM.Evaluator.Values (
     noSave, maybeSave, removeThunk, lookupVar,
 ) where
 
-import Data.Hashable
-
-import CSPM.Compiler.Events hiding (fromList)
-import CSPM.Compiler.Processes
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Types
 import CSPM.Evaluator.Monad
+import CSPM.Evaluator.ProcessValues
 import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
-import CSPM.PrettyPrinter
+import Data.Hashable
 import Util.Exception
 import Util.Prelude
 import Util.PrettyPrint
@@ -124,8 +121,7 @@ compareValues (VDot vs1) (VDot vs2) =
     if vs1 == vs2 then Just EQ else Nothing
 
 -- Every other possibility is invalid
-compareValues v1 v2 = panic $
-    "Cannot compare "++show v1++" "++show v2
+compareValues v1 v2 = panic $ "Cannot compare two values"
 
 instance Ord Value where
     -- This implementation is used for various internal measures, but not

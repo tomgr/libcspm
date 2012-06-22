@@ -10,7 +10,7 @@ import System.FilePath
 import System.IO
 
 import CSPM
-import CSPM.Compiler.Processes
+import CSPM.Evaluator.ProcessValues
 import Monad
 import Util.Annotated
 import Util.Exception

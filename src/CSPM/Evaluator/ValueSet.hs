@@ -6,7 +6,7 @@
 -- places that infinite sets are allowed.
 module CSPM.Evaluator.ValueSet (
     -- * Construction
-    ValueSet(Integers, Processes, IntSetFrom),
+    ValueSet(..),
     emptySet, fromList, toList, toSeq,
     -- * Basic Functions
     compareValueSets,
@@ -32,7 +32,7 @@ import qualified Data.Sequence as Sq
 
 import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Values
-import qualified CSPM.Compiler.Events as CE
+import qualified CSPM.Evaluator.ProcessValues as CE
 import Util.Exception
 import qualified Util.List as UL
 import Util.PrettyPrint hiding (empty)
@@ -359,7 +359,7 @@ difference s (CompositeSet s1 s2) = difference (difference s s1) s2
 difference s1 s2 = difference (fromList (toList s1)) (fromList (toList s2))
 
 valueSetToEventSet :: ValueSet -> CE.EventSet
-valueSetToEventSet = CE.fromList . map valueEventToEvent . toList
+valueSetToEventSet = CE.eventSetFromList . map valueEventToEvent . toList
 
 -- | Attempts to decompose the set into a cartesian product, returning Nothing
 -- if it cannot.
