@@ -1,0 +1,3 @@
+datatype X = A | B.{0}
+
+subtype X' = B.0

@@ -50,6 +50,7 @@ data Token =
     | TAssert
     | TAssertNot
     | TDataType
+    | TSubType
     | TExternal
     | TTransparent
     | TNameType
@@ -149,6 +150,7 @@ instance PrettyPrintable Token where
     prettyPrint TAssert = text "assert"
     prettyPrint TAssertNot = text "not"
     prettyPrint TDataType = text "datatype"
+    prettyPrint TSubType = text "subtype"
     prettyPrint TExternal = text "external"
     prettyPrint TTransparent = text "transparent"
     prettyPrint TNameType = text "nametype"

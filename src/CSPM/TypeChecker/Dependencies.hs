@@ -24,6 +24,7 @@ namesBoundByDecl =  namesBoundByDecl' . unAnnotate
 namesBoundByDecl' (FunBind n ms) = return [n]
 namesBoundByDecl' (PatBind p ms) = freeVars p
 namesBoundByDecl' (Channel ns es) = return ns
+namesBoundByDecl' (SubType n dcs) = return [n]
 namesBoundByDecl' (DataType n dcs) = 
     let
         namesBoundByDtClause (DataTypeClause n _) = [n]
@@ -199,6 +200,11 @@ instance Dependencies (Decl Name) where
         return $ depsp++depse
     dependencies' (Channel ns es) = dependencies es
     dependencies' (DataType n cs) = dependencies [cs]
+    dependencies' (SubType n cs) = 
+        concatMapM (\ (DataTypeClause n e) -> do
+            ds <- dependencies e
+            return $ n:ds
+        ) (map unAnnotate cs)
     dependencies' (NameType n e) = dependencies' e
     dependencies' (External ns) = return []
     dependencies' (Transparent ns) = return []

@@ -1,6 +1,6 @@
 module CSPM.TypeChecker.Unification (
     generaliseGroup, instantiate, unify, unifyAll, evaluateDots,
-    typeToDotList,
+    typeToDotList, dotableToDotList,
 ) where
 
 import Control.Monad
@@ -151,6 +151,9 @@ typeToDotList t = compress t >>= \ t ->
             ts2 <- typeToDotList t2
             return (t:ts1++ts2)
         _   -> return [t]
+
+dotableToDotList :: Type -> TypeCheckMonad ([Type], Type)
+dotableToDotList t = compress t >>= return . reduceDotable
 
 -- | Takes a 'TDotable' and returns a tuple consisting of:
 -- the arguments that it takes and the ultimate return type. Note

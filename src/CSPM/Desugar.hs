@@ -39,6 +39,7 @@ instance Desugarable (Decl Name) where
     desugar (Transparent ns) = Transparent ns
     desugar (Channel ns me) = Channel ns (desugar me)
     desugar (DataType n cs) = DataType n (desugar cs)
+    desugar (SubType n cs) = SubType n (desugar cs)
     desugar (NameType n e) = NameType n (desugar e)
 
 instance Desugarable (Assertion Name) where

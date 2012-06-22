@@ -121,6 +121,7 @@ instance Compressable (Decl a) where
     mcompress (Transparent ns) = return (Transparent ns)
     mcompress (Channel ns me) = return (Channel ns) $$ mcompress me
     mcompress (DataType n cs) = return (DataType n) $$ mcompress cs
+    mcompress (SubType n cs) = return (SubType n) $$ mcompress cs
     mcompress (NameType n e) = return (NameType n) $$ mcompress e
 
 instance Compressable (Assertion a) where

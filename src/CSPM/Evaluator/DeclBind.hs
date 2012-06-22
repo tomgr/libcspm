@@ -141,12 +141,27 @@ bindDecl (an@(An _ _ (DataType n cs))) =
                 vs <- mapM mkSet [nc | DataTypeClause nc _ <- map unAnnotate cs]
                 return $ VSet (unions vs)
     in return $ (n, computeSetOfValues):(map mkDataTypeClause (map unAnnotate cs))
+bindDecl (an@(An _ _ (SubType n cs))) =
+    let
+        computeSetOfValues =
+            let 
+                mkSet (DataTypeClause nc me) = do
+                    VTuple [_, _, VList fields] <- lookupVar nc
+                    fs <- case me of
+                            Just e -> eval e >>= evalTypeExprToList
+                            Nothing -> return []
+                    let preFieldCount = length fs
+                    return $ cartesianProduct CartDot $ fromList
+                        [VDataType nc] : fs ++ map (\(VSet vs) -> vs) (drop preFieldCount fields)
+            in do
+                vs <- mapM (mkSet . unAnnotate) cs
+                return $ VSet (unions vs)
+    in return $ [(n, computeSetOfValues)]
 bindDecl (an@(An _ _ (NameType n e))) = return $
     [(n, do
         v <- eval e
         sets <- evalTypeExprToList v
         return $ VSet $ cartesianProduct CartDot sets)]
-
 bindDecl (an@(An _ _ (Assert _))) = return []
 bindDecl (an@(An _ _ (External ns))) = return []
 bindDecl (an@(An _ _ (Transparent ns))) = return []

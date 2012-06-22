@@ -16,11 +16,11 @@ import Data.Char
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Tokens
 import CSPM.DataStructures.Types hiding (TDot)
 import CSPM.Parser.Exceptions
 import CSPM.Parser.Lexer
 import CSPM.Parser.Monad
+import CSPM.Parser.Tokens
 import Util.Annotated
 }
 
@@ -73,6 +73,7 @@ import Util.Annotated
     "@"                 { L _ TLambdaDot }
     "channel"           { L _ TChannel }
     "datatype"          { L _ TDataType }
+    "subtype"           { L _ TSubType }
     "external"          { L _ TExternal }
     "transparent"       { L _ TTransparent }
     "nametype"          { L _ TNameType }
@@ -207,6 +208,7 @@ DeclA :: { PDecl }
     | "channel" NameCommaList1                  { AN2L (Channel (map unLoc $2) Nothing) }
     | "channel" NameCommaList1 ":" CExp         { AN2 (Channel (map unLoc $2) (Just $4)) }
     | "datatype" Name "=" DataTypeClauseList1   { AN2L (DataType (unLoc $2) $4) }
+    | "subtype" Name "=" DataTypeClauseList1    { AN2L (SubType (unLoc $2) $4) }
     | "external" NameCommaList1                 { AN2L (External (map unLoc $2)) }
     | "transparent" NameCommaList1              { AN2L (Transparent (map unLoc $2)) }
     | "assert" "anot" Assertion                 { AN (Assert (ASNot $3)) }

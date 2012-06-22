@@ -1,0 +1,10 @@
+datatype X = A | B.{0}
+datatype Y = C.{0..100} | D.Bool
+
+subtype X' = A
+subtype Y' = C | D.{false}
+subtype Z = C | D
+
+test1 = X' == {A}
+test2 = Y' == union({C.x | x <- {0..100}}, {D.false})
+test3 = Z == Y

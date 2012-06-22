@@ -450,6 +450,8 @@ data Decl id =
     | Channel [id] (Maybe (AnExp id))
     -- | A datatype declaration, e.g. @datatype T = Clause1 | Clause2@.
     | DataType id [AnDataTypeClause id]
+    -- | A subtype declaration, e.g. @subtype T = Clause1 | Clause2@.
+    | SubType id [AnDataTypeClause id]
     -- | A nametype declaration, e.g. @nametype T2 = T.T@.
     | NameType id (AnExp id)
     deriving (Eq, Show)

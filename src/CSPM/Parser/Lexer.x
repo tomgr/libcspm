@@ -147,6 +147,7 @@ tokens :-
     <0>"channel"/$notid         { soakTok TChannel }
     <0>"assert"/$notid          { soakTok' TAssert }
     <0>"datatype"/$notid        { soakTok TDataType }
+    <0>"subtype"/$notid         { soakTok TSubType }
     <0>"external"/$notid        { soakTok TExternal }
     <0>"transparent"/$notid     { soakTok TTransparent }
     <0>"nametype"/$notid        { soakTok TNameType }

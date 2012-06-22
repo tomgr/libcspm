@@ -180,6 +180,8 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         hang (text "In a pattern binding:") tabWidth (prettyPrint p)
     errorContext (DataType n cs) = Just $
         text "In the declaration of:" <+> prettyPrint n
+    errorContext (SubType n cs) = Just $
+        text "In the declaration of:" <+> prettyPrint n
     errorContext (NameType n e) = Just $
         text "In the declaration of:" <+> prettyPrint n
     errorContext (Channel ns es) = Just $
@@ -235,6 +237,23 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
             ForAll [] t' <- getType n
             unify t' t) ns
         return $ [(n, t) | n <- ns]
+    typeCheck' (SubType n clauses) = do
+        -- Get the type fromthe first clause
+        parentType <- freshTypeVar
+        mapM_ (\ clause -> do
+                let nclause = case unAnnotate clause of
+                            DataTypeClause x _ -> x
+                (_, tsFields) <- typeCheck clause
+                ForAll [] typeCon <- getType nclause
+                (actFields, dataType) <- dotableToDotList typeCon
+                -- Check that the datatype is the correct subtype.
+                unify parentType dataType
+                -- Check that the fields are compatible with the expected fields.
+                zipWithM unify actFields tsFields
+            ) clauses
+        ForAll [] t <- getType n
+        t' <- unify t (TSet parentType)
+        return [(n, TSet parentType)]
     typeCheck' (DataType n clauses) = do
         nts <- mapM (\ clause -> do
             let 

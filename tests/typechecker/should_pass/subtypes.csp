@@ -1,0 +1,5 @@
+datatype X = A | B.{0}
+datatype Y = C.Int | D.Bool
+
+subtype X' = A
+subtype Y' = C | D.{false}

@@ -185,6 +185,9 @@ renameDeclarations topLevel ds prog = do
             DataType rn _ -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
+            SubType rn _ -> do
+                n <- nameMaker (loc pd) rn
+                setName rn n
             External ns ->
                 mapM_ (\ rn@(UnQual ocn) -> do
                     case externalFunctionForOccName ocn of
@@ -224,6 +227,14 @@ renameDeclarations topLevel ds prog = do
                                     e' <- rename e
                                     return $ DataTypeClause n' e') cs
                 return $ DataType n cs'
+            SubType rn cs -> do
+                n <- renameVarRHS rn
+                cs' <- mapM (\ pc -> addScope $ reAnnotate pc $ case unAnnotate pc of
+                                DataTypeClause rn e -> do
+                                    n' <- renameVarRHS rn
+                                    e' <- rename e
+                                    return $ DataTypeClause n' e') cs
+                return $ SubType n cs'
             External rns -> do
                 ns <- mapM renameVarRHS rns
                 return $ External ns
@@ -544,6 +555,7 @@ instance FreeVars (Decl UnRenamedName) where
     freeVars (Channel ns _) = return ns
     freeVars (DataType n cs) = 
         return $ n:[n' | DataTypeClause n' _ <- map unAnnotate cs]
+    freeVars (SubType n _) = return [n]
     freeVars (FunBind n _) = return [n]
     freeVars (NameType n _) = return [n]
     freeVars (PatBind p _) = freeVars p
