@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 module CSPM.Evaluator.Values (
     Value(..), UProc, Proc(..), CSPOperator(..), ProcOperator(..), Event(..),
     compareValues,
@@ -15,7 +14,6 @@ import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
 import Data.Hashable
 import Util.Exception
 import Util.Prelude
-import Util.PrettyPrint
 
 type UProc = UnCompiledProc
 
@@ -139,24 +137,7 @@ instance Ord Value where
     compare v1 v2 = panic $
         -- Must be as a result of a mixed set of values, which cannot happen
         -- as a result of type checking.
-        "Internal sets - cannot order "++show v1++" "++show v2
-
-instance PrettyPrintable Value where
-    prettyPrint (VInt i) = int i
-    prettyPrint (VBool True) = text "true"
-    prettyPrint (VBool False) = text "false"
-    prettyPrint (VTuple vs) = parens (list $ map prettyPrint vs)
-    prettyPrint (VDot vs) = dotSep (map prettyPrint vs)
-    prettyPrint (VChannel n) = prettyPrint n
-    prettyPrint (VDataType n) = prettyPrint n
-    prettyPrint (VList vs) = angles (list $ map prettyPrint vs)
-    prettyPrint (VSet s) = prettyPrint s
-    prettyPrint (VFunction _) = text "<function>"
-    prettyPrint (VProc p) = prettyPrint p
-    prettyPrint (VThunk th) = text "<thunk>"
-
-instance Show Value where
-    show v = show (prettyPrint v)
+        "Internal sets - cannot order"
       
 procId :: Name -> [[Value]] -> Maybe ProcName -> ProcName
 procId n vss pn = ProcName n vss pn

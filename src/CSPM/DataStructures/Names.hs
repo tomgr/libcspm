@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses,
+    TypeSynonymInstances #-}
 -- | Names used by the evaluator. This is heavily inspired by GHC.
 module CSPM.DataStructures.Names (
     -- * Data Types
@@ -12,6 +13,7 @@ module CSPM.DataStructures.Names (
     isNameDataConstructor,
 ) where
 
+import Control.Applicative
 import Control.Monad.Trans
 import Data.Hashable
 import Data.IORef
@@ -20,6 +22,7 @@ import Data.Typeable
 import System.IO.Unsafe
 
 import Util.Annotated
+import qualified Util.MonadicPrettyPrint as M
 import Util.PrettyPrint
 
 -- | A name that occurs in the source code somewhere.
@@ -29,6 +32,8 @@ data OccName =
 
 instance PrettyPrintable OccName where
     prettyPrint (OccName s) = text s
+instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m OccName where
+    prettyPrint (OccName s) = M.text s
 
 -- | A name that has not yet been renamed. Created by the parser.
 data UnRenamedName =
@@ -93,6 +98,9 @@ instance Ord Name where
 
 instance PrettyPrintable Name where
     prettyPrint n = prettyPrint (nameOccurrence n)
+
+instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m Name where
+    prettyPrint n = M.prettyPrint (nameOccurrence n)
 
 instance Show Name where
     show n = show (prettyPrint n)

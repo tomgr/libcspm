@@ -82,9 +82,6 @@ instance PrettyPrintable ValueSet where
         braces (list (map prettyPrint $ S.toList s))
     prettyPrint (CompositeSet s1 s2) =
         text "union" <> parens (prettyPrint s1 <> comma <+> prettyPrint s2)
-    
-instance Show ValueSet where
-    show = show . prettyPrint
 
 isFinitePrintable :: ValueSet -> Bool
 isFinitePrintable (ExplicitSet vs) = True

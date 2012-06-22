@@ -6,6 +6,7 @@ import Prelude
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.PrettyPrinter
+import {-# SOURCE #-} CSPM.Evaluator.ValuePrettyPrinter ()
 import CSPM.Evaluator.Values
 import {-# SOURCE #-} CSPM.Evaluator.ValueSet
 import Util.Annotated

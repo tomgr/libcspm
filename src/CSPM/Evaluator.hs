@@ -4,6 +4,8 @@ module CSPM.Evaluator (
     
     initEvaluator, runFromStateToState,
     EvaluationMonad, runEvaluator, EvaluationState,
+    module CSPM.Evaluator.Values,
+    module CSPM.Evaluator.ValueSet,
 ) where
 
 import CSPM.DataStructures.Names
@@ -15,6 +17,7 @@ import CSPM.Evaluator.Expr
 import CSPM.Evaluator.Module
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
+import CSPM.Evaluator.ValueSet
 
 runFromStateToState :: EvaluationState -> EvaluationMonad a -> 
     (a, EvaluationState)

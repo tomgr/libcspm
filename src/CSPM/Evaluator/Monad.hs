@@ -3,7 +3,7 @@ module CSPM.Evaluator.Monad where
 import Control.Monad.Reader
 import Prelude hiding (lookup)
 
-import CSPM.Compiler.Processes
+import CSPM.Evaluator.ProcessValues
 import CSPM.DataStructures.Names
 import CSPM.Evaluator.Environment
 import {-# SOURCE #-} CSPM.Evaluator.Values

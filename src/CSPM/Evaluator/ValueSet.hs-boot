@@ -12,7 +12,6 @@ instance Eq ValueSet
 instance Hashable ValueSet
 instance Ord ValueSet
 instance PrettyPrintable ValueSet
-instance Show ValueSet
 
 toList :: ValueSet -> [Value]
 fromList :: [Value] -> ValueSet

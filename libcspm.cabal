@@ -75,6 +75,7 @@ Library
         CSPM.Evaluator.ProcessValues,
         CSPM.Evaluator.Values,
         CSPM.Evaluator.ValueSet,
+        CSPM.Evaluator.ValuePrettyPrinter,
         CSPM.Parser,
         CSPM.Parser.Exceptions,
         CSPM.Parser.Lexer,
