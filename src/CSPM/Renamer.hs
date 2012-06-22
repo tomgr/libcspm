@@ -35,7 +35,9 @@ type RenameEnvironment = HM.HierarchicalMap UnRenamedName Name
 
 data RenamerState = RenamerState {
         environment :: RenameEnvironment,
-        srcSpan :: SrcSpan
+        srcSpan :: SrcSpan,
+        -- | Errors that have occured.
+        errors :: [ErrorMessage]
     }
 
 type RenamerMonad = StateT RenamerState IO
@@ -47,12 +49,18 @@ initRenamer = do
     return $ RenamerState {
         -- We insert a new layer to allow builtins to be overridden
         environment = HM.newLayer (HM.updateMulti HM.new bs),
-        srcSpan = Unknown
+        srcSpan = Unknown,
+        errors = []
     }
 
 -- | Runs the renamer starting at the given state and returning the given state.
 runFromStateToState :: RenamerState -> RenamerMonad a -> IO (a, RenamerState)
-runFromStateToState s p = runStateT p s
+runFromStateToState s p = do
+    (a, st') <- runStateT p s
+    -- Check if any errors have been thrown.
+    case errors st' of
+        [] -> return (a, st')
+        es -> throwSourceError es
 
 getBoundNames :: RenamerMonad [Name]
 getBoundNames = do
@@ -91,6 +99,10 @@ setName rn n =
 
 setSrcSpan :: SrcSpan -> RenamerMonad ()
 setSrcSpan loc = modify (\ st -> st { srcSpan = loc })
+
+-- | Report a message as an error. This will be raised at the outer monad level.
+addErrors :: [ErrorMessage] -> RenamerMonad ()
+addErrors msgs = modify (\st -> st { errors = msgs ++ errors st })
 
 -- **********************
 -- Renaming Class and basic instances
@@ -194,7 +206,7 @@ renameDeclarations topLevel ds prog = do
                         Just b -> setName rn (name b)
                         Nothing -> 
                             let err = mkErrorMessage (loc pd) (externalFunctionNotRecognised rn)
-                            in throwSourceError [err]) ns
+                            in addErrors [err]) ns
             FunBind rn ms -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
@@ -208,7 +220,7 @@ renameDeclarations topLevel ds prog = do
                         Just b -> setName rn (name b)
                         Nothing ->
                             let err = mkErrorMessage (loc pd) (transparentFunctionNotRecognised rn)
-                            in throwSourceError [err]) ns
+                            in addErrors [err]) ns
 
         renameRightHandSide :: PDecl -> RenamerMonad TCDecl
         renameRightHandSide pd = reAnnotate pd $ case unAnnotate pd of
@@ -308,13 +320,18 @@ checkDuplicates aps = do
 --renameVarLHS nm v = do
 
 -- | Rename a variable on the right hand side of a definition.
+-- 
+-- If the variable does not exist it returns an error thunk and adds an error
+-- that will be raised when the monad is evaluated.
 renameVarRHS :: UnRenamedName -> RenamerMonad Name
 renameVarRHS n = do
     mn <- lookupName n
     loc <- gets srcSpan
     case mn of
         Just x -> return x
-        Nothing -> throwSourceError [mkErrorMessage loc (varNotInScopeMessage n)]
+        Nothing -> do
+            addErrors [mkErrorMessage loc (varNotInScopeMessage n)]
+            return $ panic "error name evaluated"
 
 renameFields :: [PField] -> RenamerMonad a -> RenamerMonad ([TCField], a)
 renameFields fs inner = do
