@@ -63,7 +63,7 @@ data TypeVarRef =
     TypeVarRef TypeVar [Constraint] PType
 
 instance Eq TypeVarRef where
-    (TypeVarRef tv1 cs1 pt1) == (TypeVarRef tv2 cs2 pt2) = tv1 == tv2
+    (TypeVarRef tv1 _ _) == (TypeVarRef tv2 _ _) = tv1 == tv2
 
 instance Show TypeVarRef where
     show (TypeVarRef tv cs _) = "TypeVarRef "++show tv ++ show cs
@@ -89,9 +89,6 @@ freshTypeVarWithConstraints cs = do
     ioRef <- freshPType
     return $ TVar (TypeVarRef tv cs ioRef)
 
-
-
-newtype IORefMaybe a = IORefMaybe (Maybe a)
 type SymbolTable = PartialFunction Name TypeScheme
 type PType = IORef (Maybe Type)
 type PSymbolTable = IORef SymbolTable
@@ -152,7 +149,7 @@ instance PrettyPrintable TypeScheme where
                 )
 
 prettyPrintType :: PartialFunction Int Char -> Type -> Doc
-prettyPrintType vmap (TVar (TypeVarRef (TypeVar n) cs ioref)) = 
+prettyPrintType vmap (TVar (TypeVarRef (TypeVar n) _ _)) = 
     case safeApply vmap n of
         Just c  -> char c
         Nothing -> int n
@@ -172,13 +169,12 @@ prettyPrintType vmap (TDot t1 t2) =
     ) <> text "." <> prettyPrintType vmap t2
 prettyPrintType vmap (TDotable t1 t2) =
     prettyPrintType vmap t1 <> text "=>" <> prettyPrintType vmap t2
-prettyPrintType vmap (TDatatype n) = prettyPrint n
-
-prettyPrintType vmap (TBool) = text "Bool"
-prettyPrintType vmap (TInt) = text "Int"
-prettyPrintType vmap (TProc) = text "Proc"
-prettyPrintType vmap (TEvent) = text "Event"
-prettyPrintType vmap (TEventable) = text "Event or Channel"
+prettyPrintType _ (TDatatype n) = prettyPrint n
+prettyPrintType _ TBool = text "Bool"
+prettyPrintType _ TInt = text "Int"
+prettyPrintType _ TProc = text "Proc"
+prettyPrintType _ TEvent = text "Event"
+prettyPrintType _ TEventable = text "Event or Channel"
 
 collectConstraints :: Type -> [(TypeVar, [Constraint])]
 collectConstraints = combine . collect

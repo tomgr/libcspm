@@ -48,14 +48,14 @@ data SrcSpan =
     deriving Eq
     
 srcSpanStart :: SrcSpan -> SrcLoc
-srcSpanStart (SrcSpanOneLine f l sc ec) = SrcLoc f l sc
-srcSpanStart (SrcSpanMultiLine f sl sc el ec) = SrcLoc f sl sc
+srcSpanStart (SrcSpanOneLine f l sc _) = SrcLoc f l sc
+srcSpanStart (SrcSpanMultiLine f sl sc _ _) = SrcLoc f sl sc
 srcSpanStart (SrcSpanPoint f l c) = SrcLoc f l c
 srcSpanStart Unknown = NoLoc
 
 srcSpanEnd :: SrcSpan -> SrcLoc
-srcSpanEnd (SrcSpanOneLine f l sc ec) = SrcLoc f l ec
-srcSpanEnd (SrcSpanMultiLine f sl sc el ec) = SrcLoc f el ec
+srcSpanEnd (SrcSpanOneLine f l _ ec) = SrcLoc f l ec
+srcSpanEnd (SrcSpanMultiLine f _ _ el ec) = SrcLoc f el ec
 srcSpanEnd (SrcSpanPoint f l c) = SrcLoc f l c
 srcSpanEnd Unknown = NoLoc
 
@@ -82,19 +82,20 @@ instance PrettyPrintable SrcSpan where
 combineSpans :: SrcSpan -> SrcSpan -> SrcSpan
 combineSpans s1 s2 | srcSpanFile s1 /= srcSpanFile s2 = 
     panic "Cannot combine spans as they span files"
-combineSpans (SrcSpanOneLine f1 line1 scol1 ecol1) 
-        (SrcSpanOneLine f2 line2 scol2 ecol2) = 
+combineSpans (SrcSpanOneLine f1 line1 scol1 _) 
+        (SrcSpanOneLine _ line2 _ ecol2) = 
     if line1 == line2 then SrcSpanOneLine f1 line1 scol1 ecol2
     else SrcSpanMultiLine f1 line1 scol1 line2 ecol2
-combineSpans (SrcSpanOneLine f1 sline1 scol1 ecol1) 
-        (SrcSpanMultiLine f2 sline2 scol2 eline2 ecol2) = 
+combineSpans (SrcSpanOneLine f1 sline1 scol1 _) 
+        (SrcSpanMultiLine _ _ _ eline2 ecol2) = 
     SrcSpanMultiLine f1 sline1 scol1 eline2 ecol2
-combineSpans (SrcSpanMultiLine f1 sline1 scol1 eline1 ecol1)
-        (SrcSpanOneLine f2 eline2 scol2 ecol2) =
+combineSpans (SrcSpanMultiLine f1 sline1 scol1 _ _)
+        (SrcSpanOneLine _ eline2 _ ecol2) =
     SrcSpanMultiLine f1 sline1 scol1 eline2 ecol2
-combineSpans (SrcSpanMultiLine f1 sline1 scol1 eline1 ecol1) 
-        (SrcSpanMultiLine f2 sline2 scol2 eline2 ecol2) =
+combineSpans (SrcSpanMultiLine f1 sline1 scol1 _ _) 
+        (SrcSpanMultiLine _ _ _ eline2 ecol2) =
     SrcSpanMultiLine f1 sline1 scol1 eline2 ecol2
+combineSpans _ _ = panic $ "combineSpans: invalid spans combined"
 
 data Located a = 
     L {
@@ -123,9 +124,9 @@ instance Show a => Show (Located a) where
 instance (PrettyPrintable [b]) => PrettyPrintable [Annotated a b] where
     prettyPrint ans = prettyPrint (map unAnnotate ans)
 instance (PrettyPrintable b) => PrettyPrintable (Annotated a b) where
-    prettyPrint (An loc typ inner) = prettyPrint inner
+    prettyPrint (An _ _ inner) = prettyPrint inner
 instance (PrettyPrintable a) => PrettyPrintable (Located a) where
-    prettyPrint (L loc inner) = prettyPrint inner
+    prettyPrint (L _ inner) = prettyPrint inner
 
 instance Eq b => Eq (Annotated a b) where
     (An _ _ b1) == (An _ _ b2) = b1 == b2

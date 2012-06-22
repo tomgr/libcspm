@@ -97,7 +97,7 @@ instance MonadIOException IO where
     tryM prog = do
         r <- try prog
         case r of
-            Left (e@(Panic s)) -> throwException e
+            Left (e@(Panic _)) -> throwException e
             _ -> return r
 
 instance MonadIOException m => MonadIOException (StateT s m) where

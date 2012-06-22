@@ -45,7 +45,7 @@ movePos :: FilePosition -> Char -> FilePosition
 -- Don't treat tabs any differently (editors don't)
 --movePos (FilePosition a l c) '\t' = 
 --  FilePosition (a+1)  l     (((c+7) `div` 8)*8+1)
-movePos (FilePosition a l c) '\n' = FilePosition (a+1) (l+1)   1
+movePos (FilePosition a l _) '\n' = FilePosition (a+1) (l+1)   1
 movePos (FilePosition a l c) _    = FilePosition (a+1)  l     (c+1)
 
 -- *************************************************************************
@@ -97,7 +97,7 @@ pushFile fname prog = do
     let 
         filename = combine dirname fname
         handle :: IOException -> a
-        handle err = throwSourceError [fileAccessErrorMessage filename]
+        handle _ = throwSourceError [fileAccessErrorMessage filename]
     str <- liftIO $ catch (readFile filename) handle
     pushFileContents filename str
     x <- prog
@@ -109,10 +109,6 @@ pushFileContents filename input =
             fs = FileParserState startPos filename input '\n' 0 [0]
         in
             st { fileStack = fs:(fileStack st) })
-
-setFileParserState :: FileParserState -> ParseMonad ()
-setFileParserState fs = 
-    modify (\ st -> st { fileStack = fs:(tail (fileStack st)) } )
 
 getTokenizerPos :: ParseMonad FilePosition
 getTokenizerPos = getTopFileParserState >>= (return . tokenizerPos)

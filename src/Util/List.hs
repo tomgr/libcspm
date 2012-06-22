@@ -1,4 +1,5 @@
 module Util.List where
+
 import Data.List
 
 -- TODO: speed up
@@ -10,6 +11,7 @@ noDups xs = nub xs == xs
 replaceLast :: [a] -> a -> [a]
 replaceLast [_] v = [v]
 replaceLast (x:xs) v = x : replaceLast xs v
+replaceLast _ _ = error "Unsupported call to replaceLast"
 
 cartesianProduct :: [[a]] -> [[a]]
 cartesianProduct vss = sequence vss

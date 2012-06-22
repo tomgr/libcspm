@@ -17,8 +17,8 @@ instance PrettyPrintable id => PrettyPrintable (Module id) where
 
 instance PrettyPrintable id => PrettyPrintable (InteractiveStmt id) where
     prettyPrint (Evaluate e) = prettyPrint e
-    prettyPrint (Bind decl) = 
-        text "let" <+> prettyPrint decl
+    prettyPrint (Bind decl) = text "let" <+> prettyPrint decl
+    prettyPrint (RunAssertion a) = text "assert" <+> prettyPrint a
     
 prettyPrintMatch :: PrettyPrintable id => id -> AnMatch id -> Doc
 prettyPrintMatch n (An _ _ (Match groups exp)) = 

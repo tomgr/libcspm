@@ -1,5 +1,6 @@
 {
-{-# OPTIONS_GHC -fno-warn-lazy-unlifted-bindings -fno-warn-unused-imports #-}
+{-# OPTIONS_GHC -fno-warn-lazy-unlifted-bindings -fno-warn-unused-imports 
+    -fno-warn-unused-binds #-}
 module CSPM.Parser.Lexer where
 
 import Data.ByteString.Internal (c2w)
@@ -9,6 +10,7 @@ import CSPM.Parser.Exceptions
 import CSPM.Parser.Monad
 import CSPM.Parser.Tokens
 import Util.Annotated
+import Util.Exception
 
 }
 
@@ -228,20 +230,23 @@ tok :: Token -> AlexInput -> Int -> ParseMonad LToken
 tok t (ParserState { fileStack = fps:_ }) len =
         return $ L (SrcSpanOneLine f lineno colno (colno+len)) t
     where
-        (FileParserState { tokenizerPos = FilePosition offset lineno colno, 
+        (FileParserState { tokenizerPos = FilePosition _ lineno colno, 
                             fileName = f }) = fps
+tok _ _ _ = panic "tok: invalid state"
 
 stok :: (String -> Token) -> AlexInput -> Int -> ParseMonad LToken
 stok f (st @ ParserState { fileStack = stk }) len = do
         tok (f (filter (\ c -> c /= '\n') (takeChars len stk))) st len
 
-skip input len = getNextToken
+skip :: AlexInput -> Int -> ParseMonad LToken
+skip _ _ = getNextToken
 
 takeChars :: Int -> [FileParserState] -> String
 takeChars 0 _ = ""
 takeChars len (FileParserState {input = [] }:stk) = takeChars len stk
 takeChars len (fps@(FileParserState {input = (c:cs) }):stk) = 
     c:(takeChars (len-1) (fps {input = cs}:stk))
+takeChars _ _ = panic "takeChars: invalid input"
 
 nestedComment :: AlexInput -> Int -> ParseMonad LToken
 nestedComment _ _ = do
@@ -252,8 +257,7 @@ nestedComment _ _ = do
         err = do
             FileParserState { 
                 fileName = fname, 
-                tokenizerPos = pos, 
-                currentStartCode = sc } <- getTopFileParserState
+                tokenizerPos = pos } <- getTopFileParserState
             throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
         go :: Int -> AlexInput -> ParseMonad LToken
         go 0 st = do setParserState st; getNextToken
@@ -266,34 +270,34 @@ nestedComment _ _ = do
                             case alexGetChar st of
                                 Nothing          -> err
                                 Just ('\125',st) -> go (n-1) st
-                                Just (c,st)      -> go n st
+                                Just (_,st)      -> go n st
                         '\123' -> do
                             case alexGetChar st of
                                 Nothing       -> err
                                 Just ('-',st) -> go (n+1) st
-                                Just (c,st)   -> go n st
-                        c -> go n st
+                                Just (_,st)   -> go n st
+                        _ -> go n st
 
 switchInput :: AlexInput -> Int -> ParseMonad LToken
 switchInput st len = do
     FileParserState { 
         fileName = fname, 
-        tokenizerPos = pos, 
-        currentStartCode = sc } <- getTopFileParserState
+        tokenizerPos = pos } <- getTopFileParserState
     let
         str = takeChars len (fileStack st)
         quotedFname = strip (drop (length "include") str)
         
-        hasStartQuote ('\"':cs) = True
+        hasStartQuote ('\"':_) = True
         hasStartQuote _ = False
 
         hasEndQuote [] = False
-        hasEndQuote ('\"':cs) = True
-        hasEndQuote (c:cs) = hasEndQuote cs
+        hasEndQuote ('\"':_) = True
+        hasEndQuote (_:cs) = hasEndQuote cs
         
         file = calcFile (tail quotedFname)
-        calcFile ('\"':cs) = ""
+        calcFile ('\"':_) = ""
         calcFile (c:cs) = c:calcFile cs
+        calcFile [] = panic "switchInput::calcFile: empty file"
 
     if not (hasStartQuote quotedFname) || not (hasEndQuote (tail quotedFname)) then
         throwSourceError [invalidIncludeErrorMessage (filePositionToSrcLoc fname pos)]
@@ -302,13 +306,14 @@ switchInput st len = do
 type AlexInput = ParserState
 
 begin :: Int -> AlexInput -> Int -> ParseMonad LToken
-begin sc' st len = setCurrentStartCode sc' >> getNextToken
+begin sc' _ _ = setCurrentStartCode sc' >> getNextToken
 
 begin' :: Int -> Token -> AlexInput -> Int -> ParseMonad LToken
 begin' sc' t st len = setCurrentStartCode sc' >> tok t st len
 
 alexInputPrevChar :: AlexInput -> Char
-alexInputPrevChar (ParserState { fileStack = fps:_ })= previousChar fps
+alexInputPrevChar (ParserState { fileStack = fps:_ }) = previousChar fps
+alexInputPrevChar _ = panic "alexInputPrevChar: invalid state - no previous char"
 
 -- For compatibility with Alex 3
 alexGetByte :: AlexInput -> Maybe (Word8,AlexInput)
@@ -323,7 +328,7 @@ alexGetChar :: AlexInput -> Maybe (Char,AlexInput)
 alexGetChar (ParserState { fileStack = [] }) = Nothing
 alexGetChar (st @ (ParserState { fileStack = fps:fpss })) = gc fps
     where
-        gc (fps @ (FileParserState { input = [] })) = 
+        gc (FileParserState { input = [] }) = 
             alexGetChar (st { fileStack = fpss })
         gc (fps @ (FileParserState { tokenizerPos = p, input = (c:s) })) =
                 p' `seq` Just (c, st')
@@ -341,9 +346,9 @@ getNextToken = do
     st <- getParserState
     case alexScan st sc of
         AlexEOF -> return $ L Unknown TEOF
-        AlexError st' -> 
+        AlexError _ -> 
             throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
-        AlexSkip st' len -> do
+        AlexSkip st' _ -> do
             setParserState st'
             getNextToken
         AlexToken st' len action -> do

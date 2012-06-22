@@ -344,20 +344,19 @@ render :: (Monad m, Applicative m) => m P.Doc -> m String
 render doc = doc >>= return . P.render
 
 -- | Render the @Doc@ to a String using the given @Style@.
-renderStyle :: (Monad m, Applicative m) => u -> P.Style -> m P.Doc -> m String
-renderStyle u s doc = doc >>= return . P.renderStyle s
+renderStyle :: (Monad m, Applicative m) => P.Style -> m P.Doc -> m String
+renderStyle s doc = doc >>= return . P.renderStyle s
 
 -- | The general rendering interface.
 fullRender :: (Monad m, Applicative m) =>
-              u                        -- ^ User-defined state
-           -> P.Mode                   -- ^ Rendering mode
+           P.Mode                   -- ^ Rendering mode
            -> Int                      -- ^ Line length
            -> Float                    -- ^ Ribbons per line
            -> (P.TextDetails -> a -> a)  -- ^ What to do with text
            -> a                        -- ^ What to do at the end
            -> m P.Doc             -- ^ The document
            -> m a                      -- ^ Result
-fullRender u m lineLen ribbons txt rest doc =
+fullRender m lineLen ribbons txt rest doc =
   doc >>= return . P.fullRender m lineLen ribbons txt rest
 
 --------------------------------------------------------------------------------

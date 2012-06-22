@@ -78,5 +78,5 @@ speakNth n = hcat [ int n, text suffix ]
 
 -- | Equivalent to [d1, sep <> d2, sep <> d3, ...].
 punctuateFront :: Doc -> [Doc] -> [Doc]
-punctuateFront sep [] = []
+punctuateFront _ [] = []
 punctuateFront sep (x:xs) = x:[sep <> x | x <- xs]

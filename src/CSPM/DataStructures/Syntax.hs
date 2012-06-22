@@ -40,14 +40,14 @@ module CSPM.DataStructures.Syntax (
     -- * Type Synonyms
     -- | As the types are parameterised over the type of names it can be
     -- laborious to type the names. Therefore, some shortcuts are provided.
-    AnModule(..), AnDecl(..), AnMatch(..), AnPat(..), AnExp(..), AnField(..),
-    AnStmt(..), AnDataTypeClause(..), AnAssertion(..), AnInteractiveStmt(..),
+    AnModule, AnDecl, AnMatch, AnPat, AnExp, AnField,
+    AnStmt, AnDataTypeClause, AnAssertion, AnInteractiveStmt,
     -- ** Pre-Renaming Types
-    PModule(..), PDecl(..), PMatch(..), PPat(..), PExp(..), PField(..),
-    PStmt(..), PDataTypeClause(..), PAssertion(..), PInteractiveStmt(..),
+    PModule, PDecl, PMatch, PPat, PExp, PField,
+    PStmt, PDataTypeClause, PAssertion, PInteractiveStmt,
     -- ** Post-Renaming Types
-    TCModule(..), TCDecl(..), TCMatch(..), TCPat(..), TCExp(..), TCField(..),
-    TCStmt(..), TCDataTypeClause(..), TCAssertion(..), TCInteractiveStmt(..),
+    TCModule, TCDecl, TCMatch, TCPat, TCExp, TCField,
+    TCStmt, TCDataTypeClause, TCAssertion, TCInteractiveStmt,
     -- * Helpers
     getType, getSymbolTable,
 ) where

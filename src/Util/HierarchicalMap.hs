@@ -20,6 +20,7 @@ instance (Ord a, Show a, Typeable a) => Exception (HierarchicalMapException a)
 update :: Ord a => HierarchicalMap a b -> a -> b -> HierarchicalMap a b
 update (HierarchicalMap (m:ms)) k v = 
     HierarchicalMap ((M.insert k v m):ms)
+update (HierarchicalMap []) _ _ = panic "HierarchicalMap.update: invalid map"
 
 updateMulti :: Ord a => HierarchicalMap a b -> [(a, b)] -> HierarchicalMap a b
 updateMulti m bs = 
@@ -32,18 +33,19 @@ lookup hm k = case maybeLookup hm k of
     Nothing -> throwException (ValueNotFoundException k)
 
 maybeLookup :: (Show k, Typeable k, Ord k) => HierarchicalMap k a -> k -> Maybe a
-maybeLookup (HierarchicalMap []) k = Nothing
+maybeLookup (HierarchicalMap []) _ = Nothing
 maybeLookup (HierarchicalMap (m:ms)) k = 
     case M.lookup k m of
         Just v -> Just v
         Nothing -> maybeLookup (HierarchicalMap ms) k
 
 maybeLookupInTopLayer :: (Show k, Typeable k, Ord k) => HierarchicalMap k a -> k -> Maybe a
-maybeLookupInTopLayer (HierarchicalMap []) k = Nothing
-maybeLookupInTopLayer (HierarchicalMap (m:ms)) k = M.lookup k m
+maybeLookupInTopLayer (HierarchicalMap []) _ = Nothing
+maybeLookupInTopLayer (HierarchicalMap (m:_)) k = M.lookup k m
 
 popLayer :: Ord a => HierarchicalMap a b -> HierarchicalMap a b
-popLayer (HierarchicalMap (m:ms)) = HierarchicalMap ms
+popLayer (HierarchicalMap (_:ms)) = HierarchicalMap ms
+popLayer _ = panic "HierarchicalMap.popLayer: invalid map"
 
 flatten :: Ord a => HierarchicalMap a b -> [(a, b)]
 flatten (HierarchicalMap ms) = h ms []
