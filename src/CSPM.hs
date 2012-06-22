@@ -1,4 +1,6 @@
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, IncoherentInstances,
+    MultiParamTypeClasses, OverlappingInstances, TypeSynonymInstances,
+    UndecidableInstances #-}
 -- | This module provides the main high-level interface to the library 
 -- functionality. It does this through a monadic interface, mainly due to the
 -- fact that several of the components require the use of the IO monad. It is
@@ -127,6 +129,7 @@ import qualified CSPM.Desugar as DS
 import Paths_libcspm (version)
 import Util.Exception
 import Util.PrettyPrint
+import qualified Util.MonadicPrettyPrint as M
 
 -- | A 'CSPMSession' represents the internal states of all the various
 -- components.
@@ -338,3 +341,7 @@ evaluateExpression e = runEvaluatorInCurrentState (EV.evaluateExp e)
 -- | Return the version of libcspm that is being used.
 getLibCSPMVersion :: Version
 getLibCSPMVersion = version
+
+instance (CSPMMonad m, M.MonadicPrettyPrintable EV.EvaluationMonad a) => 
+        M.MonadicPrettyPrintable m a where
+    prettyPrint = runEvaluatorInCurrentState . M.prettyPrint
