@@ -106,16 +106,15 @@ instance Show Name where
     show n = show (prettyPrint n)
 
 nameUniqueSupply :: IORef (Supply Int)
-nameUniqueSupply = unsafePerformIO (do
+nameUniqueSupply = unsafePerformIO $ do
     s <- newNumSupply
-    newIORef s)
+    newIORef s
+{-# NOINLINE nameUniqueSupply #-}
 
 takeNameUnique :: MonadIO m => m Int
 takeNameUnique = do
-    s <- liftIO $ readIORef nameUniqueSupply
-    let (s1, s2) = split2 s
-    liftIO $ writeIORef nameUniqueSupply s2
-    return $ supplyValue s1
+    s <- liftIO $ atomicModifyIORef nameUniqueSupply split2
+    return $ supplyValue s
 
 mkExternalName :: MonadIO m => OccName -> SrcSpan -> Bool -> m Name
 mkExternalName o s b = do
