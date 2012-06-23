@@ -292,15 +292,15 @@ dependenciesOfExp e =
 
 -- | Desugar a file, preparing it for evaulation.
 desugarFile :: CSPMMonad m => [TCModule] -> m [TCModule]
-desugarFile [m] = return [DS.desugar m]
+desugarFile [m] = DS.desugar m >>= \x -> return [x]
 
 -- | Desugars an expression.
 desugarExpression :: CSPMMonad m => TCExp -> m TCExp
-desugarExpression e = return $ DS.desugar e
+desugarExpression e = DS.desugar e
 
 -- | Desugars an interactive statement.
 desugarInteractiveStmt :: CSPMMonad m => TCInteractiveStmt -> m TCInteractiveStmt
-desugarInteractiveStmt s = return $ DS.desugar s
+desugarInteractiveStmt s = DS.desugar s
 
 -- Evaluator API
 
