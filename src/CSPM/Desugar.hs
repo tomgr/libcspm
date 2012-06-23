@@ -5,11 +5,31 @@ import Control.Monad.Trans
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
+import CSPM.DataStructures.Types
 import CSPM.PrettyPrinter
 import Util.Annotated
 import Util.Exception
 import Util.Monad
 import Util.PrettyPrint hiding (($$))
+
+class FreeVars a where
+    freeVars :: a -> [Name]
+
+instance FreeVars a => FreeVars (Annotated b a) where
+    freeVars (An _ _ inner) = freeVars inner
+
+instance FreeVars (Pat Name) where
+    freeVars (PConcat p1 p2) = freeVars p1++freeVars p2
+    freeVars (PDotApp p1 p2) = freeVars p1++freeVars p2
+    freeVars (PDoublePattern p1 p2) = freeVars p1++freeVars p2
+    freeVars (PList ps) = concatMap freeVars ps
+    freeVars (PLit l) = []
+    freeVars (PParen p) = freeVars p
+    freeVars (PSet ps) = concatMap freeVars ps
+    freeVars (PTuple ps) = concatMap freeVars ps
+    freeVars (PVar n) | isNameDataConstructor n = []
+    freeVars (PVar n) = [n]
+    freeVars (PWildCard) = []
 
 class Desugarable a where
     desugar :: MonadIO m => a -> m a
@@ -28,18 +48,63 @@ instance (Desugarable a, Desugarable b) => Desugarable (a,b) where
         return (a', b')
 
 instance Desugarable (Module Name) where
-    desugar (GlobalModule ds) = return GlobalModule $$ desugar ds
+    desugar (GlobalModule ds) = return GlobalModule $$ desugarDecls ds
 
-instance Desugarable (Decl Name) where
-    desugar (FunBind n ms) = return (FunBind n) $$ desugar ms
-    desugar (PatBind p e) = return PatBind $$ desugar p $$ desugar e
-    desugar (Assert a) = return Assert $$ desugar a
-    desugar (External ns) = return $ External ns
-    desugar (Transparent ns) = return $ Transparent ns
-    desugar (Channel ns me) = return (Channel ns) $$ desugar me
-    desugar (DataType n cs) = return (DataType n) $$ desugar cs
-    desugar (SubType n cs) = return (SubType n) $$ desugar cs
-    desugar (NameType n e) = return (NameType n) $$ desugar e
+desugarDecl :: MonadIO m => TCDecl -> m [TCDecl]
+desugarDecl (an@(An x y (PatBind p e))) = do
+    p' <- desugar p
+    e' <- desugar e
+    case getSymbolTable an of
+        -- Optimise by removing it
+        [] -> return []
+        [_] -> return [An x y (PatBind p' e')]
+        st -> do
+            -- We are binding multiple things and thus need to make an extractor
+            nameToBindTo <- mkFreshInternalName
+            let typeOf n = head [ts | (n', ts) <- st, n' == n]
+                expToBindTo = An Unknown dummyAnnotation (Var nameToBindTo)
+                mkExtractorPat' n (An a b p) = An a b (mkExtractorPat n p) 
+                mkExtractorPat n (PCompList p1 p2 pold) =
+                    PCompList (map (mkExtractorPat' n) p1) (
+                        case p2 of
+                            Just (p, ps) -> Just (mkExtractorPat' n p, map (mkExtractorPat' n) ps)
+                            Nothing -> Nothing) pold
+                mkExtractorPat n (PCompDot ps pold) =
+                    PCompDot (map (mkExtractorPat' n) ps) pold
+                mkExtractorPat n (PDoublePattern p1 p2) =
+                    PDoublePattern (mkExtractorPat' n p1) (mkExtractorPat' n p2)
+                mkExtractorPat n (PLit l) = PLit l
+                mkExtractorPat n (PSet ps) = PSet (map (mkExtractorPat' n) ps)
+                mkExtractorPat n (PTuple ps) = PTuple (map (mkExtractorPat' n) ps)
+                mkExtractorPat n PWildCard = PWildCard
+                mkExtractorPat n (PVar n') | n == n' = PVar n
+                mkExtractorPat n (PVar n') = PWildCard
+
+                newPSymTableThunk = panic "new psymbole table evaluated"
+                mkExtractor n = An (loc an)
+                    (Just [(n, typeOf n)], newPSymTableThunk) 
+                    (PatBind (mkExtractorPat' n p') expToBindTo)
+                -- TODO: calculate the correct ForAll
+                etype = ForAll (panic "incorrect polymorphism") (getType e')
+                newPat = An (loc an)
+                    (Just [(nameToBindTo, etype)], newPSymTableThunk)
+                    (PatBind (An Unknown dummyAnnotation (PVar nameToBindTo)) e')
+                extractors = map mkExtractor (freeVars p')
+            return $ newPat : extractors
+desugarDecl (An x y d) = do
+    d' <- case d of
+            FunBind n ms -> return (FunBind n) $$ desugar ms
+            Assert a -> return Assert $$ desugar a
+            External ns -> return $ External ns
+            Transparent ns -> return $ Transparent ns
+            Channel ns me -> return (Channel ns) $$ desugar me
+            DataType n cs -> return (DataType n) $$ desugar cs
+            SubType n cs -> return (SubType n) $$ desugar cs
+            NameType n e -> return (NameType n) $$ desugar e
+    return [An x y d']
+
+desugarDecls :: MonadIO m => [TCDecl] -> m [TCDecl]
+desugarDecls = concatMapM desugarDecl
 
 instance Desugarable (Assertion Name) where
     desugar (Refinement e1 m e2 opts) = 
@@ -71,7 +136,7 @@ instance Desugarable (Exp Name) where
     desugar (DotApp e1 e2) = return DotApp $$ desugar e1 $$ desugar e2
     desugar (If e1 e2 e3) = return If $$ desugar e1 $$ desugar e2 $$ desugar e3
     desugar (Lambda p e) = return Lambda $$ desugar p $$ desugar e
-    desugar (Let ds e) = return Let $$ desugar ds $$ desugar e
+    desugar (Let ds e) = return Let $$ desugarDecls ds $$ desugar e
     desugar (Lit l) = return Lit $$ desugar l
     desugar (List es) = return List $$ desugar es
     desugar (ListComp es stmts) = return ListComp $$ desugar es $$ desugar stmts
@@ -135,7 +200,7 @@ instance Desugarable (Stmt Name) where
     desugar (Qualifier e) = return Qualifier $$ desugar e
 
 instance Desugarable (InteractiveStmt Name) where
-    desugar (Bind d) = return Bind $$ desugar d
+    desugar (Bind d) = return Bind $$ desugarDecls d
     desugar (Evaluate e) = return Evaluate $$ desugar e
     desugar (RunAssertion a) = return RunAssertion $$ desugar a
 
@@ -177,7 +242,8 @@ instance Desugarable (Pat Name) where
             -- TODO: get a proper location for the whole
             -- pattern
             l = loc (head ps)
-            err = prettyPrint (PSet ps) <+> text "is not a valid set pattern as set patterns may only match at most one element."
+            err = prettyPrint (PSet ps) <+> 
+                text "is not a valid set pattern as set patterns may only match at most one element."
     desugar (PTuple ps) = return PTuple $$ desugar ps
     desugar (PVar n) = return $ PVar n
     desugar (PWildCard) = return PWildCard

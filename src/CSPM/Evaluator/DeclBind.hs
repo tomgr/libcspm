@@ -4,7 +4,6 @@ module CSPM.Evaluator.DeclBind (
 ) where
 
 import Data.List (partition)
-import System.IO.Unsafe
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
@@ -66,45 +65,75 @@ bindDecl (an@(An _ _ (FunBind n ms))) = do
         collectArgs n ass =
             return $ VFunction $ \ vs -> collectArgs (n-1) (vs:ass)
     return $ [(n, collectArgs argGroupCount [])]
-bindDecl (an@(An _ _ (PatBind (p@(An _ _ (PVar n))) e))) | not (nameIsConstructor n) = do
-    -- Optimise for this case
-    parentPid <- getParentProcName
-    let ev = maybeSave (getType e) $ do
-            val <- eval e
-            case val of
-                VProc p -> return $ VProc $ PProcCall (procId n [] parentPid) p
-                _ -> return $ val
-    return $ [(n, ev)]
 bindDecl (an@(An _ _ (PatBind p e))) = do
     parentPid <- getParentProcName
-    let
-        -- We put p inside the unsafePerformIO simply to prevent it being
-        -- lifed out of the lambda (and thus only being performed once).
-        nV = unsafePerformIO (p `seq` mkFreshInternalName)
-        {-# NOINLINE nV #-}
+    let [(n, ForAll _ t)] = getSymbolTable an
+        ev = maybeSave t $ do
+            v <- eval e
+            case bind p v of
+                (True, [(n', val)]) | n == n' -> return $!
+                    case val of
+                        VProc p -> VProc $ PProcCall (procId n [] parentPid) p
+                        _ ->  val
+                (False, _) -> throwError $ 
+                    patternMatchFailureMessage (loc an) p v
+    return $ [(n, ev)]
 
-        typeOf :: Name -> Type
-        typeOf n = head [t | (n', ForAll _ t) <- getSymbolTable an, n' == n]
+--bindDecl (an@(An _ _ (PatBind (p@(An _ _ (PVar n))) e))) | not (nameIsConstructor n) = do
+--    -- Optimise for this case
+--    parentPid <- getParentProcName
+--    let ev = maybeSave (getType e) $ do
+--            val <- eval e
+--            case val of
+--                VProc p -> return $ VProc $ PProcCall (procId n [] parentPid) p
+--                _ -> return $ val
+--    return $ [(n, ev)]
+--bindDecl (an@(An _ _ (PatBind p e))) = do
+--    parentPid <- getParentProcName
+--    let
+--        -- We put p inside the unsafePerformIO simply to prevent it being
+--        -- lifed out of the lambda (and thus only being performed once).
+--        nV = unsafePerformIO (p `seq` mkFreshInternalName)
+--        {-# NOINLINE nV #-}
 
-        shouldSaveValue = [n | (n, ForAll [] TProc) <- getSymbolTable an] == []
+--        shouldSaveValue = [n | (n, ForAll [] TProc) <- getSymbolTable an] == []
 
-        value = if shouldSaveValue then eval e else noSave (eval e)
+--        value = if shouldSaveValue then eval e else noSave (eval e)
 
-        extractor :: Name -> EvaluationMonad Value
-        extractor n = maybeSave (typeOf n) $ do
-            v <- lookupVar nV
-            let 
-                nvs = case bind p v of
-                        (True, nvs) -> nvs
-                        (False, _) -> throwError $ 
-                            patternMatchFailureMessage (loc an) p v
-                val = head [v | (n', v) <- nvs, n' == n]
-            -- We don't need to update the parent proc name as the renamer
-            -- disambiguates things for us
-            case val of
-                VProc p -> return $ VProc $ PProcCall (procId n [] parentPid) p
-                _ -> return $ val
-    return $ (nV, value):[(fv, extractor fv) | fv <- freeVars p]
+--        extractor :: Name -> EvaluationMonad Value
+--        extractor n = maybeSave (typeOf n) $ do
+--            v <- lookupVar nV
+--            let 
+--                nvs = case bind p v of
+--                        (True, nvs) -> nvs
+--                        (False, _) -> throwError $ 
+--                            patternMatchFailureMessage (loc an) p v
+--                val = head [v | (n', v) <- nvs, n' == n]
+--            -- We don't need to update the parent proc name as the renamer
+--            -- disambiguates things for us
+--            case val of
+--                VProc p -> return $ VProc $ PProcCall (procId n [] parentPid) p
+--                _ -> return $ val
+--    return $ trace ("using "++show nV) $ (nV, value):[(fv, extractor fv) | fv <- freeVars p]
+--bindDecl (an@(An _ _ (PatBind (p@(An _ _ (PExtractor nV n expp))) e))) = do
+--    parentPid <- getParentProcName
+--    let
+--        typ = head [t | (n', ForAll [] t) <- getSymbolTable an, n == n']
+--        extractor :: EvaluationMonad Value
+--        extractor = maybeSave typ $ do
+--            v <- lookupVar nV
+--            let 
+--                nvs = case bind expp v of
+--                        (True, nvs) -> nvs
+--                        (False, _) -> throwError $ 
+--                            patternMatchFailureMessage (loc expp) expp v
+--                val = head [v | (n', v) <- nvs, n' == n]
+--            -- We don't need to update the parent proc name as the renamer
+--            -- disambiguates things for us
+--            case val of
+--                VProc p -> return $ VProc $ PProcCall (procId n [] parentPid) p
+--                _ -> return $ val
+--    return [(n, extractor)]
 bindDecl (an@(An _ _ (Channel ns me))) =
     let
         mkChan :: Name -> EvaluationMonad Value
@@ -173,22 +202,3 @@ evalTypeExpr (VTuple vs) = cartesianProduct CartTuple (map evalTypeExpr vs)
 evalTypeExprToList :: Value -> EvaluationMonad [ValueSet]
 evalTypeExprToList (VDot vs) = concatMapM evalTypeExprToList vs
 evalTypeExprToList v = splitIntoFields (evalTypeExpr v)
-
-class FreeVars a where
-    freeVars :: a -> [Name]
-
-instance FreeVars a => FreeVars (Annotated b a) where
-    freeVars (An _ _ inner) = freeVars inner
-
-instance FreeVars (Pat Name) where
-    freeVars (PConcat p1 p2) = freeVars p1++freeVars p2
-    freeVars (PDotApp p1 p2) = freeVars p1++freeVars p2
-    freeVars (PDoublePattern p1 p2) = freeVars p1++freeVars p2
-    freeVars (PList ps) = concatMap freeVars ps
-    freeVars (PLit l) = []
-    freeVars (PParen p) = freeVars p
-    freeVars (PSet ps) = concatMap freeVars ps
-    freeVars (PTuple ps) = concatMap freeVars ps
-    freeVars (PVar n) | isNameDataConstructor n = []
-    freeVars (PVar n) = [n]
-    freeVars (PWildCard) = []

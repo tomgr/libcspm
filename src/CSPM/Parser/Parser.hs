@@ -483,7 +483,7 @@ happyReduction_4 (happy_x_4 `HappyStk`
 	case happyOut29 happy_x_4 of { happy_var_4 -> 
 	( do
                                                     d <- convDecl happy_var_2 happy_var_4 
-                                                    return $ annotate2 happy_var_1 happy_var_4 (Bind d))}}}
+                                                    return $ annotate2 happy_var_1 happy_var_4 (Bind [d]))}}}
 	) (\r -> happyReturn (happyIn7 r))
 
 happyReduce_5 = happySpecReduce_3  1# happyReduction_5

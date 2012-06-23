@@ -423,7 +423,7 @@ data Stmt id =
 -- | A statement in an interactive session.
 data InteractiveStmt id =
     Evaluate (AnExp id)
-    | Bind (AnDecl id)
+    | Bind [AnDecl id]
     | RunAssertion (Assertion id)
     deriving Show
     
@@ -604,5 +604,4 @@ data Pat id =
         pDotItems :: [AnPat id],
         pDotOriginalpattern :: Pat id
     }
-
     deriving (Eq, Show)

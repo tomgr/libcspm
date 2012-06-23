@@ -177,7 +177,7 @@ evaluate str = do
     tcStmt <- typeCheckInteractiveStmt rnStmt
     dsStmt <- desugarInteractiveStmt tcStmt
     case (unAnnotate dsStmt) of
-        Bind d -> bindDeclaration d
+        Bind ds -> mapM_ bindDeclaration ds
         Evaluate e -> do
             v <- evaluateExpression e
             outputStrLn $ show $ prettyPrint v

@@ -407,9 +407,9 @@ instance Renamable (Match UnRenamedName) (Match Name) where
         return $ Match pss' e'
 
 instance Renamable (InteractiveStmt UnRenamedName) (InteractiveStmt Name) where
-    rename (Bind d) = do
-        ([d'],_) <- renameDeclarations True [d] (return ())
-        return $ Bind d'
+    rename (Bind ds) = do
+        (ds',_) <- renameDeclarations True ds (return ())
+        return $ Bind ds'
     rename (Evaluate e) = return Evaluate $$ rename e
     rename (RunAssertion a) = return RunAssertion $$ rename a
 
