@@ -84,6 +84,10 @@ instance Bindable (Pat Name) where
         case v of
             VChannel n' -> (n == n', [])
             VDataType n' -> (n == n', [])
+            -- We have to allow these to enable patterns such as f(J) where
+            -- J has arity 0.
+            VDot [VChannel n'] -> (n == n', [])
+            VDot [VDataType n'] -> (n == n', [])
             _ -> panic $ show $ prettyPrint v <+> text "is not a data constructor."
     bind (PVar n) v = (True, [(n, v)])
     bind PWildCard v = (True, [])

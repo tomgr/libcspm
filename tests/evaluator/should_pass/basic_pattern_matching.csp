@@ -20,11 +20,14 @@ test6 = func5(<1,2,4>) == 3
 test7 = func5(<1,2,3>) == 1
 test8 = func5(<>) == 2
 
-{-
+-- loop = loop
+-- (s,t) = (1, loop)
 
-loop = loop
-(s,t) = (1, loop)
+-- test9 = s == 1
+-- test10 = s+1 == 2
 
-test9 = s == 1
-test10 = s+1 == 2
--}
+datatype X = J
+func11(J) = true
+func11(_) = false
+
+test11 = func11(J)
