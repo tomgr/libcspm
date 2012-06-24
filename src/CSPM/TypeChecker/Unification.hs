@@ -379,7 +379,16 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
     rt <- unify rtA rtB
 
     case (rtA, rtB) of
-        (TEventable, TEventable) -> panic "TC: double eventable"
+        (TEventable, TEventable) -> do
+            -- In this case we have two things of the form X=>Eventable,
+            -- X'=> Eventable. WLOG suppose X'=X^Y. Then, we unify to X.Y=>Eventable.
+            as <- evalTypeList argsA
+            bs <- evalTypeList argsB
+            let as' = map (snd . reduceDotable . toNormalForm) as
+                bs' = map (snd . reduceDotable . toNormalForm) bs
+            ts <- zipWithM unify as' bs'
+            let ts' = drop (length ts) (if length as == length ts then bs else as)
+            return $ TDotable (foldl1 TDot (ts++ts')) TEventable
         (TEventable, _) -> do
             -- Firstly, evaluate each type list to reduce it; this means
             -- that it will not have any terms like TDotable TInt ..., TInt..

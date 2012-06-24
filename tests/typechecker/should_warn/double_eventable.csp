@@ -1,0 +1,4 @@
+channel i, o
+datatype dir = in | out
+
+test(c) = STOP [[c.in.x <- i, c.out.y <- o | x <- extensions(c.in), y <- extensions(c.out)]]
