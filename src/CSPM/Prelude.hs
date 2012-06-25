@@ -130,6 +130,8 @@ makeBuiltins =
             let (n, t) = func
             return (n, ForAll [] t)
 
+        -- extensions :: Closeable a b c => a -> {c}
+        -- productions :: Closeable a b c => a -> {b}
         unsafeFunctionNames :: [String]
         unsafeFunctionNames = ["productions", "extensions"]
 

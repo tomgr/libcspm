@@ -36,7 +36,7 @@ freeTypeVars' (TDatatype n1) = return []
 freeTypeVars' TInt = return []
 freeTypeVars' TBool = return []
 freeTypeVars' TEvent = return []
-freeTypeVars' TEventable = return []
+freeTypeVars' (TExtendable t) = freeTypeVars' t
 freeTypeVars' TProc = return []
 
 -- | Generalise the types of the declarations. The parameter 'names' gives the 
@@ -94,7 +94,7 @@ occurs a TInt = return False
 occurs a TBool = return False
 occurs a TProc = return False
 occurs a TEvent = return False
-occurs a TEventable = return False
+occurs a (TExtendable t) = occurs a t
 
 -- | Unifys all types to a single type. The first type is  used as the 
 -- expected Type in error messages.
@@ -132,7 +132,7 @@ unifyConstraint c (TSet t) = return () -- All set elements must support comparis
 unifyConstraint c (TTuple ts) = mapM_ (unifyConstraint c) ts
 unifyConstraint Eq TEvent = return () -- Events comparable only
 unifyConstraint Inputable TEvent = return ()
-unifyConstraint Eq TEventable = return () -- ditto
+unifyConstraint Eq (TExtendable t) = unifyConstraint Eq t -- ditto
 unifyConstraint Eq (TDotable a b) = -- channels and datatypes are only dotable things
     mapM_ (unifyConstraint Eq) [a,b]
 unifyConstraint Eq (TDatatype n) = return ()
@@ -345,9 +345,6 @@ unifyNoStk TInt TInt = return TInt
 unifyNoStk TBool TBool = return TBool
 unifyNoStk TProc TProc = return TProc
 unifyNoStk TEvent TEvent = return TEvent
-unifyNoStk TEventable TEventable = return TEventable
-unifyNoStk TEvent TEventable = return TEvent
-unifyNoStk TEventable TEvent = return TEvent
 unifyNoStk (TDatatype n1) (TDatatype n2) 
     | n1 == n2 = return $ TDatatype n1
 
@@ -379,7 +376,7 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
     rt <- unify rtA rtB
 
     case (rtA, rtB) of
-        (TEventable, TEventable) -> do
+        (TExtendable t1, TExtendable t2) | t1 == t2 -> do
             -- In this case we have two things of the form X=>Eventable,
             -- X'=> Eventable. WLOG suppose X'=X^Y. Then, we unify to X.Y=>Eventable.
             as <- evalTypeList argsA
@@ -388,14 +385,14 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
                 bs' = map (snd . reduceDotable . toNormalForm) bs
             ts <- zipWithM unify as' bs'
             let ts' = drop (length ts) (if length as == length ts then bs else as)
-            return $ TDotable (foldl1 TDot (ts++ts')) TEventable
-        (TEventable, _) -> do
+            return $ TDotable (foldl1 TDot (ts++ts')) (TExtendable t1)
+        (TExtendable t1, _) -> do
             -- Firstly, evaluate each type list to reduce it; this means
             -- that it will not have any terms like TDotable TInt ..., TInt..
             as <- evalTypeList argsA
             bs <- evalTypeList argsB
             -- As the left argument is eventable we compute what arguments
-            -- would be required to make it into a TEventable (by computing
+            -- would be required to make it into a TExtendable (by computing
             -- the ultimate return types of each element).
             let as' = map (snd . reduceDotable . toNormalForm) as
             -- These must be equal to the argument types that are required to
@@ -404,14 +401,14 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
             -- The most general type will have the arguments of bs, rather
             -- than the arguments of as (bs provide more information).
             return $ TDotable (foldl1 TDot bs) rt
-        (_, TEventable) -> do
+        (_, TExtendable t1) -> do
             as <- evalTypeList argsA
             bs <- evalTypeList argsB
             let bs' = map (snd . reduceDotable . toNormalForm) bs
             zipWithM unify as bs'
             return $ TDotable (foldl1 TDot as) rt
         (_, _) -> do
-            -- If neither is a TEventable then the args must be the same.
+            -- If neither is a TExtendable then the args must be the same.
             -- Hence, unify the two argument lists.
             args <- combineTypeLists argsA argsB
             return $ TDotable (foldl1 TDot args) rt
@@ -424,7 +421,7 @@ unifyNoStk (TDot t1 t2) (TDot t1' t2') = do
     ts <- combineTypeLists a b
     return $ foldl1 TDot ts
 
--- TDot + TEvent/TEventable/TDatatype/TDotable
+-- TDot + TEvent/TExtendable/TDatatype/TDotable
 
 unifyNoStk (TDot t1 t2) (TDatatype n) = do
     b <- symmetricUnificationAllowed
@@ -446,14 +443,14 @@ unifyNoStk TEvent (TDot t1 t2) = do
     unify (TDotable t2 TEvent) t1
     return TEvent
 
-unifyNoStk (TDot t1 t2) TEventable = do
+unifyNoStk (TDot t1 t2) (TExtendable t) = do
     b <- symmetricUnificationAllowed
     if not b then raiseUnificationError False else return ()
-    tl <- unify (TDotable t2 TEventable) t1
+    tl <- unify (TDotable t2 (TExtendable t)) t1
     return $ TDot tl t2
 
-unifyNoStk TEventable (TDot t1 t2) = do
-    tl <- unify (TDotable t2 TEventable) t1
+unifyNoStk (TExtendable t) (TDot t1 t2) = do
+    tl <- unify (TDotable t2 (TExtendable t)) t1
     return $ TDot tl t2
 
 unifyNoStk (TDot t1 t2) (TDotable argt rt) = do
@@ -466,12 +463,16 @@ unifyNoStk (TDotable argt rt) (TDot t1 t2) = do
     unify (TDotable t2 (TDotable argt rt)) t1
     return $ TDotable argt rt
 
-unifyNoStk (TDotable argt rt) TEventable = do
-    unify TEventable rt
+unifyNoStk (TDotable argt rt) (TExtendable t) = do
+    unify (TExtendable t) rt
     return $ TDotable argt rt
-unifyNoStk TEventable (TDotable argt rt) = do
-    unify TEventable rt
+unifyNoStk (TExtendable t) (TDotable argt rt) = do
+    unify (TExtendable t) rt
     return $ TDotable argt rt
+
+unifyNoStk (TExtendable t1) (TExtendable t2) = unify t1 t2 >>= return . TExtendable
+unifyNoStk (TExtendable t1) t2 = unify t1 t2
+unifyNoStk t1 (TExtendable t2) = unify t1 t2
 
 unifyNoStk t1 t2 = raiseUnificationError False
 
@@ -543,7 +544,7 @@ substituteType sub TInt = return TInt
 substituteType sub TBool = return TBool
 substituteType sub TProc = return TProc
 substituteType sub TEvent = return TEvent
-substituteType sub TEventable = return TEventable
+substituteType sub (TExtendable t) = substituteType sub t >>= return . TExtendable
 
 -- | Takes a type and attempts to simplify all TDots inside
 -- by combining TDotable t1 t2 and arguments.

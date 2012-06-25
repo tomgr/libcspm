@@ -49,7 +49,10 @@ ensureIsInt :: TypeCheckable a b => a -> TypeCheckMonad b
 ensureIsInt e = typeCheckExpect e TInt
 
 ensureIsChannel :: TypeCheckable a b => a -> TypeCheckMonad b
-ensureIsChannel e = typeCheckExpect e TEventable
+ensureIsChannel e = ensureIsExtendable e TEvent
+
+ensureIsExtendable :: TypeCheckable a b => a -> Type -> TypeCheckMonad b
+ensureIsExtendable e t = typeCheckExpect e (TExtendable t)
 
 ensureIsEvent :: TypeCheckable a b => a -> TypeCheckMonad b
 ensureIsEvent e = typeCheckExpect e TEvent
@@ -61,4 +64,3 @@ ensureHasConstraint :: Constraint -> Type -> TypeCheckMonad Type
 ensureHasConstraint c t = do
     fv1 <- freshTypeVarWithConstraints [c]
     unify fv1 t
-

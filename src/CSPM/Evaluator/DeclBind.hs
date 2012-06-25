@@ -125,9 +125,9 @@ bindDecl (an@(An _ _ (SubType n cs))) =
                     fs <- case me of
                             Just e -> eval e >>= evalTypeExprToList
                             Nothing -> return []
-                    let preFieldCount = length fs
-                    return $ cartesianProduct CartDot $ fromList
-                        [VDataType nc] : fs ++ drop preFieldCount (elems fields)
+                    let s = cartesianProduct CartDot (fromList [VDataType nc] : fs)
+                    vs <- mapM productionsSet (toList s)
+                    return (unions vs)
             in do
                 vs <- mapM (mkSet . unAnnotate) cs
                 return $ VSet (unions vs)

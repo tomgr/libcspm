@@ -33,7 +33,12 @@ data TypeScheme =
     deriving (Eq, Show)
     
 data Constraint =
-    Eq | Ord | Inputable
+    -- | Comparable for equality
+    Eq
+    -- | Orderable
+    | Ord 
+    -- | Can be input on a channel
+    | Inputable
     deriving (Eq, Ord, Show)
 
 -- During Type Checking we use TDotable a b only when a is something
@@ -45,8 +50,8 @@ data Type =
     | TInt
     | TBool
     | TEvent
-    -- Something that can be extended to an event (only used internally)
-    | TEventable
+    -- Something that can be extended to the given type
+    | TExtendable Type
     | TSet Type
     | TSeq Type
     | TDot Type Type
@@ -174,7 +179,7 @@ prettyPrintType _ TBool = text "Bool"
 prettyPrintType _ TInt = text "Int"
 prettyPrintType _ TProc = text "Proc"
 prettyPrintType _ TEvent = text "Event"
-prettyPrintType _ TEventable = text "Event or Channel"
+prettyPrintType vmap (TExtendable t) = text "Extenable to"<+>prettyPrintType vmap t
 
 collectConstraints :: Type -> [(TypeVar, [Constraint])]
 collectConstraints = combine . collect
@@ -197,4 +202,4 @@ collectConstraints = combine . collect
         collect TInt = []
         collect TProc = []
         collect TEvent = []
-        collect TEventable = []
+        collect (TExtendable t) = collect t

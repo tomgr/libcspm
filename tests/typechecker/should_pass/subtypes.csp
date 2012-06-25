@@ -3,3 +3,7 @@ datatype Y = C.Int | D.Bool
 
 subtype X' = A
 subtype Y' = C | D.{false}
+
+datatype D1 = D2.X.Y
+
+subtype D1' = D2.X

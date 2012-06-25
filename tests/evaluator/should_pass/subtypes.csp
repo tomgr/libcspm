@@ -8,3 +8,9 @@ subtype Z = C | D
 test1 = X' == {A}
 test2 = Y' == union({C.x | x <- {0..100}}, {D.false})
 test3 = Z == Y
+
+datatype D1 = D2.X.Y
+
+subtype D1' = D2.X
+
+test4 = D1' == {D2.B.0.x, D2.A.x | x <- Y}
