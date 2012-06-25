@@ -1,5 +1,5 @@
 module CSPM.Evaluator.Dot (
-    combineDots,
+    combineDots, dataTypeInfo,
     extensions, oneFieldExtensions,
     productions, splitIntoFields,
     compressIntoEnumeratedSet,
@@ -16,10 +16,18 @@ import Data.Maybe (catMaybes)
 import Util.Exception
 import Util.List
 
+dataTypeInfo :: Name -> EvaluationMonad (Value, Int, Array Int ValueSet)
+dataTypeInfo n = do
+    VTuple dta <- lookupVar n
+    let VInt a = dta!1
+        VTuple fs = dta!2
+    return $ (dta!0, a, fmap (\(VSet s) -> s) fs)
+{-# INLINE dataTypeInfo #-}
+
 -- | The number of fields this datatype or channel has.
 arityOfDataTypeClause :: Name -> EvaluationMonad Int
 arityOfDataTypeClause n = do
-    VTuple [_, VInt a,_] <- lookupVar n
+    (_, a, _) <- dataTypeInfo n
     return a
 
 -- | Takes two values and dots then together appropriately.
@@ -64,10 +72,10 @@ combineDots v1 v2 =
 
         isComplete :: Value -> EvaluationMonad Bool
         isComplete (VDot (VChannel n : vs)) = do
-            VTuple [_, VInt arity, _] <- lookupVar n
+            (_, arity, _) <- dataTypeInfo n
             return $ length vs == arity
         isComplete (VDot (VDataType n : vs)) = do
-            VTuple [_, VInt arity, _] <- lookupVar n
+            (_, arity, _) <- dataTypeInfo n
             return $ length vs == arity
         isComplete _ = return True
 
@@ -76,10 +84,9 @@ combineDots v1 v2 =
         checkIsValidForField (Just n) overallValue field v = do
             b <- isComplete v
             if not b then return True else do
-            VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
-            let VSet vs = fieldSets!!field
-            if member v vs then return True
-            else throwError $ dotIsNotValidMessage overallValue field v vs
+            (_, _, fieldSets) <- dataTypeInfo n
+            if member v (fieldSets!field) then return True
+            else throwError $ dotIsNotValidMessage overallValue field v (fieldSets!field)
 
         -- | Dots the two values together, ensuring that if either the left or
         -- the right value is a dot list combines them into one dot list.
@@ -131,7 +138,7 @@ oneFieldExtensions (VDot (dn:vs)) = do
         Just n -> do
             let fieldCount = length vs
             -- Get the information about the channel
-            VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
+            (_, arity, fieldSets) <- dataTypeInfo n
 
             -- Firstly, try completing the last field in the current value 
             -- (in case it is only half formed).
@@ -147,8 +154,7 @@ oneFieldExtensions (VDot (dn:vs)) = do
                 Nothing -> 
                     if arity == fieldCount then [VDot []]
                     else -- We still have fields to complete
-                        map (\ v -> VDot [v]) 
-                            (head [toList s | VSet s <- drop (length vs) fieldSets])
+                        map (\ v -> VDot [v]) (toList (fieldSets!(length vs)))
 oneFieldExtensions _ = return [VDot []]
 
 -- | Takes a datatype or a channel value and then computes all x such that 
@@ -166,7 +172,7 @@ extensions (VDot (dn:vs)) = do
         Just n -> do
             let fieldCount = length vs
             -- Get the information about the datatype/channel
-            VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
+            (_, arity, fieldSets) <- dataTypeInfo n
 
             -- Firstly, complete the last field in the current value (in case it is only
             -- half formed).
@@ -178,7 +184,7 @@ extensions (VDot (dn:vs)) = do
             else 
                 -- We still have fields to complete
                 let 
-                    remainingFields = [toList s | VSet s <- drop (length vs) fieldSets]
+                    remainingFields = map toList (drop (length vs) (elems fieldSets))
                     combineDots ((VDot vs1):vs2) = VDot (vs1++vs2)
                     fields = exsLast:remainingFields
                 in return $ map combineDots (cartesianProduct fields)
@@ -203,11 +209,11 @@ takeFields n vs = do
 
 takeFirstField :: [Value] -> EvaluationMonad (Value, [Value])
 takeFirstField (VDataType n : vs) = do
-    VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
+    (_, arity, fieldSets) <- dataTypeInfo n
     (fs, vs) <- takeFields arity vs
     return $ (VDot (VDataType n : fs), vs)
 takeFirstField (VChannel n : vs) = do
-    VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
+    (_, arity, fieldSets) <- dataTypeInfo n
     (fs, vs) <- takeFields arity vs
     return $ (VDot (VChannel n : fs), vs)
 takeFirstField (v:vs) = return (v, vs)
@@ -257,9 +263,8 @@ compressIntoEnumeratedSet vs =
                         VDataType n -> n
                         VChannel n -> n
                 fieldIx = length (head ys) - 2
-            VTuple [_, _, VList fieldSets] <- lookupVar n
-            let VSet s = fieldSets!!fieldIx
-            if fromList (map last ys) == s then
+            (_, _, fieldSets) <- dataTypeInfo n
+            if fromList (map last ys) == fieldSets!fieldIx then
                 -- All values are used
                 return True
             else return False

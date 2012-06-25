@@ -4,6 +4,8 @@ module CSPM.Evaluator.Values (
     procId, annonymousProcId,
     valueEventToEvent,
     noSave, maybeSave, removeThunk, lookupVar,
+    tupleFromList,
+    module Data.Array,
 ) where
 
 import CSPM.DataStructures.Names
@@ -11,6 +13,8 @@ import CSPM.DataStructures.Types
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.ProcessValues
 import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
+import Data.Array
+import qualified Data.Foldable as F
 import Data.Hashable
 import Util.Exception
 import Util.Prelude
@@ -20,7 +24,7 @@ type UProc = UnCompiledProc
 data Value =
     VInt Int
     | VBool Bool
-    | VTuple [Value]
+    | VTuple (Array Int Value)
     -- | If A is a datatype clause that has 3 fields a b c then a runtime
     -- instantiation of this would be VDot [VDataType "A", a, b, c] where a,b
     -- and c can contain other VDots.
@@ -34,6 +38,9 @@ data Value =
     | VFunction ([Value] -> EvaluationMonad Value)
     | VProc UProc
     | VThunk (EvaluationMonad Value)
+
+tupleFromList :: [Value] -> Value
+tupleFromList vs = VTuple $! listArray (0, length vs - 1) vs
 
 -- | Given a program that yields a value, returns a second program that can be
 -- inserted into the environment, but will cause the environment not to save
@@ -57,6 +64,9 @@ removeThunk v = return v
 
 lookupVar :: Name -> EvaluationMonad Value
 lookupVar n = lookupVarMaybeThunk n >>= removeThunk
+
+instance (Ix i, Hashable a) => Hashable (Array i a) where
+    hash arr = F.foldr combine 0 (fmap hash arr)
 
 instance Hashable Value where
     hash (VInt i) = combine 1 (hash i)
@@ -93,9 +103,10 @@ compareValues (VTuple vs1) (VTuple vs2) =
     -- Tuples must be same length by type checking
     -- Tuples are ordered lexiographically
     let
-        cmp [] [] = EQ
-        cmp (x:xs) (y:ys) = compare x y `thenCmp` cmp xs ys
-    in Just (cmp vs1 vs2)
+        (l, u) = bounds vs1
+        cmp ix | ix > u = EQ
+        cmp ix = compare (vs1!ix) (vs2!ix) `thenCmp` cmp (ix+1)
+    in Just (cmp 0)
 compareValues (VList vs1) (VList vs2) =
     let
         -- for lists comparing means comparing prefixes

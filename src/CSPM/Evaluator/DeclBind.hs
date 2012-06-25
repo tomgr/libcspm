@@ -78,62 +78,6 @@ bindDecl (an@(An _ _ (PatBind p e))) = do
                 (False, _) -> throwError $ 
                     patternMatchFailureMessage (loc an) p v
     return $ [(n, ev)]
-
---bindDecl (an@(An _ _ (PatBind (p@(An _ _ (PVar n))) e))) | not (nameIsConstructor n) = do
---    -- Optimise for this case
---    parentPid <- getParentProcName
---    let ev = maybeSave (getType e) $ do
---            val <- eval e
---            case val of
---                VProc p -> return $ VProc $ PProcCall (procId n [] parentPid) p
---                _ -> return $ val
---    return $ [(n, ev)]
---bindDecl (an@(An _ _ (PatBind p e))) = do
---    parentPid <- getParentProcName
---    let
---        -- We put p inside the unsafePerformIO simply to prevent it being
---        -- lifed out of the lambda (and thus only being performed once).
---        nV = unsafePerformIO (p `seq` mkFreshInternalName)
---        {-# NOINLINE nV #-}
-
---        shouldSaveValue = [n | (n, ForAll [] TProc) <- getSymbolTable an] == []
-
---        value = if shouldSaveValue then eval e else noSave (eval e)
-
---        extractor :: Name -> EvaluationMonad Value
---        extractor n = maybeSave (typeOf n) $ do
---            v <- lookupVar nV
---            let 
---                nvs = case bind p v of
---                        (True, nvs) -> nvs
---                        (False, _) -> throwError $ 
---                            patternMatchFailureMessage (loc an) p v
---                val = head [v | (n', v) <- nvs, n' == n]
---            -- We don't need to update the parent proc name as the renamer
---            -- disambiguates things for us
---            case val of
---                VProc p -> return $ VProc $ PProcCall (procId n [] parentPid) p
---                _ -> return $ val
---    return $ trace ("using "++show nV) $ (nV, value):[(fv, extractor fv) | fv <- freeVars p]
---bindDecl (an@(An _ _ (PatBind (p@(An _ _ (PExtractor nV n expp))) e))) = do
---    parentPid <- getParentProcName
---    let
---        typ = head [t | (n', ForAll [] t) <- getSymbolTable an, n == n']
---        extractor :: EvaluationMonad Value
---        extractor = maybeSave typ $ do
---            v <- lookupVar nV
---            let 
---                nvs = case bind expp v of
---                        (True, nvs) -> nvs
---                        (False, _) -> throwError $ 
---                            patternMatchFailureMessage (loc expp) expp v
---                val = head [v | (n', v) <- nvs, n' == n]
---            -- We don't need to update the parent proc name as the renamer
---            -- disambiguates things for us
---            case val of
---                VProc p -> return $ VProc $ PProcCall (procId n [] parentPid) p
---                _ -> return $ val
---    return [(n, extractor)]
 bindDecl (an@(An _ _ (Channel ns me))) =
     let
         mkChan :: Name -> EvaluationMonad Value
@@ -143,7 +87,7 @@ bindDecl (an@(An _ _ (Channel ns me))) =
                 Nothing -> return []
             
             let arity = fromIntegral (length vss)
-            return $ VTuple [VDot [VChannel n], VInt arity, VList (map VSet vss)]
+            return $ tupleFromList $ [VDot [VChannel n], VInt arity, tupleFromList (map VSet vss)]
         eventSetValue :: EvaluationMonad Value
         eventSetValue = do
             ss <- mapM (\ n -> completeEvent (VDot [VChannel n])) ns
@@ -158,13 +102,13 @@ bindDecl (an@(An _ _ (DataType n cs))) =
                 Just e -> eval e >>= evalTypeExprToList
                 Nothing -> return []
             let arity = fromIntegral (length vss)
-            return $ VTuple [VDot [VDataType nc], VInt arity, VList (map VSet vss)])
+            return $ tupleFromList [VDot [VDataType nc], VInt arity, tupleFromList (map VSet vss)])
         computeSetOfValues :: EvaluationMonad Value
         computeSetOfValues =
             let 
                 mkSet nc = do
-                    VTuple [_, _, VList fields] <- lookupVar nc
-                    let fs = fromList [VDataType nc] : map (\(VSet vs) -> vs) fields
+                    (_, _, fields) <- dataTypeInfo nc
+                    let fs = fromList [VDataType nc] : elems fields
                     return $ cartesianProduct CartDot fs
             in do
                 vs <- mapM mkSet [nc | DataTypeClause nc _ <- map unAnnotate cs]
@@ -175,13 +119,13 @@ bindDecl (an@(An _ _ (SubType n cs))) =
         computeSetOfValues =
             let 
                 mkSet (DataTypeClause nc me) = do
-                    VTuple [_, _, VList fields] <- lookupVar nc
+                    (_, _, fields) <- dataTypeInfo nc
                     fs <- case me of
                             Just e -> eval e >>= evalTypeExprToList
                             Nothing -> return []
                     let preFieldCount = length fs
                     return $ cartesianProduct CartDot $ fromList
-                        [VDataType nc] : fs ++ map (\(VSet vs) -> vs) (drop preFieldCount fields)
+                        [VDataType nc] : fs ++ drop preFieldCount (elems fields)
             in do
                 vs <- mapM (mkSet . unAnnotate) cs
                 return $ VSet (unions vs)
@@ -197,7 +141,7 @@ bindDecl (an@(An _ _ (Transparent ns))) = return []
 
 evalTypeExpr :: Value -> ValueSet
 evalTypeExpr (VSet s) = s
-evalTypeExpr (VTuple vs) = cartesianProduct CartTuple (map evalTypeExpr vs)
+evalTypeExpr (VTuple vs) = cartesianProduct CartTuple (map evalTypeExpr (elems vs))
 
 evalTypeExprToList :: Value -> EvaluationMonad [ValueSet]
 evalTypeExprToList (VDot vs) = concatMapM evalTypeExprToList vs

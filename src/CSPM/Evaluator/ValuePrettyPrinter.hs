@@ -144,7 +144,7 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m UProc,
     prettyPrint (VInt i) = M.int i
     prettyPrint (VBool True) = M.text "true"
     prettyPrint (VBool False) = M.text "false"
-    prettyPrint (VTuple vs) = M.parens (M.list $ mapM M.prettyPrint vs)
+    prettyPrint (VTuple vs) = M.parens (M.list $ mapM M.prettyPrint (elems vs))
     prettyPrint (VDot vs) = M.dotSep (mapM M.prettyPrint vs)
     prettyPrint (VChannel n) = M.prettyPrint n
     prettyPrint (VDataType n) = M.prettyPrint n

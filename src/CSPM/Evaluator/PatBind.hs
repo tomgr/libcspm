@@ -79,7 +79,7 @@ instance Bindable (Pat Name) where
             Nothing -> (False, [])
     bind (PTuple ps) (VTuple vs) = do
         -- NB: len ps == len vs by typechecker
-        bindAll ps vs
+        bindAll ps (elems vs)
     bind (PVar n) v | isNameDataConstructor n = 
         case v of
             VChannel n' -> (n == n', [])

@@ -148,9 +148,9 @@ instance Evaluatable (Exp Name) where
         VInt lb <- eval e1
         VInt ub <- eval e2
         return $ VSet (S.fromList (map VInt [lb..ub]))
-    eval (Tuple es) = mapM eval es >>= return . VTuple
+    eval (Tuple es) = mapM eval es >>= return . tupleFromList
     eval (Var n) | isNameDataConstructor n = do
-        VTuple [dc, _, _] <- lookupVar n
+        (dc, _, _) <- dataTypeInfo n
         return dc
     eval (Var n) = lookupVar n
 
@@ -204,7 +204,7 @@ instance Evaluatable (Exp Name) where
                         p <- addScopeAndBind bs $ evalRest evBase fs
                         return $ Sq.singleton p
                     evExtensions evBase (PVar n:ps) bs | isNameDataConstructor n = do
-                        VTuple [dc, _, _] <- lookupVar n
+                        (dc, _, _) <- dataTypeInfo n
                         evBase' <- combineDots evBase dc
                         evExtensions evBase' ps bs
                     evExtensions evBase (p:ps) bs = do
@@ -278,7 +278,6 @@ instance Evaluatable (Exp Name) where
             --simplify p = p
         in do
             ev@(VDot (VChannel n:vfs)) <- eval e1
-            VTuple [_, VInt arity, VList fieldSets] <- lookupVar n
             p <- evalNonDetFields ev (map unAnnotate fs)
             return $ VProc p --(simplify p)
 

@@ -215,7 +215,7 @@ toList (CartesianProduct [vs] CartDot) =
 toList (CartesianProduct vss ct) =
     let cp = UL.cartesianProduct (map toList vss)
     in case ct of
-            CartTuple -> map VTuple cp
+            CartTuple -> map tupleFromList cp
             CartDot -> map VDot cp
 
 toSeq :: ValueSet -> Sq.Seq Value
@@ -246,7 +246,8 @@ member v (CompositeSet s1 s2) = member v s1 || member v s2
 member (VProc p) Processes = True
 member (VList vs) (AllSequences s) = and (map (flip member s) vs)
 member (VDot vs) (CartesianProduct vss CartDot) = and (zipWith member vs vss)
-member (VTuple vs) (CartesianProduct vss CartTuple) = and (zipWith member vs vss)
+member (VTuple vs) (CartesianProduct vss CartTuple) =
+    and (zipWith member (elems vs) vss)
 member v s1 = throwSourceError [cannotCheckSetMembershipError v s1]
 
 -- | The cardinality of the set. Throws an error if the set is infinite.
