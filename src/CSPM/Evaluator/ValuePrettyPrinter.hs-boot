@@ -16,6 +16,7 @@ instance PrettyPrintable Event
 instance PrettyPrintable (S.Seq Event)
 instance PrettyPrintable ProcName
 instance PrettyPrintable Value
+instance PrettyPrintable ValueSet
 instance PrettyPrintable UnCompiledProc
 instance PrettyPrintable ProcOperator
 instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>

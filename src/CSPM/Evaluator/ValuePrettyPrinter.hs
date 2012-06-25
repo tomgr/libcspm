@@ -28,6 +28,9 @@ instance PrettyPrintable ProcName where
 instance PrettyPrintable Value where
     prettyPrint = runIdentity . M.prettyPrint
 
+instance PrettyPrintable ValueSet where
+    prettyPrint = runIdentity . M.prettyPrint
+
 instance PrettyPrintable UnCompiledProc where
     prettyPrint = runIdentity . M.prettyPrint
 
@@ -161,8 +164,8 @@ instance M.MonadicPrettyPrintable EvaluationMonad ValueSet where
     prettyPrint (AllSequences vs) = M.text "Seq" M.<> M.parens (M.prettyPrint vs)
     prettyPrint (CartesianProduct vss CartTuple) =
         M.parens (M.list (mapM M.prettyPrint vss))
-    prettyPrint (CompositeSet s1 s2) =
-        M.text "union" M.<> M.parens (M.prettyPrint s1 M.<> M.comma M.<+> M.prettyPrint s2)
+    prettyPrint (CompositeSet ss) =
+        M.text "Union" M.<> M.parens (M.braces (M.list (mapM M.prettyPrint (F.toList ss))))
     prettyPrint s = do
         -- Try and compress
         mvs <- compressIntoEnumeratedSet s
@@ -184,8 +187,8 @@ instance M.MonadicPrettyPrintable Identity ValueSet where
     prettyPrint (AllSequences vs) = M.text "Seq" M.<> M.parens (M.prettyPrint vs)
     prettyPrint (CartesianProduct vss CartTuple) =
         M.parens (M.list (mapM M.prettyPrint vss))
-    prettyPrint (CompositeSet s1 s2) =
-        M.text "union" M.<> M.parens (M.prettyPrint s1 M.<> M.comma M.<+> M.prettyPrint s2)
+    prettyPrint (CompositeSet ss) =
+        M.text "Union" M.<> M.parens (M.braces (M.list (mapM M.prettyPrint (F.toList ss))))
     prettyPrint (CartesianProduct vss CartDot) =
         M.hcat (M.punctuate (M.text ".") (mapM M.prettyPrint vss))
     prettyPrint (s@(ExplicitSet _)) =

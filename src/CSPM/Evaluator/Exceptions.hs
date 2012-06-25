@@ -82,9 +82,7 @@ dotIsNotValidMessage (value@(VDot (h:_))) field fieldValue fieldOptions = mkErro
             VChannel n -> text "the channel" <+> prettyPrint n <> char '.'
             VDataType n -> text "the data constructor" <+> prettyPrint n <> char '.'
     $$ hang (text "In particular the" <+> speakNth (field+1) <+> text "field:") tabWidth (prettyPrint fieldValue)
-    $$ if isFinitePrintable fieldOptions then
-            hang (text "is not a member of the set") tabWidth (prettyPrint fieldOptions)
-        else text "is not a member of the required set."
+    $$ hang (text "is not a member of the set") tabWidth (prettyPrint fieldOptions)
 
 setNotRectangularErrorMessage :: ValueSet -> ValueSet -> ErrorMessage
 setNotRectangularErrorMessage s1 s2 = mkErrorMessage Unknown $
