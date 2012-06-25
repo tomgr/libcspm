@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module CSPM.Evaluator.Expr (
-    Evaluatable, eval, completeEvent,
+    Evaluatable, eval,
 ) where
 
 import qualified Data.Foldable as F
@@ -135,11 +135,11 @@ instance Evaluatable (Exp Name) where
         return $ VSet (S.fromList xs)
     eval (SetEnum es) = do
         evs <- mapM eval es
-        ss <- mapM completeEvent evs
+        ss <- mapM productionsSet evs
         return $ VSet (S.unions ss)
     eval (SetEnumComp es stmts) = do
         ss <- evalStmts (\(VSet s) -> S.toList s) stmts 
-                        (mapM (\e -> eval e >>= completeEvent) es)
+                        (mapM (\e -> eval e >>= productionsSet) es)
         return $ VSet (S.unions ss)
     eval (SetEnumFrom e) = do
         VInt lb <- eval e
@@ -387,8 +387,8 @@ evalTies stmts ties = do
     where
         extendTie :: (Value, Value) -> Value -> EvaluationMonad (Event, Event)
         extendTie (evOld, evNew) ex = do
-            ev1 <- extendEvent evOld ex
-            ev2 <- extendEvent evNew ex
+            ev1 <- combineDots evOld ex
+            ev2 <- combineDots evNew ex
             return (valueEventToEvent ev1, valueEventToEvent ev2)
         evalTie (eOld, eNew) = do
             evOld <- eval eOld
@@ -440,16 +440,6 @@ evalStmts' extract anStmts prog =
                     return $ s Sq.>< s'
                 else return s) Sq.empty (extract v)
     in evStmts (map unAnnotate anStmts)
-
--- | Takes a VEvent and then computes all events that this is a prefix of.
-completeEvent :: Value -> EvaluationMonad S.ValueSet
-completeEvent ev = do
-    exs <- extensions ev
-    l <- mapM (extendEvent ev) exs
-    return $ S.fromList l
-
-extendEvent :: Value -> Value -> EvaluationMonad Value
-extendEvent ev exs = combineDots ev exs
 
 unzipSq :: Sq.Seq (a,b) -> (Sq.Seq a, Sq.Seq b)
 unzipSq sqs = F.foldr 

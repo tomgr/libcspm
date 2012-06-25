@@ -82,15 +82,17 @@ bindDecl (an@(An _ _ (Channel ns me))) =
     let
         mkChan :: Name -> EvaluationMonad Value
         mkChan n = do
-            vss <- case me of
+            fields <- case me of
                 Just e -> eval e >>= evalTypeExprToList
                 Nothing -> return []
-            
-            let arity = fromIntegral (length vss)
-            return $ tupleFromList $ [VDot [VChannel n], VInt arity, tupleFromList (map VSet vss)]
+            let arity = fromIntegral (length fields)
+            return $! tupleFromList [VDot [VChannel n], VInt arity, tupleFromList (map VSet fields)]
         eventSetValue :: EvaluationMonad Value
         eventSetValue = do
-            ss <- mapM (\ n -> completeEvent (VDot [VChannel n])) ns
+            ss <- mapM (\ n -> do
+                (_, _, fields) <- dataTypeInfo n
+                let fs = fromList [VChannel n] : elems fields
+                return $ cartesianProduct CartDot fs) ns
             return $ VSet (unions ss)
     -- We bind to events here, and this is picked up in bindDecls
     in return $ (builtInName "Events", eventSetValue) : [(n, mkChan n) | n <- ns]

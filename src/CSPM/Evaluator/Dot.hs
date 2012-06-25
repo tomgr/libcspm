@@ -1,7 +1,7 @@
 module CSPM.Evaluator.Dot (
     combineDots, dataTypeInfo,
-    extensions, oneFieldExtensions,
-    productions, splitIntoFields,
+    extensions, extensionsSet, oneFieldExtensions,
+    productions, productionsSet, splitIntoFields,
     compressIntoEnumeratedSet,
 ) where
 
@@ -9,6 +9,7 @@ import CSPM.DataStructures.Names
 import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
+import {-# SOURCE #-} CSPM.Evaluator.ValuePrettyPrinter()
 import CSPM.Evaluator.ValueSet hiding (cartesianProduct)
 import qualified CSPM.Evaluator.ValueSet as S
 import Data.List (groupBy)
@@ -161,14 +162,23 @@ oneFieldExtensions _ = return [VDot []]
 -- ev.x is a full datatype/event. Each of the returned values is guaranteed
 -- to be a VDot.
 extensions :: Value -> EvaluationMonad [Value]
-extensions (VDot (dn:vs)) = do
+extensions v = extensionsSet v >>= return . toList
+
+extensionsSet :: Value -> EvaluationMonad ValueSet
+extensionsSet v = extensionsSets v >>= return . S.cartesianProduct CartDot
+
+-- | Takes a value and returns a set of fields such that ev.x is a full thing.
+-- Further, the field sets are guaranteed to be representable as a full
+-- carteisan product.
+extensionsSets :: Value -> EvaluationMonad [ValueSet]
+extensionsSets (VDot (dn:vs)) = do
     let 
        mn = case dn of
                 VChannel n -> Just n
                 VDataType n -> Just n
                 _ -> Nothing
     case mn of
-        Nothing -> return [VDot []]
+        Nothing -> return []
         Just n -> do
             let fieldCount = length vs
             -- Get the information about the datatype/channel
@@ -176,26 +186,47 @@ extensions (VDot (dn:vs)) = do
 
             -- Firstly, complete the last field in the current value (in case it is only
             -- half formed).
-            exsLast <- 
-                if fieldCount == 0 then return [VDot []]
-                else extensions (last vs)
-            
-            if arity == fieldCount then return exsLast
-            else 
-                -- We still have fields to complete
-                let 
-                    remainingFields = map toList (drop (length vs) (elems fieldSets))
-                    combineDots ((VDot vs1):vs2) = VDot (vs1++vs2)
-                    fields = exsLast:remainingFields
-                in return $ map combineDots (cartesianProduct fields)
-extensions v = return [VDot []]
+            exsLast <- if fieldCount == 0 then return [] else extensionsSets (last vs)
+
+            return $ exsLast ++ drop fieldCount (elems fieldSets)
+
+extensionsSets v = return  []
 
 -- | Takes a datatype or a channel value and computes v.x for all x that
 -- complete the value.
 productions :: Value -> EvaluationMonad [Value]
-productions v = do
-    pss <- extensions v
-    mapM (combineDots v) pss
+productions v = productionsSet v >>= return . toList
+
+productionsSet :: Value -> EvaluationMonad ValueSet
+productionsSet v = productionsSets v >>= return . S.cartesianProduct CartDot
+
+productionsSets :: Value -> EvaluationMonad [ValueSet]
+productionsSets (VDot (dn:vs)) = do
+    let 
+       mn = case dn of
+                VChannel n -> Just n
+                VDataType n -> Just n
+                _ -> Nothing
+    case mn of
+        Nothing -> return []
+        Just n -> do
+            let fieldCount = length vs
+            -- Get the information about the datatype/channel
+            (_, arity, fieldSets) <- dataTypeInfo n
+            -- Firstly, complete the last field in the current value (in case it is only
+            -- half formed).
+            psLast <- if fieldCount == 0 then return [] else productionsSets (last vs)
+            let psSets = case psLast of
+                            [] -> map (\v -> fromList [v]) (dn:vs)
+                            _ ->
+                                -- We cannot express this as a simple cart product, as
+                                -- the resulting item has dots at two levels. Thus,
+                                -- dot together this lot and form an explicit set,
+                                -- then we proceed as before
+                                map (\v -> fromList [v]) (dn:init vs)
+                                ++ [S.cartesianProduct CartDot psLast]
+            return $ psSets ++ drop fieldCount (elems fieldSets)
+productionsSets v = return []
 
 takeFields :: Int -> [Value] -> EvaluationMonad ([Value], [Value])
 takeFields 0 vs = return ([], vs)
@@ -243,7 +274,11 @@ splitIntoFields vs = do
                                 combine [] = replicate fieldCount []
                                 combine (vs:vss) = zipWith (:) vs (combine vss)
                                 sets = map fromList $ combine splitValues
-                                cartProduct = S.cartesianProduct S.CartDot sets
+                                cartProduct =
+                                    case sets of
+                                        -- If we have a single field don't wrap it in a VDot.
+                                        [x] -> x
+                                        _ -> S.cartesianProduct S.CartDot sets
                             if cartProduct /= vs then
                                 throwError $ setNotRectangularErrorMessage vs cartProduct
                             else return $ sets

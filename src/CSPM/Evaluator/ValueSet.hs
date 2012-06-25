@@ -183,10 +183,6 @@ toList (AllSequences vs) =
         allSequences :: [Value]
         allSequences = concatMap list [0..]
     in allSequences
-toList (CartesianProduct [vs] CartDot) =
-    let maybeWrap (VDot vs) = VDot vs
-        maybeWrap v = VDot [v]
-    in map maybeWrap (toList vs)
 toList (CartesianProduct vss ct) =
     let cp = UL.cartesianProduct (map toList vss)
     in case ct of
