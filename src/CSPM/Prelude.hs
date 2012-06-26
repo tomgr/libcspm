@@ -63,9 +63,15 @@ makeBuiltins =
         cspm_Seq fv = ("Seq", [TSet fv], TSet (TSeq fv))
         cspm_seq fv = ("seq", [TSet fv], TSeq fv)
 
-        sets = [cspm_union, cspm_inter, cspm_diff, cspm_Union, cspm_Inter,
-                cspm_member, cspm_card, cspm_empty, cspm_set, cspm_Set,
-                cspm_Seq, cspm_seq]
+        setsSets = [cspm_union, cspm_inter, cspm_diff, cspm_Union, cspm_Inter,
+                    cspm_set, cspm_Set, cspm_Seq]
+        -- The following require Eq as they allowing queries to be made about
+        -- the set. In particular, the following all allow holes to be punched
+        -- through the type checker and process values to be compared. For
+        -- instance, member(P, {STOP}) card({STOP, P}) == 1,
+        -- empty(diff({STOP}, {P})), length(seq({STOP, P})) == 1 all test if
+        -- P == STOP.
+        eqSets = [cspm_empty, cspm_card, cspm_member, cspm_seq]
 
         cspm_length fv = ("length", [TSeq fv], TInt)
         cspm_null fv = ("null", [TSeq fv], TBool)
@@ -131,7 +137,8 @@ makeBuiltins =
             return (n, ForAll [] t)
 
         -- extensions :: Closeable a b c => a -> {c}
-        -- productions :: Closeable a b c => a -> {b}
+        -- productions :: TExtendable a -> {a}
+        -- extensions :: TExtendable a b -> {b}
         unsafeFunctionNames :: [String]
         unsafeFunctionNames = ["productions", "extensions"]
 
@@ -168,14 +175,15 @@ makeBuiltins =
         makeReplacements _ b = return b
     in do
         bs1 <- mapM (mkFuncType []) seqs
-        bs2 <- mapM (mkFuncType [Eq]) sets
+        bs2 <- mapM (mkFuncType [CSet]) setsSets
+        bs2' <- mapM (mkFuncType [CEq]) eqSets
         bs3 <- mapM mkPatternType typeConstructors
         bs4 <- mapM mkPatternType builtInProcs
         bs5 <- mapM mkUnsafeFuncType unsafeFunctionNames
         bs6 <- mapM mkPatternType externalFunctions
         bs7 <- mapM mkPatternType transparentFunctions
 
-        let bs = bs1++bs2++bs3++bs4++bs5++bs6++bs7
+        let bs = bs1++bs2++bs2'++bs3++bs4++bs5++bs6++bs7
 
         bs' <- mapM makeBuiltIn bs
         bs'' <- mapM (makeReplacements bs') bs'

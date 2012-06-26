@@ -92,7 +92,7 @@ instance Eq Value where
     VDataType n1 == VDataType n2 = n1 == n2
     VList vs1 == VList vs2 = vs1 == vs2
     VSet s1 == VSet s2 = s1 == s2
-    VProc (PProcCall n _) == VProc (PProcCall n' _) = n == n'
+    VProc p1 == VProc p2 = p1 == p2
     
     v1 == v2 = False
     
@@ -147,6 +147,7 @@ instance Ord Value where
     compare (VDot vs1) (VDot vs2) = compare vs1 vs2
     compare (VChannel n) (VChannel n') = compare n n'
     compare (VDataType n) (VDataType n') = compare n n'
+    compare (VProc p1) (VProc p2) = compare p1 p2
 
     compare v1 v2 = panic $
         -- Must be as a result of a mixed set of values, which cannot happen

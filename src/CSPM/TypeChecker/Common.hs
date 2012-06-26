@@ -39,7 +39,7 @@ ensureIsList e = do
 
 ensureIsSet :: TypeCheckable a b => a -> TypeCheckMonad b
 ensureIsSet e = do
-    fv <- freshTypeVarWithConstraints [Eq]
+    fv <- freshTypeVarWithConstraints [CSet]
     typeCheckExpect e (TSet fv)
 
 ensureIsBool :: TypeCheckable a b => a -> TypeCheckMonad b

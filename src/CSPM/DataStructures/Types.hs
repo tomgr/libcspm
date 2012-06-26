@@ -2,6 +2,7 @@ module CSPM.DataStructures.Types (
     -- * Data Structures
     TypeVar, TypeScheme(..), Constraint(..), Type(..), TypeVarRef(..),
     prettyPrintTypes,
+    constraintImpliedBy,
     -- * Creation of Types
     freshTypeVar, freshTypeVarWithConstraints,
 
@@ -34,12 +35,19 @@ data TypeScheme =
     
 data Constraint =
     -- | Comparable for equality
-    Eq
+    CEq
     -- | Orderable
-    | Ord 
+    | COrd 
     -- | Can be input on a channel
-    | Inputable
+    | CInputable
+    -- | Can form sets of the type.
+    | CSet
     deriving (Eq, Ord, Show)
+
+constraintImpliedBy :: Constraint -> Constraint -> Bool
+constraintImpliedBy c1 c2 | c1 == c2 = True
+constraintImpliedBy CSet CEq = True
+constraintImpliedBy _ _ = False
 
 -- During Type Checking we use TDotable a b only when a is something
 -- atomic. Except, during unification we start doing TDotable (TDot...)
@@ -117,9 +125,10 @@ freshPSymbolTable :: (MonadIO m) => m PSymbolTable
 freshPSymbolTable = liftIO $ newIORef []
 
 instance PrettyPrintable Constraint where
-    prettyPrint Eq = text "Eq"
-    prettyPrint Ord = text "Ord"
-    prettyPrint Inputable = text "Inputable"
+    prettyPrint CEq = text "Eq"
+    prettyPrint COrd = text "Ord"
+    prettyPrint CInputable = text "Inputable"
+    prettyPrint CSet = text "Set"
 
 -- | Pretty prints several types using the same variable substitutions
 prettyPrintTypes :: [Type] -> [Doc]

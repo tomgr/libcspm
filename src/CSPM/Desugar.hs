@@ -5,7 +5,7 @@ import Control.Monad.Trans
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Types
+import CSPM.DataStructures.Types (TypeScheme(..))
 import CSPM.PrettyPrinter
 import Util.Annotated
 import Util.Exception

@@ -1,0 +1,1 @@
+b = card({STOP, STOP}) == 1

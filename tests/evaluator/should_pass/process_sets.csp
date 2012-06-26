@@ -1,0 +1,3 @@
+S = {STOP, STOP, CHAOS(Events)}
+
+procTest1 = [] x : S @ x

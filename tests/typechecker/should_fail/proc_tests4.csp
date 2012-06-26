@@ -1,0 +1,4 @@
+test({x}) = true
+test(_) = false
+
+b = test({STOP,STOP})

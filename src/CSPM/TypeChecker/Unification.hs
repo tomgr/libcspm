@@ -113,31 +113,40 @@ unifyConstraint c (TVar v) = do
     res <- readTypeRef v
     case res of
         Left (tva, cs)  -> 
-            if c `elem` cs then return () else do
+            when (not (or (map (constraintImpliedBy c) cs))) $ do
                 fv <- freshTypeVarWithConstraints (nub (c:cs))
                 applySubstitution v fv
                 return ()
         Right t         -> unifyConstraint c t
+unifyConstraint CSet TProc = return ()
 unifyConstraint c TInt = return ()
-unifyConstraint Eq TBool = return () -- Bools are not orderable P524
-unifyConstraint Inputable TBool = return ()
+ -- Bools are not orderable
+unifyConstraint c TBool | c /= COrd = return ()
+ -- User data types are not orderable
+unifyConstraint c (TDatatype n) | c /= COrd = return ()
+unifyConstraint c TEvent | c /= COrd = return ()
+unifyConstraint CInputable (TSeq _) = return ()
 unifyConstraint c (TSeq t) = unifyConstraint c t
-unifyConstraint Inputable (TDot t1 t2) = do
+unifyConstraint CInputable (TTuple _) = return ()
+unifyConstraint c (TTuple ts) = mapM_ (unifyConstraint c) ts
+unifyConstraint CEq (TExtendable t) = unifyConstraint CEq t
+unifyConstraint CSet (TExtendable t) = unifyConstraint CSet t
+--unifyConstraint Inputable (TExtendable t) =
+-- todo: we need, in this case to insist this type is of type t
+-- Dotable types are not orderable (as events and datatypes are not). Nor are
+-- they inputable. We can create sets of them though.
+unifyConstraint CEq (TDotable a b) = unifyConstraint CEq a >> unifyConstraint CEq b
+unifyConstraint CSet (TDotable a b) = unifyConstraint CSet a >> unifyConstraint CSet b
+unifyConstraint CInputable (TDot t1 t2) = do
     t <- evaluateDots (TDot t1 t2)
     case t of
-        TDot t1 t2 -> mapM_ (unifyConstraint Inputable) [t1,t2]
-        _ -> unifyConstraint Inputable t
-unifyConstraint c (TDot t1 t2) = mapM_ (unifyConstraint c) [t1,t2]
-unifyConstraint c (TSet t) = return () -- All set elements must support comparison
-unifyConstraint c (TTuple ts) = mapM_ (unifyConstraint c) ts
-unifyConstraint Eq TEvent = return () -- Events comparable only
-unifyConstraint Inputable TEvent = return ()
-unifyConstraint Eq (TExtendable t) = unifyConstraint Eq t -- ditto
-unifyConstraint Eq (TDotable a b) = -- channels and datatypes are only dotable things
-    mapM_ (unifyConstraint Eq) [a,b]
-unifyConstraint Eq (TDatatype n) = return ()
-    -- User data types are not orderable P524
-unifyConstraint Inputable (TDatatype n) = return ()
+        TDot t1 t2 -> mapM_ (unifyConstraint CInputable) [t1,t2]
+        _ -> unifyConstraint CInputable t
+unifyConstraint c (TDot t1 t2) = unifyConstraint c t1 >> unifyConstraint c t2
+unifyConstraint CSet (TSet t) = return ()
+unifyConstraint CInputable (TSet t) = return ()
+ -- sets are comparable for equality/orderable iff their inner type is
+unifyConstraint c (TSet t) = unifyConstraint c t
 unifyConstraint c t = 
     raiseMessageAsError $ constraintUnificationErrorMessage c t
 

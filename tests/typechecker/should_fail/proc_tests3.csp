@@ -1,0 +1,1 @@
+b = length(seq({STOP, STOP})) == 1

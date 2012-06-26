@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses,
-    TypeSynonymInstances #-}
+    TypeSynonymInstances, UndecidableInstances #-}
 module CSPM.Evaluator.ProcessValues (
     -- * Events
     Event(..),
@@ -19,6 +19,7 @@ import qualified Data.Foldable as F
 import qualified Data.Sequence as S
 import Data.Hashable
 import Util.PrettyPrint
+import Util.Prelude
 
 -- | Events, as represented in the LTS.
 data Event = 
@@ -58,7 +59,7 @@ data ProcName =
         arguments :: [[Value]],
         parent :: Maybe ProcName
     }
-    deriving Eq
+    deriving (Eq, Ord)
 
 instance Hashable ProcName where
     hash (ProcName n vss p) = combine 1 (combine (hash n) (combine (hash vss) (hash p)))
@@ -74,7 +75,7 @@ data ProcOperator =
     | StrongBisim 
     | TauLoopFactor 
     | WeakBisim
-    deriving (Eq)
+    deriving (Eq, Ord)
 
 data CSPOperator seq ev evs evm =
     PAlphaParallel (seq evs)
@@ -94,6 +95,8 @@ data CSPOperator seq ev evs evm =
     | PRename evm
     | PSequentialComp
     | PSlidingChoice
+    deriving (Eq, Ord)
+
 
 -- | A compiled process. Note this is an infinite data structure (due to
 -- PProcCall) as this makes compilation easy (we can easily chase
@@ -105,6 +108,30 @@ data Proc seq op pn ev evs evm =
     -- | Labels the process this contains. This allows infinite loops to be
     -- spotted.
     | PProcCall pn (Proc seq op pn ev evs evm)
+
+instance (Eq pn, Eq (seq (Proc seq op pn ev evs evm)), Eq (op seq ev evs evm)) =>
+        Eq (Proc seq op pn ev evs evm) where
+    (PProcCall pn1 _) == (PProcCall pn2 _) = pn1 == pn2
+    (PUnaryOp op1 p1) == (PUnaryOp op2 p2) = op1 == op2 && p1 == p2
+    (PBinaryOp op1 p1 p2) == (PBinaryOp op2 r1 r2) =
+        op1 == op2 && p1 == r1 && p2 == r2
+    (POp op1 ps1) == (POp op2 ps2) = op1 == op2 && ps1 == ps2
+
+instance (Ord pn, Ord (seq (Proc seq op pn ev evs evm)), Ord (op seq ev evs evm)) =>
+        Ord (Proc seq op pn ev evs evm) where
+    compare (PProcCall pn1 _) (PProcCall pn2 _) = compare pn1 pn2
+    compare (PProcCall _ _) _ = LT
+    compare _ (PProcCall _ _) = GT
+    compare (PUnaryOp op1 p1) (PUnaryOp op2 p2) =
+        compare op1 op2 `thenCmp` compare p1 p2
+    compare (PUnaryOp _ _) _ = LT
+    compare _ (PUnaryOp _ _) = GT
+    compare (PBinaryOp op1 p1 p2) (PBinaryOp op2 r1 r2) =
+        compare op1 op2 `thenCmp` compare p1 r1 `thenCmp` compare p2 r2
+    compare (PBinaryOp _ _ _) _ = LT
+    compare _ (PBinaryOp _ _ _) = GT
+    compare (POp op1 ps1) (POp op2 ps2) =
+        compare op1 op2 `thenCmp` compare ps1 ps2
 
 type UnCompiledProc = 
     Proc S.Seq CSPOperator ProcName Event (S.Seq Event) (S.Seq (Event, Event))

@@ -45,7 +45,9 @@ instance TypeCheckable (Pat Name) Type where
     typeCheck' (PParen p1) = typeCheck p1
     typeCheck' (PSet ps) = do
         t <- ensureAreEqual ps
-        ensureHasConstraint Eq t
+        -- We require CEq here, not CSet as otherwise this would allow processes
+        -- to be compared for equality.
+        ensureHasConstraint CEq t
         return $ TSet t
     typeCheck' (PTuple ps) = do
         ts <- mapM typeCheck ps

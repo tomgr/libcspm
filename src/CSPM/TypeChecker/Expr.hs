@@ -84,12 +84,12 @@ instance TypeCheckable (Exp Name) Type where
                 t <- typeCheck e1
                 t <- typeCheckExpect e2 t
                 case op of  
-                    Equals          -> ensureHasConstraint Eq t
-                    NotEquals       -> ensureHasConstraint Eq t
-                    LessThan        -> ensureHasConstraint Ord t
-                    LessThanEq      -> ensureHasConstraint Ord t
-                    GreaterThan     -> ensureHasConstraint Ord t
-                    GreaterThanEq   -> ensureHasConstraint Ord t
+                    Equals          -> ensureHasConstraint CEq t
+                    NotEquals       -> ensureHasConstraint CEq t
+                    LessThan        -> ensureHasConstraint COrd t
+                    LessThanEq      -> ensureHasConstraint COrd t
+                    GreaterThan     -> ensureHasConstraint COrd t
+                    GreaterThanEq   -> ensureHasConstraint COrd t
                 return ())
         >> return TBool
     typeCheck' (BooleanUnaryOp op e1) = do
@@ -144,11 +144,12 @@ instance TypeCheckable (Exp Name) Type where
     typeCheck' (Paren e) = typeCheck e
     typeCheck' (Set es) = do
         t <- ensureAreEqual es
-        ensureHasConstraint Eq t
+        ensureHasConstraint CSet t
         return $ TSet t
     typeCheck' (SetComp es stmts) = 
         typeCheckStmts TSet stmts $ do
             t <- ensureAreEqual es
+            ensureHasConstraint CSet t
             return $ TSet t
     typeCheck' (SetEnum es) =  do
         mapM ensureIsChannel es
@@ -314,7 +315,7 @@ typeCheckField field tc =
         chkInputNoSet p = do
             t <- addErrorContext errCtxt $ do
                     t <- typeCheck p
-                    ensureHasConstraint Inputable t
+                    ensureHasConstraint CInputable t
             tc t
         check (NonDetInput p (Just e)) = checkInput p e
         check (Input p (Just e)) = checkInput p e
