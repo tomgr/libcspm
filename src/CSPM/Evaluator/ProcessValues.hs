@@ -77,6 +77,16 @@ data ProcOperator =
     | WeakBisim
     deriving (Eq, Ord)
 
+instance Hashable ProcOperator where
+    hash Chase = 1
+    hash Diamond = 2
+    hash Explicate = 3
+    hash Normalize = 4
+    hash ModelCompress = 5
+    hash StrongBisim = 6
+    hash TauLoopFactor = 7
+    hash WeakBisim = 8
+
 data CSPOperator seq ev evs evm =
     PAlphaParallel (seq evs)
     | PException evs
@@ -97,6 +107,22 @@ data CSPOperator seq ev evs evm =
     | PSlidingChoice
     deriving (Eq, Ord)
 
+instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs)) =>
+        Hashable (CSPOperator seq ev evs evm) where
+    hash (PAlphaParallel s) = combine 1 (hash s)
+    hash (PException s) = combine 2 (hash s)
+    hash PExternalChoice = 3
+    hash (PGenParallel evs) = combine 4 (hash evs)
+    hash (PHide evs) = combine 5 (hash evs)
+    hash PInternalChoice = 6
+    hash PInterrupt = 7
+    hash PInterleave = 8
+    hash (PLinkParallel s) = combine 9 (hash s)
+    hash (POperator op) = combine 10 (hash op)
+    hash (PPrefix ev) = combine 11 (hash ev)
+    hash (PRename evm) = combine 12 (hash evm)
+    hash PSequentialComp = 13
+    hash PSlidingChoice = 14
 
 -- | A compiled process. Note this is an infinite data structure (due to
 -- PProcCall) as this makes compilation easy (we can easily chase
@@ -117,6 +143,13 @@ instance (Eq pn, Eq (seq (Proc seq op pn ev evs evm)), Eq (op seq ev evs evm)) =
         op1 == op2 && p1 == r1 && p2 == r2
     (POp op1 ps1) == (POp op2 ps2) = op1 == op2 && ps1 == ps2
 
+instance (Hashable pn, Hashable (seq (Proc seq op pn ev evs evm)), Hashable (op seq ev evs evm)) =>
+        Hashable (Proc seq op pn ev evs evm) where
+    hash (PProcCall pn1 _) = combine 1 (hash pn1)
+    hash (PUnaryOp op1 p1) = combine 2 (combine (hash op1) (hash p1))
+    hash (PBinaryOp op1 p1 p2) = combine 3 (combine (hash op1) (combine (hash p1) (hash p2)))
+    hash (POp op ps) = combine 4 (combine (hash op) (hash ps))
+
 instance (Ord pn, Ord (seq (Proc seq op pn ev evs evm)), Ord (op seq ev evs evm)) =>
         Ord (Proc seq op pn ev evs evm) where
     compare (PProcCall pn1 _) (PProcCall pn2 _) = compare pn1 pn2
@@ -135,6 +168,9 @@ instance (Ord pn, Ord (seq (Proc seq op pn ev evs evm)), Ord (op seq ev evs evm)
 
 type UnCompiledProc = 
     Proc S.Seq CSPOperator ProcName Event (S.Seq Event) (S.Seq (Event, Event))
+
+instance Hashable a => Hashable (S.Seq a) where
+    hash a = foldr combine 0 (F.toList (fmap hash a))
 
 -- | Gives the operator of a process. If the process is a ProcCall an error is
 -- thrown.

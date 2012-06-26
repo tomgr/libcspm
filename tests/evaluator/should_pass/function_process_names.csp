@@ -1,0 +1,3 @@
+P(f) = if f(<>) then STOP else STOP
+
+procTest1 = P(\x @ length(x) == 0) [] P(\x @ length(x) == 1)

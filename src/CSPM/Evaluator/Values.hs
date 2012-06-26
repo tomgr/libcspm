@@ -79,9 +79,9 @@ instance Hashable Value where
     hash (VDataType n) = combine 8 (hash n)
     hash (VList vs) = combine 9 (hash vs)
     hash (VSet vset) = combine 10 (hash vset)
-    hash (VFunction f) = panic "Cannot hash a function"
-    hash (VProc (PProcCall n _)) = combine 12 (hash n)
-    hash (VProc _) = panic "Cannot hash a process"
+    -- We identify all functions (for process names) - see comment below in Eq.
+    hash (VFunction f) = 11
+    hash (VProc p) = combine 12 (hash p)
 
 instance Eq Value where
     VInt i1 == VInt i2 = i1 == i2
@@ -93,6 +93,13 @@ instance Eq Value where
     VList vs1 == VList vs2 = vs1 == vs2
     VSet s1 == VSet s2 = s1 == s2
     VProc p1 == VProc p2 = p1 == p2
+    -- We identify all functions. The only place this can be used is when
+    -- comparing two process names for equality (to see if we have compiled
+    -- both). When such situations occur we choose to identify the functions.
+    -- In reality, this fits in with what people expect; the function would
+    -- meerley be an extra paramter to the function, rather than something
+    -- that should distinguish processes.
+    VFunction _ == VFunction _ = True
     
     v1 == v2 = False
     
@@ -148,6 +155,8 @@ instance Ord Value where
     compare (VChannel n) (VChannel n') = compare n n'
     compare (VDataType n) (VDataType n') = compare n n'
     compare (VProc p1) (VProc p2) = compare p1 p2
+    -- See comment in Eq Value.
+    compare (VFunction _) (VFunction _) = EQ
 
     compare v1 v2 = panic $
         -- Must be as a result of a mixed set of values, which cannot happen

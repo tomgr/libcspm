@@ -35,6 +35,7 @@ import CSPM.Evaluator.Values
 import qualified CSPM.Evaluator.ProcessValues as CE
 import Util.Exception
 import qualified Util.List as UL
+import Util.Prelude
 
 data CartProductType = CartDot | CartTuple deriving (Eq, Ord)
 
@@ -53,8 +54,6 @@ data ValueSet =
     | AllSequences ValueSet
     -- | A cartesian product of several sets.
     | CartesianProduct [ValueSet] CartProductType
-    -- Only used for the internal set representation
-    deriving Ord
 
 instance Hashable ValueSet where
     hash Integers = 1
@@ -67,7 +66,26 @@ instance Hashable ValueSet where
     hash s = combine 5 (hash (toList s))
 
 instance Eq ValueSet where
-    s1 == s2 = compareValueSets s1 s2 == Just EQ
+    s1 == s2 = compare s1 s2 == EQ
+instance Ord ValueSet where
+    -- Basic (possibly)-infinite cases
+    compare Integers Integers = EQ
+    compare Integers _ = GT
+    compare _ Integers = LT
+    compare Processes Processes = EQ
+    compare Processes _ = GT
+    compare _ Processes = LT
+    compare (IntSetFrom lb1) (IntSetFrom lb2) = compare lb1 lb2
+    compare (CartesianProduct vs1 cp1) (CartesianProduct vs2 cp2) =
+        compare cp1 cp2 `thenCmp` compare vs1 vs2
+    -- Mixed infinite cases
+
+    -- Explicitly finite cases
+    compare (CompositeSet s1) (CompositeSet s2) = compare s1 s2
+    compare (AllSequences s1) (AllSequences s2) = compare s1 s2
+    compare (ExplicitSet s1) (ExplicitSet s2) = compare s1 s2
+    -- Fallback to comparing the lists
+    compare s1 s2 = compare (toList s1) (toList s2)
 
 flipOrder :: Maybe Ordering -> Maybe Ordering
 flipOrder Nothing = Nothing

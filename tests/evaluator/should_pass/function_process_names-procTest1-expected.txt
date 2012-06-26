@@ -1,0 +1,7 @@
+STOP =
+
+P(<function>) = STOP
+
+procTest1 = P(<function>) [] P(<function>)
+
+procTest1
