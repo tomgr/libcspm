@@ -29,7 +29,7 @@ bindDecls ds = do
         (eventNvs, normalNvs) = partition (\x -> fst x == eventsName) nvs
         computeEvents vs = do
             vss <- sequence (map snd eventNvs)
-            return $ VSet $ unions $ vs : map (\ (VSet s) -> s) vss
+            return $ VSet $ infiniteUnions $ vs : map (\ (VSet s) -> s) vss
 
     -- Lookup the existing value of events and add to it
     VSet vs <- lookupVar eventsName
@@ -93,7 +93,7 @@ bindDecl (an@(An _ _ (Channel ns me))) =
                 (_, _, fields) <- dataTypeInfo n
                 let fs = fromList [VChannel n] : elems fields
                 return $ cartesianProduct CartDot fs) ns
-            return $ VSet (unions ss)
+            return $ VSet (infiniteUnions ss)
     -- We bind to events here, and this is picked up in bindDecls
     in return $ (builtInName "Events", eventSetValue) : [(n, mkChan n) | n <- ns]
 bindDecl (an@(An _ _ (DataType n cs))) =
@@ -114,7 +114,7 @@ bindDecl (an@(An _ _ (DataType n cs))) =
                     return $ cartesianProduct CartDot fs
             in do
                 vs <- mapM mkSet [nc | DataTypeClause nc _ <- map unAnnotate cs]
-                return $ VSet (unions vs)
+                return $ VSet (infiniteUnions vs)
     in return $ (n, computeSetOfValues):(map mkDataTypeClause (map unAnnotate cs))
 bindDecl (an@(An _ _ (SubType n cs))) =
     let
@@ -127,10 +127,10 @@ bindDecl (an@(An _ _ (SubType n cs))) =
                             Nothing -> return []
                     let s = cartesianProduct CartDot (fromList [VDataType nc] : fs)
                     vs <- mapM productionsSet (toList s)
-                    return (unions vs)
+                    return (infiniteUnions vs)
             in do
                 vs <- mapM (mkSet . unAnnotate) cs
-                return $ VSet (unions vs)
+                return $ VSet (infiniteUnions vs)
     in return $ [(n, computeSetOfValues)]
 bindDecl (an@(An _ _ (NameType n e))) = return $
     [(n, do

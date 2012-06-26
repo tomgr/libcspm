@@ -11,7 +11,7 @@ module CSPM.Evaluator.ValueSet (
     -- * Basic Functions
     compareValueSets,
     member, card, empty,
-    union, unions,
+    union, unions, infiniteUnions,
     intersection, intersections,
     difference,
     -- * Derived functions
@@ -59,11 +59,12 @@ data ValueSet =
 instance Hashable ValueSet where
     hash Integers = 1
     hash Processes = 2
-    hash (ExplicitSet s) = combine 3 (hash (S.toList s))
-    hash (IntSetFrom lb) = combine 4 lb
-    hash (AllSequences vs) = combine 5 (hash vs)
-    hash (CompositeSet vss) = combine 6 (hash (F.toList vss))
-    hash (CartesianProduct vss _) = combine 7 (hash vss)
+    hash (IntSetFrom lb) = combine 3 lb
+    hash (AllSequences vs) = combine 4 (hash vs)
+    -- All the above are the ONLY possible representations of the sets (as the
+    -- sets are infinite). However, other sets can be represented in multiple
+    -- ways so we have to normalise to an explicit set, essentially. 
+    hash s = combine 5 (hash (toList s))
 
 instance Eq ValueSet where
     s1 == s2 = compareValueSets s1 s2 == Just EQ
@@ -163,7 +164,7 @@ fromList = ExplicitSet . S.fromList
 toList :: ValueSet -> [Value]
 toList (ExplicitSet s) = S.toList s
 toList (IntSetFrom lb) = map VInt [lb..]
-toList (CompositeSet ss) = concatMap toList (F.toList ss)
+toList (CompositeSet ss) = F.msum (fmap toList ss)
 toList Integers =
     let merge (x:xs) ys = x:merge ys xs in map VInt $ merge [0..] [(-1),(-2)..]
 toList Processes = throwSourceError [cannotConvertProcessesToListMessage]
@@ -200,12 +201,9 @@ toSeq Processes = throwSourceError [cannotConvertProcessesToListMessage]
 
 -- | Returns the value iff the set contains one item only.
 singletonValue :: ValueSet -> Maybe Value
-singletonValue s =
-    let
-        isSingleton :: ValueSet -> Bool
-        isSingleton (ExplicitSet s) = S.size s == 1
-        isSingleton _ = False
-    in if isSingleton s then Just (head (toList s)) else Nothing
+singletonValue s = case toList s of
+                            [x] -> Just x
+                            _ -> Nothing
 
 -- | Is the specified value a member of the set.
 member :: Value -> ValueSet -> Bool
@@ -231,7 +229,7 @@ card s = throwSourceError [cardOfInfiniteSetMessage s]
 -- | Is the specified set empty?
 empty :: ValueSet -> Bool
 empty (ExplicitSet s) = S.null s
-empty (CompositeSet ss) = and (F.toList (fmap empty ss))
+empty (CompositeSet ss) = F.and (fmap empty ss)
 empty (IntSetFrom lb) = False
 empty (AllSequences s) = empty s
 empty (CartesianProduct vss _) = or (map empty vss)
@@ -242,6 +240,13 @@ empty Integers = False
 unions :: [ValueSet] -> ValueSet
 unions [] = emptySet
 unions vs = foldr1 union vs
+
+infiniteUnions :: [ValueSet] -> ValueSet
+infiniteUnions [vs] = vs
+infiniteUnions vs =
+    let extract (CompositeSet s) = s
+        extract s = Sq.singleton s
+    in CompositeSet (F.msum (map extract vs))
 
 -- | Replicated intersection.
 intersections :: [ValueSet] -> ValueSet
@@ -260,10 +265,16 @@ union _ Integers = Integers
 union Integers _ = Integers
 -- Explicit unions
 union (ExplicitSet s1) (ExplicitSet s2) = ExplicitSet (S.union s1 s2)
-union (CompositeSet s1) (CompositeSet s2) = CompositeSet $! s1 Sq.>< s2
-union (CompositeSet s1) s2 = CompositeSet (s1 Sq.|> s2)
+union (CompositeSet s1) (CompositeSet s2) = CompositeSet (s1 Sq.>< s2)
+union (CompositeSet s1) s2 = CompositeSet (s2 Sq.<| s1)
 union s1 (CompositeSet s2) = CompositeSet (s1 Sq.<| s2)
-union s1 s2 = CompositeSet (Sq.fromList [s1,s2])
+union (IntSetFrom lb) s = CompositeSet (Sq.fromList [IntSetFrom lb, s])
+union s (IntSetFrom lb) = CompositeSet (Sq.fromList [IntSetFrom lb, s])
+union (AllSequences s1) s2 = CompositeSet (Sq.fromList [AllSequences s1, s2])
+union s2 (AllSequences s1) = CompositeSet (Sq.fromList [AllSequences s1, s2])
+-- Otherwise, we force to an explicit set (this has better performance than
+-- always forming an explicit set)
+union s1 s2 = ExplicitSet $ S.union (S.fromList (toList s1)) (S.fromList (toList s2))
 
 -- | Intersects two sets throwing an error if it cannot be done in a way that 
 -- will terminate.
@@ -326,7 +337,8 @@ difference (IntSetFrom lb1) (ExplicitSet s1) =
             throwSourceError [cannotDifferenceSetsMessage s1' s2']
 difference (ExplicitSet s1) (IntSetFrom lb1) =
     ExplicitSet (S.fromList [VInt i | VInt i <- S.toList s1, i < lb1])
-difference (CompositeSet ss) s = CompositeSet (fmap (\s1 -> difference s1 s) ss)
+difference (CompositeSet ss) s =
+    CompositeSet (fmap (\s1 -> difference s1 s) ss)
 difference s (CompositeSet ss) = F.foldl difference s ss
 difference s1 s2 = difference (fromList (toList s1)) (fromList (toList s2))
 
