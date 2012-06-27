@@ -31,3 +31,11 @@ func11(J) = true
 func11(_) = false
 
 test11 = func11(J)
+
+func12({}) = 0
+func12({x}) = 1
+func12(_) = 2
+
+test12 = func12({}) == 0
+test13 = func12({0}) == 1
+test14 = func12({0,1}) == 2

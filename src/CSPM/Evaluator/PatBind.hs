@@ -8,7 +8,7 @@ import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import Util.Annotated
 import Util.Exception
-import Util.PrettyPrint
+import Util.PrettyPrint hiding (empty)
 
 -- Bind :: Pattern, value -> (Matches Pattern, Values to Bind
 class Bindable a where
@@ -73,6 +73,7 @@ instance Bindable (Pat Name) where
         in (m1 && m2, b1++b2)
     bind (PLit (Int i1)) (VInt i2) | i1 == i2 = (True, [])
     bind (PLit (Bool b1)) (VBool b2) | b1 == b2 = (True, [])
+    bind (PSet []) (VSet s) | empty s = (True, [])
     bind (PSet [p]) (VSet s) = 
         case singletonValue s of
             Just v  -> bind p v
