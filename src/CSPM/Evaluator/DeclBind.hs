@@ -68,12 +68,13 @@ bindDecl (an@(An _ _ (FunBind n ms))) = do
 bindDecl (an@(An _ _ (PatBind p e))) = do
     parentPid <- getParentProcName
     let [(n, ForAll _ t)] = getSymbolTable an
-        ev = maybeSave t $ do
+        procName = procId n [] parentPid
+        ev = maybeSave t $ updateParentProcName procName $ do
             v <- eval e
             case bind p v of
                 (True, [(n', val)]) | n == n' -> return $!
                     case val of
-                        VProc p -> VProc $ PProcCall (procId n [] parentPid) p
+                        VProc p -> VProc $ PProcCall procName p
                         _ ->  val
                 (False, _) -> throwError $ 
                     patternMatchFailureMessage (loc an) p v

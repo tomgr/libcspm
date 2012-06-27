@@ -1,0 +1,29 @@
+channel a,b
+
+T = {0..3}
+
+channel c:T
+
+P = let cing({}) = b -> P
+        cing(X) = c?x:X -> cing(diff(X,{x}))
+                  [] a -> cing(X)
+    within cing({0,1,2})
+
+Q = let 
+        cing(X) = if card(X)==0 then b -> Q
+                  else (c?x:X -> cing(diff(X,{x}))
+                       [] a -> cing(X))
+    within cing({0,1,2})
+
+
+Spec= a->Spec [] (STOP |~| ([]x:diff(Events,{a}) @ x -> Spec))
+
+-- assert P [F= P
+-- assert Q [F= Q
+-- assert P [F= Q
+-- assert Q [F= P
+-- assert not Spec [F= P
+-- assert not Spec [F= Q
+
+procTest1 = P
+procTest2 = Q
