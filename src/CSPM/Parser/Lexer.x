@@ -159,7 +159,7 @@ tokens :-
 
     -- Arithmetic
     <0>@nl"+"@nl                { tok TPlus }
-    <0>"-"@nl                   { tok TMinus }
+    <0>"-"/[^\->]               { soakTok TMinus }
     <0>@nl"*"@nl                { tok TTimes }
     <0>@nl"/"@nl                { tok TDivide }
     <0>@nl"%"@nl                { tok TMod }
@@ -236,7 +236,7 @@ tok _ _ _ = panic "tok: invalid state"
 
 stok :: (String -> Token) -> AlexInput -> Int -> ParseMonad LToken
 stok f (st @ ParserState { fileStack = stk }) len = do
-        tok (f (filter (\ c -> c /= '\n') (takeChars len stk))) st len
+        tok (f (filter (\c -> not (elem c ['\r','\n'])) (takeChars len stk))) st len
 
 skip :: AlexInput -> Int -> ParseMonad LToken
 skip _ _ = getNextToken
