@@ -45,18 +45,22 @@ data SrcSpan =
         srcSpanCol :: !Int
     }
     | Unknown
+    -- | A builtin thing
+    | BuiltIn
     deriving Eq
     
 srcSpanStart :: SrcSpan -> SrcLoc
 srcSpanStart (SrcSpanOneLine f l sc _) = SrcLoc f l sc
 srcSpanStart (SrcSpanMultiLine f sl sc _ _) = SrcLoc f sl sc
 srcSpanStart (SrcSpanPoint f l c) = SrcLoc f l c
+srcSpanStart BuiltIn = NoLoc
 srcSpanStart Unknown = NoLoc
 
 srcSpanEnd :: SrcSpan -> SrcLoc
 srcSpanEnd (SrcSpanOneLine f l _ ec) = SrcLoc f l ec
 srcSpanEnd (SrcSpanMultiLine f _ _ el ec) = SrcLoc f el ec
 srcSpanEnd (SrcSpanPoint f l c) = SrcLoc f l c
+srcSpanEnd BuiltIn = NoLoc
 srcSpanEnd Unknown = NoLoc
 
 -- We want to order SrcSpans first by the start point, then by the end point.
@@ -78,6 +82,7 @@ instance PrettyPrintable SrcSpan where
     prettyPrint (SrcSpanPoint f sline scol) = 
         text f <> colon <> int sline <> colon <> int scol
     prettyPrint Unknown = text "<unknown location>"
+    prettyPrint BuiltIn = text "<built-in>"
     
 combineSpans :: SrcSpan -> SrcSpan -> SrcSpan
 combineSpans s1 s2 | srcSpanFile s1 /= srcSpanFile s2 = 

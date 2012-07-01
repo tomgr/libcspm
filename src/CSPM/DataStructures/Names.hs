@@ -139,7 +139,7 @@ mkFreshInternalName = do
 mkWiredInName :: MonadIO m => OccName -> Bool -> m Name
 mkWiredInName o b = do
     u <- takeNameUnique
-    return $ Name WiredInName o Unknown u b
+    return $ Name WiredInName o BuiltIn u b
 
 -- | Does the given Name correspond to a data type or a channel definition.
 isNameDataConstructor :: Name -> Bool
