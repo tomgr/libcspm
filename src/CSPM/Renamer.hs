@@ -27,10 +27,12 @@ import CSPM.Prelude
 import CSPM.PrettyPrinter
 import Util.Annotated
 import Util.Exception
+import Util.FuzzyLookup
 import qualified Util.HierarchicalMap as HM
 import Util.Monad
 import Util.PartialFunctions
 import Util.PrettyPrint hiding (($$))
+import qualified Util.PrettyPrint as P
 
 type RenameEnvironment = HM.HierarchicalMap UnRenamedName Name
 
@@ -422,7 +424,8 @@ renameVarRHS n = do
     case mn of
         Just x -> return x
         Nothing -> do
-            addErrors [mkErrorMessage loc (varNotInScopeMessage n)]
+            msg <- varNotInScopeMessage n
+            addErrors [mkErrorMessage loc msg]
             return $ panic "error name evaluated"
 
 renameFields :: [PField] -> RenamerMonad a -> RenamerMonad ([TCField], a)
@@ -705,8 +708,22 @@ externalFunctionNotRecognised n =
     text "The external function" <+> prettyPrint n <+> 
     text "is not recognised."
 
-varNotInScopeMessage :: UnRenamedName -> Error
-varNotInScopeMessage n = prettyPrint n <+> text "is not in scope"
+varNotInScopeMessage :: UnRenamedName -> RenamerMonad Error
+varNotInScopeMessage n = do
+    env <- gets environment
+    let availablePp = [(show $ prettyPrint rn, (rn, n)) | (rn, n) <- HM.flatten env]
+        suggestions = fuzzyLookup (show $ prettyPrint n) availablePp
+    return $ 
+        (prettyPrint n <+> text "is not in scope")
+        P.$$ case suggestions of
+            [] -> empty
+            _ -> hang (text "Did you mean:") tabWidth (vcat (
+                    (map (\ (rn, n) -> 
+                        prettyPrint rn <+>
+                        case nameDefinition n of
+                            Unknown -> empty
+                            l -> parens (text "defined at" <+> prettyPrint l)
+                     ) suggestions)))
 
 qualifiedVarNotAllowedInPat :: Pat UnRenamedName -> Error
 qualifiedVarNotAllowedInPat p =

@@ -101,6 +101,7 @@ Library
         CSPM.TypeChecker.Unification,
         Util.Annotated,
         Util.Exception,
+        Util.FuzzyLookup,
         Util.HierarchicalMap,
         Util.List,
         Util.Monad,
