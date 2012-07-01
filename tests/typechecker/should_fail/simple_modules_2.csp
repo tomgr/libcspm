@@ -1,0 +1,23 @@
+module Z
+exports
+endmodule
+
+module X
+    g = 4
+exports
+    f = 2
+
+    channel c : Bool
+
+    h(c.true) = true
+
+    module Y
+        p = 1
+    exports
+        z = (p,p)
+    endmodule
+
+    l = Y::Z
+endmodule
+
+z = X::Y::p

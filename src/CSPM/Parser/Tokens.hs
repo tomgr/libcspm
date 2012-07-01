@@ -25,6 +25,11 @@ data Token =
     | TNewLine
     | TDefineEqual
 
+    | TModule
+    | TExports
+    | TEndModule
+    | TScope
+
     | TComma
     | TDot
     | TExclamationMark
@@ -124,6 +129,11 @@ instance PrettyPrintable Token where
 
     prettyPrint TNewLine = text "<newline>"
     prettyPrint TDefineEqual = char '='
+
+    prettyPrint TModule = text "module"
+    prettyPrint TExports = text "exports"
+    prettyPrint TEndModule = text "endmodule"
+    prettyPrint TScope = text "::"
 
     prettyPrint TComma = char ','
     prettyPrint TDot = char '.'

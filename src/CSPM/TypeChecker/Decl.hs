@@ -122,7 +122,13 @@ typeCheckMutualyRecursiveGroup ds' = do
         t <- getType n
         t' <- compressTypeScheme t
         setType n t') fvs
-    where        
+    where
+        annotate nts (An _ psymbtable (Module _ _ ds1 ds2)) = do
+            setPSymbolTable (snd psymbtable) nts
+            mapM_ (\ d -> do
+                ns <- namesBoundByDecl d
+                let nts' = [(n,t) | (n,t) <- nts, n `elem` ns]
+                annotate nts' d) (ds1++ds2)
         annotate nts (An _ psymbtable _) = setPSymbolTable (snd psymbtable) nts
 
 -- | Takes a type and returns the inner type, i.e. the type that this
@@ -168,6 +174,8 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         text "In the assertion:" <+> prettyPrint a
     errorContext (Transparent ns) = Nothing
     errorContext (External ns) = Nothing
+    errorContext (Module n _ _ _) = Just $
+        text "In the module:" <+> prettyPrint n
     
     typeCheck' (FunBind n ms) = do
         ts <- mapM (\ m -> addErrorContext (matchCtxt m) $ typeCheck m) ms
@@ -250,6 +258,10 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         t <- typeCheck e
         valueType <- evalTypeExpression t
         return [(n, TSet valueType)]
+    typeCheck' (Module n [] pubds privds) = do
+        nts1 <- mapM typeCheck pubds
+        nts2 <- mapM typeCheck privds
+        return $ concat $ nts1++nts2
     typeCheck' (Transparent ns) = return []
     typeCheck' (External ns) = return []
     typeCheck' (Assert a) = typeCheck a >> return []

@@ -1,0 +1,12 @@
+module X
+
+exports
+    module Y
+    exports
+        channel Y : Int
+        g = Y.1
+    endmodule
+
+
+    Y::f.0 = Y::g
+endmodule

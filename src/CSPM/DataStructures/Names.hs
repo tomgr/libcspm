@@ -38,10 +38,15 @@ instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m OccName where
 -- | A name that has not yet been renamed. Created by the parser.
 data UnRenamedName =
     UnQual OccName
+    | Qual {
+        unRenamedNameModuleName :: OccName,
+        unRenamedNameMemberName :: UnRenamedName
+    }
     deriving (Eq, Ord, Show, Typeable)
 
 instance PrettyPrintable UnRenamedName where
     prettyPrint (UnQual n) = prettyPrint n
+    prettyPrint (Qual mn n) = prettyPrint mn <> text "::" <> prettyPrint n
 
 -- | A renamed name and is the exclusive type used after the renamer. Names
 -- are guaranteed to be unique, meaning that two names are equal iff they
@@ -98,7 +103,6 @@ instance Ord Name where
 
 instance PrettyPrintable Name where
     prettyPrint n = prettyPrint (nameOccurrence n)
-
 instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m Name where
     prettyPrint n = M.prettyPrint (nameOccurrence n)
 

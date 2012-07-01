@@ -1,0 +1,36 @@
+module Z
+exports
+endmodule
+
+module X
+    g = 4
+exports
+    f = 2
+
+    channel c : Bool
+
+    h(c.true) = true
+
+    module Y
+        p = 1
+        channel d : Int
+    exports
+        z = (p,p)
+        z'(d.0) = STOP
+
+        d.0 = d.1
+    endmodule
+
+    l = Y::z
+
+    b = 4
+    h'(x) = b
+    h'(b.x) = b
+
+    p = g
+endmodule
+
+h = X::f
+g = X::h
+p = X::l == X::Y::z
+m = X::Y::z

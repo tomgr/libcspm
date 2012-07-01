@@ -135,7 +135,8 @@ tokens :-
     <0>@nl"$"@nl                { tok TDollar }
     <0>@nl"<-"@nl               { tok TDrawnFrom }
     <0>@nl"<->"@nl              { tok TTie }
-    <0>@nl":"@nl                { tok TColon }
+    <0>@nl":"/[^:]              { soakTok TColon }
+    <0>"::"                     { tok TScope }
 
     <0>@nl"@@"@nl               { tok TDoubleAt }
 
@@ -153,7 +154,9 @@ tokens :-
     <0>"external"/$notid        { soakTok TExternal }
     <0>"transparent"/$notid     { soakTok TTransparent }
     <0>"nametype"/$notid        { soakTok TNameType }
-
+    <0>"module"/$notid          { soakTok TModule }
+    <0>"exports"/$notid         { tok TExports }
+    <0>"endmodule"/$notid       { tok TEndModule }
     <0>@nl"\"@nl                { tok TBackSlash }
     <0>@nl"@"@nl                { tok TLambdaDot }
 
@@ -357,5 +360,4 @@ getNextToken = do
 
 getNextTokenWrapper :: (LToken -> ParseMonad a) -> ParseMonad a
 getNextTokenWrapper cont = getNextToken >>= cont
-
 }

@@ -24,6 +24,7 @@ import Data.List
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.Prelude
+import CSPM.PrettyPrinter
 import Util.Annotated
 import Util.Exception
 import qualified Util.HierarchicalMap as HM
@@ -37,7 +38,9 @@ data RenamerState = RenamerState {
         environment :: RenameEnvironment,
         srcSpan :: SrcSpan,
         -- | Errors that have occured.
-        errors :: [ErrorMessage]
+        errors :: [ErrorMessage],
+        -- | The modules that names should be qualified with.
+        currentModuleQualificationStack :: [OccName]
     }
 
 type RenamerMonad = StateT RenamerState IO
@@ -50,7 +53,8 @@ initRenamer = do
         -- We insert a new layer to allow builtins to be overridden
         environment = HM.newLayer (HM.updateMulti HM.new bs),
         srcSpan = Unknown,
-        errors = []
+        errors = [],
+        currentModuleQualificationStack = []
     }
 
 -- | Runs the renamer starting at the given state and returning the given state.
@@ -89,13 +93,24 @@ newScope = do
 lookupName :: UnRenamedName -> RenamerMonad (Maybe Name)
 lookupName n = do
     env <- gets environment
-    return $ HM.maybeLookup env n
+    return $! HM.maybeLookup env n
+
+qualifyName :: UnRenamedName -> RenamerMonad UnRenamedName
+qualifyName (UnQual on) = do
+    ns <- gets currentModuleQualificationStack
+    let qualify [] = UnQual on
+        qualify (n:ns) = Qual n (qualify ns)
+    return $! qualify (reverse ns)
+qualifyName (Qual on rn) = do
+    n <- qualifyName (UnQual on)
+    let qualify (UnQual on) = Qual on rn
+        qualify (Qual mn rn) = Qual mn (qualify rn)
+    return $! qualify n
 
 setName :: UnRenamedName -> Name -> RenamerMonad ()
-setName rn n =
-    modify (\ st -> st {
-        environment = HM.update (environment st) rn n
-    })
+setName rn n = do
+    rn' <- qualifyName rn
+    modify (\ st -> st { environment = HM.update (environment st) rn' n })
 
 setSrcSpan :: SrcSpan -> RenamerMonad ()
 setSrcSpan loc = modify (\ st -> st { srcSpan = loc })
@@ -103,6 +118,23 @@ setSrcSpan loc = modify (\ st -> st { srcSpan = loc })
 -- | Report a message as an error. This will be raised at the outer monad level.
 addErrors :: [ErrorMessage] -> RenamerMonad ()
 addErrors msgs = modify (\st -> st { errors = msgs ++ errors st })
+
+addModuleContext :: OccName -> RenamerMonad a -> RenamerMonad a
+addModuleContext mName prog = do
+    modify (\ st -> st { currentModuleQualificationStack = 
+        mName : currentModuleQualificationStack st })
+    a <- prog
+    modify (\st -> st { currentModuleQualificationStack =
+        tail (currentModuleQualificationStack st) })
+    return a
+
+resetModuleContext :: RenamerMonad a -> RenamerMonad a
+resetModuleContext prog = do
+    stk <- gets currentModuleQualificationStack
+    modify (\st -> st { currentModuleQualificationStack = [] })
+    a <- prog
+    modify (\st -> st { currentModuleQualificationStack = stk })
+    return a
 
 -- **********************
 -- Renaming Class and basic instances
@@ -132,9 +164,11 @@ type NameMaker = SrcSpan -> UnRenamedName -> RenamerMonad Name
 
 externalNameMaker :: Bool -> NameMaker
 externalNameMaker b l (UnQual ocn) = mkExternalName ocn l b
+externalNameMaker b l (Qual _ n) = externalNameMaker b l n
 
 internalNameMaker :: NameMaker
 internalNameMaker l (UnQual ocn) = mkInternalName ocn l
+internalNameMaker l (Qual _ n) = internalNameMaker l n
 
 reAnnotatePure :: Annotated a e -> e' -> Annotated a e'
 reAnnotatePure (An a b _) v = An a b v
@@ -149,15 +183,17 @@ reAnnotate (An a b _) m = do
 -- | Renames the declarations in the current scope.
 renameDeclarations :: Bool -> [PDecl] -> RenamerMonad a -> RenamerMonad ([TCDecl], a)
 renameDeclarations topLevel ds prog = do
-    -- Firstly, check for duplicates amongst the definitions
-    checkDuplicates ds
-
     -- Now, find all the datatype labels and channels and create names for
     -- them in the maps (otherwise renameVarLHS will fail).
     mapM_ insertChannelsAndDataTypes ds
 
-    -- Secondly, insert all other names into the environment.
-    mapM_ insertBoundNames ds
+    -- Firstly, check for duplicates amongst the definitions (this can only
+    -- be done AFTER insertChannelsAndDatatTypes).
+    checkDuplicates ds
+
+    -- Secondly, insert all other names into the environment. We need to have
+    -- inserted the channels by here to detect where names are pattern matched.
+    mapM_ (insertBoundNames nameMaker) ds
 
     -- Finally, as all the declarations have been inserted into the map we
     -- can rename the right hand sides (as every variable *should* be in
@@ -188,10 +224,14 @@ renameDeclarations topLevel ds prog = do
                             n' <- externalNameMaker True (loc cl) rn
                             setName rn n'
                     ) cs
+            Module (UnQual mn) [] privDs pubDs ->
+                addModuleContext mn $ mapM_ insertChannelsAndDataTypes pubDs
+                -- We can't do the same for the private names because this would
+                -- break scoping.
             _ -> return ()
     
-        insertBoundNames :: PDecl -> RenamerMonad ()
-        insertBoundNames pd = case unAnnotate pd of
+        insertBoundNames :: NameMaker -> PDecl -> RenamerMonad ()
+        insertBoundNames nameMaker pd = case unAnnotate pd of
             Assert _ -> return ()
             Channel _ _ -> return ()
             DataType rn _ -> do
@@ -221,6 +261,31 @@ renameDeclarations topLevel ds prog = do
                         Nothing ->
                             let err = mkErrorMessage (loc pd) (transparentFunctionNotRecognised rn)
                             in addErrors [err]) ns
+            Module (UnQual mn) [] privDs pubDs -> do
+                n <- nameMaker (loc pd) (UnQual mn)
+                setName (UnQual mn) n
+                -- This adds all of our exported names, and prefixes them with
+                -- our module name (i.e. rn), as this is the only name with
+                -- which they are available with in this context.
+
+                -- Add the private names, but in a separate scope so they
+                -- don't leak.
+                rns <- addModuleContext mn $ addScope $ do
+                    mapM_ insertChannelsAndDataTypes privDs
+                    -- Check that the private and public declarations are
+                    -- disjoint (but only after binding the channels).
+                    checkDuplicates (pubDs++privDs)
+                    mapM_ (insertBoundNames nameMaker) pubDs
+                    -- Note that when the above addScope is popped we will
+                    -- loose all of the public names that we just bound. Hence,
+                    -- we get them out and return them below
+                    fvs <- freeVars pubDs
+                    mapM (\ rn -> do
+                        rn' <- qualifyName rn
+                        Just n <- lookupName rn'
+                        return (rn, n)) fvs
+                mapM_ (\(rn, n) -> setName (Qual mn rn) n) rns
+            _ -> return ()
 
         renameRightHandSide :: PDecl -> RenamerMonad TCDecl
         renameRightHandSide pd = reAnnotate pd $ case unAnnotate pd of
@@ -265,6 +330,32 @@ renameDeclarations topLevel ds prog = do
             Transparent rns -> do
                 ns <- mapM renameVarRHS rns
                 return $ Transparent ns
+            Module (UnQual mn) [] privDs pubDs -> do
+                n' <- renameVarRHS (UnQual mn)
+                -- Add a scope for the private declarations.
+                -- We now insert bound names in this scope, initially we
+                -- fully qualify the names.
+                addScope $ addModuleContext mn $ do
+                    mapM_ insertChannelsAndDataTypes privDs
+                    mapM_ (insertBoundNames nameMaker) privDs
+                    -- Now, we need to make the names available without
+                    -- prefixing, but we NEED to make sure that the Name s that
+                    -- we bound above are the same for the two different
+                    -- occurences.
+                    fvs <- freeVars (privDs++pubDs)
+                    -- Lookup the fully qualified names
+                    npairs <- mapM (\ rn -> do
+                        rn' <- qualifyName rn
+                        Just n' <- lookupName rn'
+                        return (rn, n')) fvs
+                    -- Insert them (we reset the module context to make sure
+                    -- they are not fully qualified).
+                    resetModuleContext $ mapM_ (\(rn, n) -> do
+                        setName rn n) npairs
+
+                    privDs' <- mapM renameRightHandSide privDs
+                    pubDs' <- mapM renameRightHandSide pubDs
+                    return $ Module n' [] privDs' pubDs'
 
 renamePattern :: NameMaker -> PPat -> RenamerMonad TCPat
 renamePattern nm ap =
@@ -280,20 +371,26 @@ renamePattern nm ap =
             PParen p -> return PParen $$ renamePat p
             PSet ps -> return PSet $$ mapM renamePat ps
             PTuple ps -> return PTuple $$ mapM renamePat ps
-            PVar v -> do 
+            PVar v -> do
                 -- In this case, we should lookup the variable in the map and see if it is
                 -- bound. If it is and is a datatype constructor, then we should return
                 -- return that, otherwise we create a new internal var.
                 mn <- lookupName v
                 case mn of
-                    Just n | isNameDataConstructor n ->
+                    Just n | isNameDataConstructor n -> do
                         -- Just return the name
-                        return (PVar n) 
-                    _ -> do
-                        -- Create the name
-                        n <- nm (loc ap) v
-                        setName v n
-                        return $ PVar n
+                        return (PVar n)
+                    _ ->
+                        case v of
+                            Qual _ _ -> do
+                                loc <- gets srcSpan
+                                addErrors [mkErrorMessage loc (qualifiedVarNotAllowedInPat (PVar v))]
+                                return $ panic "unknown name evaluated"
+                            UnQual _ -> do
+                                -- Create the name
+                                n <- nm (loc ap) v
+                                setName v n
+                                return $ PVar n
             PWildCard -> return PWildCard
     in do
         checkDuplicates [ap]
@@ -302,7 +399,6 @@ renamePattern nm ap =
 checkDuplicates :: FreeVars a => [Annotated b a] -> RenamerMonad ()
 checkDuplicates aps = do
     fvss <- mapM freeVars aps
-
     let 
         fvs = sort (concat fvss)
         gfvs = group fvs
@@ -314,10 +410,6 @@ checkDuplicates aps = do
     if duped /= [] then
         throwSourceError (map (mkErrorMessage loc) (duplicatedDefinitionsMessage nameLocMap))
     else return ()
-
--- | Rename a variable on the left hand side of a definition.
---renameVarLHS :: NameMaker -> UnRenamedName -> RenamerMonad Name
---renameVarLHS nm v = do
 
 -- | Rename a variable on the right hand side of a definition.
 -- 
@@ -551,10 +643,13 @@ instance FreeVars (Pat UnRenamedName) where
     freeVars (PSet ps) = freeVars ps
     freeVars (PTuple ps) = freeVars ps
     freeVars (PVar n) = do
-        mn <- lookupName n
+        rn <- qualifyName n
+        mn <- lookupName rn
         case mn of
             Just n | isNameDataConstructor n -> return []
-            _ -> return [n]
+            _ -> case n of
+                    Qual _ _ -> return [] -- we pick the error up in renamePattern
+                    _ -> return [n]
     freeVars (PWildCard) = return []
 
 instance FreeVars (Stmt UnRenamedName) where
@@ -577,6 +672,9 @@ instance FreeVars (Decl UnRenamedName) where
     freeVars (NameType n _) = return [n]
     freeVars (PatBind p _) = freeVars p
     freeVars (Transparent ns) = return ns
+    freeVars (Module (UnQual n) ps _ expDs) = do
+        ns <- freeVars expDs
+        return $ UnQual n : map (Qual n) ns
 
 -- ********************
 -- Error Messages
@@ -609,3 +707,8 @@ externalFunctionNotRecognised n =
 
 varNotInScopeMessage :: UnRenamedName -> Error
 varNotInScopeMessage n = prettyPrint n <+> text "is not in scope"
+
+qualifiedVarNotAllowedInPat :: Pat UnRenamedName -> Error
+qualifiedVarNotAllowedInPat p =
+    prettyPrint p <+>
+    text "is an invalid pattern as non-datatype/channel qualified names are not allowed"

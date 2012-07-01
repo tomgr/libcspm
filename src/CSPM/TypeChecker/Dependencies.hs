@@ -34,6 +34,10 @@ namesBoundByDecl' (NameType n e) = return [n]
 namesBoundByDecl' (External ns) = return ns
 namesBoundByDecl' (Transparent ns) = return ns
 namesBoundByDecl' (Assert _) = return []
+namesBoundByDecl' (Module _ _ ds1 ds2) = do
+    nss1 <- mapM namesBoundByDecl ds1
+    nss2 <- mapM namesBoundByDecl ds2
+    return $ concat (nss1++nss2)
 
 class Dependencies a where
     dependencies :: a -> TypeCheckMonad [Name]
@@ -208,6 +212,10 @@ instance Dependencies (Decl Name) where
     dependencies' (External ns) = return []
     dependencies' (Transparent ns) = return []
     dependencies' (Assert a) = dependencies a
+    dependencies' (Module _ _ ds1 ds2) = do
+        deps1 <- dependencies ds1
+        deps2 <- dependencies ds2
+        return $ deps1 ++ deps2
 
 instance Dependencies (Assertion Name) where
     dependencies' (Refinement e1 m e2 opts) = do

@@ -1,0 +1,28 @@
+module Z
+exports
+endmodule
+
+module X
+    g = 4
+    channel b : Bool
+exports
+    f = 2
+
+    channel c : Bool
+
+    h(c.true) = true
+
+    module Y
+        p = 1
+    exports
+        z = (p,p)
+    endmodule
+
+    l = Y::z
+endmodule
+
+test1 = X::f == 2
+test2 = X::h(X::c.true) == true
+test3 = X::h(X::c.true) != false
+test4 = X::l == (1,1)
+test5 = X::Y::z == (1,1)

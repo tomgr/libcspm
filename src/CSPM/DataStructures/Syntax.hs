@@ -452,6 +452,13 @@ data Decl id =
     | SubType id [AnDataTypeClause id]
     -- | A nametype declaration, e.g. @nametype T2 = T.T@.
     | NameType id (AnExp id)
+    -- | A module declaration, e.g. @module X(Y,Z) ... export ... endmodule@.
+    | Module {
+        moduleName :: id,
+        moduleArguments :: [AnPat id],
+        modulePrivateDeclarations :: [AnDecl id],
+        moduleExportedDeclarations :: [AnDecl id]
+    }
     deriving (Eq, Show)
 
 data Assertion id = 

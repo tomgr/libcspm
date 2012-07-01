@@ -93,6 +93,12 @@ desugarDecl (an@(An x y (PatBind p e))) = do
                     (PatBind (An Unknown dummyAnnotation (PVar nameToBindTo)) e')
                 extractors = map mkExtractor (freeVars p')
             return $ newPat : extractors
+desugarDecl (An _ _ (Module n [] ds1 ds2)) = do
+    -- We flatten here if there are no arguments (the renamer has
+    -- already done the work).
+    ds1' <- mapM desugarDecl ds1
+    ds2' <- mapM desugarDecl ds2
+    return $ concat $ ds1'++ds2'
 desugarDecl (An x y d) = do
     d' <- case d of
             FunBind n ms -> return (FunBind n) $$ desugar ms

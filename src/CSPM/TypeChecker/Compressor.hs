@@ -123,6 +123,8 @@ instance Compressable (Decl a) where
     mcompress (DataType n cs) = return (DataType n) $$ mcompress cs
     mcompress (SubType n cs) = return (SubType n) $$ mcompress cs
     mcompress (NameType n e) = return (NameType n) $$ mcompress e
+    mcompress (Module n [] ds1 ds2) =
+        return (Module n []) $$ mcompress ds1 $$ mcompress ds2
 
 instance Compressable (Assertion a) where
     mcompress (Refinement e1 m e2 opts) = return 

@@ -49,6 +49,12 @@ instance PrettyPrintable id => PrettyPrintable (Decl id) where
         text "nametype" <+> prettyPrint n <+> text "=" <+> prettyPrint e
     prettyPrint (Assert a) =
         text "assert" <+> prettyPrint a
+    prettyPrint (Module n args private exported) =
+        text "module" <+> prettyPrint n <> parens (list (map prettyPrint args))
+        $$ tabIndent (vcat (punctuate (char '\n') (map prettyPrint private)))
+        $$ text "exports"
+        $$ tabIndent (vcat (punctuate (char '\n') (map prettyPrint exported)))
+        $$ text "endmodule"
         
 instance PrettyPrintable id => PrettyPrintable (Assertion id) where
     prettyPrint (Refinement e1 m e2 opts) =

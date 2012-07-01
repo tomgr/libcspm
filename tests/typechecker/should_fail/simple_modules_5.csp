@@ -1,0 +1,7 @@
+module X
+    g = 4
+exports
+    f = 2
+    g = 5
+endmodule
+
