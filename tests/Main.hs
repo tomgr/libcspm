@@ -169,17 +169,17 @@ evaluatorTest fp = do
                 desugarExpression tce
             evaluateExpression tce
     
-    dsms <- disallowErrors $ do
+    CSPMFile ds <- disallowErrors $ do
         ms <- parseFile fp
         rms <- CSPM.renameFile ms
         tms <- typeCheckFile rms
         dsms <- desugarFile tms
         bindFile dsms
-        return dsms
+        return $ unAnnotate dsms
 
     -- Extract all declarations of the form "test...", which should be of
     -- patterns of type :: Bool
-    mapM_ (\ (GlobalModule ds) -> mapM_ (\ d ->
+    mapM_ (\ d ->
         case d of 
             PatBind p _ ->
                 case unAnnotate p of
@@ -207,5 +207,4 @@ evaluatorTest fp = do
                                     ]
                     _ -> return ()
             _ -> return ()
-            ) (map unAnnotate ds)
-        ) (map unAnnotate dsms)
+        ) (map unAnnotate ds)

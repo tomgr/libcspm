@@ -110,8 +110,8 @@ instance Compressable (Exp a) where
         return ReplicatedLinkParallel $$ mcompress ties $$ mcompress tiesStmts 
                                         $$ mcompress stmts $$ mcompress e
     
-instance Compressable (Module a) where
-    mcompress (GlobalModule ds) = return GlobalModule $$ mcompress ds
+instance Compressable (CSPMFile a) where
+    mcompress (CSPMFile ds) = return CSPMFile $$ mcompress ds
 
 instance Compressable (Decl a) where
     mcompress (FunBind n ms) = return (FunBind n) $$ mcompress ms

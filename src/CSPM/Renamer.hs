@@ -413,10 +413,10 @@ instance Renamable (InteractiveStmt UnRenamedName) (InteractiveStmt Name) where
     rename (Evaluate e) = return Evaluate $$ rename e
     rename (RunAssertion a) = return RunAssertion $$ rename a
 
-instance Renamable (Module UnRenamedName) (Module Name) where
-    rename (GlobalModule ds) = do
+instance Renamable (CSPMFile UnRenamedName) (CSPMFile Name) where
+    rename (CSPMFile ds) = do
         (ds', _) <- renameDeclarations True ds (return ())
-        return $ GlobalModule ds'
+        return $ CSPMFile ds'
 
 instance Renamable (Assertion UnRenamedName) (Assertion Name) where
     rename (ASNot e) =

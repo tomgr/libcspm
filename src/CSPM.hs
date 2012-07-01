@@ -44,9 +44,9 @@
 -- >    main = do
 -- >        session <- newCSPMSession
 -- >        (value, resultingSession) <- unCSPM session $ do
--- >            -- Parse the file, returning something of type PModule.
+-- >            -- Parse the file, returning something of type PCSPMFile.
 -- >            parsedFile <- parseFile "test.csp"
--- >            -- Rename the file, returning something of type TCModule.
+-- >            -- Rename the file, returning something of type TCCSPMFile.
 -- >            renamedFile <- renameFile parsedFile
 -- >            -- Typecheck the file, annotating it with types.
 -- >            typeCheckedFile <- typeCheckFile renamedFile
@@ -199,14 +199,14 @@ runParserInCurrentState :: CSPMMonad m => FilePath -> P.ParseMonad a -> m a
 runParserInCurrentState dir p = liftIO $ P.runParser p dir
 
 -- | Parse a file `fp`. Throws a `SourceError` on any parse error.
-parseFile :: CSPMMonad m => FilePath -> m [PModule]
+parseFile :: CSPMMonad m => FilePath -> m PCSPMFile
 parseFile fp =
     let (dir, fname) = splitFileName fp
     in runParserInCurrentState dir (P.parseFile fname)
 
 -- | Parses a string, treating it as though it were a file. Throws a 
 -- 'SourceError' on any parse error.
-parseStringAsFile :: CSPMMonad m => String -> m [PModule]
+parseStringAsFile :: CSPMMonad m => String -> m PCSPMFile
 parseStringAsFile str = runParserInCurrentState "" (P.parseStringAsFile str)
 
 -- | Parses a 'PInteractiveStmt'. Throws a 'SourceError' on any parse error.
@@ -228,7 +228,7 @@ runRenamerInCurrentState p = withSession $ \s -> do
     return a
 
 -- | Renames a file.
-renameFile :: CSPMMonad m => [PModule] -> m [TCModule]
+renameFile :: CSPMMonad m => PCSPMFile -> m TCCSPMFile
 renameFile m = runRenamerInCurrentState $ do
     RN.newScope
     RN.rename m
@@ -260,7 +260,7 @@ runTypeCheckerInCurrentState p = withSession $ \s -> do
 -- | Type checks a file, also desugaring and annotating it. Throws a 
 -- 'SourceError' if an error is encountered and will call 'handleWarnings' on 
 -- any warnings. This also performs desugaraing.
-typeCheckFile :: CSPMMonad m => [TCModule] -> m [TCModule]
+typeCheckFile :: CSPMMonad m => TCCSPMFile -> m TCCSPMFile
 typeCheckFile ms = reportWarnings $ runTypeCheckerInCurrentState $ do
     TC.typeCheck ms
 
@@ -291,8 +291,8 @@ dependenciesOfExp e =
     reportWarnings $ runTypeCheckerInCurrentState (TC.dependenciesOfExp e)
 
 -- | Desugar a file, preparing it for evaulation.
-desugarFile :: CSPMMonad m => [TCModule] -> m [TCModule]
-desugarFile [m] = DS.desugar m >>= \x -> return [x]
+desugarFile :: CSPMMonad m => TCCSPMFile -> m TCCSPMFile
+desugarFile m = DS.desugar m
 
 -- | Desugars an expression.
 desugarExpression :: CSPMMonad m => TCExp -> m TCExp
@@ -324,12 +324,12 @@ bindDeclaration d = withSession $ \s -> do
  
 -- | Binds all the declarations that are in a particular file. Requires the
 -- file to be desugared.
-bindFile :: CSPMMonad m => [TCModule] -> m ()
-bindFile ms = do
+bindFile :: CSPMMonad m => TCCSPMFile -> m ()
+bindFile m = do
     -- Bind
-    evSt <- runEvaluatorInCurrentState (do
-        ds <- EV.evaluateFile ms
-        EV.addToEnvironment ds)
+    evSt <- runEvaluatorInCurrentState $ do
+        ds <- EV.evaluateFile m
+        EV.addToEnvironment ds
     modifySession (\s -> s { evState = evSt })
     return ()
  

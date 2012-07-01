@@ -14,7 +14,7 @@ import CSPM.Evaluator.BuiltInFunctions
 import CSPM.Evaluator.DeclBind
 import CSPM.Evaluator.Environment
 import CSPM.Evaluator.Expr
-import CSPM.Evaluator.Module
+import CSPM.Evaluator.File
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
@@ -40,8 +40,8 @@ evaluateDecl :: TCDecl -> EvaluationMonad [(Name, EvaluationMonad Value)]
 evaluateDecl d = bindDecls [d]
 
 -- | Evaluates the declaration but doesn't add it to the current environment.
-evaluateFile :: [TCModule] -> EvaluationMonad [(Name, EvaluationMonad Value)]
-evaluateFile ms = bindModules ms
+evaluateFile :: TCCSPMFile -> EvaluationMonad [(Name, EvaluationMonad Value)]
+evaluateFile ms = bindFile ms
 
 addToEnvironment :: [(Name, EvaluationMonad Value)] -> EvaluationMonad EvaluationState
 addToEnvironment bs = addScopeAndBindM bs getState

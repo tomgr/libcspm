@@ -7,8 +7,8 @@
 -- (sometimes) with their type (but only after type checking). This is done 
 -- using the 'Annotated' datatype.
 module CSPM.DataStructures.Syntax (
-    -- * Modules
-    Module(..),
+    -- * Files
+    CSPMFile(..),
     -- * Declarations
     Decl(..), Match(..),
     -- ** Assertions
@@ -40,13 +40,13 @@ module CSPM.DataStructures.Syntax (
     -- * Type Synonyms
     -- | As the types are parameterised over the type of names it can be
     -- laborious to type the names. Therefore, some shortcuts are provided.
-    AnModule, AnDecl, AnMatch, AnPat, AnExp, AnField,
+    AnCSPMFile, AnDecl, AnMatch, AnPat, AnExp, AnField,
     AnStmt, AnDataTypeClause, AnAssertion, AnInteractiveStmt,
     -- ** Pre-Renaming Types
-    PModule, PDecl, PMatch, PPat, PExp, PField,
+    PCSPMFile, PDecl, PMatch, PPat, PExp, PField,
     PStmt, PDataTypeClause, PAssertion, PInteractiveStmt,
     -- ** Post-Renaming Types
-    TCModule, TCDecl, TCMatch, TCPat, TCExp, TCField,
+    TCCSPMFile, TCDecl, TCMatch, TCPat, TCExp, TCField,
     TCStmt, TCDataTypeClause, TCAssertion, TCInteractiveStmt,
     -- * Helpers
     getType, getSymbolTable,
@@ -58,9 +58,8 @@ import CSPM.DataStructures.Types
 import Util.Annotated
 import Util.Exception
 
--- P = post parsing, TC = post typechecking, An = annotated
-type AnModule id = Annotated () (Module id)
 -- Declarations may bind multiple names
+type AnCSPMFile id = Annotated () (CSPMFile id)
 type AnDecl id = Annotated (Maybe SymbolTable, PSymbolTable) (Decl id)
 type AnMatch id = Annotated () (Match id)
 type AnPat id = Annotated () (Pat id)
@@ -81,7 +80,7 @@ getSymbolTable an = case fst (annotation an) of
     Just t -> t
     Nothing -> panic "Cannot get the symbol table of something that is not typechecked"
 
-type PModule = AnModule UnRenamedName
+type PCSPMFile = AnCSPMFile UnRenamedName
 type PDecl = AnDecl UnRenamedName
 type PMatch = AnMatch UnRenamedName
 type PPat = AnPat UnRenamedName
@@ -92,7 +91,7 @@ type PDataTypeClause = AnDataTypeClause UnRenamedName
 type PAssertion = AnAssertion UnRenamedName
 type PInteractiveStmt = AnInteractiveStmt UnRenamedName
 
-type TCModule = AnModule Name
+type TCCSPMFile = AnCSPMFile Name
 type TCDecl = AnDecl Name
 type TCMatch = AnMatch Name
 type TCPat = AnPat Name
@@ -104,10 +103,9 @@ type TCAssertion = AnAssertion Name
 type TCInteractiveStmt = AnInteractiveStmt Name
 
 -- *************************************************************************
--- Modules
+-- Files
 -- *************************************************************************
-data Module id = 
-    GlobalModule [AnDecl id]
+data CSPMFile id = CSPMFile [AnDecl id]
     deriving (Eq, Show)
 
 -- *************************************************************************

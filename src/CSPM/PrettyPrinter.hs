@@ -8,11 +8,8 @@ import CSPM.DataStructures.Syntax
 import Util.Annotated
 import Util.PrettyPrint
 
-instance PrettyPrintable id => PrettyPrintable [Module id] where
-    prettyPrint = vcat . map prettyPrint
-
-instance PrettyPrintable id => PrettyPrintable (Module id) where
-    prettyPrint (GlobalModule decls) = 
+instance PrettyPrintable id => PrettyPrintable (CSPMFile id) where
+    prettyPrint (CSPMFile decls) = 
         vcat (punctuate (char '\n') (map prettyPrint decls))
 
 instance PrettyPrintable id => PrettyPrintable (InteractiveStmt id) where

@@ -55,7 +55,6 @@ where
 import CSPM.DataStructures.Syntax
 import CSPM.Parser.Monad
 import CSPM.Parser.Parser
-import Util.Annotated
 
 -- | Parse as string as an 'PInteractiveStmt'.
 parseInteractiveStmt :: String -> ParseMonad PInteractiveStmt
@@ -68,14 +67,10 @@ parseExpression str =
     pushFileContents "<interactive>" str >> parseExpression_
 
 -- | Parse the given file, returning the parsed 'PModule's.
-parseFile :: String -> ParseMonad [PModule]
-parseFile fname = do
-    decls <- pushFile fname parseFile_
-    return [An Unknown dummyAnnotation (GlobalModule decls)]
+parseFile :: String -> ParseMonad PCSPMFile
+parseFile fname = pushFile fname parseFile_
 
 -- | Parse a string, as though it were an entire file, returning the parsed
 -- 'PModule's.
-parseStringAsFile :: String -> ParseMonad [PModule]
-parseStringAsFile str = do
-    decls <- pushFileContents "<interactive>" str >> parseFile_
-    return [An Unknown dummyAnnotation (GlobalModule decls)]
+parseStringAsFile :: String -> ParseMonad PCSPMFile
+parseStringAsFile str = pushFileContents "<interactive>" str >> parseFile_

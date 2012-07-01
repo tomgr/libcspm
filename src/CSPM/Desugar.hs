@@ -47,8 +47,10 @@ instance (Desugarable a, Desugarable b) => Desugarable (a,b) where
         b' <- desugar b
         return (a', b')
 
-instance Desugarable (Module Name) where
-    desugar (GlobalModule ds) = return GlobalModule $$ desugarDecls ds
+instance Desugarable (CSPMFile Name) where
+    desugar (CSPMFile ds) = do
+        t <- return CSPMFile $$ desugarDecls ds
+        return t
 
 desugarDecl :: MonadIO m => TCDecl -> m [TCDecl]
 desugarDecl (an@(An x y (PatBind p e))) = do

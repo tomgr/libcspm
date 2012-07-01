@@ -18,8 +18,8 @@ import qualified CSPM.TypeChecker.Common as TC
 import CSPM.TypeChecker.Compressor
 import CSPM.TypeChecker.Dependencies
 import CSPM.TypeChecker.Expr()
+import CSPM.TypeChecker.File()
 import CSPM.TypeChecker.InteractiveStmt()
-import CSPM.TypeChecker.Module()
 import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Unification
 import Util.Annotated

@@ -157,13 +157,13 @@ import Util.Annotated
 %left "#"
 %left "^"
 %nonassoc "(" ")" "[[" "]]"
---%nonassoc SCOPE (this is ::)
+%nonassoc "::"
 
 %%
 
-CSPMFile :: { [PDecl] }
+CSPMFile :: { PCSPMFile }
     :
-    Newlines0 DeclList                          { $2 }
+    Newlines0 DeclList                          { annotateList $2 (CSPMFile $2) }
     
 InteractiveStmt :: { PInteractiveStmt }
     :
@@ -612,6 +612,10 @@ instance Locatable (Annotated a) where
 
 annotate :: (Locatable t1, Locatable t2) => t1 a -> b -> t2 b
 annotate t1 b = mkLoc (getLoc t1) b
+
+annotateList :: (Locatable t1, Locatable t2) => [t1 a] -> b -> t2 b
+annotateList [] b = mkLoc Unknown b
+annotateList ts b = mkLoc (combineSpans (getLoc (head ts)) (getLoc (last ts))) b
 
 annotate2 :: 
     (Locatable t1, Locatable t2, Locatable t3) => t1 a -> t2 b -> c -> t3 c
