@@ -49,9 +49,8 @@ instance Dependencies a => Dependencies (Annotated b a) where
     dependencies' (An _ _ inner) = dependencies inner
 
 instance Dependencies (Pat Name) where
-    dependencies' (PVar n) = do
-        res <- isDataTypeOrChannel n
-        return $ if res then [n] else []
+    dependencies' (PVar n) | isNameDataConstructor n = return [n]
+    dependencies' (PVar n) = return []
     dependencies' (PConcat p1 p2) = do
         fvs1 <- dependencies' p1
         fvs2 <- dependencies' p2
@@ -244,9 +243,8 @@ instance FreeVars a => FreeVars (Annotated b a) where
     freeVars (An _ _ inner) = freeVars inner
 
 instance FreeVars (Pat Name) where
-    freeVars (PVar n) = do
-        res <- isDataTypeOrChannel n
-        return $ if res then [] else [n]
+    freeVars (PVar n) | isNameDataConstructor n = return []
+    freeVars (PVar n) = return [n]
     freeVars (PConcat p1 p2) = do
         fvs1 <- freeVars p1
         fvs2 <- freeVars p2

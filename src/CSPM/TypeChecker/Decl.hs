@@ -47,11 +47,6 @@ typeCheckDecls decls = do
     -- Throw an error if a name is defined multiple times
     when (not (noDups boundVars)) $ panic "Duplicates found after renaming."
 
-    -- We prebind the datatypes and channels as they can be matched on in 
-    -- patterns (and thus, given a var in a pattern we can't decide if it
-    -- is free or a dependency otherwise).
-    mapM_ registerChannelsAndDataTypes (map unAnnotate decls)
-
     -- Map from decl id -> [decl id] meaning decl id depends on the list of
     -- ids
     declDeps <- mapM (\ (decl, declId) -> do
@@ -94,23 +89,6 @@ typeCheckDecls decls = do
     
     -- Start type checking the groups
     typeCheckGroups sccs False
-
--- This method heavily affects the DataType clause of typeCheckDecl.
--- If any changes are made here changes will need to be made to typeCheckDecl
--- too
-
--- We have to prebind all datatype clauses and channel names so
--- that we can identify when a particular pattern uses these clauses and
--- channels. We do this by injecting them into the symbol table earlier
--- than normal.
-registerChannelsAndDataTypes :: Decl Name -> TypeCheckMonad ()
-registerChannelsAndDataTypes (DataType n cs) = do
-    mapM_ (\ c -> case unAnnotate c of
-            DataTypeClause n' _ -> addDataTypeOrChannel n'
-        ) cs
-registerChannelsAndDataTypes (Channel ns _) = 
-    mapM_ addDataTypeOrChannel ns
-registerChannelsAndDataTypes _ = return ()
 
 -- | Type checks a group of certainly mutually recursive functions. Only 
 -- functions that are mutually recursive should be included otherwise the
