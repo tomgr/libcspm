@@ -43,11 +43,10 @@ externalFunctionForOccName (OccName s) =
     let bs = [b | b <- allBuiltins, isExternal b, stringName b == s] in
     if bs == [] then Nothing else Just (head bs)
 
-
 allBuiltins :: [BuiltIn]
 allBuiltins = unsafePerformIO makeBuiltins
 
-makeBuiltins :: IO [BuiltIn] --Type -> (String, [Type], Type)]
+makeBuiltins :: IO [BuiltIn]
 makeBuiltins = 
     let
         cspm_union fv = ("union", [TSet fv, TSet fv], TSet fv)
@@ -106,7 +105,9 @@ makeBuiltins =
 
         externalFunctions :: [(String, Type)]
         externalFunctions = [
-            ("loop", TFunction [TProc] TProc)
+            ("loop", TFunction [TProc] TProc),
+            ("chase", TFunction [TProc] TProc),
+            ("chase_nocache", TFunction [TProc] TProc)
             ]
 
         transparentFunctions :: [(String, Type)]
@@ -117,8 +118,7 @@ makeBuiltins =
             ("tau_loop_factor", TFunction [TProc] TProc),
             ("model_compress", TFunction [TProc] TProc),
             ("explicate", TFunction [TProc] TProc),
-            ("wbisim", TFunction [TProc] TProc),
-            ("chase", TFunction [TProc] TProc)
+            ("wbisim", TFunction [TProc] TProc)
             ]
 
         externalNames = map fst externalFunctions

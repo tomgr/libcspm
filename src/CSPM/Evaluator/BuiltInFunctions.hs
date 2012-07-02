@@ -79,7 +79,8 @@ builtInFunctions =
         
         -- | Functions that mutate processes (like compression functions).
         proc_operators = [
-            ("chase", Chase),
+            ("chase", Chase True),
+            ("chase_nocache", Chase False),
             ("diamond", Diamond),
             ("explicate", Explicate),
             ("normal", Normalize),

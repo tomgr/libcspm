@@ -67,7 +67,7 @@ instance Hashable ProcName where
 
 -- | An operator that can be applied to processes.
 data ProcOperator =
-    Chase 
+    Chase Bool
     | Diamond 
     | Explicate 
     | Normalize 
@@ -78,14 +78,15 @@ data ProcOperator =
     deriving (Eq, Ord)
 
 instance Hashable ProcOperator where
-    hash Chase = 1
-    hash Diamond = 2
-    hash Explicate = 3
-    hash Normalize = 4
-    hash ModelCompress = 5
-    hash StrongBisim = 6
-    hash TauLoopFactor = 7
-    hash WeakBisim = 8
+    hash (Chase True) = 1
+    hash (Chase False) = 2
+    hash Diamond = 3
+    hash Explicate = 4
+    hash Normalize = 5
+    hash ModelCompress = 6
+    hash StrongBisim = 7
+    hash TauLoopFactor = 8
+    hash WeakBisim = 9
 
 data CSPOperator seq ev evs evm =
     PAlphaParallel (seq evs)

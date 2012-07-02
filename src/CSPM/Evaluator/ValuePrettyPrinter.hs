@@ -44,7 +44,8 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
     prettyPrint (UserEvent v) = M.prettyPrint v
 
 instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m ProcOperator where
-    prettyPrint Chase = M.text "chase"
+    prettyPrint (Chase True) = M.text "chase"
+    prettyPrint (Chase False) = M.text "chase_no_cache"
     prettyPrint Diamond = M.text "diamond"
     prettyPrint Explicate = M.text "explicate"
     prettyPrint Normalize = M.text "normal"
