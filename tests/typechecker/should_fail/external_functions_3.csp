@@ -1,0 +1,4 @@
+external transpose, mtransclose, relational_image, relational_inverse_image
+
+Z = relational_inverse_image(transpose({(0,true)}))(0) == 0
+

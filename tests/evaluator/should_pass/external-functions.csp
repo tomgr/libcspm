@@ -1,0 +1,23 @@
+external transpose, mtransclose, relational_image, relational_inverse_image
+
+test1 = transpose({(0,true)}) == {(true, 0)}
+test2 = relational_image(transpose({(0,true)}))(true) == {0}
+test3 = relational_inverse_image(transpose({(0,true)}))(0) == {true}
+test4 = checkmtransclose({(0,1),(1,2)}, {0,1})
+test5 = checkmtransclose({(0,1),(1,2)}, {0,1,2})
+test6 = 
+    let x = relational_inverse_image(mtransclose({(1,0)}, {0,1}))
+    within card(union(x(0),x(1))) == 1
+test7 = checkmtransclose({(0,1)}, {0,1})
+test8 = mtransclose({}, {}) == {}
+test9 = mtransclose({}, {0}) == {}
+test10 = card({x | (x,y) <- mtransclose({(i,i+1) | i <- {0..100}}, {0..100})}) == 1
+test11 = card({y | (x,y) <- mtransclose({(i,i+1) | i <- {0..100}}, {0..100})}) == 100
+test12 = checkmtransclose({(1,0),(2,1),(3,2)}, {0,1,2,3})
+test13 = checkmtransclose({(0,1),(1,2),(2,3)}, {0,1,2,3})
+
+checkmtransclose(X,dom) = 
+    let
+        tc = mtransclose(X,dom)
+        isRepr(x) = card({y | (x',y) <- tc, x == x'}) == card(dom)-1
+    within card({x | x <- dom, isRepr(x)}) == 1

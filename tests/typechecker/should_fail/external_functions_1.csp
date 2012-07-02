@@ -1,0 +1,3 @@
+external transpose, mtransclose, relational_image, relational_inverse_image
+
+X = transpose({(true,0)}) == {(true, 0)}

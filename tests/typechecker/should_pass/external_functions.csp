@@ -1,0 +1,6 @@
+external transpose, mtransclose, relational_image, relational_inverse_image
+
+X = transpose({(0,true)}) == {(true, 0)}
+Y = relational_image(transpose({(0,true)}))(true) == {0}
+Z = relational_inverse_image(transpose({(0,true)}))(0) == {true}
+A = mtransclose({(0,1)}, {0,1}) == {(1,1),(0,1)}

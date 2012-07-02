@@ -1,0 +1,8 @@
+module A
+  elsing(x) = x
+  ren(x) = x
+  applyRenaming0(a_) =
+    let S_ = ren(a_)
+    within if card(S_)==0 then a_ else elsing(S_)
+exports
+endmodule

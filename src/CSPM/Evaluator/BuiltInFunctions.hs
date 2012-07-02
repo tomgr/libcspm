@@ -3,6 +3,10 @@ module CSPM.Evaluator.BuiltInFunctions (
     builtInName
 ) where
 
+import Data.Array
+import Data.List
+import Control.Monad.ST
+import Data.Hashable
 import qualified Data.Map as M
 import qualified Data.Sequence as Sq
 
@@ -13,7 +17,9 @@ import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
 import qualified CSPM.Evaluator.ValueSet as S
 import CSPM.Prelude
+import qualified Data.Graph.ST as G
 import Util.Exception
+import Util.Prelude
 
 bMap = M.fromList [(stringName b, name b) | b <- builtins True]
 builtInName s = M.findWithDefault (panic "builtin not found") s bMap
@@ -36,7 +42,12 @@ builtInFunctions =
         -- | Set of all sequences over s
         cspm_Seq [VSet s] = S.allSequences s
         cspm_seq [VSet s] = S.toList s
-        
+        cspm_transpose [VSet s] = VSet $ 
+            S.fromList [VTuple (listArray (0,1) [arr!1, arr!0]) | VTuple arr <- S.toList s]
+        cspm_relational_image [VSet s] = 
+            let f = relationalImage s in VFunction (\[x] -> f x >>= return . VSet)
+        cspm_mtransclose [VSet s1, VSet s2] = fdrSymmetricTransitiveClosure s1 s2
+        cspm_relational_inverse_image s = cspm_relational_image [cspm_transpose s]
         
         cspm_length [VList xs] = VInt $ length xs
         cspm_null [VList xs] = VBool $ null xs
@@ -69,7 +80,8 @@ builtInFunctions =
             ("union", cspm_union), ("inter", cspm_inter), 
             ("diff", cspm_diff), ("Union", cspm_Union), 
             ("Inter", cspm_Inter), ("set", cspm_set), 
-            ("Set", cspm_Set), ("Seq", cspm_Seq)
+            ("Set", cspm_Set), ("Seq", cspm_Seq),
+            ("mtransclose", cspm_mtransclose)
             ]
         
         -- | Functions that return sequences
@@ -96,7 +108,9 @@ builtInFunctions =
             ("head", cspm_head), ("elem", cspm_elem),
             ("member", cspm_member), ("card", cspm_card),
             ("empty", cspm_empty), ("CHAOS", csp_chaos),
-            ("loop", csp_loop)
+            ("loop", csp_loop), ("relational_image", cspm_relational_image),
+            ("relational_inverse_image", cspm_relational_inverse_image),
+            ("transpose", cspm_transpose)
             ]
 
         -- | Functions that require a monadic context.
@@ -149,3 +163,41 @@ builtInFunctions =
 
 injectBuiltInFunctions :: EvaluationMonad a -> EvaluationMonad a
 injectBuiltInFunctions = addScopeAndBind builtInFunctions
+
+-- | Takes a set and returns a function from value to set of values that are
+-- mapped to.
+relationalImage :: S.ValueSet -> Value -> EvaluationMonad S.ValueSet
+relationalImage s = 
+    let tuples = [(hash (arr!0), hash(arr!1), arr!0, arr!1) | VTuple arr <- S.toList s]
+        hashCmp (hx1,_,x1,_) (hx2,_,x2,_) = compare hx1 hx2 `thenCmp` compare x1 x2
+        hashEq (hx1,_,x1,_) (hx2,_,x2,_) = hx1 == hx2 && x1 == x2
+        sortedTuples = sortBy hashCmp tuples
+        groupedTuples = groupBy hashEq sortedTuples
+        mkResult xss = 
+            let (hg, _, xg, _) = head xss
+            -- Our keys are hashes and values as this is slightly faster
+            in ((hg, xg), S.fromList (map (\(_,_,_,y) -> y) xss))
+        m = M.fromList (map mkResult groupedTuples)
+        lookup v = return (M.findWithDefault S.emptySet (hash v, v) m)
+    in lookup
+
+-- | Compute the 'min transitive closure' of a relation. FDR actually returns
+-- something rather odd in this case. In particular, it takes a relation
+-- (specified as a set of pairs), and a set. It then computes the symmetric,
+-- transitive closure of the relation (note NOT reflexive). It returns a
+-- relation where each element x of the second set is mapped to a representative
+-- value of the second set (if one exists). As this is not reflexive it omits
+-- all pairs of the form (x,x).
+--
+-- NOTE: FDR actually represents the second relation as (rep(x), x), for some
+-- reason.
+fdrSymmetricTransitiveClosure :: S.ValueSet -> S.ValueSet -> S.ValueSet
+fdrSymmetricTransitiveClosure vs1 vs2 = 
+    let computeRepresentatives = do
+            let es = [(arr!0, arr!1) | VTuple arr <- S.toList vs1]
+                esSym = es ++ [(a,b) | (b,a) <- es]
+                nodes = map fst esSym
+            g <- G.newGraph nodes esSym
+            rs <- G.reflexiveTransitiveRepresentatives g
+            return $! [tupleFromList [a,b] | (b,a) <- rs, S.member a vs2, S.member b vs2]
+    in S.fromList $ runST computeRepresentatives

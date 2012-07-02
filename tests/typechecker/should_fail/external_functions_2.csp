@@ -1,0 +1,4 @@
+external transpose, mtransclose, relational_image, relational_inverse_image
+
+
+Y = relational_image(transpose({(0,true)}))(0) == true

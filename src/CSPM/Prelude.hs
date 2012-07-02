@@ -47,7 +47,7 @@ allBuiltins :: [BuiltIn]
 allBuiltins = unsafePerformIO makeBuiltins
 
 makeBuiltins :: IO [BuiltIn]
-makeBuiltins = 
+makeBuiltins = do
     let
         cspm_union fv = ("union", [TSet fv, TSet fv], TSet fv)
         cspm_inter fv = ("inter", [TSet fv, TSet fv], TSet fv)
@@ -103,12 +103,44 @@ makeBuiltins =
         typeConstructors = [cspm_Int, cspm_Bool, cspm_Proc, cspm_Events, 
             cspm_true, cspm_false, cspm_True, cspm_False]
 
-        externalFunctions :: [(String, Type)]
-        externalFunctions = [
-            ("loop", TFunction [TProc] TProc),
+        externalAndTransparentFunctions :: [(String, Type)]
+        externalAndTransparentFunctions = [
             ("chase", TFunction [TProc] TProc),
             ("chase_nocache", TFunction [TProc] TProc)
             ]
+
+        externalFunctions :: [(String, Type)]
+        externalFunctions = [
+            ("loop", TFunction [TProc] TProc)
+            ]
+
+        complexExternalFunctions :: IO [(String, TypeScheme)]
+        complexExternalFunctions = do
+            mtransclose <- do
+                fv @ (TVar (TypeVarRef tv _ _)) <- freshTypeVarWithConstraints [CEq]
+                return $ ForAll [(tv, [CEq])] 
+                    (TFunction [TSet (TTuple [fv,fv]), TSet fv] (TSet (TTuple [fv,fv])))
+            relational_image <- do
+                fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CEq]
+                fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints [CSet]
+                return $ ForAll [(tv1, [CEq]), (tv2, [CSet])] 
+                    (TFunction [TSet (TTuple [fv1,fv2])] (TFunction [fv1] (TSet fv2)))
+            relational_inverse_image <- do
+                fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CEq]
+                fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints [CSet]
+                return $ ForAll [(tv2, [CEq]), (tv1, [CSet])] 
+                    (TFunction [TSet (TTuple [fv1,fv2])] (TFunction [fv2] (TSet fv1)))
+            transpose <- do
+                fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CSet]
+                fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints [CSet]
+                return $ ForAll [(tv1, [CSet]), (tv2, [CSet])] 
+                    (TFunction [TSet (TTuple [fv1,fv2])] (TSet (TTuple [fv2,fv1])))
+            return [
+                ("mtransclose", mtransclose),
+                ("relational_image", relational_image),
+                ("relational_inverse_image", relational_inverse_image),
+                ("transpose", transpose)
+                ]
 
         transparentFunctions :: [(String, Type)]
         transparentFunctions = [
@@ -121,8 +153,15 @@ makeBuiltins =
             ("wbisim", TFunction [TProc] TProc)
             ]
 
-        externalNames = map fst externalFunctions
-        transparentNames = map fst transparentFunctions
+    complexExternals <- complexExternalFunctions
+
+    let
+        externalNames =
+            map fst externalAndTransparentFunctions
+            ++map fst externalFunctions++map fst complexExternals
+        transparentNames =
+            map fst transparentFunctions
+            ++map fst externalAndTransparentFunctions
 
         mkFuncType cs func = do
             fv @ (TVar (TypeVarRef tv _ _)) <- freshTypeVarWithConstraints cs
@@ -175,19 +214,20 @@ makeBuiltins =
                         [] -> return b
                 Nothing -> return b
         makeReplacements _ b = return b
-    in do
-        bs1 <- mapM (mkFuncType []) seqs
-        bs2 <- mapM (mkFuncType [CSet]) setsSets
-        bs2' <- mapM (mkFuncType [CEq]) eqSets
-        bs3 <- mapM mkPatternType typeConstructors
-        bs4 <- mapM mkPatternType builtInProcs
-        bs5 <- mapM mkUnsafeFuncType unsafeFunctionNames
-        bs6 <- mapM mkPatternType externalFunctions
-        bs7 <- mapM mkPatternType transparentFunctions
 
-        let bs = bs1++bs2++bs2'++bs3++bs4++bs5++bs6++bs7
+    bs1 <- mapM (mkFuncType []) seqs
+    bs2 <- mapM (mkFuncType [CSet]) setsSets
+    bs2' <- mapM (mkFuncType [CEq]) eqSets
+    bs3 <- mapM mkPatternType typeConstructors
+    bs4 <- mapM mkPatternType builtInProcs
+    bs5 <- mapM mkUnsafeFuncType unsafeFunctionNames
+    bs6 <- mapM mkPatternType externalFunctions
+    bs7 <- mapM mkPatternType transparentFunctions
+    bs8 <- mapM mkPatternType externalAndTransparentFunctions
 
-        bs' <- mapM makeBuiltIn bs
-        bs'' <- mapM (makeReplacements bs') bs'
+    let bs = bs1++bs2++bs2'++bs3++bs4++bs5++bs6++bs7++complexExternals++bs8
 
-        return bs''
+    bs' <- mapM makeBuiltIn bs
+    bs'' <- mapM (makeReplacements bs') bs'
+
+    return bs''

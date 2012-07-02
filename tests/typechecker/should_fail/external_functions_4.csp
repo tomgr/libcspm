@@ -1,0 +1,3 @@
+external transpose, mtransclose, relational_image, relational_inverse_image
+
+A = mtransclose({(0,false)}, {0,1})
