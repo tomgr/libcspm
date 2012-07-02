@@ -31,8 +31,8 @@ namesBoundByDecl' (DataType n dcs) =
     in
         return $ n:concatMap (namesBoundByDtClause . unAnnotate) dcs
 namesBoundByDecl' (NameType n e) = return [n]
-namesBoundByDecl' (External ns) = return ns
-namesBoundByDecl' (Transparent ns) = return ns
+namesBoundByDecl' (External ns) = return []
+namesBoundByDecl' (Transparent ns) = return []
 namesBoundByDecl' (Assert _) = return []
 namesBoundByDecl' (Module _ _ ds1 ds2) = do
     nss1 <- mapM namesBoundByDecl ds1
