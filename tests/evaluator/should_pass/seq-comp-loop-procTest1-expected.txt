@@ -1,0 +1,11 @@
+STOP =
+
+SKIP = ✓ -> STOP
+
+P = a -> SKIP
+
+Q = loop(P)
+
+procTest1 = Q
+
+procTest1

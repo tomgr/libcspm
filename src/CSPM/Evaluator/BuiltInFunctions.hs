@@ -55,7 +55,8 @@ builtInFunctions =
                 branches = fmap (\ ev -> PUnaryOp (PPrefix ev) chaosCall) evSet
                 stopProc = PProcCall (procId (nameForString "STOP") [] Nothing) csp_stop
                 p = POp PInternalChoice (stopProc Sq.<| branches)
-        
+        csp_loop [VProc p] = VProc (PUnaryOp PSeqCompLoop p)
+
         cspm_extensions [v] = do
             exs <- extensions v
             return $ VSet $ S.fromList exs
@@ -93,7 +94,8 @@ builtInFunctions =
             ("length", cspm_length), ("null", cspm_null), 
             ("head", cspm_head), ("elem", cspm_elem),
             ("member", cspm_member), ("card", cspm_card),
-            ("empty", cspm_empty), ("CHAOS", csp_chaos)
+            ("empty", cspm_empty), ("CHAOS", csp_chaos),
+            ("loop", csp_loop)
             ]
 
         -- | Functions that require a monadic context.

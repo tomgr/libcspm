@@ -105,7 +105,9 @@ makeBuiltins =
             cspm_true, cspm_false, cspm_True, cspm_False]
 
         externalFunctions :: [(String, Type)]
-        externalFunctions = []
+        externalFunctions = [
+            ("loop", TFunction [TProc] TProc)
+            ]
 
         transparentFunctions :: [(String, Type)]
         transparentFunctions = [

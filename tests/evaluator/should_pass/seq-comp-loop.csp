@@ -1,0 +1,9 @@
+channel a
+
+P = a -> SKIP
+
+external loop
+
+Q = loop(P)
+
+procTest1 = Q
