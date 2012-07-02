@@ -1,0 +1,5 @@
+module X
+    transparent normal
+exports
+    P = normal(STOP)
+endmodule

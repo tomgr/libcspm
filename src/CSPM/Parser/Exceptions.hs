@@ -1,6 +1,7 @@
 module CSPM.Parser.Exceptions (
     invalidPatternErrorMessage,
-    invalidDeclarationErrorMessage,
+    invalidLetDeclarationErrorMessage,
+    invalidModuleDeclarationErrorMessage,
     invalidExpressionErrorMessage,
     invalidIncludeErrorMessage,
     lexicalErrorMessage,
@@ -22,9 +23,13 @@ invalidPatternErrorMessage :: PExp -> ErrorMessage
 invalidPatternErrorMessage e = mkErrorMessage (loc e) $
     hang (prettyPrint e) tabWidth (text "is not a valid pattern")
     
-invalidDeclarationErrorMessage :: PDecl -> ErrorMessage
-invalidDeclarationErrorMessage d = mkErrorMessage (loc d) $
-    hang (prettyPrint d) tabWidth (text "is not a valid declaration")
+invalidLetDeclarationErrorMessage :: PDecl -> ErrorMessage
+invalidLetDeclarationErrorMessage d = mkErrorMessage (loc d) $
+    hang (prettyPrint d) tabWidth (text "is not a valid declaration in a let expression")
+
+invalidModuleDeclarationErrorMessage :: PDecl -> ErrorMessage
+invalidModuleDeclarationErrorMessage d = mkErrorMessage (loc d) $
+    hang (prettyPrint d) tabWidth (text "is not a valid declaration in a module")
 
 invalidExpressionErrorMessage :: PExp -> ErrorMessage
 invalidExpressionErrorMessage e = mkErrorMessage (loc e) $

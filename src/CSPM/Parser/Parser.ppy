@@ -508,16 +508,12 @@ checkLetDecls decls = map checkDecl decls
             let
                 check (FunBind a b) = anDecl
                 check (PatBind a b) = anDecl
-                check _ = throwSourceError [invalidDeclarationErrorMessage anDecl]
+                check _ = throwSourceError [invalidLetDeclarationErrorMessage anDecl]
             in check decl
 
 checkModuleDecl :: PDecl -> PDecl
-checkModuleDecl (anDecl@(An _ _ (External _))) =
-    throwSourceError [invalidDeclarationErrorMessage anDecl]
-checkModuleDecl (anDecl@(An _ _ (Transparent _))) =
-    throwSourceError [invalidDeclarationErrorMessage anDecl]
 checkModuleDecl (anDecl@(An _ _ (Assert _))) =
-    throwSourceError [invalidDeclarationErrorMessage anDecl]
+    throwSourceError [invalidModuleDeclarationErrorMessage anDecl]
 checkModuleDecl d = d
 
 checkExp :: PExp -> PExp
