@@ -289,16 +289,18 @@ renameDeclarations topLevel ds prog = do
                 mapM_ (\(rn, n) -> setName (Qual mn rn) n) rns
             _ -> return ()
 
+        -- | resetModuleContext must be called in ALL cases, apart from the
+        -- module context, otherwise names are incorrectly qualified within patterns etc.
         renameRightHandSide :: PDecl -> RenamerMonad TCDecl
         renameRightHandSide pd = reAnnotate pd $ case unAnnotate pd of
-            Assert e -> do
+            Assert e -> resetModuleContext $ do
                 e' <- addScope $ rename e
                 return $ Assert e'
-            Channel rns e -> do
+            Channel rns e -> resetModuleContext $ do
                 ns <- mapM renameVarRHS rns
                 e' <- addScope $ rename e
                 return $ Channel ns e'
-            DataType rn cs -> do
+            DataType rn cs -> resetModuleContext $ do
                 n <- renameVarRHS rn
                 cs' <- mapM (\ pc -> addScope $ reAnnotate pc $ case unAnnotate pc of
                                 DataTypeClause rn e -> do
@@ -306,7 +308,7 @@ renameDeclarations topLevel ds prog = do
                                     e' <- rename e
                                     return $ DataTypeClause n' e') cs
                 return $ DataType n cs'
-            SubType rn cs -> do
+            SubType rn cs -> resetModuleContext $ do
                 n <- renameVarRHS rn
                 cs' <- mapM (\ pc -> addScope $ reAnnotate pc $ case unAnnotate pc of
                                 DataTypeClause rn e -> do
@@ -314,22 +316,22 @@ renameDeclarations topLevel ds prog = do
                                     e' <- rename e
                                     return $ DataTypeClause n' e') cs
                 return $ SubType n cs'
-            External rns -> do
+            External rns -> resetModuleContext $ do
                 ns <- mapM renameVarRHS rns
                 return $ External ns
-            FunBind rn ms -> do
+            FunBind rn ms -> resetModuleContext $ do
                 n <- renameVarRHS rn
                 ms' <- mapM rename ms
                 return $ FunBind n ms'
-            NameType rn e -> do
+            NameType rn e -> resetModuleContext $ do
                 n <- renameVarRHS rn
                 e' <- addScope $ rename e
                 return $ NameType n e'
-            PatBind p e -> do
+            PatBind p e -> resetModuleContext $ do
                 p' <- renamePattern ignoringNameMaker p
                 e' <- addScope $ rename e
                 return $ PatBind p' e'
-            Transparent rns -> do
+            Transparent rns -> resetModuleContext $ do
                 ns <- mapM renameVarRHS rns
                 return $ Transparent ns
             Module (UnQual mn) [] privDs pubDs -> do
