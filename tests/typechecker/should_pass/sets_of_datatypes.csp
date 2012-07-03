@@ -1,0 +1,5 @@
+datatype X = A | B
+
+test1 = {A,B} <= {}
+
+test2 = <A> < <B>

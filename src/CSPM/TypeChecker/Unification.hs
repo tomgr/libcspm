@@ -126,7 +126,10 @@ unifyConstraint c TBool | c /= COrd = return ()
 unifyConstraint c (TDatatype n) | c /= COrd = return ()
 unifyConstraint c TEvent | c /= COrd = return ()
 unifyConstraint CInputable (TSeq _) = return ()
-unifyConstraint c (TSeq t) = unifyConstraint c t
+unifyConstraint CSet (TSeq t) = unifyConstraint CSet t
+unifyConstraint CEq (TSeq t) = unifyConstraint CEq t
+-- Ordering sequenecs means prefixing testing, which requires only equality
+unifyConstraint COrd (TSeq t) = unifyConstraint CEq t
 unifyConstraint CInputable (TTuple _) = return ()
 unifyConstraint c (TTuple ts) = mapM_ (unifyConstraint c) ts
 unifyConstraint CEq (TExtendable t) = unifyConstraint CEq t
@@ -143,10 +146,13 @@ unifyConstraint CInputable (TDot t1 t2) = do
         TDot t1 t2 -> mapM_ (unifyConstraint CInputable) [t1,t2]
         _ -> unifyConstraint CInputable t
 unifyConstraint c (TDot t1 t2) = unifyConstraint c t1 >> unifyConstraint c t2
-unifyConstraint CSet (TSet t) = return ()
+unifyConstraint CSet (TSet t) = unifyConstraint CSet t
 unifyConstraint CInputable (TSet t) = return ()
- -- sets are comparable for equality/orderable iff their inner type is
-unifyConstraint c (TSet t) = unifyConstraint c t
+unifyConstraint CEq (TSet t) = unifyConstraint CEq t
+-- sets are comparable for equality/orderable iff their inner type is
+-- comparable for equality (as set ordering means subset testing, which requires
+-- only equality)
+unifyConstraint COrd (TSet t) = unifyConstraint CEq t
 unifyConstraint c t = 
     raiseMessageAsError $ constraintUnificationErrorMessage c t
 
