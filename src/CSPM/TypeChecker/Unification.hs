@@ -274,7 +274,7 @@ combineTypeLists ((a0@(TDotable argt rt)):a:as) (b:bs)
         -- the end we still want the b:bs type list to be as short as
         -- possible (and thus don't need to extend it). Hence, we can
         -- use the evalTypeListList function.
-        t:ts <- evalTypeList (b:bs)
+        t:ts <- evalTypeList LongestMatch (b:bs)
         -- The first type in this list must be equal to urt
         t1 <- unify urt t
         -- We want to set the var a to all the args, plus any extension
@@ -299,7 +299,7 @@ combineTypeLists (a:as) ((TDotable argt rt):b:bs)
         combineTypeLists (a:as) (rt:bs)
     | isVar b = do
         let (args, urt) = reduceDotable (TDotable argt rt)
-        t:ts <- evalTypeList (a:as)
+        t:ts <- evalTypeList LongestMatch (a:as)
         t1 <- unify t urt
         combineTypeLists [b] (args++ts)
         return (t1:ts)
@@ -394,8 +394,8 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
         (TExtendable t1, TExtendable t2) | t1 == t2 -> do
             -- In this case we have two things of the form X=>Eventable,
             -- X'=> Eventable. WLOG suppose X'=X^Y. Then, we unify to X.Y=>Eventable.
-            as <- evalTypeList argsA
-            bs <- evalTypeList argsB
+            as <- evalTypeList LongestMatch argsA
+            bs <- evalTypeList LongestMatch argsB
             let as' = map (snd . reduceDotable . toNormalForm) as
                 bs' = map (snd . reduceDotable . toNormalForm) bs
             ts <- zipWithM unify as' bs'
@@ -404,8 +404,8 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
         (TExtendable t1, _) -> do
             -- Firstly, evaluate each type list to reduce it; this means
             -- that it will not have any terms like TDotable TInt ..., TInt..
-            as <- evalTypeList argsA
-            bs <- evalTypeList argsB
+            as <- evalTypeList LongestMatch argsA
+            bs <- evalTypeList LongestMatch argsB
             -- As the left argument is eventable we compute what arguments
             -- would be required to make it into a TExtendable (by computing
             -- the ultimate return types of each element).
@@ -417,8 +417,8 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
             -- than the arguments of as (bs provide more information).
             return $ TDotable (foldl1 TDot bs) rt
         (_, TExtendable t1) -> do
-            as <- evalTypeList argsA
-            bs <- evalTypeList argsB
+            as <- evalTypeList LongestMatch argsA
+            bs <- evalTypeList LongestMatch argsB
             let bs' = map (snd . reduceDotable . toNormalForm) bs
             zipWithM unify as bs'
             return $ TDotable (foldl1 TDot as) rt
@@ -465,8 +465,21 @@ unifyNoStk (TDot t1 t2) (TExtendable t) = do
     return $ TDot tl t2
 
 unifyNoStk (TExtendable t) (TDot t1 t2) = do
-    tl <- unify (TDotable t2 (TExtendable t)) t1
-    return $ TDot tl t2
+    -- We actually want the 'shortest match rule' here, so we inline a version
+    -- of evalTypeList that does so.
+    tl <- typeToDotList (TDot t1 t2)
+    tl <- mapM (\x -> compress x >>= return . toNormalForm) tl
+    -- We actually want the shortest match here since the expected type is
+    -- extendable, and thus the user is most likely to want just to consume the
+    -- first item.
+    tl <- evalTypeList ShortestMatch tl
+    -- Now, unify normally. If we still have a dot list then we fall back to
+    -- the usual way (which will require the longest match rule).
+    case foldr1 TDot tl of
+        TDot t1 t2 -> do
+            t1' <- unify (TDotable t2 (TExtendable t)) t1
+            return $ TDot t1' t2
+        tl -> unify (TExtendable t) tl
 
 unifyNoStk (TDot t1 t2) (TDotable argt rt) = do
     b <- symmetricUnificationAllowed
@@ -579,30 +592,37 @@ evaluateDots (TFunction t1 t2) = do
 evaluateDots t = do
     ts <- typeToDotList t
     ts <- mapM (\t -> compress t >>= return . toNormalForm) ts
-    ts <- evalTypeList ts
+    ts <- evalTypeList LongestMatch ts
     return $ foldr1 TDot ts
+
+data TypeListMode = ShortestMatch | LongestMatch deriving Eq
 
 -- Assumption, argument of TDotable is always simple
 -- and that result of TDotable is either another TDotable or
 -- simple.
-evalTypeList :: [Type] -> TypeCheckMonad [Type]
-evalTypeList (t:[]) = return [t]
-evalTypeList ((TDot t1 t2):ts) = evalTypeList (t1:t2:ts)
-evalTypeList (TDotable argt rt : arg : args)
-    | isVar arg && args == [] = do
+evalTypeList :: TypeListMode -> [Type] -> TypeCheckMonad [Type]
+evalTypeList _ (t:[]) = return [t]
+evalTypeList m ((TDot t1 t2):ts) = evalTypeList m (t1:t2:ts)
+evalTypeList m (TDotable argt rt : arg : args)
+    | isVar arg && args == [] && m == LongestMatch = do
         let (args, urt) = reduceDotable (TDotable argt rt)
         -- Implement longest match rule
         unify arg (foldr1 TDot args)
         return [urt]
+    | isVar arg && args == [] && m == ShortestMatch = do
+        let (arg':args, urt) = reduceDotable (TDotable argt rt)
+        -- Implement SHORTEST match rule
+        unify arg' arg
+        return [foldr TDotable urt args]
     | not (isDotable arg) = do
         -- Implement shortest match rule (if isVar ag)
         t <- unify argt arg
-        evalTypeList (rt:args)
+        evalTypeList m (rt:args)
     | isDotable arg = do
         let (argsA, rtA) = reduceDotable arg
         t <- unify argt rtA
-        evalTypeList (foldr TDotable rt argsA : args)
+        evalTypeList m (foldr TDotable rt argsA : args)
 -- If the first argument isn't a dotable we ignore it.
-evalTypeList (t:ts) = do
-    ts <- evalTypeList ts
+evalTypeList m (t:ts) = do
+    ts <- evalTypeList m ts
     return $ t:ts

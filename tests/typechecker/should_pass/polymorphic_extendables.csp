@@ -1,0 +1,6 @@
+datatype Signal = Claim_Secret.Int.Int
+channel signal : Signal
+
+f(s_) = {| signal.Claim_Secret.s_ |}
+
+test1 = f(0)
