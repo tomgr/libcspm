@@ -6,6 +6,7 @@ import Control.Monad.Trans
 import Data.List
 import Prelude hiding (catch)
 import System.Console.Haskeline
+import System.Environment
 import System.FilePath
 import System.IO
 
@@ -32,7 +33,12 @@ runICheckerInput = do
             historyFile = Just $ 
                 joinPath [settingsDir, "interactive", "prompt_history"]
         }
-    runInputT settings interactiveLoop
+    runInputT settings $ do
+        args <- liftIO $ getArgs
+        case args of
+            [f] -> handleSourceError () (loadFileCommand f)
+            _ -> return ()
+        interactiveLoop
 
 interactiveLoop :: InputT IChecker ()
 interactiveLoop = do
