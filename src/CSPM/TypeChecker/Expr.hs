@@ -16,6 +16,7 @@ import CSPM.TypeChecker.Pat()
 import CSPM.TypeChecker.Unification
 import Util.Annotated
 import Util.List
+import Util.Monad
 import Util.PrettyPrint
 
 checkFunctionCall :: Doc -> [TCExp] -> [Type] -> TypeCheckMonad ()
@@ -111,9 +112,10 @@ instance TypeCheckable (Exp Name) Type where
             tr <- typeCheck exp
             targ <- typeCheck p
             return $ TFunction [targ] tr
-    typeCheck' (Let decls exp) =
+    typeCheck' (Let decls exp) = do
         -- Add a new scope: typeCheckDecl will add vars into it 
-        local [] $ do
+        ns <- concatMapM namesBoundByDecl decls
+        local ns $ do
             typeCheckDecls decls
             typeCheck exp
     typeCheck' (Lit lit) = typeCheck lit

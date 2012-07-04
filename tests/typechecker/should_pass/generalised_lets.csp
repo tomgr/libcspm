@@ -1,0 +1,4 @@
+f(X) = let Y = X within Y
+
+test1 = f(0)
+test2 = f(true)
