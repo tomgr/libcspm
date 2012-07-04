@@ -1,0 +1,7 @@
+datatype X = A | B.Int
+
+f(A) = 1
+f(B.0) = 0
+
+test1 = f(A) == 1
+test2 = f(B.0) == 0

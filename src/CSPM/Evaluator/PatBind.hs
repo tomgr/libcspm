@@ -7,8 +7,6 @@ import CSPM.DataStructures.Syntax
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import Util.Annotated
-import Util.Exception
-import Util.PrettyPrint hiding (empty)
 
 -- Bind :: Pattern, value -> (Matches Pattern, Values to Bind
 class Bindable a where
@@ -89,7 +87,13 @@ instance Bindable (Pat Name) where
             -- J has arity 0.
             VDot [VChannel n'] -> (n == n', [])
             VDot [VDataType n'] -> (n == n', [])
-            _ -> panic $ show $ prettyPrint v <+> text "is not a data constructor."
+            -- We have to allow patterns like `match` J against X.0 in case
+            -- these are in the same data type and a function has two clauses,
+            -- one for each of these cases. e.g.
+            -- f(J) = X
+            -- f(X.0) = X
+            -- as in one clause we match J against VDot [X,0]
+            _ -> (False, [])
     bind (PVar n) v = (True, [(n, v)])
     bind PWildCard v = (True, [])
     bind _ _ = (False, [])
