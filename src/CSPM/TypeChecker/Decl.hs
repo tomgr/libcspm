@@ -26,9 +26,17 @@ import Util.PrettyPrint
 -- | Type check a list of possibly mutually recursive functions
 typeCheckDecls :: [TCDecl] -> TypeCheckMonad ()
 typeCheckDecls decls = do
-    let 
+
+    -- Flatten the decls so that definitions in modules are also type-checked
+    -- in the correct order.
+    let flattenDecl :: TCDecl -> [TCDecl]
+        flattenDecl (An _ _ (Module _ _ ds1 ds2)) =
+            concatMap flattenDecl ds1++concatMap flattenDecl ds2
+        flattenDecl x = [x]
+        flatDecls = concatMap flattenDecl decls
+
         -- | Map from declarations to integer identifiers
-        declMap = zip decls [0..]
+        declMap = zip flatDecls [0..]
         invDeclMap = invert declMap
 
     namesBoundByDecls <- mapM (\ (decl, declId) -> do
@@ -90,6 +98,20 @@ typeCheckDecls decls = do
     -- Start type checking the groups
     typeCheckGroups sccs False
 
+    let
+        annotate (decl@(An _ psymbtable (Module _ _ ds1 ds2))) = do
+            ns <- namesBoundByDecl decl
+            ts <- mapM getType ns
+            setPSymbolTable (snd psymbtable) (zip ns ts)
+            mapM_ annotate (ds1++ds2)
+        annotate (decl@(An _ psymbtable _)) = do
+            ns <- namesBoundByDecl decl
+            ts <- mapM getType ns
+            setPSymbolTable (snd psymbtable) (zip ns ts)
+
+    -- Add the type of each declaration (if one exists to each declaration)
+    mapM_ annotate decls
+
 -- | Type checks a group of certainly mutually recursive functions. Only 
 -- functions that are mutually recursive should be included otherwise the
 -- types could end up being less general.
@@ -113,8 +135,6 @@ typeCheckMutualyRecursiveGroup ds' = do
 
     -- Type check each declaration then generalise the types
     nts <- generaliseGroup fvs (map typeCheck ds)
-    -- Add the type of each declaration (if one exists to each declaration)
-    zipWithM annotate nts ds
 
     -- Compress all the types we have inferred here (they should never be 
     -- touched again)
@@ -122,14 +142,6 @@ typeCheckMutualyRecursiveGroup ds' = do
         t <- getType n
         t' <- compressTypeScheme t
         setType n t') fvs
-    where
-        annotate nts (An _ psymbtable (Module _ _ ds1 ds2)) = do
-            setPSymbolTable (snd psymbtable) nts
-            mapM_ (\ d -> do
-                ns <- namesBoundByDecl d
-                let nts' = [(n,t) | (n,t) <- nts, n `elem` ns]
-                annotate nts' d) (ds1++ds2)
-        annotate nts (An _ psymbtable _) = setPSymbolTable (snd psymbtable) nts
 
 -- | Takes a type and returns the inner type, i.e. the type that this
 -- is a set of. For example TSet t1 -> t, TTuple [TSet t1, TSet t2] -> (t1, t2).
@@ -174,8 +186,6 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         text "In the assertion:" <+> prettyPrint a
     errorContext (Transparent ns) = Nothing
     errorContext (External ns) = Nothing
-    errorContext (Module n _ _ _) = Just $
-        text "In the module:" <+> prettyPrint n
     
     typeCheck' (FunBind n ms) = do
         ts <- mapM (\ m -> addErrorContext (matchCtxt m) $ typeCheck m) ms
@@ -258,10 +268,6 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         t <- typeCheck e
         valueType <- evalTypeExpression t
         return [(n, TSet valueType)]
-    typeCheck' (Module n [] pubds privds) = do
-        nts1 <- mapM typeCheck pubds
-        nts2 <- mapM typeCheck privds
-        return $ concat $ nts1++nts2
     typeCheck' (Transparent ns) = return []
     typeCheck' (External ns) = return []
     typeCheck' (Assert a) = typeCheck a >> return []
