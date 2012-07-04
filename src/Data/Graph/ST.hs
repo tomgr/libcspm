@@ -262,25 +262,8 @@ reflexiveTransitiveRepresentatives graph = do
 
     -- Map from scc id to node representative (of the scc)
     sccRepresentatives <- newArray (0, sccCount-1) (-1) :: ST s (STUArray s Int Int)
-    zipWithM (\ sccId scc -> do
-        -- Now, visit the successors of the SCC and stop as soon as we find one.
-        let findRepresentative [] = 
-                -- No nodes left, so we pick a representative from our nodes
-                writeArray sccRepresentatives sccId (head (nodesOfScc scc))
-            findRepresentative (nid:nids) = do
-                let find' [] = return $ Nothing
-                    find' (sid:sids) = do
-                        sccSucc <- readArray sccForNode sid
-                        if sccSucc == sccId then find' sids
-                        else do
-                            x <- readArray sccRepresentatives sccSucc
-                            return $ Just x
-                mr <- find' (successorsForNode graph nid)
-                case mr of
-                    Just representative -> do
-                        writeArray sccRepresentatives sccId representative
-                    Nothing -> findRepresentative nids
-        findRepresentative (nodesOfScc scc)
+    zipWithM (\ sccId scc ->
+            writeArray sccRepresentatives sccId (head (nodesOfScc scc))
         ) [0..] sccs
 
     -- Now, create the representative pairs
