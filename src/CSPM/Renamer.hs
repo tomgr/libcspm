@@ -165,12 +165,12 @@ instance (Renamable e1 e2, Renamable e1' e2') => Renamable (e1, e1') (e2, e2') w
 type NameMaker = SrcSpan -> UnRenamedName -> RenamerMonad Name
 
 externalNameMaker :: Bool -> NameMaker
-externalNameMaker b l (UnQual ocn) = mkExternalName ocn l b
-externalNameMaker b l (Qual _ n) = externalNameMaker b l n
+externalNameMaker b l unrn = do
+    unrn <- qualifyName unrn
+    mkExternalName unrn l b
 
 internalNameMaker :: NameMaker
-internalNameMaker l (UnQual ocn) = mkInternalName ocn l
-internalNameMaker l (Qual _ n) = internalNameMaker l n
+internalNameMaker l unrn = mkInternalName unrn l
 
 reAnnotatePure :: Annotated a e -> e' -> Annotated a e'
 reAnnotatePure (An a b _) v = An a b v

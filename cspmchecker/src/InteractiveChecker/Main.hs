@@ -134,7 +134,7 @@ completeCommand = wrapCompleter lineBreakers $
 completeExpression :: CompletionFunc IChecker
 completeExpression = wrapCompleter expressionBreakers $ \str -> do
     ns <- getBoundNames
-    return [s | n <- ns, let OccName s = nameOccurrence n, str `isPrefixOf` s]
+    return [s | n <- ns, let s = show n, str `isPrefixOf` s]
     
 -- Commands
 
@@ -150,7 +150,7 @@ typeOfExpr str = do
     rnExpr <- renameExpression pExpr
     typ <- typeOfExpression rnExpr
     outputStrLn $ show $ 
-        text str <+> text "::" <+> prettyPrint typ
+        text (trim str) <+> text "::" <+> prettyPrint typ
     return ()
 
 loadFileCommand :: String -> InputT IChecker ()

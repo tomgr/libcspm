@@ -48,6 +48,10 @@ instance PrettyPrintable UnRenamedName where
     prettyPrint (UnQual n) = prettyPrint n
     prettyPrint (Qual mn n) = prettyPrint mn <> text "::" <> prettyPrint n
 
+instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m UnRenamedName where
+    prettyPrint (UnQual n) = M.prettyPrint n
+    prettyPrint (Qual mn n) = M.prettyPrint mn M.<> M.text "::" M.<> M.prettyPrint n
+
 -- | A renamed name and is the exclusive type used after the renamer. Names
 -- are guaranteed to be unique, meaning that two names are equal iff they
 -- refer to the same binding instance. For example, consider the following CSPM
@@ -70,7 +74,7 @@ data Name =
         -- | The type of this name.
         nameType :: NameType,
         -- | The original occurence of this name (used for error messages).
-        nameOccurrence :: !OccName,
+        nameFullyQualified :: !UnRenamedName,
         -- | Where this name was defined. If this occurs in a pattern, then it
         -- will be equal to the location of the pattern, otherwise it will be
         -- equal to the location of the definition that this name binds to.
@@ -102,9 +106,9 @@ instance Ord Name where
     compare n1 n2 = compare (nameUnique n1) (nameUnique n2)
 
 instance PrettyPrintable Name where
-    prettyPrint n = prettyPrint (nameOccurrence n)
+    prettyPrint n = prettyPrint (nameFullyQualified n)
 instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m Name where
-    prettyPrint n = M.prettyPrint (nameOccurrence n)
+    prettyPrint n = M.prettyPrint (nameFullyQualified n)
 
 instance Show Name where
     show n = show (prettyPrint n)
@@ -120,12 +124,12 @@ takeNameUnique = do
     s <- liftIO $ atomicModifyIORef nameUniqueSupply split2
     return $ supplyValue s
 
-mkExternalName :: MonadIO m => OccName -> SrcSpan -> Bool -> m Name
+mkExternalName :: MonadIO m => UnRenamedName -> SrcSpan -> Bool -> m Name
 mkExternalName o s b = do
     u <- takeNameUnique
     return $ Name ExternalName o s u b
 
-mkInternalName :: MonadIO m => OccName -> SrcSpan -> m Name
+mkInternalName :: MonadIO m => UnRenamedName -> SrcSpan -> m Name
 mkInternalName o s = do
     u <- takeNameUnique
     return $ Name InternalName o s u False
@@ -134,9 +138,9 @@ mkFreshInternalName :: MonadIO m => m Name
 mkFreshInternalName = do
     u <- takeNameUnique
     let s = 'i':show u
-    return $ Name InternalName (OccName s) Unknown u False
+    return $ Name InternalName (UnQual (OccName s)) Unknown u False
 
-mkWiredInName :: MonadIO m => OccName -> Bool -> m Name
+mkWiredInName :: MonadIO m => UnRenamedName -> Bool -> m Name
 mkWiredInName o b = do
     u <- takeNameUnique
     return $ Name WiredInName o BuiltIn u b

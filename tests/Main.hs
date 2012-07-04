@@ -184,7 +184,7 @@ evaluatorTest fp = do
             PatBind p _ ->
                 case unAnnotate p of
                     PVar n -> do
-                        let OccName s = nameOccurrence n
+                        let s = show n
                         when ("test" `isPrefixOf` s) $ do
                             VBool b <- evalExpr s TBool
                             when (not b) $

@@ -193,7 +193,7 @@ makeBuiltins = do
 
         makeBuiltIn :: (String, TypeScheme) -> IO BuiltIn
         makeBuiltIn (s, ts) = do
-            n <- mkWiredInName (OccName s) False
+            n <- mkWiredInName (UnQual (OccName s)) False
             return $ BuiltIn {
                 name = n,
                 stringName = s,
