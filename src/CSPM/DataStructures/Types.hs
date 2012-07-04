@@ -2,7 +2,7 @@ module CSPM.DataStructures.Types (
     -- * Data Structures
     TypeVar, TypeScheme(..), Constraint(..), Type(..), TypeVarRef(..),
     prettyPrintTypes,
-    constraintImpliedBy,
+    constraintImpliedBy, reduceConstraints,
     -- * Creation of Types
     freshTypeVar, freshTypeVarWithConstraints,
 
@@ -48,6 +48,12 @@ constraintImpliedBy :: Constraint -> Constraint -> Bool
 constraintImpliedBy c1 c2 | c1 == c2 = True
 constraintImpliedBy CSet CEq = True
 constraintImpliedBy _ _ = False
+
+reduceConstraints :: [Constraint] -> [Constraint]
+reduceConstraints cs = 
+    case [c | c <- cs, c' <- cs, c /= c', constraintImpliedBy c c'] of
+        [] -> cs
+        (c:_) -> reduceConstraints (cs \\ [c])
 
 -- During Type Checking we use TDotable a b only when a is something
 -- atomic. Except, during unification we start doing TDotable (TDot...)
@@ -153,7 +159,7 @@ instance PrettyPrintable TypeScheme where
             -- | Map from int to letter to improve presentation
             vmap = zip (map (\ (TypeVar n, _) -> n) ts) ['a'..'z']
             -- | Vars with constraints
-            varsWithCs = [(v, c) | (v, cs) <- ts, c <- cs, cs /= []]
+            varsWithCs = [(v, c) | (v, cs) <- ts, c <- reduceConstraints cs, cs /= []]
 
             constraintsText = 
                 hsep (
