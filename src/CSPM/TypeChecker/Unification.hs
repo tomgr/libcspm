@@ -122,7 +122,11 @@ unifyConstraint CSet TProc = return ()
 unifyConstraint c TInt = return ()
  -- Bools are not orderable
 unifyConstraint c TBool | c /= COrd = return ()
- -- User data types are not orderable
+unifyConstraint CEq (TDatatype n) = do
+    b <- datatypeIsComparableForEquality n
+    if b then return ()
+    else raiseMessageAsError $ constraintUnificationErrorMessage CEq (TDatatype n)
+-- User data types are not orderable
 unifyConstraint c (TDatatype n) | c /= COrd = return ()
 unifyConstraint c TEvent | c /= COrd = return ()
 unifyConstraint CInputable (TSeq _) = return ()
@@ -518,7 +522,7 @@ raiseUnificationError isDotError = do
         t1 <- compress t1
         t2 <- compress t2
         -- Try and tidy any dot lists
-        (t1, t2) <- tryAndRecover (do
+        (t1, t2) <- tryAndRecover False (do
             t1 <- evaluateDots t1
             t2 <- evaluateDots t2
             return (t1, t2)) (return (t1,t2))

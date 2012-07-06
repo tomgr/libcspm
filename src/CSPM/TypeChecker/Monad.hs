@@ -15,6 +15,9 @@ module CSPM.TypeChecker.Monad (
     symmetricUnificationAllowed, disallowSymmetricUnification,
     getInError, setInError,
     resetWarnings, getWarnings, addWarning,
+    markDatatypeAsComparableForEquality,
+    datatypeIsComparableForEquality,
+    unmarkDatatypeAsComparableForEquality,
     
     raiseMessageAsError, raiseMessagesAsError, panic,
     manyErrorsIfFalse, errorIfFalseM, errorIfFalse, tryAndRecover, failM,
@@ -22,6 +25,7 @@ module CSPM.TypeChecker.Monad (
 where
 
 import Control.Monad.State
+import Data.List ((\\))
 import Prelude hiding (lookup)
 
 import CSPM.DataStructures.Names
@@ -55,7 +59,9 @@ data TypeInferenceState = TypeInferenceState {
         unificationStack :: [(Type, Type)],
         -- | Are we currently in an error state
         inError :: Bool,
-        symUnificationAllowed :: Bool
+        symUnificationAllowed :: Bool,
+        -- | The set of datatypes that can be compared for equality.
+        comparableForEqualityDataTypes :: [Name]
     }
     
 newTypeInferenceState :: TypeInferenceState
@@ -67,7 +73,8 @@ newTypeInferenceState = TypeInferenceState {
         warnings = [],
         unificationStack = [],
         inError = False,
-        symUnificationAllowed = True
+        symUnificationAllowed = True,
+        comparableForEqualityDataTypes = []
     }
 
 type TypeCheckMonad = StateT TypeInferenceState IO
@@ -181,6 +188,23 @@ disallowSymmetricUnification prog = do
     modify (\st -> st { symUnificationAllowed = b })
     return v
     
+markDatatypeAsComparableForEquality :: Name -> TypeCheckMonad ()
+markDatatypeAsComparableForEquality n =
+    modify (\st -> st { 
+        comparableForEqualityDataTypes = n : comparableForEqualityDataTypes st
+    })
+
+unmarkDatatypeAsComparableForEquality :: Name -> TypeCheckMonad ()
+unmarkDatatypeAsComparableForEquality n =
+    modify (\st -> st { 
+        comparableForEqualityDataTypes = comparableForEqualityDataTypes st \\ [n]
+    })
+
+datatypeIsComparableForEquality :: Name -> TypeCheckMonad Bool
+datatypeIsComparableForEquality n = do
+    ds <- gets comparableForEqualityDataTypes
+    return $ n `elem` ds
+
 -- Error handling
 
 -- | Report the error if first parameter is False.
@@ -219,16 +243,15 @@ raiseMessagesAsError msgs = do
             doc $$ trimAndRenderContexts (n-1) docs
         maxContexts = 3
 
-tryAndRecover :: 
-    TypeCheckMonad a -> TypeCheckMonad a -> TypeCheckMonad a
-tryAndRecover prog handler = tryM prog >>= \x ->
+tryAndRecover :: Bool -> TypeCheckMonad a -> TypeCheckMonad a -> TypeCheckMonad a
+tryAndRecover retainErrors prog handler = tryM prog >>= \x ->
     case x of
         Right a -> return a
         Left ex -> case ex of
             SourceError msgs -> do
                 -- The errors will be discarded as the errors propogate up.
                 -- Hence, we reset them.
-                setErrors msgs
+                when retainErrors $ setErrors msgs
                 handler
             UserError -> handler
             -- An exception type we don't want to interfer with

@@ -27,7 +27,7 @@ import Util.PrettyPrint
 -- *************************************************************************
 -- Types
 -- *************************************************************************
-newtype TypeVar = TypeVar Int deriving (Eq, Show)
+newtype TypeVar = TypeVar Int deriving (Eq, Ord, Show)
 
 data TypeScheme =
     ForAll [(TypeVar, [Constraint])] Type
@@ -76,14 +76,15 @@ data Type =
     -- with an a to yield something of type b
     | TDotable Type Type
     | TDatatype Name
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 data TypeVarRef = 
     TypeVarRef TypeVar [Constraint] PType
 
 instance Eq TypeVarRef where
     (TypeVarRef tv1 _ _) == (TypeVarRef tv2 _ _) = tv1 == tv2
-
+instance Ord TypeVarRef where
+    compare (TypeVarRef tv1 _ _) (TypeVarRef tv2 _ _) = compare tv1 tv2
 instance Show TypeVarRef where
     show (TypeVarRef tv cs _) = "TypeVarRef "++show tv ++ show cs
 

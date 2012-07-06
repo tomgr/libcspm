@@ -1,0 +1,3 @@
+datatype X = Y.X | Z
+
+test1 = (Y.Z) == (Y.Z)

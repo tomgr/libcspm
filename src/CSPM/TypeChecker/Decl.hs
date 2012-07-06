@@ -84,7 +84,7 @@ typeCheckDecls decls = do
         -- failM is called at the end if any error has occured.
         typeCheckGroups [] b = if b then failM else return ()
         typeCheckGroups (g:gs) b = do
-            err <- tryAndRecover (do
+            err <- tryAndRecover True (do
                 typeCheckMutualyRecursiveGroup (typeInferenceGroup (S.toList g))
                 return False
                 ) (return True)
@@ -253,7 +253,9 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         t' <- unify t (TSet parentType)
         return [(n, TSet parentType)]
     typeCheck' (DataType n clauses) = do
-        nts <- mapM (\ clause -> do
+        ForAll [] t <- getType n
+        unify t (TSet (TDatatype n))
+        ntss <- mapM (\ clause -> do
             let 
                 n' = case unAnnotate clause of
                         DataTypeClause x _ -> x
@@ -261,8 +263,22 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
             (n', ts) <- typeCheck clause
             let texp = foldr TDotable (TDatatype n) ts
             t <- unify texp t
-            return (n', t)
+            return ((n', t), ts)
             ) clauses
+        let (nts, tcss) = unzip ntss
+            tclauses = concat tcss
+        tclauses <- mapM (\t -> compress t) tclauses
+        -- We now need to decide if we should allow this type to be comparable
+        -- for equality. Thus, we check to see if each of the fields in each of
+        -- the constructors is comparable for equality.
+
+        -- We mark the type for equality, as if the type depends only on itself
+        -- (i.e. it is recursive), then it should be comparable for equality.
+        markDatatypeAsComparableForEquality n
+        b <- tryAndRecover False 
+                (mapM_ (ensureHasConstraint CEq) tclauses >> return True)
+                (return False)
+        when (not b) $ unmarkDatatypeAsComparableForEquality n
         ForAll [] t <- getType n
         t' <- unify t (TSet (TDatatype n))
         return $ (n, t'):nts

@@ -1,0 +1,3 @@
+datatype X = Y.Proc
+
+test1 = (Y.STOP) == (Y.STOP)
