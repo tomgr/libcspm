@@ -16,6 +16,7 @@ import Monad
 import Util.Annotated
 import Util.Exception
 import Util.Monad
+import qualified Util.MonadicPrettyPrint as M
 import Util.Prelude
 import Util.PrettyPrint
 
@@ -186,7 +187,8 @@ evaluate str = do
         Bind ds -> mapM_ bindDeclaration ds
         Evaluate e -> do
             v <- evaluateExpression e
-            outputStrLn $ show $ prettyPrint v
+            d <- M.prettyPrint v
+            outputStrLn $ show $ d 
 
 printProcCommand :: String -> InputT IChecker ()
 printProcCommand str = do
