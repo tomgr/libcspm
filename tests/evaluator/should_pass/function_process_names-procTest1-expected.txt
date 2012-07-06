@@ -1,7 +1,9 @@
+P(length(x) == 1) = STOP
+
 STOP =
 
-P(<function>) = STOP
+P(length(x) == 0) = STOP
 
-procTest1 = P(<function>) [] P(<function>)
+procTest1 = P(length(x) == 0) [] P(length(x) == 1)
 
 procTest1

@@ -1,5 +1,6 @@
 module CSPM.Evaluator.Values (
     Value(..), UProc, Proc(..), CSPOperator(..), ProcOperator(..), Event(..),
+    FunctionIdentifier(..),
     compareValues,
     procId, annonymousProcId,
     valueEventToEvent,
@@ -9,18 +10,22 @@ module CSPM.Evaluator.Values (
     module Data.Array,
 ) where
 
+import CSPM.DataStructures.FreeVars
 import CSPM.DataStructures.Names
+import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
+import CSPM.Evaluator.Environment
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.ProcessValues
 import {-# SOURCE #-} CSPM.Evaluator.ValuePrettyPrinter()
 import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
+import CSPM.PrettyPrinter
 import Data.Array
 import qualified Data.Foldable as F
 import Data.Hashable
+import Prelude hiding (lookup)
 import Util.Exception
 import Util.Prelude
-import Util.PrettyPrint
 
 type UProc = UnCompiledProc
 
@@ -38,9 +43,58 @@ data Value =
     | VDataType Name
     | VList [Value]
     | VSet S.ValueSet
-    | VFunction ([Value] -> EvaluationMonad Value)
+    | VFunction FunctionIdentifier ([Value] -> EvaluationMonad Value)
     | VProc UProc
     | VThunk (EvaluationMonad Value)
+
+data FunctionIdentifier = 
+    FBuiltInFunction {
+        functionName :: Name,
+        arguments :: [Value]
+    }
+    | FLambda {
+        innerExpression :: TCExp,
+        envrionment :: Environment
+    }
+    | FMatchBind {
+        functionName :: Name,
+        argumentGroups :: [[Value]],
+        envrionment :: Environment,
+        -- | Invariant: if function names are equal then inner expression is.
+        innerMatches :: [TCMatch]
+    }
+
+instance Eq FunctionIdentifier where
+    FBuiltInFunction n1 vs1 == FBuiltInFunction n2 vs2 =
+        n1 == n2 && vs1 == vs2
+    FLambda e1 env1 == FLambda e2 env2 =
+        e1 == e2 && and [lookup env1 v == lookup env2 v | v <- freeVars e1]
+    FMatchBind n1 args1 env1 expr1 == FMatchBind n2 args2 env2 expr2 =
+        n1 == n2 && args1 == args2 
+        && and [lookup env1 v == lookup env2 v | v <- freeVars expr1]
+    _ == _ = False
+
+instance Hashable FunctionIdentifier where
+    hash (FBuiltInFunction n1 vs) = combine 2 (combine (hash n1) (hash vs))
+    hash (FLambda expr env) =
+        combine 3 (combine (hash (show expr)) (hash [lookup env v | v <- freeVars expr]))
+    hash (FMatchBind n vs env expr) =
+        combine 4 (combine (hash n) (combine (hash vs)
+            (hash [lookup env v | v <- freeVars expr])))
+
+instance Ord FunctionIdentifier where
+    compare (FBuiltInFunction n1 args1) (FBuiltInFunction n2 args2) =
+        compare n1 n2 `thenCmp` compare args1 args2
+    compare (FBuiltInFunction _ _) _ = LT
+    compare _ (FBuiltInFunction _ _) = GT
+    compare (FLambda e1 env1) (FLambda e2 env2) =
+        compare e1 e2 `thenCmp` 
+        foldr thenCmp EQ [compare (lookup env1 v) (lookup env2 v) | v <- freeVars e1]
+    compare (FLambda _ _) _ = LT
+    compare _ (FLambda _ _) = GT
+    compare (FMatchBind n1 vs1 env1 e1) (FMatchBind n2 vs2 env2 e2) =
+        compare n1 n2 `thenCmp` compare vs1 vs2 `thenCmp`
+        foldr thenCmp EQ [compare (lookup env1 v) (lookup env2 v) | v <- freeVars e1]
 
 tupleFromList :: [Value] -> Value
 tupleFromList vs = VTuple $! listArray (0, length vs - 1) vs
@@ -81,7 +135,7 @@ instance Hashable Value where
     hash (VList vs) = combine 9 (hash vs)
     hash (VSet vset) = combine 10 (hash vset)
     -- We identify all functions (for process names) - see comment below in Eq.
-    hash (VFunction f) = 11
+    hash (VFunction id _) = combine 11 (hash id)
     hash (VProc p) = combine 12 (hash p)
 
 instance Eq Value where
@@ -94,13 +148,7 @@ instance Eq Value where
     VList vs1 == VList vs2 = vs1 == vs2
     VSet s1 == VSet s2 = s1 == s2
     VProc p1 == VProc p2 = p1 == p2
-    -- We identify all functions. The only place this can be used is when
-    -- comparing two process names for equality (to see if we have compiled
-    -- both). When such situations occur we choose to identify the functions.
-    -- In reality, this fits in with what people expect; the function would
-    -- meerley be an extra paramter to the function, rather than something
-    -- that should distinguish processes.
-    VFunction _ == VFunction _ = True
+    VFunction id1 _ == VFunction id2 _ = id1 == id2
     
     v1 == v2 = False
     
@@ -156,8 +204,7 @@ instance Ord Value where
     compare (VChannel n) (VChannel n') = compare n n'
     compare (VDataType n) (VDataType n') = compare n n'
     compare (VProc p1) (VProc p2) = compare p1 p2
-    -- See comment in Eq Value.
-    compare (VFunction _) (VFunction _) = EQ
+    compare (VFunction id1 _) (VFunction id2 _) = compare id1 id2
 
     compare v1 v2 = panic $
         -- Must be as a result of a mixed set of values, which cannot happen
@@ -176,6 +223,14 @@ valueEventToEvent = UserEvent
 
 errorThunk = panic "Trimmed value function evaluated"
 
+trimFunctionIdentifier :: FunctionIdentifier -> FunctionIdentifier
+trimFunctionIdentifier (FBuiltInFunction n args) =
+    FBuiltInFunction n (map trimValueForProcessName args)
+trimFunctionIdentifier (FLambda e env) = FLambda e (trimEnvironment env (freeVars e))
+trimFunctionIdentifier (FMatchBind n args env e) =
+    FMatchBind n (map (map trimValueForProcessName) args)
+        (trimEnvironment env (freeVars e)) e
+
 trimValueForProcessName :: Value -> Value
 trimValueForProcessName (VInt i) = VInt i
 trimValueForProcessName (VBool b) = VBool b
@@ -186,5 +241,6 @@ trimValueForProcessName (VSet s) =
 trimValueForProcessName (VDot vs) = VDot $ map trimValueForProcessName vs
 trimValueForProcessName (VChannel n) = VChannel n
 trimValueForProcessName (VDataType n) = VDataType n
-trimValueForProcessName (VFunction _) = VFunction errorThunk
+trimValueForProcessName (VFunction id _) =
+    VFunction (trimFunctionIdentifier id) errorThunk
 trimValueForProcessName (VProc p) = VProc (trimProcess p)

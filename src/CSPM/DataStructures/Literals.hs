@@ -9,7 +9,7 @@ data Literal =
     Int Int
     -- | A boolean (TODO: remove).
     | Bool Bool
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 instance PrettyPrintable Literal where
     prettyPrint (Int n) = int n

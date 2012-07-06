@@ -3,6 +3,7 @@
 module CSPM.Evaluator.ValuePrettyPrinter () where
 
 import Control.Applicative
+import CSPM.DataStructures.Syntax
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.ProcessValues
 import {-# SOURCE #-} CSPM.Evaluator.Values
@@ -29,7 +30,9 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
             M.MonadicPrettyPrintable m pn, M.MonadicPrettyPrintable m ev,
             M.MonadicPrettyPrintable m evs) => 
         M.MonadicPrettyPrintable m (Proc seq CSPOperator pn ev evs (seq (ev,ev)))
-instance (Applicative m, Monad m, M.MonadicPrettyPrintable m UnCompiledProc,
+instance (Applicative m, Monad m,
+        M.MonadicPrettyPrintable m TCExp,
+        M.MonadicPrettyPrintable m UnCompiledProc,
         M.MonadicPrettyPrintable m ValueSet) =>
-        M.MonadicPrettyPrintable m Value
+        M.MonadicPrettyPrintable m Value where
 instance M.MonadicPrettyPrintable EvaluationMonad ValueSet

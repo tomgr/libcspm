@@ -35,7 +35,7 @@ instance Evaluatable a => Evaluatable (Annotated b a) where
 instance Evaluatable (Exp Name) where
     eval (App func args) = do
         vs <- mapM eval args
-        VFunction f <- eval func
+        VFunction _ f <- eval func
         f vs
     eval (BooleanBinaryOp op e1 e2) = do
         v1 <- eval e1
@@ -86,7 +86,8 @@ instance Evaluatable (Exp Name) where
         if b then eval e2 else eval e3
     eval (Lambda p e) = do
         st <- getState
-        return $ VFunction $ \ [v] -> return $ runEvaluator st $ do
+        let id = FLambda e (environment st)
+        return $ VFunction id $ \ [v] -> return $ runEvaluator st $ do
             let (matches, binds) = bind p v
             if matches then do
                 p <- getParentProcName

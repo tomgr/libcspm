@@ -1,0 +1,13 @@
+P(true, false) =
+    in.false -> out.true -> P(false, true)
+    [] in.true -> out.true -> P(false, true)
+
+P(false, true) =
+    in.false -> out.false -> P(true, false)
+    [] in.true -> out.false -> P(true, false)
+
+X = P(false, true)
+
+procTest1 = X
+
+procTest1

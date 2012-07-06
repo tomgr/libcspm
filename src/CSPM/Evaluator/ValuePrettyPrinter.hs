@@ -5,16 +5,21 @@ module CSPM.Evaluator.ValuePrettyPrinter () where
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Identity
+import CSPM.DataStructures.Syntax
 import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.ProcessValues
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
+import CSPM.PrettyPrinter
 import qualified Data.Foldable as F
 import qualified Data.Sequence as S
 import Data.List (partition)
 import Util.PrettyPrint
 import qualified Util.MonadicPrettyPrint as M
+
+instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m TCExp where
+    prettyPrint = return . prettyPrint
 
 instance PrettyPrintable Event where
     prettyPrint = runIdentity . M.prettyPrint
@@ -144,7 +149,9 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
         M.prettyPrint p1 M.<+> M.text "|>" M.<+> M.prettyPrint p2
     prettyPrint (PProcCall n _) = M.prettyPrint n
 
-instance (Applicative m, Monad m, M.MonadicPrettyPrintable m UProc,
+instance (Applicative m, Monad m,
+        M.MonadicPrettyPrintable m TCExp,
+        M.MonadicPrettyPrintable m UProc,
         M.MonadicPrettyPrintable m ValueSet) =>
         M.MonadicPrettyPrintable m Value where
     prettyPrint (VInt i) = M.int i
@@ -156,7 +163,16 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m UProc,
     prettyPrint (VDataType n) = M.prettyPrint n
     prettyPrint (VList vs) = M.angles (M.list $ mapM M.prettyPrint vs)
     prettyPrint (VSet s) = M.prettyPrint s
-    prettyPrint (VFunction _) = M.text "<function>"
+    prettyPrint (VFunction (FBuiltInFunction n args) _) =
+        M.prettyPrint n M.<> case args of
+                            [] -> M.empty
+                            _ -> M.parens (M.list (mapM M.prettyPrint args))
+    prettyPrint (VFunction (FLambda e env) _) = M.prettyPrint e
+    prettyPrint (VFunction (FMatchBind n args _ _) _) =
+        M.prettyPrint n M.<>
+        case args of
+            [] -> M.empty
+            _ -> M.hcat (mapM (\ as -> M.parens (M.list (mapM M.prettyPrint as))) args)
     prettyPrint (VProc p) = M.prettyPrint p
     prettyPrint (VThunk th) = M.text "<thunk>"
 

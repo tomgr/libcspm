@@ -106,7 +106,7 @@ type TCInteractiveStmt = AnInteractiveStmt Name
 -- Files
 -- *************************************************************************
 data CSPMFile id = CSPMFile [AnDecl id]
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 -- *************************************************************************
 -- Expressions
@@ -120,19 +120,19 @@ data BinaryBooleanOp =
     | GreaterThan 
     | LessThanEq 
     | GreaterThanEq
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
     
 data UnaryBooleanOp =
     Not
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 data UnaryMathsOp = 
     Negate
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 data BinaryMathsOp = 
     Divide | Minus | Mod | Plus | Times
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 -- | An expression.
 data Exp id =
@@ -402,7 +402,7 @@ data Exp id =
     -- | Used only for parsing - never appears in an AST.
     | ExpPatDoublePattern (AnExp id) (AnExp id)
     
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 data Field id = 
     -- | @!x@
@@ -411,19 +411,19 @@ data Field id =
     | Input (AnPat id) (Maybe (AnExp id))
     -- | @$x:A@ (see P395 UCS)
     | NonDetInput (AnPat id) (Maybe (AnExp id))
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
     
 data Stmt id = 
     Generator (AnPat id) (AnExp id)
     | Qualifier (AnExp id)
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 -- | A statement in an interactive session.
 data InteractiveStmt id =
     Evaluate (AnExp id)
     | Bind [AnDecl id]
     | RunAssertion (Assertion id)
-    deriving Show
+    deriving (Eq, Ord, Show)
     
 -- *************************************************************************
 -- Declarations
@@ -459,7 +459,7 @@ data Decl id =
         modulePrivateDeclarations :: [AnDecl id],
         moduleExportedDeclarations :: [AnDecl id]
     }
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 data Assertion id = 
     -- | A refinement assertion, e.g. @assert P [F= Q@.
@@ -478,7 +478,7 @@ data Assertion id =
     }
     -- | The negation of an assertion, not currently supported.
     | ASNot (Assertion id)
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
         
 data Model = 
     Traces 
@@ -488,17 +488,17 @@ data Model =
     | RefusalsDivergences
     | Revivals
     | RevivalsDivergences
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
     
 data ModelOption id = 
     TauPriority (AnExp id)
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
         
 data SemanticProperty = 
     DeadlockFreedom
     | Deterministic     
     | LivelockFreedom
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
     
 -- | The clause of a datatype, e.g. if a datatype declaration was:
 --
@@ -515,7 +515,7 @@ data DataTypeClause id =
         -- clause for A would have "Int.Bool" as its type expression.
         dataTypeClauseTypeExpression :: Maybe (AnExp id)
     }
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 -- | Matches occur on the left hand side of a function declaration and there
 -- is one 'Match' for each clause of the declaration. For example, given the
@@ -535,7 +535,7 @@ data Match id =
         -- | The expression to be evaluated if the match succeeds.
         matchRightHandSide :: AnExp id
     }
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 data Pat id =
     -- | The concatenation of two patterns, e.g. @p1^p2@.
@@ -609,4 +609,4 @@ data Pat id =
         pDotItems :: [AnPat id],
         pDotOriginalpattern :: Pat id
     }
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)

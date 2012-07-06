@@ -1,0 +1,8 @@
+channel in, out : Bool
+
+P(f,g) = in?x -> out!f(x) -> P(g,f)
+
+X = P(\x @ false, \x @ true)
+Y = in?x -> out!false -> in?x -> out!true -> Y
+
+procTest1 = X

@@ -1,6 +1,7 @@
 module CSPM.Evaluator.Environment (
     Environment,
     new, lookup, newLayerAndBind,
+    trimEnvironment,
 ) where
 
 import qualified Data.IntMap as M
@@ -30,3 +31,7 @@ newLayerAndBind :: Environment -> [(Name, Value)] -> Environment
 newLayerAndBind (Environment ms) nvs =
     let ms' = M.fromList [(nameUnique n, v) | (n,v) <- nvs] : ms
     in Environment ms'
+
+trimEnvironment :: Environment -> [Name] -> Environment
+trimEnvironment (Environment ms) ns =
+    Environment [M.fromList [(nameUnique n, lookup (Environment ms) n) | n <- ns]]

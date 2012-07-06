@@ -62,8 +62,10 @@ bindDecl (an@(An _ _ (FunBind n ms))) = do
                                     VProc p -> return $ VProc $ PProcCall procName p
                                     _ -> return $ v
             in tryMatches matches
-        collectArgs n ass =
-            return $ VFunction $ \ vs -> collectArgs (n-1) (vs:ass)
+        collectArgs number ass = do
+            env <- gets environment
+            let fid = FMatchBind n (reverse ass) env ms
+            return $ VFunction fid $ \ vs -> collectArgs (number-1) (vs:ass)
     return $ [(n, collectArgs argGroupCount [])]
 bindDecl (an@(An _ _ (PatBind p e))) = do
     parentPid <- getParentProcName

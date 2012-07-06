@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 module Util.Annotated where
 
+import Data.Hashable
 import Prelude
 import Util.Exception
 import Util.Prelude
@@ -137,3 +138,9 @@ instance Eq b => Eq (Annotated a b) where
     (An _ _ b1) == (An _ _ b2) = b1 == b2
 instance Eq a => Eq (Located a) where
     (L _ b1) == (L _ b2) = b1 == b2
+
+instance Ord b => Ord (Annotated a b) where
+    compare a b = compare (unAnnotate a) (unAnnotate b)
+
+instance Hashable b => Hashable (Annotated a b) where
+    hash a = hash (unAnnotate a)
