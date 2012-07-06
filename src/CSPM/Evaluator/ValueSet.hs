@@ -26,6 +26,7 @@ where
 import Control.Monad
 import qualified Data.Foldable as F
 import Data.Hashable
+import Data.List (sort)
 import qualified Data.Set as S
 import qualified Data.Sequence as Sq
 import qualified Data.Traversable as T
@@ -63,7 +64,7 @@ instance Hashable ValueSet where
     -- All the above are the ONLY possible representations of the sets (as the
     -- sets are infinite). However, other sets can be represented in multiple
     -- ways so we have to normalise to an explicit set, essentially. 
-    hash s = combine 5 (hash (toList s))
+    hash s = combine 5 (hash (sort $ toList s))
 
 instance Eq ValueSet where
     s1 == s2 = compare s1 s2 == EQ
@@ -85,7 +86,7 @@ instance Ord ValueSet where
     compare (AllSequences s1) (AllSequences s2) = compare s1 s2
     compare (ExplicitSet s1) (ExplicitSet s2) = compare s1 s2
     -- Fallback to comparing the lists
-    compare s1 s2 = compare (toList s1) (toList s2)
+    compare s1 s2 = compare (sort $ toList s1) (sort $ toList s2)
 
 flipOrder :: Maybe Ordering -> Maybe Ordering
 flipOrder Nothing = Nothing
