@@ -91,7 +91,7 @@ module CSPM (
     renameFile, renameInteractiveStmt, renameExpression, getBoundNames,
     -- * Type Checker API
     typeCheckFile, typeCheckInteractiveStmt, typeCheckExpression,
-    ensureExpressionIsOfType, dependenciesOfExp, typeOfExpression,
+    ensureExpressionIsOfType, typeOfExpression,
     -- * Desugarer API
     desugarFile, desugarInteractiveStmt, desugarExpression,
     -- * Evaluator API
@@ -284,11 +284,6 @@ ensureExpressionIsOfType t exp = reportWarnings $ runTypeCheckerInCurrentState $
 typeOfExpression :: CSPMMonad m => TCExp -> m Type
 typeOfExpression exp = 
     reportWarnings $ runTypeCheckerInCurrentState (TC.typeOfExp exp)
-
--- | Returns the 'Name's that the given type checked expression depends on.
-dependenciesOfExp :: CSPMMonad m => TCExp -> m [Name]
-dependenciesOfExp e = 
-    reportWarnings $ runTypeCheckerInCurrentState (TC.dependenciesOfExp e)
 
 -- | Desugar a file, preparing it for evaulation.
 desugarFile :: CSPMMonad m => TCCSPMFile -> m TCCSPMFile

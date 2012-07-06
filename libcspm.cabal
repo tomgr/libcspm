@@ -58,6 +58,7 @@ Library
 
     Exposed-Modules:
         CSPM,
+        CSPM.DataStructures.FreeVars,
         CSPM.DataStructures.Literals,
         CSPM.DataStructures.Names,
         CSPM.DataStructures.Syntax,
@@ -91,7 +92,6 @@ Library
         CSPM.TypeChecker.Common,
         CSPM.TypeChecker.Compressor,
         CSPM.TypeChecker.Decl,
-        CSPM.TypeChecker.Dependencies,
         CSPM.TypeChecker.Environment,
         CSPM.TypeChecker.Exceptions,
         CSPM.TypeChecker.Expr,

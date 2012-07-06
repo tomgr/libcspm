@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module CSPM.TypeChecker (
     typeCheck, typeCheckExpect,
-    typeOfExp, dependenciesOfExp,
+    typeOfExp,
     
     initTypeChecker,
     TypeCheckMonad, TypeInferenceState,
@@ -10,13 +10,11 @@ module CSPM.TypeChecker (
 
 import Control.Monad.Trans
 
-import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
 import CSPM.TypeChecker.BuiltInFunctions
 import qualified CSPM.TypeChecker.Common as TC
 import CSPM.TypeChecker.Compressor
-import CSPM.TypeChecker.Dependencies
 import CSPM.TypeChecker.Expr()
 import CSPM.TypeChecker.File()
 import CSPM.TypeChecker.InteractiveStmt()
@@ -55,7 +53,3 @@ typeOfExp exp = do
     case mt of 
         Just t -> evaluateDots t >>= compress
         Nothing -> typeCheck exp >> typeOfExp exp
-
--- | Returns the list of names that this expression depends on
-dependenciesOfExp :: TCExp -> TypeCheckMonad [Name]
-dependenciesOfExp exp = dependencies exp

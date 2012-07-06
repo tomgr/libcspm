@@ -4,19 +4,18 @@ module CSPM.TypeChecker.Expr () where
 import Control.Monad
 import Data.List
 
+import CSPM.DataStructures.FreeVars
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax hiding (getType)
 import CSPM.DataStructures.Types
 import CSPM.TypeChecker.Common
 import {-# SOURCE #-} CSPM.TypeChecker.Decl
-import CSPM.TypeChecker.Dependencies
 import CSPM.TypeChecker.Exceptions
 import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Pat()
 import CSPM.TypeChecker.Unification
 import Util.Annotated
 import Util.List
-import Util.Monad
 import Util.PrettyPrint
 
 checkFunctionCall :: Doc -> [TCExp] -> [Type] -> TypeCheckMonad ()
@@ -107,15 +106,13 @@ instance TypeCheckable (Exp Name) Type where
         t2 <- typeCheck e2
         typeCheckExpect e3 t2
     typeCheck' (Lambda p exp) = do
-        fvs <- freeVars p
-        local fvs $ do
+        local (boundNames p) $ do
             tr <- typeCheck exp
             targ <- typeCheck p
             return $ TFunction [targ] tr
     typeCheck' (Let decls exp) = do
         -- Add a new scope: typeCheckDecl will add vars into it 
-        ns <- concatMapM namesBoundByDecl decls
-        local ns $ do
+        local (boundNames decls) $ do
             typeCheckDecls decls
             typeCheck exp
     typeCheck' (Lit lit) = typeCheck lit
@@ -236,13 +233,9 @@ instance TypeCheckable (Exp Name) Type where
         ensureIsProc e2
         return TProc
     typeCheck' (Prefix e1 fields e2) = do
-        fvsByField <- mapM (\f -> do
-                fvs <- freeVars f
-                return (f, fvs)) fields
         let 
+            fvsByField = map (\f -> (f, boundNames f)) fields
             fvs = concatMap snd fvsByField
-            namesToLocations = 
-                [(n, loc f) | (f, fvs) <- fvsByField, n <- fvs]
         -- Throw an error if a name is defined multiple times
         when (not (noDups fvs)) (panic "Dupes found in prefix after renaming.")
 
@@ -349,17 +342,8 @@ typeCheckStmt typc stmt tc =
 -- to ensure that clauses only depend on variables already bound.
 typeCheckStmts :: (Type -> Type) -> [TCStmt] -> TypeCheckMonad a -> TypeCheckMonad a
 typeCheckStmts typc stmts tc = do
-        fvsByStmt <- mapM (\stmt -> do
-                fvs <- freeVars stmt
-                return (stmt, fvs)) stmts
-        let 
-            fvs = concatMap snd fvsByStmt
-            namesToLocations = 
-                [(n, loc f) | (f, fvs) <- fvsByStmt, n <- fvs]
-        -- Throw an error if a name is defined multiple times
-        when (not (noDups fvs)) (panic "Dupes found in stmts after renaming.")
         -- Renaming ensures uniqueness, so introduce the free vars now.
-        local fvs (check stmts)
+        local (boundNames stmts) (check stmts)
     where
         check [] = tc
         check (stmt:stmts) = typeCheckStmt typc stmt (check stmts)

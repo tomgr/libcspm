@@ -5,21 +5,20 @@ import Control.Monad
 import Data.Graph.Wrapper
 import qualified Data.Map as M
 import qualified Data.Set as S
-import Data.List (nub, intersect, (\\), sortBy)
+import Data.List (intersect, (\\), sortBy)
 
+import CSPM.DataStructures.FreeVars
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax hiding (getType)
 import CSPM.DataStructures.Types
 import CSPM.PrettyPrinter
 import CSPM.TypeChecker.Common
-import CSPM.TypeChecker.Dependencies
 import CSPM.TypeChecker.Expr()
 import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Pat()
 import CSPM.TypeChecker.Unification
 import Util.Annotated
 import Util.List
-import Util.Monad
 import Util.PartialFunctions
 import Util.PrettyPrint
 
@@ -39,18 +38,15 @@ typeCheckDecls decls = do
         declMap = zip flatDecls [0..]
         invDeclMap = invert declMap
 
-    namesBoundByDecls <- mapM (\ (decl, declId) -> do
-        namesBound <- namesBoundByDecl decl
-        return (declId, namesBound)) declMap
+    let
+        namesBoundByDecls = map (\ (decl, declId) -> 
+            (declId, boundNames decl)) declMap
 
-    let        
         -- | Map from names to the identifier of the declaration that it is
         -- defined by.
         varToDeclIdMap = 
             [(n, declId) | (declId, ns) <- namesBoundByDecls, n <- ns]
         boundVars = map fst varToDeclIdMap
-        namesToLocations = [(n, loc $ apply invDeclMap declId) 
-                                | (declId, ns) <- namesBoundByDecls, n <- ns]
 
     -- Throw an error if a name is defined multiple times
     when (not (noDups boundVars)) $ panic "Duplicates found after renaming."
@@ -58,7 +54,7 @@ typeCheckDecls decls = do
     -- Map from decl id -> [decl id] meaning decl id depends on the list of
     -- ids
     declDeps <- mapM (\ (decl, declId) -> do
-            deps <- dependencies decl
+            let deps = freeVars decl
             let depsInThisGroup = intersect deps boundVars
             return (declId, mapPF varToDeclIdMap depsInThisGroup)
         ) declMap
@@ -100,12 +96,12 @@ typeCheckDecls decls = do
 
     let
         annotate (decl@(An _ psymbtable (Module _ _ ds1 ds2))) = do
-            ns <- namesBoundByDecl decl
+            let ns = boundNames decl
             ts <- mapM getType ns
             setPSymbolTable (snd psymbtable) (zip ns ts)
             mapM_ annotate (ds1++ds2)
         annotate (decl@(An _ psymbtable _)) = do
-            ns <- namesBoundByDecl decl
+            let ns = boundNames decl
             ts <- mapM getType ns
             setPSymbolTable (snd psymbtable) (zip ns ts)
 
@@ -125,13 +121,10 @@ typeCheckMutualyRecursiveGroup ds' = do
             (_, DataType _ _) -> GT
             (_, _) -> EQ
         ds = sortBy cmp ds'
-    fvs <- liftM nub (concatMapM namesBoundByDecl ds)
+        fvs = boundNames ds
 
     ftvs <- replicateM (length fvs) freshTypeVar
     zipWithM setType fvs (map (ForAll []) ftvs)
-    
-    -- The list of all variables bound by these declaration
-    fvs <- liftM nub (concatMapM namesBoundByDecl ds)
 
     -- Type check each declaration then generalise the types
     nts <- generaliseGroup fvs (map typeCheck ds)
@@ -212,7 +205,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         -- to allow patterns such as:
         --     x.y = B
         disallowSymmetricUnification (unify texp tpat)
-        ns <- namesBoundByDecl' (PatBind pat exp)
+        let ns = boundNames (PatBind pat exp)
         ts <- mapM getType ns
         return $ zip ns [t | ForAll _ t <- ts]
     -- The following two clauses rely on the fact that they have been 
@@ -333,7 +326,7 @@ instance TypeCheckable (Match Name) Type where
     errorContext (Match groups exp) = Nothing
     typeCheck' (Match groups exp) = do
         -- Introduce free variables for all the parameters
-        fvs <- liftM concat (mapM freeVars groups)
+        let fvs = boundNames groups
         local fvs $ do
             tgroups <- mapM (\ pats -> mapM (\ pat -> 
                     -- We evaluate the dots here to implment the longest 
