@@ -226,6 +226,8 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         return [(n, TEvent) | n <- ns]
     typeCheck' (Channel ns (Just e)) = do
         t <- typeCheck e
+        -- Events must be comparable for equality.
+        ensureHasConstraint CEq t
         valueType <- evalTypeExpression t
         dotList <- typeToDotList valueType
         let t = foldr TDotable TEvent dotList
