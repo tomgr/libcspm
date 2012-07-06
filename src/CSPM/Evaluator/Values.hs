@@ -5,6 +5,7 @@ module CSPM.Evaluator.Values (
     valueEventToEvent,
     noSave, maybeSave, removeThunk, lookupVar,
     tupleFromList,
+    trimValueForProcessName,
     module Data.Array,
 ) where
 
@@ -172,3 +173,18 @@ annonymousProcId vss pn = AnnonymousProcName vss pn
 -- | This assumes that the value is a VDot with the left is a VChannel
 valueEventToEvent :: Value -> Event
 valueEventToEvent = UserEvent
+
+errorThunk = panic "Trimmed value function evaluated"
+
+trimValueForProcessName :: Value -> Value
+trimValueForProcessName (VInt i) = VInt i
+trimValueForProcessName (VBool b) = VBool b
+trimValueForProcessName (VTuple vs) = VTuple (fmap trimValueForProcessName vs)
+trimValueForProcessName (VList vs) = VList (map trimValueForProcessName vs)
+trimValueForProcessName (VSet s) =
+    VSet $ S.fromList $ map trimValueForProcessName $ S.toList s
+trimValueForProcessName (VDot vs) = VDot $ map trimValueForProcessName vs
+trimValueForProcessName (VChannel n) = VChannel n
+trimValueForProcessName (VDataType n) = VDataType n
+trimValueForProcessName (VFunction _) = VFunction errorThunk
+trimValueForProcessName (VProc p) = VProc (trimProcess p)

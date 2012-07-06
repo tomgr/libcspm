@@ -6,3 +6,5 @@ data Value
 instance Eq Value
 instance Hashable Value
 instance Ord Value
+
+trimValueForProcessName :: Value -> Value

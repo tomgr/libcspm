@@ -11,6 +11,7 @@ module CSPM.Evaluator.ProcessValues (
     ProcName(..),
     operator, components,
     prettyPrintAllRequiredProcesses,
+    trimProcess, trimProcName,
 ) where
 
 import CSPM.DataStructures.Names
@@ -18,6 +19,7 @@ import {-# SOURCE #-} CSPM.Evaluator.Values
 import qualified Data.Foldable as F
 import qualified Data.Sequence as S
 import Data.Hashable
+import Util.Exception
 import Util.PrettyPrint
 import Util.Prelude
 
@@ -126,6 +128,25 @@ instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs)) =>
     hash (PRename evm) = combine 13 (hash evm)
     hash PSequentialComp = 14
     hash PSlidingChoice = 15
+
+errorThunk = panic "Trimmed process evaluated"
+
+trimProcess :: Functor seq => Proc seq oip pn ev evs evm -> Proc seq oip pn ev evs evm
+trimProcess (PUnaryOp op p1) = PUnaryOp op (trimProcess p1)
+trimProcess (PBinaryOp op p1 p2) = PBinaryOp op (trimProcess p1) (trimProcess p2)
+trimProcess (POp op ps) = POp op (fmap trimProcess ps)
+trimProcess (PProcCall pn _) = PProcCall pn errorThunk
+
+trimProcName :: ProcName -> ProcName
+trimProcName (ProcName n args Nothing) =
+    ProcName n (map (map trimValueForProcessName) args) Nothing
+trimProcName (ProcName n args (Just parent)) =
+    ProcName n (map (map trimValueForProcessName) args) (Just (trimProcName parent))
+trimProcName (AnnonymousProcName args Nothing) =
+    AnnonymousProcName (map (map trimValueForProcessName) args) Nothing
+trimProcName (AnnonymousProcName args (Just parent)) =
+    AnnonymousProcName (map (map trimValueForProcessName) args)
+        (Just (trimProcName parent))
 
 -- | A compiled process. Note this is an infinite data structure (due to
 -- PProcCall) as this makes compilation easy (we can easily chase
