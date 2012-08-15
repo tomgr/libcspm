@@ -31,9 +31,14 @@ bindDecls ds = do
             vss <- sequence (map snd eventNvs)
             return $ VSet $ infiniteUnions $ vs : map (\ (VSet s) -> s) vss
 
-    -- Lookup the existing value of events and add to it
-    VSet vs <- lookupVar eventsName
-    return $ (eventsName, computeEvents vs)  : normalNvs
+        isChannelDecl (Channel _ _) = True
+        isChannelDecl _ = False
+
+    if or (map (isChannelDecl . unAnnotate) ds) then do
+        -- Lookup the existing value of events and add to it
+        VSet vs <- lookupVar eventsName
+        return $ (eventsName, computeEvents vs)  : normalNvs
+    else return nvs
 
 bindDecl :: TCDecl -> EvaluationMonad [(Name, EvaluationMonad Value)]
 bindDecl (an@(An _ _ (FunBind n ms))) = do
