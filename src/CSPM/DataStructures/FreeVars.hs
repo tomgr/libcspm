@@ -42,6 +42,10 @@ instance BoundNames (Pat Name) where
     boundNames (PParen p) = boundNames p
     boundNames (PLit l) = []
     boundNames (PDoublePattern p1 p2) = boundNames [p1,p2]
+    boundNames (PCompList ps1 Nothing _) = boundNames ps1
+    boundNames (PCompList ps1 (Just (p, ps2)) _) =
+        boundNames ps1 ++ boundNames p ++ boundNames ps2
+    boundNames (PCompDot ps _) = boundNames ps
 
 instance BoundNames (Stmt Name) where
     boundNames (Qualifier e) = []
