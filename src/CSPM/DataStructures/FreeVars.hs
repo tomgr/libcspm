@@ -66,6 +66,9 @@ instance FreeVars a => FreeVars (Annotated b a) where
     freeVars' (An _ _ inner) = freeVars' inner
 
 instance FreeVars (Pat Name) where
+    -- A variable is free iff it is a data constructor, as in all other cases
+    -- it indicates that a new variable should be created, thus by definition it
+    -- is not free.
     freeVars' (PVar n) | isNameDataConstructor n = [n]
     freeVars' (PVar n) = []
     freeVars' (PConcat p1 p2) = freeVars' p1 ++ freeVars' p2
@@ -234,7 +237,7 @@ instance FreeVars (ModelOption Name) where
 instance FreeVars (Match Name) where
     freeVars' (Match ps e) =
         let
-            fvs1 = freeVars ps
+            fvs1 = boundNames ps
             depsPs = freeVars ps
             fvs2 = freeVars e
         in (fvs2 \\ fvs1) ++ depsPs
