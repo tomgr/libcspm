@@ -12,8 +12,6 @@ import CSPM.DataStructures.Names
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.Exception
 
-import Debug.Trace
-
 data Environment = Environment [M.IntMap Value]
 
 instance Eq Environment where
@@ -46,5 +44,4 @@ newLayerAndBind (Environment ms) nvs =
 
 trimEnvironment :: Environment -> [Name] -> Environment
 trimEnvironment (Environment ms) ns =
-    Environment [M.fromList [(nameUnique n, 
-        trace ("Looking up "++show n) $ lookup (Environment ms) n) | n <- ns]]
+    Environment [M.fromList [(nameUnique n, lookup (Environment ms) n) | n <- ns]]
