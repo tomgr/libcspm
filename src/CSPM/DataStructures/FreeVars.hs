@@ -54,16 +54,16 @@ instance BoundNames (Field Name) where
 
 class FreeVars a where
     freeVars :: a -> [Name]
-    freeVars xs = nub (freeVars' xs)
+    freeVars xs = nub (sort (freeVars' xs))
     freeVars' :: a -> [Name]
 
 instance FreeVars a => FreeVars [a] where
-    freeVars' xs = concatMap freeVars xs
+    freeVars' xs = concatMap freeVars' xs
 instance FreeVars a => FreeVars (Maybe a) where
     freeVars' (Just x) = freeVars' x
     freeVars' Nothing = []
 instance FreeVars a => FreeVars (Annotated b a) where
-    freeVars' (An _ _ inner) = freeVars inner
+    freeVars' (An _ _ inner) = freeVars' inner
 
 instance FreeVars (Pat Name) where
     freeVars' (PVar n) | isNameDataConstructor n = [n]
@@ -77,7 +77,11 @@ instance FreeVars (Pat Name) where
     freeVars' (PParen p) = freeVars' p
     freeVars' (PLit l) = []
     freeVars' (PDoublePattern p1 p2) = freeVars' p1 ++ freeVars' p2
-    
+    freeVars' (PCompList ps1 Nothing _) = freeVars' ps1
+    freeVars' (PCompList ps1 (Just (p, ps2)) _) =
+        freeVars' ps1 ++ freeVars' p ++ freeVars' ps2
+    freeVars' (PCompDot ps _) = freeVars' ps
+
 instance FreeVars (Exp Name) where
     freeVars' (App e es) = freeVars' (e:es)
     freeVars' (BooleanBinaryOp _ e1 e2) = freeVars' [e1, e2]
