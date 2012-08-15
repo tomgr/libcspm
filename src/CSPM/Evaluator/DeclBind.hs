@@ -69,7 +69,7 @@ bindDecl (an@(An _ _ (FunBind n ms))) = do
             in tryMatches matches
         collectArgs number ass = do
             env <- gets environment
-            let fid = FMatchBind n (reverse ass) env ms
+            let fid = mkMatchBindFunctionIdentifier n (reverse ass) env ms
             return $ VFunction fid $ \ vs -> collectArgs (number-1) (vs:ass)
     return $ [(n, collectArgs argGroupCount [])]
 bindDecl (an@(An _ _ (PatBind p e))) = do

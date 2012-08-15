@@ -1,6 +1,9 @@
 module CSPM.Evaluator.Values (
     Value(..), UProc, Proc(..), CSPOperator(..), ProcOperator(..), Event(..),
     FunctionIdentifier(..),
+    mkBuiltInFunctionIdentifier,
+    mkLambdaFunctionIdentifier,
+    mkMatchBindFunctionIdentifier,
     compareValues,
     procId, annonymousProcId,
     valueEventToEvent,
@@ -59,10 +62,21 @@ data FunctionIdentifier =
     | FMatchBind {
         functionName :: Name,
         argumentGroups :: [[Value]],
+        -- | The free variables this is bound in
         envrionment :: Environment,
         -- | Invariant: if function names are equal then inner expression is.
         innerMatches :: [TCMatch]
     }
+
+mkBuiltInFunctionIdentifier :: Name -> [Value] -> FunctionIdentifier
+mkBuiltInFunctionIdentifier n vs = FBuiltInFunction n vs
+
+mkLambdaFunctionIdentifier :: TCExp -> Environment -> FunctionIdentifier
+mkLambdaFunctionIdentifier e env = FLambda e (trimEnvironment env (freeVars e))
+
+mkMatchBindFunctionIdentifier :: Name -> [[Value]] -> Environment -> [TCMatch] -> FunctionIdentifier
+mkMatchBindFunctionIdentifier n vs env ms = 
+    FMatchBind n vs (trimEnvironment env (freeVars ms)) ms
 
 instance Eq FunctionIdentifier where
     FBuiltInFunction n1 vs1 == FBuiltInFunction n2 vs2 =
@@ -70,17 +84,15 @@ instance Eq FunctionIdentifier where
     FLambda e1 env1 == FLambda e2 env2 =
         e1 == e2 && and [lookup env1 v == lookup env2 v | v <- freeVars e1]
     FMatchBind n1 args1 env1 expr1 == FMatchBind n2 args2 env2 expr2 =
-        n1 == n2 && args1 == args2 
-        && and [lookup env1 v == lookup env2 v | v <- freeVars expr1]
+        n1 == n2 && args1 == args2 && env1 == env2
     _ == _ = False
 
 instance Hashable FunctionIdentifier where
     hash (FBuiltInFunction n1 vs) = combine 2 (combine (hash n1) (hash vs))
     hash (FLambda expr env) =
         combine 3 (combine (hash (show expr)) (hash [lookup env v | v <- freeVars expr]))
-    hash (FMatchBind n vs env expr) =
-        combine 4 (combine (hash n) (combine (hash vs)
-            (hash [lookup env v | v <- freeVars expr])))
+    hash (FMatchBind n vs env _) =
+        combine 4 (combine (hash n) (combine (hash vs) (hash env)))
 
 instance Ord FunctionIdentifier where
     compare (FBuiltInFunction n1 args1) (FBuiltInFunction n2 args2) =
@@ -92,9 +104,8 @@ instance Ord FunctionIdentifier where
         foldr thenCmp EQ [compare (lookup env1 v) (lookup env2 v) | v <- freeVars e1]
     compare (FLambda _ _) _ = LT
     compare _ (FLambda _ _) = GT
-    compare (FMatchBind n1 vs1 env1 e1) (FMatchBind n2 vs2 env2 e2) =
-        compare n1 n2 `thenCmp` compare vs1 vs2 `thenCmp`
-        foldr thenCmp EQ [compare (lookup env1 v) (lookup env2 v) | v <- freeVars e1]
+    compare (FMatchBind n1 vs1 env1 _) (FMatchBind n2 vs2 env2 _) =
+        compare n1 n2 `thenCmp` compare vs1 vs2 `thenCmp` compare env1 env2
 
 tupleFromList :: [Value] -> Value
 tupleFromList vs = VTuple $! listArray (0, length vs - 1) vs
@@ -226,10 +237,9 @@ errorThunk = panic "Trimmed value function evaluated"
 trimFunctionIdentifier :: FunctionIdentifier -> FunctionIdentifier
 trimFunctionIdentifier (FBuiltInFunction n args) =
     FBuiltInFunction n (map trimValueForProcessName args)
-trimFunctionIdentifier (FLambda e env) = FLambda e (trimEnvironment env (freeVars e))
-trimFunctionIdentifier (FMatchBind n args env e) =
-    FMatchBind n (map (map trimValueForProcessName) args)
-        (trimEnvironment env (freeVars e)) e
+trimFunctionIdentifier (FLambda e env) = FLambda e env
+trimFunctionIdentifier (FMatchBind n args env ms) =
+    FMatchBind n (map (map trimValueForProcessName) args) env errorThunk
 
 trimValueForProcessName :: Value -> Value
 trimValueForProcessName (VInt i) = VInt i

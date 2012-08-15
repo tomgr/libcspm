@@ -86,7 +86,7 @@ instance Evaluatable (Exp Name) where
         if b then eval e2 else eval e3
     eval (Lambda p e) = do
         st <- getState
-        let id = FLambda e (environment st)
+        let id = mkLambdaFunctionIdentifier e (environment st)
         return $ VFunction id $ \ [v] -> return $ runEvaluator st $ do
             let (matches, binds) = bind p v
             if matches then do
