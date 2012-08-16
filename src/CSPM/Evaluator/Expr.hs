@@ -30,7 +30,7 @@ class Evaluatable a where
     eval :: a -> EvaluationMonad Value
 
 instance Evaluatable a => Evaluatable (Annotated b a) where
-    eval (An _ _ a) = eval a
+    eval (An loc _ a) = setCurrentExpressionLocation loc (eval a)
 
 instance Evaluatable (Exp Name) where
     eval (App func args) = do

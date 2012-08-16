@@ -7,12 +7,14 @@ import CSPM.Evaluator.ProcessValues
 import CSPM.DataStructures.Names
 import CSPM.Evaluator.Environment
 import {-# SOURCE #-} CSPM.Evaluator.Values
+import Util.Annotated
 import Util.Exception
 
 data EvaluationState = 
     EvaluationState {
         environment :: Environment,
-        parentProcName :: Maybe ProcName
+        parentProcName :: Maybe ProcName,
+        currentExpressionLocation :: SrcSpan
     }
   
 type EvaluationMonad = Reader EvaluationState
@@ -68,3 +70,11 @@ getParentProcName = gets parentProcName
 updateParentProcName :: ProcName -> EvaluationMonad a -> EvaluationMonad a
 updateParentProcName pn prog =
     modify (\ st -> st { parentProcName = Just pn }) prog
+
+setCurrentExpressionLocation :: SrcSpan -> EvaluationMonad a -> EvaluationMonad a
+setCurrentExpressionLocation sp prog =
+    modify (\ st -> st { currentExpressionLocation = sp }) prog
+
+getCurrentExpressionLocation :: EvaluationMonad SrcSpan
+getCurrentExpressionLocation = gets currentExpressionLocation
+

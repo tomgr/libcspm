@@ -20,12 +20,12 @@ patternMatchFailureMessage l pat v =
                 (prettyPrint v))
             tabWidth (text "does not match the pattern" <+> prettyPrint pat)
 
-headEmptyListMessage :: ErrorMessage
-headEmptyListMessage = mkErrorMessage Unknown $ 
+headEmptyListMessage :: SrcSpan -> ErrorMessage
+headEmptyListMessage loc = mkErrorMessage loc $ 
     text "Attempt to take head of empty list."
 
-tailEmptyListMessage :: ErrorMessage
-tailEmptyListMessage = mkErrorMessage Unknown $ 
+tailEmptyListMessage :: SrcSpan -> ErrorMessage
+tailEmptyListMessage loc = mkErrorMessage loc $ 
     text "Attempt to take tail of empty list."
 
 funBindPatternMatchFailureMessage :: SrcSpan -> Name -> [[Value]] -> ErrorMessage
@@ -74,8 +74,8 @@ cannotDifferenceSetsMessage :: ValueSet -> ValueSet -> ErrorMessage
 cannotDifferenceSetsMessage vs1 vs2 = mkErrorMessage Unknown $
     text "Cannot difference the supplied sets."
 
-dotIsNotValidMessage :: Value -> Int -> Value -> ValueSet -> ErrorMessage
-dotIsNotValidMessage (value@(VDot (h:_))) field fieldValue fieldOptions = mkErrorMessage Unknown $
+dotIsNotValidMessage :: SrcSpan -> Value -> Int -> Value -> ValueSet -> ErrorMessage
+dotIsNotValidMessage loc (value@(VDot (h:_))) field fieldValue fieldOptions = mkErrorMessage loc $
     hang (text "The value:") tabWidth (prettyPrint value)
     $$ text "is invalid as it is not within the set of values defined for" <+>
         case h of

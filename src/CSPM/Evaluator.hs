@@ -18,6 +18,7 @@ import CSPM.Evaluator.File
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
+import Util.Annotated
 
 runFromStateToState :: EvaluationState -> EvaluationMonad a -> 
     (a, EvaluationState)
@@ -29,7 +30,7 @@ runFromStateToState st prog = runEvaluator st $ do
 -- | The environment to use initially. This uses the IO monad as 
 -- the EvaluationMonad cannot be used without a valid environment.
 initEvaluator :: EvaluationState
-initEvaluator = runEvaluator (EvaluationState new Nothing) $
+initEvaluator = runEvaluator (EvaluationState new Nothing Unknown) $
     injectBuiltInFunctions getState
 
 evaluateExp :: TCExp -> EvaluationMonad Value

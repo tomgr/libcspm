@@ -53,10 +53,14 @@ builtInFunctions =
         
         cspm_length [VList xs] = VInt $ length xs
         cspm_null [VList xs] = VBool $ null xs
-        cspm_head [VList []] = throwError headEmptyListMessage
-        cspm_head [VList (x:xs)] = x
-        cspm_tail [VList []] = throwError tailEmptyListMessage
-        cspm_tail [VList (x:xs)] = xs
+        cspm_head [VList []] = do
+            loc <- getCurrentExpressionLocation
+            throwError (headEmptyListMessage loc)
+        cspm_head [VList (x:xs)] = return x
+        cspm_tail [VList []] = do
+            loc <- getCurrentExpressionLocation
+            throwError (tailEmptyListMessage loc)
+        cspm_tail [VList (x:xs)] = return $ VList xs
         cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
         cspm_elem [v, VList vs] = VBool $ v `elem` vs
         csp_chaos [VSet a] = VProc chaosCall
@@ -88,7 +92,7 @@ builtInFunctions =
         
         -- | Functions that return sequences
         seq_funcs = [
-            ("seq", cspm_seq), ("tail", cspm_tail), ("concat", cspm_concat)
+            ("seq", cspm_seq), ("concat", cspm_concat)
             ]
         
         -- | Functions that mutate processes (like compression functions).
@@ -107,7 +111,7 @@ builtInFunctions =
         -- | Functions that return something else
         other_funcs = [
             ("length", cspm_length), ("null", cspm_null), 
-            ("head", cspm_head), ("elem", cspm_elem),
+            ("elem", cspm_elem),
             ("member", cspm_member), ("card", cspm_card),
             ("empty", cspm_empty), ("CHAOS", csp_chaos),
             ("loop", csp_loop), ("relational_image", cspm_relational_image),
@@ -117,6 +121,7 @@ builtInFunctions =
 
         -- | Functions that require a monadic context.
         monadic_funcs = [
+            ("head", cspm_head), ("tail", cspm_tail), 
             ("productions", cspm_productions), ("extensions", cspm_extensions)
             ]
         

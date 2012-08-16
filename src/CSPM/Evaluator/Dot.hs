@@ -87,7 +87,9 @@ combineDots v1 v2 =
             if not b then return True else do
             (_, _, fieldSets) <- dataTypeInfo n
             if member v (fieldSets!field) then return True
-            else throwError $ dotIsNotValidMessage overallValue field v (fieldSets!field)
+            else do
+                loc <- getCurrentExpressionLocation
+                throwError $ dotIsNotValidMessage loc overallValue field v (fieldSets!field)
 
         -- | Dots the two values together, ensuring that if either the left or
         -- the right value is a dot list combines them into one dot list.
