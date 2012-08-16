@@ -46,7 +46,7 @@ builtInFunctions =
             S.fromList [VTuple (listArray (0,1) [arr!1, arr!0]) | VTuple arr <- S.toList s]
         cspm_relational_image [VSet s] = 
             let f = relationalImage s 
-                fid = mkBuiltInFunctionIdentifier (nameForString "relational_image") [VSet s]
+                fid = FBuiltInFunction (nameForString "relational_image") [VSet s]
             in VFunction fid (\[x] -> f x >>= return . VSet)
         cspm_mtransclose [VSet s1, VSet s2] = fdrSymmetricTransitiveClosure s1 s2
         cspm_relational_inverse_image s = cspm_relational_image [cspm_transpose s]
@@ -66,11 +66,14 @@ builtInFunctions =
         csp_chaos [VSet a] = VProc chaosCall
             where
                 chaosCall = PProcCall n p
-                n = procId (nameForString "CHAOS") [[VSet a]] Nothing
+                -- | We convert the set into an explicit set as this makes
+                -- comparisons faster than leaving it as a set represented as
+                -- (for instance) a CompositeSet of CartProduct sets.
+                n = procName $ scopeId (nameForString "CHAOS") [[VSet $ S.fromList $ S.toList a]] Nothing
                 evSet = S.valueSetToEventSet a
                 branches :: Sq.Seq UProc
                 branches = fmap (\ ev -> PUnaryOp (PPrefix ev) chaosCall) evSet
-                stopProc = PProcCall (procId (nameForString "STOP") [] Nothing) csp_stop
+                stopProc = PProcCall csp_stop_id csp_stop
                 p = POp PInternalChoice (stopProc Sq.<| branches)
         csp_loop [VProc p] = VProc (PUnaryOp PSeqCompLoop p)
 
@@ -128,15 +131,15 @@ builtInFunctions =
         mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)
         mkMonadicFunc (s, f) =
             let n = nameForString s
-            in (n, VFunction (mkBuiltInFunctionIdentifier n []) f)
+            in (n, VFunction (FBuiltInFunction n []) f)
 
         procs = [
             ("STOP", csp_stop),
             ("SKIP", csp_skip)
             ]
         
-        csp_skip_id = procId (nameForString "SKIP") [] Nothing
-        csp_stop_id = procId (nameForString "STOP") [] Nothing
+        csp_skip_id = procName (scopeId (nameForString "SKIP") [] Nothing)
+        csp_stop_id = procName (scopeId (nameForString "STOP") [] Nothing)
         -- We actually inline stop, for efficiency
         csp_stop = PProcCall csp_stop_id (POp PExternalChoice Sq.empty)
         csp_skip = PProcCall csp_skip_id (PUnaryOp (PPrefix Tick) csp_stop)

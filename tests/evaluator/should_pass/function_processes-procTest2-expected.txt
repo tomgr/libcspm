@@ -1,0 +1,11 @@
+procTest2::P(procTest2::X::ANNON(true)::f) = in.true -> STOP
+
+STOP =
+
+procTest2::P(procTest2::X::ANNON(false)::f) = in.false -> STOP
+
+procTest2 =
+    procTest2::P(procTest2::X::ANNON(false)::f)
+    [] procTest2::P(procTest2::X::ANNON(true)::f)
+
+procTest2

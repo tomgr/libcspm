@@ -1,0 +1,9 @@
+procTest6::ANNON(1)::Q = c.1 -> STOP
+
+STOP =
+
+procTest6::ANNON(0)::Q = c.0 -> STOP
+
+procTest6 = procTest6::ANNON(0)::Q [] procTest6::ANNON(1)::Q
+
+procTest6

@@ -13,3 +13,7 @@ procTest3 = Z(STOP)(c.0) ||| Z(STOP)(c.1)
 recursion(x) = (\ y @ let P = c.y -> STOP within P)
 
 procTest4 = recursion(0)(0) ||| recursion(0)(1)
+
+procTest5 = [] x : {let Q = c.x -> STOP within Q | x <- {0,1}} @ x
+
+procTest6 = [] x : {0,1} @ let Q = c.x -> STOP within Q

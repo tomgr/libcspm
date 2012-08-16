@@ -86,12 +86,13 @@ instance Evaluatable (Exp Name) where
         if b then eval e2 else eval e3
     eval (Lambda p e) = do
         st <- getState
-        let id = mkLambdaFunctionIdentifier e (environment st)
-        return $ VFunction id $ \ [v] -> return $ runEvaluator st $ do
+        ps <- getParentScopeIdentifier
+        let fid = FLambda (Lambda p e) ps
+        return $ VFunction fid $ \ [v] -> return $ runEvaluator st $ do
             let (matches, binds) = bind p v
             if matches then do
-                p <- getParentProcName
-                updateParentProcName (annonymousProcId [[v]] p) $ do
+                p <- getParentScopeIdentifier
+                updateParentScopeIdentifier (annonymousScopeId [v] p) $ 
                     addScopeAndBind binds (eval e)
             else
                 throwError $ patternMatchFailureMessage (loc p) p v
@@ -127,7 +128,7 @@ instance Evaluatable (Exp Name) where
             Times -> return $ VInt (i1 * i2)
     eval (MathsUnaryOp op e) = do
         VInt i <- eval e
-        case op of 
+        case op of
             Negate -> return $ VInt (-i)
     eval (Paren e) = eval e
     eval (Set es) = mapM eval es >>= return . VSet . S.fromList
@@ -167,7 +168,9 @@ instance Evaluatable (Exp Name) where
                     let (matches, binds) = bind p v
                     if matches then do
                         ev' <- combineDots evBase v
-                        p <- addScopeAndBind binds (evalRest ev' fs)
+                        pid <- getParentScopeIdentifier
+                        p <- updateParentScopeIdentifier (annonymousScopeId [v] pid) $
+                                addScopeAndBind binds $ evalRest ev' fs
                         return $ Just p
                     else return Nothing) (S.toList s)
                 return $ Sq.fromList $ catMaybes mps
@@ -202,7 +205,9 @@ instance Evaluatable (Exp Name) where
                     evExtensions :: Value -> [Pat Name] -> [(Name, Value)] -> 
                         EvaluationMonad (Sq.Seq UProc)
                     evExtensions evBase [] bs = do
-                        p <- addScopeAndBind bs $ evalRest evBase fs
+                        pid <- getParentScopeIdentifier
+                        p <- updateParentScopeIdentifier (annonymousScopeId (map snd bs) pid) $
+                                addScopeAndBind bs $ evalRest evBase fs
                         return $ Sq.singleton p
                     evExtensions evBase (PVar n:ps) bs | isNameDataConstructor n = do
                         (dc, _, _) <- dataTypeInfo n
@@ -246,11 +251,8 @@ instance Evaluatable (Exp Name) where
 
             evalFields :: Value -> [Field Name] -> EvaluationMonad UProc
             evalFields ev [] = do
-                -- TODO: check valid event
-                p <- getParentProcName
-                updateParentProcName (annonymousProcId [[ev]] p) $ do
-                    p <- evalProc e2
-                    return $ PUnaryOp (PPrefix (valueEventToEvent ev)) p
+                p <- evalProc e2
+                return $ PUnaryOp (PPrefix (valueEventToEvent ev)) p
             evalFields evBase (Output e:fs) = do
                 v <- eval e
                 ev' <- combineDots evBase v
@@ -415,8 +417,10 @@ evalStmts extract anStmts prog =
             v <- eval e
             vss <- mapM (\v -> do
                 let (matches, binds) = bind p v
-                if matches then 
-                    addScopeAndBind binds (evStmts stmts)
+                if matches then do
+                    pid <- getParentScopeIdentifier
+                    updateParentScopeIdentifier (annonymousScopeId [v] pid) $
+                        addScopeAndBind binds (evStmts stmts)
                 else return []) (extract v)
             return $ concat vss
     in
@@ -437,7 +441,9 @@ evalStmts' extract anStmts prog =
             F.foldlM (\ s v -> do
                 let (matches, binds) = bind p v
                 if matches then do
-                    s' <- addScopeAndBind binds (evStmts stmts)
+                    pid <- getParentScopeIdentifier
+                    s' <- updateParentScopeIdentifier (annonymousScopeId [v] pid) $
+                                addScopeAndBind binds (evStmts stmts)
                     return $ s Sq.>< s'
                 else return s) Sq.empty (extract v)
     in evStmts (map unAnnotate anStmts)

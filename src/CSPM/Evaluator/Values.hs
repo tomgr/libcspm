@@ -1,11 +1,8 @@
 module CSPM.Evaluator.Values (
     Value(..), UProc, Proc(..), CSPOperator(..), ProcOperator(..), Event(..),
-    FunctionIdentifier(..),
-    mkBuiltInFunctionIdentifier,
-    mkLambdaFunctionIdentifier,
-    mkMatchBindFunctionIdentifier,
+    ScopeIdentifier(..), FunctionIdentifier(..),
     compareValues,
-    procId, annonymousProcId,
+    procName, scopeId, annonymousScopeId,
     valueEventToEvent,
     noSave, maybeSave, removeThunk, lookupVar,
     tupleFromList,
@@ -13,11 +10,9 @@ module CSPM.Evaluator.Values (
     module Data.Array,
 ) where
 
-import CSPM.DataStructures.FreeVars
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
-import CSPM.Evaluator.Environment
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.ProcessValues
 import {-# SOURCE #-} CSPM.Evaluator.ValuePrettyPrinter()
@@ -50,62 +45,83 @@ data Value =
     | VProc UProc
     | VThunk (EvaluationMonad Value)
 
+-- | A disambiguator between different occurences of either processes or
+-- functions. This works by storing the values that are bound (i.e. the free
+-- variables the inner `thing` may depend on). This is used as a 'ProcName' and
+-- for 'FunctionIdentifier's.
+data ScopeIdentifier =
+    SFunctionBind {
+        scopeFunctionName :: Name,
+        scopeFunctionArguments :: [[Value]],
+        parentScopeIdentifier :: Maybe ScopeIdentifier
+    }
+    | SVariableBind {
+        variablesBound :: [Value],
+        parentScopeIdentifier :: Maybe ScopeIdentifier
+    }
+
+instance Eq ScopeIdentifier where
+    SFunctionBind n1 vss1 p1 == SFunctionBind n2 vss2 p2 =
+        n1 == n2 && vss1 == vss2 && p1 == p2
+    SVariableBind vs1 p1 == SVariableBind vs2 p2 =
+        vs1 == vs2 && p1 == p2
+
+instance Hashable ScopeIdentifier where
+    hash (SFunctionBind n1 args1 p1) =
+        combine 1 (combine (hash n1) (combine (hash args1) (hash p1)))
+    hash (SVariableBind vs1 p1) = combine 2 (combine (hash vs1) (hash p1))
+
+instance Ord ScopeIdentifier where
+    compare (SFunctionBind n1 vss1 p1) (SFunctionBind n2 vss2 p2) =
+        compare n1 n2 `thenCmp` compare vss1 vss2 `thenCmp` compare p1 p2
+    compare (SFunctionBind _ _ _) _ = LT
+    compare _ (SFunctionBind _ _ _) = GT
+    compare (SVariableBind vs1 p1) (SVariableBind vs2 p2) =
+        compare vs1 vs2 `thenCmp` compare p1 p2
+
 data FunctionIdentifier = 
     FBuiltInFunction {
         functionName :: Name,
         arguments :: [Value]
     }
     | FLambda {
-        innerExpression :: TCExp,
-        envrionment :: Environment
+        lambdaExpression :: Exp Name,
+        parentFunctionIdentifier :: Maybe ScopeIdentifier
     }
     | FMatchBind {
         functionName :: Name,
         argumentGroups :: [[Value]],
         -- | The free variables this is bound in
-        envrionment :: Environment,
-        -- | Invariant: if function names are equal then inner expression is.
-        innerMatches :: [TCMatch]
+        scopeIdentifier :: Maybe ScopeIdentifier
     }
-
-mkBuiltInFunctionIdentifier :: Name -> [Value] -> FunctionIdentifier
-mkBuiltInFunctionIdentifier n vs = FBuiltInFunction n vs
-
-mkLambdaFunctionIdentifier :: TCExp -> Environment -> FunctionIdentifier
-mkLambdaFunctionIdentifier e env = FLambda e (trimEnvironment env (freeVars e))
-
-mkMatchBindFunctionIdentifier :: Name -> [[Value]] -> Environment -> [TCMatch] -> FunctionIdentifier
-mkMatchBindFunctionIdentifier n vs env ms = 
-    FMatchBind n vs (trimEnvironment env (freeVars ms)) ms
 
 instance Eq FunctionIdentifier where
     FBuiltInFunction n1 vs1 == FBuiltInFunction n2 vs2 =
         n1 == n2 && vs1 == vs2
-    FLambda e1 env1 == FLambda e2 env2 =
-        e1 == e2 && and [lookup env1 v == lookup env2 v | v <- freeVars e1]
-    FMatchBind n1 args1 env1 expr1 == FMatchBind n2 args2 env2 expr2 =
-        n1 == n2 && args1 == args2 && env1 == env2
+    FLambda e1 parent1 == FLambda e2 parent2 =
+        e1 == e2 && parent1 == parent2
+    FMatchBind n1 args1 parent1 == FMatchBind n2 args2 parent2 =
+        n1 == n2 && args1 == args2 && parent1 == parent2
     _ == _ = False
 
 instance Hashable FunctionIdentifier where
     hash (FBuiltInFunction n1 vs) = combine 2 (combine (hash n1) (hash vs))
-    hash (FLambda expr env) =
-        combine 3 (combine (hash (show expr)) (hash [lookup env v | v <- freeVars expr]))
-    hash (FMatchBind n vs env _) =
-        combine 4 (combine (hash n) (combine (hash vs) (hash env)))
+    hash (FLambda expr parent) =
+        combine 3 (combine (hash (show expr)) (hash parent))
+    hash (FMatchBind n vs parent) =
+        combine 4 (combine (hash n) (combine (hash vs) (hash parent)))
 
 instance Ord FunctionIdentifier where
     compare (FBuiltInFunction n1 args1) (FBuiltInFunction n2 args2) =
         compare n1 n2 `thenCmp` compare args1 args2
     compare (FBuiltInFunction _ _) _ = LT
     compare _ (FBuiltInFunction _ _) = GT
-    compare (FLambda e1 env1) (FLambda e2 env2) =
-        compare e1 e2 `thenCmp` 
-        foldr thenCmp EQ [compare (lookup env1 v) (lookup env2 v) | v <- freeVars e1]
+    compare (FLambda e1 parent1) (FLambda e2 parent2) =
+        compare parent1 parent2 `thenCmp` compare e1 e2
     compare (FLambda _ _) _ = LT
     compare _ (FLambda _ _) = GT
-    compare (FMatchBind n1 vs1 env1 _) (FMatchBind n2 vs2 env2 _) =
-        compare n1 n2 `thenCmp` compare vs1 vs2 `thenCmp` compare env1 env2
+    compare (FMatchBind n1 vs1 parent1) (FMatchBind n2 vs2 parent2) =
+        compare n1 n2 `thenCmp` compare parent1 parent2 `thenCmp` compare vs1 vs2
 
 tupleFromList :: [Value] -> Value
 tupleFromList vs = VTuple $! listArray (0, length vs - 1) vs
@@ -117,9 +133,9 @@ tupleFromList vs = VTuple $! listArray (0, length vs - 1) vs
 -- processes).
 noSave :: EvaluationMonad Value -> EvaluationMonad Value
 noSave prog = do
-    pn <- getParentProcName
+    pn <- getParentScopeIdentifier
     return $ VThunk $ case pn of
-                        Just x -> updateParentProcName x prog
+                        Just x -> updateParentScopeIdentifier x prog
                         Nothing -> prog
 
 maybeSave :: Type -> EvaluationMonad Value -> EvaluationMonad Value
@@ -222,11 +238,14 @@ instance Ord Value where
         -- as a result of type checking.
         "Internal sets - cannot order "++show (prettyPrint v1)++show (prettyPrint v2)
       
-procId :: Name -> [[Value]] -> Maybe ProcName -> ProcName
-procId n vss pn = ProcName n vss pn
+procName :: ScopeIdentifier -> ProcName
+procName = ProcName
 
-annonymousProcId :: [[Value]] -> Maybe ProcName -> ProcName
-annonymousProcId vss pn = AnnonymousProcName vss pn
+scopeId :: Name -> [[Value]] -> Maybe ScopeIdentifier -> ScopeIdentifier
+scopeId n vss pn = SFunctionBind n (map (map trimValueForProcessName) vss) pn
+
+annonymousScopeId :: [Value] -> Maybe ScopeIdentifier -> ScopeIdentifier
+annonymousScopeId vss pn = SVariableBind (map trimValueForProcessName vss) pn
 
 -- | This assumes that the value is a VDot with the left is a VChannel
 valueEventToEvent :: Value -> Event
@@ -237,9 +256,9 @@ errorThunk = panic "Trimmed value function evaluated"
 trimFunctionIdentifier :: FunctionIdentifier -> FunctionIdentifier
 trimFunctionIdentifier (FBuiltInFunction n args) =
     FBuiltInFunction n (map trimValueForProcessName args)
-trimFunctionIdentifier (FLambda e env) = FLambda e env
-trimFunctionIdentifier (FMatchBind n args env ms) =
-    FMatchBind n (map (map trimValueForProcessName) args) env errorThunk
+trimFunctionIdentifier (FLambda e p) = FLambda e p
+trimFunctionIdentifier (FMatchBind n args p) =
+    FMatchBind n (map (map trimValueForProcessName) args) p
 
 trimValueForProcessName :: Value -> Value
 trimValueForProcessName (VInt i) = VInt i

@@ -3,7 +3,6 @@ module CSPM.Evaluator.Monad where
 import Control.Monad.Reader
 import Prelude hiding (lookup)
 
-import CSPM.Evaluator.ProcessValues
 import CSPM.DataStructures.Names
 import CSPM.Evaluator.Environment
 import {-# SOURCE #-} CSPM.Evaluator.Values
@@ -13,7 +12,7 @@ import Util.Exception
 data EvaluationState = 
     EvaluationState {
         environment :: Environment,
-        parentProcName :: Maybe ProcName,
+        parentScopeIdentifier :: Maybe ScopeIdentifier,
         currentExpressionLocation :: SrcSpan
     }
   
@@ -64,12 +63,12 @@ addScopeAndBindM binds prog = do
 throwError :: ErrorMessage -> a
 throwError err = throwSourceError [err]
 
-getParentProcName :: EvaluationMonad (Maybe ProcName)
-getParentProcName = gets parentProcName
+getParentScopeIdentifier :: EvaluationMonad (Maybe ScopeIdentifier)
+getParentScopeIdentifier = gets parentScopeIdentifier
 
-updateParentProcName :: ProcName -> EvaluationMonad a -> EvaluationMonad a
-updateParentProcName pn prog =
-    modify (\ st -> st { parentProcName = Just pn }) prog
+updateParentScopeIdentifier :: ScopeIdentifier -> EvaluationMonad a -> EvaluationMonad a
+updateParentScopeIdentifier pn prog =
+    modify (\ st -> st { parentScopeIdentifier = Just pn }) prog
 
 setCurrentExpressionLocation :: SrcSpan -> EvaluationMonad a -> EvaluationMonad a
 setCurrentExpressionLocation sp prog =
@@ -77,4 +76,3 @@ setCurrentExpressionLocation sp prog =
 
 getCurrentExpressionLocation :: EvaluationMonad SrcSpan
 getCurrentExpressionLocation = gets currentExpressionLocation
-

@@ -5,6 +5,7 @@ module CSPM.Evaluator.ValuePrettyPrinter () where
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Identity
+import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Monad
@@ -17,6 +18,9 @@ import qualified Data.Sequence as S
 import Data.List (partition)
 import Util.PrettyPrint
 import qualified Util.MonadicPrettyPrint as M
+
+instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m (Exp Name) where
+    prettyPrint = return . prettyPrint
 
 instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m TCExp where
     prettyPrint = return . prettyPrint
@@ -84,16 +88,19 @@ instance (F.Foldable f) => M.MonadicPrettyPrintable Identity (f Event) where
 
 instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
         M.MonadicPrettyPrintable m ProcName where
-    prettyPrint (ProcName n args Nothing) =
+    prettyPrint (ProcName s) = M.prettyPrint s
+
+instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
+        M.MonadicPrettyPrintable m ScopeIdentifier where
+    prettyPrint (SFunctionBind n args Nothing) =
         M.prettyPrint n
         M.<> M.hcat (mapM (\as -> M.parens (M.list (mapM M.prettyPrint as))) args)
-    prettyPrint (ProcName n args (Just pn)) =
-        M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (ProcName n args Nothing)
-    prettyPrint (AnnonymousProcName args Nothing) =
-        M.text "ANNON"
-        M.<> M.hcat (mapM (\as -> M.parens (M.list (mapM M.prettyPrint as))) args)
-    prettyPrint (AnnonymousProcName args (Just pn)) =
-        M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (AnnonymousProcName args Nothing)
+    prettyPrint (SFunctionBind n args (Just pn)) =
+        M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (SFunctionBind n args Nothing)
+    prettyPrint (SVariableBind args Nothing) =
+        M.text "ANNON" M.<> (M.parens (M.list (mapM M.prettyPrint args)))
+    prettyPrint (SVariableBind args (Just pn)) =
+        M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (SVariableBind args Nothing)
 
 instance (Applicative m, F.Foldable seq, Functor seq, Monad m, 
             M.MonadicPrettyPrintable m pn, M.MonadicPrettyPrintable m ev,
@@ -167,9 +174,14 @@ instance (Applicative m, Monad m,
         M.prettyPrint n M.<> case args of
                             [] -> M.empty
                             _ -> M.parens (M.list (mapM M.prettyPrint args))
-    prettyPrint (VFunction (FLambda e env) _) = M.prettyPrint e
-    prettyPrint (VFunction (FMatchBind n args _ _) _) =
-        M.prettyPrint n M.<>
+    prettyPrint (VFunction (FLambda e Nothing) _) = M.prettyPrint e
+    prettyPrint (VFunction (FLambda e (Just p)) _) =
+        M.prettyPrint p M.<> M.text "::" M.<> M.parens (M.prettyPrint e)
+    prettyPrint (VFunction (FMatchBind n args parent) _) =
+        (case parent of
+            Just pid -> M.prettyPrint pid M.<> M.text "::"
+            Nothing -> M.empty
+        ) M.<> M.prettyPrint n M.<>
         case args of
             [] -> M.empty
             _ -> M.hcat (mapM (\ as -> M.parens (M.list (mapM M.prettyPrint as))) args)

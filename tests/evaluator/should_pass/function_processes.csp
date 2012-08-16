@@ -6,3 +6,10 @@ X = P(\x @ false, \x @ true)
 Y = in?x -> out!false -> in?x -> out!true -> Y
 
 procTest1 = X
+
+procTest2 = 
+    let
+        X = <let f(y) = x within f | x <- <false, true>>
+        P(f) = in.f(false) -> STOP
+    within
+        P(head(X)) [] P(head(tail(X)))

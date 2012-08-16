@@ -1,4 +1,5 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses,
+{-# LANGUAGE FlexibleContexts, FlexibleInstances,
+    GeneralizedNewtypeDeriving, MultiParamTypeClasses,
     TypeSynonymInstances, UndecidableInstances #-}
 module CSPM.Evaluator.ProcessValues (
     -- * Events
@@ -11,10 +12,9 @@ module CSPM.Evaluator.ProcessValues (
     ProcName(..),
     operator, components,
     prettyPrintAllRequiredProcesses,
-    trimProcess, trimProcName,
+    trimProcess,
 ) where
 
-import CSPM.DataStructures.Names
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import qualified Data.Foldable as F
 import qualified Data.Sequence as S
@@ -44,28 +44,7 @@ instance Hashable Event where
     hash (UserEvent vs) = combine 3 (hash vs)
 
 -- | ProcNames uniquely identify processes.
-data ProcName =
-    ProcName {
-        -- | The name of this process (recal Name s are unique).
-        name :: Name,
-        -- | The arguments applied to this process, in case it was a function
-        -- call.
-        arguments :: [[Value]],
-        -- | The parent of this proc name. This is used in let expressions.
-        parent :: Maybe ProcName
-    }
-    -- | A proccess that has no name, but needs disambgiuation. These are
-    -- used in prefixing to avoid problems with things like:
-    -- P = c?x -> (let Q = ... within Q) as the ... can depend on x.
-    | AnnonymousProcName {
-        arguments :: [[Value]],
-        parent :: Maybe ProcName
-    }
-    deriving (Eq, Ord)
-
-instance Hashable ProcName where
-    hash (ProcName n vss p) = combine 1 (combine (hash n) (combine (hash vss) (hash p)))
-    hash (AnnonymousProcName as ps) = combine 2 (combine (hash as) (hash ps))
+newtype ProcName = ProcName (ScopeIdentifier) deriving (Eq, Hashable, Ord)
 
 -- | An operator that can be applied to processes.
 data ProcOperator =
@@ -138,18 +117,7 @@ trimProcess (PBinaryOp op p1 p2) =
     PBinaryOp (trimOperator op) (trimProcess p1) (trimProcess p2)
 trimProcess (POp op ps) =
     POp (trimOperator op) (fmap trimProcess ps)
-trimProcess (PProcCall pn _) = PProcCall (trimProcName pn) errorThunk
-
-trimProcName :: ProcName -> ProcName
-trimProcName (ProcName n args Nothing) =
-    ProcName n (map (map trimValueForProcessName) args) Nothing
-trimProcName (ProcName n args (Just parent)) =
-    ProcName n (map (map trimValueForProcessName) args) (Just (trimProcName parent))
-trimProcName (AnnonymousProcName args Nothing) =
-    AnnonymousProcName (map (map trimValueForProcessName) args) Nothing
-trimProcName (AnnonymousProcName args (Just parent)) =
-    AnnonymousProcName (map (map trimValueForProcessName) args)
-        (Just (trimProcName parent))
+trimProcess (PProcCall pn _) = PProcCall pn errorThunk
 
 trimEvent :: Event -> Event
 trimEvent Tau = Tau

@@ -42,14 +42,14 @@ bindDecls ds = do
 
 bindDecl :: TCDecl -> EvaluationMonad [(Name, EvaluationMonad Value)]
 bindDecl (an@(An _ _ (FunBind n ms))) = do
-    parentPid <- getParentProcName
+    parentScope <- getParentScopeIdentifier
     let
         matches = map unAnnotate ms
         argGroupCount = head (map (\ (Match pss e) -> length pss) matches)
         collectArgs :: Int -> [[Value]] -> EvaluationMonad Value
         collectArgs 0 ass_ =
             let
-                procName = procId n argGroups parentPid
+                scopeName = scopeId n argGroups parentScope
                 argGroups = reverse ass_
                 tryMatches [] = throwError $ 
                     funBindPatternMatchFailureMessage (loc an) n argGroups
@@ -61,30 +61,30 @@ bindDecl (an@(An _ _ (FunBind n ms))) = do
                     in 
                         if not (and bindResults) then tryMatches ms
                         else
-                            addScopeAndBind binds $ updateParentProcName procName $ do
+                            addScopeAndBind binds $ updateParentScopeIdentifier scopeName $ do
                                 v <- eval e
                                 case v of
-                                    VProc p -> return $ VProc $ PProcCall procName p
+                                    VProc p -> return $ VProc $ PProcCall (procName scopeName) p
                                     _ -> return $ v
             in tryMatches matches
         collectArgs number ass = do
-            let fid = mkMatchBindFunctionIdentifier n (reverse ass) env ms
             -- Make sure we save the enclosing environment (as it contains
             -- variables that we need).
             st <- gets id
+            let fid = FMatchBind n (reverse ass) parentScope
             return $ VFunction fid $ \ vs ->
                 modify (\_ -> st) $ collectArgs (number-1) (vs:ass)
     return $ [(n, collectArgs argGroupCount [])]
 bindDecl (an@(An _ _ (PatBind p e))) = do
-    parentPid <- getParentProcName
+    parentScope <- getParentScopeIdentifier
     let [(n, ForAll _ t)] = getSymbolTable an
-        procName = procId n [] parentPid
-        ev = maybeSave t $ updateParentProcName procName $ do
+        scopeName = scopeId n [] parentScope
+        ev = maybeSave t $ updateParentScopeIdentifier scopeName $ do
             v <- eval e
             case bind p v of
                 (True, [(n', val)]) | n == n' -> return $!
                     case val of
-                        VProc p -> VProc $ PProcCall procName p
+                        VProc p -> VProc $ PProcCall (procName scopeName) p
                         _ ->  val
                 (False, _) -> throwError $ 
                     patternMatchFailureMessage (loc an) p v

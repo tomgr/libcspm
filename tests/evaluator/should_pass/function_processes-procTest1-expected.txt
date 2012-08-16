@@ -1,12 +1,12 @@
-P(true, false) =
-    in.false -> out.true -> P(false, true)
-    [] in.true -> out.true -> P(false, true)
+P(X::(\x @ true), X::(\x @ false)) =
+    in.false -> out.true -> P(X::(\x @ false), X::(\x @ true))
+    [] in.true -> out.true -> P(X::(\x @ false), X::(\x @ true))
 
-P(false, true) =
-    in.false -> out.false -> P(true, false)
-    [] in.true -> out.false -> P(true, false)
+P(X::(\x @ false), X::(\x @ true)) =
+    in.false -> out.false -> P(X::(\x @ true), X::(\x @ false))
+    [] in.true -> out.false -> P(X::(\x @ true), X::(\x @ false))
 
-X = P(false, true)
+X = P(X::(\x @ false), X::(\x @ true))
 
 procTest1 = X
 

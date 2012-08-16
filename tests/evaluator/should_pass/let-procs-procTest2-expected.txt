@@ -1,10 +1,10 @@
-procTest2::ANNON(c.1)::Q = c.1 -> STOP
+procTest2::ANNON(1)::Q = c.1 -> STOP
 
 STOP =
 
-procTest2::ANNON(c.0)::Q = c.0 -> STOP
+procTest2::ANNON(0)::Q = c.0 -> STOP
 
 procTest2 =
-    c.0 -> procTest2::ANNON(c.0)::Q [] c.1 -> procTest2::ANNON(c.1)::Q
+    c.0 -> procTest2::ANNON(0)::Q [] c.1 -> procTest2::ANNON(1)::Q
 
 procTest2
