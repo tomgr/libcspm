@@ -131,11 +131,14 @@ instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs)) =>
 
 errorThunk = panic "Trimmed process evaluated"
 
-trimProcess :: Functor seq => Proc seq oip pn ev evs evm -> Proc seq oip pn ev evs evm
-trimProcess (PUnaryOp op p1) = PUnaryOp op (trimProcess p1)
-trimProcess (PBinaryOp op p1 p2) = PBinaryOp op (trimProcess p1) (trimProcess p2)
-trimProcess (POp op ps) = POp op (fmap trimProcess ps)
-trimProcess (PProcCall pn _) = PProcCall pn errorThunk
+trimProcess :: UnCompiledProc -> UnCompiledProc
+trimProcess (PUnaryOp op p1) =
+    PUnaryOp (trimOperator op) (trimProcess p1)
+trimProcess (PBinaryOp op p1 p2) =
+    PBinaryOp (trimOperator op) (trimProcess p1) (trimProcess p2)
+trimProcess (POp op ps) =
+    POp (trimOperator op) (fmap trimProcess ps)
+trimProcess (PProcCall pn _) = PProcCall (trimProcName pn) errorThunk
 
 trimProcName :: ProcName -> ProcName
 trimProcName (ProcName n args Nothing) =
@@ -147,6 +150,31 @@ trimProcName (AnnonymousProcName args Nothing) =
 trimProcName (AnnonymousProcName args (Just parent)) =
     AnnonymousProcName (map (map trimValueForProcessName) args)
         (Just (trimProcName parent))
+
+trimEvent :: Event -> Event
+trimEvent Tau = Tau
+trimEvent Tick = Tick
+trimEvent (UserEvent v) = UserEvent (trimValueForProcessName v)
+
+trimOperator :: CSPOperator S.Seq Event (S.Seq Event) (S.Seq (Event, Event)) ->
+    CSPOperator S.Seq Event (S.Seq Event) (S.Seq (Event, Event))
+trimOperator (PAlphaParallel s) = PAlphaParallel (fmap (fmap trimEvent) s)
+trimOperator (PException s) = PException (fmap trimEvent s)
+trimOperator PExternalChoice = PExternalChoice
+trimOperator (PGenParallel evs) = PGenParallel (fmap trimEvent evs)
+trimOperator (PHide evs) = PHide (fmap trimEvent evs)
+trimOperator PInternalChoice = PInternalChoice
+trimOperator PInterrupt = PInterrupt
+trimOperator PInterleave = PInterleave
+trimOperator (PLinkParallel evm) =
+    PLinkParallel (fmap (\(ev,ev') -> (trimEvent ev, trimEvent ev')) evm)
+trimOperator PSeqCompLoop = PSeqCompLoop
+trimOperator (POperator op) = POperator op
+trimOperator (PPrefix ev) = PPrefix (trimEvent ev)
+trimOperator (PRename evm) = 
+    PRename (fmap (\(ev,ev') -> (trimEvent ev, trimEvent ev')) evm)
+trimOperator PSequentialComp = PSequentialComp
+trimOperator PSlidingChoice = PSlidingChoice
 
 -- | A compiled process. Note this is an infinite data structure (due to
 -- PProcCall) as this makes compilation easy (we can easily chase
