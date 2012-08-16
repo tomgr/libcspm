@@ -16,3 +16,8 @@ testLetExpression =
         g(0) = f(12)
         g(x) = x
     within f(0) == 12
+
+testLetExpression2 =
+    let
+        f(y) = let g(x) = y within g
+    within f(true)(true)

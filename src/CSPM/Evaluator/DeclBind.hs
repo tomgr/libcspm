@@ -68,9 +68,12 @@ bindDecl (an@(An _ _ (FunBind n ms))) = do
                                     _ -> return $ v
             in tryMatches matches
         collectArgs number ass = do
-            env <- gets environment
             let fid = mkMatchBindFunctionIdentifier n (reverse ass) env ms
-            return $ VFunction fid $ \ vs -> collectArgs (number-1) (vs:ass)
+            -- Make sure we save the enclosing environment (as it contains
+            -- variables that we need).
+            st <- gets id
+            return $ VFunction fid $ \ vs ->
+                modify (\_ -> st) $ collectArgs (number-1) (vs:ass)
     return $ [(n, collectArgs argGroupCount [])]
 bindDecl (an@(An _ _ (PatBind p e))) = do
     parentPid <- getParentProcName
