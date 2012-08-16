@@ -40,3 +40,5 @@ testSetDifference2 = diff({1,2,3}, {1}) == {2,3}
 testSetDifference3 = diff({1..}, {1}) == {2..}
 testSetDifference4 = diff({1..}, Int) == {}
 testSetDifference5 = diff({2,4,5}, Int) == {}
+
+testPowerset1 = Set({}) == {{}}

@@ -55,6 +55,8 @@ data ValueSet =
     | AllSequences ValueSet
     -- | A cartesian product of several sets.
     | CartesianProduct [ValueSet] CartProductType
+    -- | The powerset of the given set
+    | Powerset ValueSet
 
 instance Hashable ValueSet where
     hash Integers = 1
@@ -64,6 +66,8 @@ instance Hashable ValueSet where
     -- All the above are the ONLY possible representations of the sets (as the
     -- sets are infinite). However, other sets can be represented in multiple
     -- ways so we have to normalise to an explicit set, essentially. 
+    -- This is already guaranteed to be sorted
+    hash (ExplicitSet vs) = combine 5 (hash (S.toList vs))
     hash s = combine 5 (hash (sort $ toList s))
 
 instance Eq ValueSet where
@@ -85,6 +89,7 @@ instance Ord ValueSet where
     compare (CompositeSet s1) (CompositeSet s2) = compare s1 s2
     compare (AllSequences s1) (AllSequences s2) = compare s1 s2
     compare (ExplicitSet s1) (ExplicitSet s2) = compare s1 s2
+    compare (Powerset s1) (Powerset s2) = compare s1 s2
     -- Fallback to comparing the lists
     compare s1 s2 = compare (sort $ toList s1) (sort $ toList s2)
 
@@ -153,6 +158,10 @@ compareValueSets (ExplicitSet vs) (CartesianProduct vsets vc) =
     compareValueSets (ExplicitSet vs) (fromList (toList (CartesianProduct vsets vc)))
 compareValueSets (CartesianProduct vsets vc) (ExplicitSet vs) =
     flipOrder (compareValueSets (ExplicitSet vs) (CartesianProduct vsets vc))
+compareValueSets (Powerset vs1) (Powerset vs2) = compareValueSets vs1 vs2
+compareValueSets s1 (Powerset s2) =
+    compareValueSets s1 (fromList (toList (Powerset s2)))
+compareValueSets (Powerset s1) s2 = flipOrder (compareValueSets s2 (Powerset s1))
 -- Anything else is incomparable
 compareValueSets _ _ = Nothing
 
@@ -161,10 +170,8 @@ compareValueSets _ _ = Nothing
 cartesianProduct :: CartProductType -> [ValueSet] -> ValueSet
 cartesianProduct vc vss = CartesianProduct vss vc
 
--- | Returns the powerset of a ValueSet. This requires
 powerset :: ValueSet -> ValueSet
-powerset = fromList . map (VSet . fromList) . 
-            filterM (\x -> [True, False]) . toList
+powerset = Powerset
 
 -- | Returns the set of all sequences over the input set. This is infinite
 -- so we use a CompositeSet.
@@ -208,6 +215,8 @@ toList (CartesianProduct vss ct) =
     in case ct of
             CartTuple -> map tupleFromList cp
             CartDot -> map VDot cp
+toList (Powerset vs) =
+    (map (VSet . fromList) . filterM (\x -> [True, False]) . toList) vs
 
 toSeq :: ValueSet -> Sq.Seq Value
 toSeq (ExplicitSet s) = F.foldMap Sq.singleton s
@@ -215,6 +224,7 @@ toSeq (IntSetFrom lb) = fmap VInt (Sq.fromList [lb..])
 toSeq (CompositeSet ss) = F.msum (fmap toSeq ss)
 toSeq (AllSequences vs) = Sq.fromList (toList (AllSequences vs))
 toSeq (CartesianProduct vss ct) = Sq.fromList (toList (CartesianProduct vss ct))
+toSeq (Powerset vs) = Sq.fromList (toList (Powerset vs))
 toSeq Integers = throwSourceError [cannotConvertIntegersToListMessage]
 toSeq Processes = throwSourceError [cannotConvertProcessesToListMessage]
 
@@ -236,6 +246,7 @@ member (VList vs) (AllSequences s) = and (map (flip member s) vs)
 member (VDot vs) (CartesianProduct vss CartDot) = and (zipWith member vs vss)
 member (VTuple vs) (CartesianProduct vss CartTuple) =
     and (zipWith member (elems vs) vss)
+member (VSet s) (Powerset vs) = and (map (\v -> member v vs) (toList s))
 member v s1 = throwSourceError [cannotCheckSetMembershipError v s1]
 
 -- | The cardinality of the set. Throws an error if the set is infinite.
@@ -243,6 +254,7 @@ card :: ValueSet -> Integer
 card (ExplicitSet s) = toInteger (S.size s)
 card (CompositeSet ss) = F.sum (fmap card ss)
 card (CartesianProduct vss _) = product (map card vss)
+card (Powerset s) = 2^(card s)
 card s = throwSourceError [cardOfInfiniteSetMessage s]
 
 -- | Is the specified set empty?
@@ -254,6 +266,7 @@ empty (AllSequences s) = empty s
 empty (CartesianProduct vss _) = or (map empty vss)
 empty Processes = False
 empty Integers = False
+empty (Powerset s) = False
 
 -- | Replicated union.
 unions :: [ValueSet] -> ValueSet
@@ -334,6 +347,9 @@ intersection (AllSequences vs) s =
     intersection (fromList (toList (AllSequences vs))) s
 intersection s (AllSequences vs) =
     intersection (fromList (toList (AllSequences vs))) s
+intersection (Powerset s1) (Powerset s2) = Powerset (intersection s1 s2)
+intersection (Powerset s1) s2 = intersection (fromList (toList (Powerset s1))) s2
+intersection s2 (Powerset s1) = intersection (fromList (toList (Powerset s1))) s2
 
 difference :: ValueSet -> ValueSet -> ValueSet
 difference (ExplicitSet s1) (ExplicitSet s2) = ExplicitSet (S.difference s1 s2)
@@ -370,6 +386,7 @@ unDotProduct :: ValueSet -> Maybe [ValueSet]
 unDotProduct (CartesianProduct vs vc) = return [CartesianProduct vs vc]
 unDotProduct (AllSequences vs) = return [AllSequences vs]
 unDotProduct (IntSetFrom i1) = return [IntSetFrom i1]
+unDotProduct (Powerset s) = return [Powerset s]
 unDotProduct Integers = return [Integers]
 unDotProduct Processes = return [Processes]
 unDotProduct (CompositeSet ss) = do
