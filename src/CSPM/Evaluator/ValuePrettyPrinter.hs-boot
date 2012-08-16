@@ -20,6 +20,7 @@ instance PrettyPrintable Value
 instance PrettyPrintable ValueSet
 instance PrettyPrintable UnCompiledProc
 instance PrettyPrintable ProcOperator
+instance PrettyPrintable ScopeIdentifier
 instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
         M.MonadicPrettyPrintable m Event
 instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m ProcOperator

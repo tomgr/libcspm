@@ -46,6 +46,9 @@ instance PrettyPrintable UnCompiledProc where
 instance PrettyPrintable ProcOperator where
     prettyPrint = runIdentity . M.prettyPrint
 
+instance PrettyPrintable ScopeIdentifier where
+    prettyPrint = runIdentity . M.prettyPrint
+
 instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
         M.MonadicPrettyPrintable m Event where
     prettyPrint Tau = M.char 'τ'
