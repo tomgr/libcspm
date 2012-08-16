@@ -13,6 +13,19 @@ import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 
+printCallStack :: Maybe ScopeIdentifier -> Doc
+printCallStack Nothing = text "Lexical call stack: none available"
+printCallStack (Just p) =
+    let ppFrame _ Nothing = empty
+        ppFrame i (Just (SFunctionBind n vss p)) =
+            int i <> colon <+> prettyPrint (SFunctionBind n vss Nothing)
+            $$ ppFrame (i+1) p
+        ppFrame i (Just (SVariableBind vs p)) =
+            int i <> colon <+> prettyPrint (SVariableBind vs Nothing)
+            $$ ppFrame (i+1) p
+    in text "Lexical call stack:" $$ tabIndent (ppFrame 1 (Just p))
+
+
 patternMatchFailureMessage :: SrcSpan -> TCPat -> Value -> ErrorMessage
 patternMatchFailureMessage l pat v =
     mkErrorMessage l $ 
@@ -20,13 +33,15 @@ patternMatchFailureMessage l pat v =
                 (prettyPrint v))
             tabWidth (text "does not match the pattern" <+> prettyPrint pat)
 
-headEmptyListMessage :: SrcSpan -> ErrorMessage
-headEmptyListMessage loc = mkErrorMessage loc $ 
+headEmptyListMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
+headEmptyListMessage loc scope = mkErrorMessage loc $ 
     text "Attempt to take head of empty list."
+    $$ printCallStack scope
 
-tailEmptyListMessage :: SrcSpan -> ErrorMessage
-tailEmptyListMessage loc = mkErrorMessage loc $ 
+tailEmptyListMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
+tailEmptyListMessage loc scope = mkErrorMessage loc $ 
     text "Attempt to take tail of empty list."
+    $$ printCallStack scope
 
 funBindPatternMatchFailureMessage :: SrcSpan -> Name -> [[Value]] -> ErrorMessage
 funBindPatternMatchFailureMessage l n vss = mkErrorMessage l $
@@ -34,20 +49,24 @@ funBindPatternMatchFailureMessage l n vss = mkErrorMessage l $
         (prettyPrint n <> 
             hcat (map (\ vs -> parens (list (map prettyPrint vs))) vss))
 
-replicatedInternalChoiceOverEmptySetMessage :: SrcSpan -> Exp Name -> ErrorMessage
-replicatedInternalChoiceOverEmptySetMessage l p = mkErrorMessage l $
+replicatedInternalChoiceOverEmptySetMessage :: Exp Name -> SrcSpan -> 
+    Maybe ScopeIdentifier -> ErrorMessage
+replicatedInternalChoiceOverEmptySetMessage p l scope = mkErrorMessage l $
     hang (
         hang (text "The set expression in"<>colon) tabWidth 
             (prettyPrint p)
     ) tabWidth
     (text "evaluated to the empty set. However, replicated internal choice is not defined for the empty set.")
+    $$ printCallStack scope
 
-replicatedInternalChoiceOverEmptySetMessage' :: SrcSpan -> Pat Name -> ErrorMessage
-replicatedInternalChoiceOverEmptySetMessage' l p = mkErrorMessage l $
+replicatedInternalChoiceOverEmptySetMessage' :: Pat Name -> SrcSpan ->
+    Maybe ScopeIdentifier -> ErrorMessage
+replicatedInternalChoiceOverEmptySetMessage' p loc scope = mkErrorMessage loc $
     hang (
         hang (text "The pattern"<>colon) tabWidth (prettyPrint p)
     ) tabWidth
     (text "matched no elements of the channel set. However, replicated internal choice is not defined for the empty set.")
+    $$ printCallStack scope
 
 typeCheckerFailureMessage :: String -> ErrorMessage
 typeCheckerFailureMessage s = mkErrorMessage Unknown $
@@ -74,15 +93,18 @@ cannotDifferenceSetsMessage :: ValueSet -> ValueSet -> ErrorMessage
 cannotDifferenceSetsMessage vs1 vs2 = mkErrorMessage Unknown $
     text "Cannot difference the supplied sets."
 
-dotIsNotValidMessage :: SrcSpan -> Value -> Int -> Value -> ValueSet -> ErrorMessage
-dotIsNotValidMessage loc (value@(VDot (h:_))) field fieldValue fieldOptions = mkErrorMessage loc $
-    hang (text "The value:") tabWidth (prettyPrint value)
-    $$ text "is invalid as it is not within the set of values defined for" <+>
-        case h of
-            VChannel n -> text "the channel" <+> prettyPrint n <> char '.'
-            VDataType n -> text "the data constructor" <+> prettyPrint n <> char '.'
-    $$ hang (text "In particular the" <+> speakNth (field+1) <+> text "field:") tabWidth (prettyPrint fieldValue)
-    $$ hang (text "is not a member of the set") tabWidth (prettyPrint fieldOptions)
+dotIsNotValidMessage :: Value -> Int -> Value -> ValueSet -> SrcSpan ->
+    Maybe ScopeIdentifier -> ErrorMessage
+dotIsNotValidMessage (value@(VDot (h:_))) field fieldValue fieldOptions loc scope =
+    mkErrorMessage loc $
+        hang (text "The value:") tabWidth (prettyPrint value)
+        $$ text "is invalid as it is not within the set of values defined for" <+>
+            case h of
+                VChannel n -> text "the channel" <+> prettyPrint n <> char '.'
+                VDataType n -> text "the data constructor" <+> prettyPrint n <> char '.'
+        $$ hang (text "In particular the" <+> speakNth (field+1) <+> text "field:") tabWidth (prettyPrint fieldValue)
+        $$ hang (text "is not a member of the set") tabWidth (prettyPrint fieldOptions)
+        $$ printCallStack scope
 
 setNotRectangularErrorMessage :: ValueSet -> ValueSet -> ErrorMessage
 setNotRectangularErrorMessage s1 s2 = mkErrorMessage Unknown $

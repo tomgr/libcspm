@@ -76,3 +76,9 @@ setCurrentExpressionLocation sp prog =
 
 getCurrentExpressionLocation :: EvaluationMonad SrcSpan
 getCurrentExpressionLocation = gets currentExpressionLocation
+
+throwError' :: (SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage) -> EvaluationMonad a
+throwError' f = do
+    loc <- gets currentExpressionLocation
+    stk <- gets parentScopeIdentifier
+    throwError (f loc stk)

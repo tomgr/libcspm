@@ -53,13 +53,9 @@ builtInFunctions =
         
         cspm_length [VList xs] = VInt $ length xs
         cspm_null [VList xs] = VBool $ null xs
-        cspm_head [VList []] = do
-            loc <- getCurrentExpressionLocation
-            throwError (headEmptyListMessage loc)
+        cspm_head [VList []] = throwError' headEmptyListMessage
         cspm_head [VList (x:xs)] = return x
-        cspm_tail [VList []] = do
-            loc <- getCurrentExpressionLocation
-            throwError (tailEmptyListMessage loc)
+        cspm_tail [VList []] = throwError' tailEmptyListMessage
         cspm_tail [VList (x:xs)] = return $ VList xs
         cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
         cspm_elem [v, VList vs] = VBool $ v `elem` vs

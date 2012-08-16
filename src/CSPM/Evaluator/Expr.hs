@@ -240,12 +240,12 @@ instance Evaluatable (Exp Name) where
                 VSet s <- eval e
                 ps <- evalInputField evBase fs p s evalNonDetFields
                 if Sq.null ps then
-                    throwError $ replicatedInternalChoiceOverEmptySetMessage (loc e) (unAnnotate e)
+                    throwError' $ replicatedInternalChoiceOverEmptySetMessage (unAnnotate e)
                 else return $ POp PInternalChoice ps
             evalNonDetFields evBase (NonDetInput p Nothing:fs) = do
                 POp _ ps <- evalInputField2 evBase fs (unAnnotate p) evalNonDetFields (POp PInternalChoice)
                 if Sq.null ps then
-                    throwError $ replicatedInternalChoiceOverEmptySetMessage' (loc p) (unAnnotate p)
+                    throwError' $ replicatedInternalChoiceOverEmptySetMessage' (unAnnotate p)
                 else return $ POp PInternalChoice ps
             evalNonDetFields evBase fs = evalFields evBase fs
 
@@ -357,7 +357,7 @@ instance Evaluatable (Exp Name) where
         ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
         let e' = ReplicatedInternalChoice stmts e
         if Sq.null ps then
-            throwError $ replicatedInternalChoiceOverEmptySetMessage (loc e) e'
+            throwError' $ replicatedInternalChoiceOverEmptySetMessage e'
         else return $ VProc $ POp PInternalChoice ps
     eval (ReplicatedLinkParallel ties tiesStmts stmts e) = do
         tsps <- evalStmts' (\(VList vs) -> Sq.fromList vs) stmts $ do
