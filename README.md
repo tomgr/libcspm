@@ -7,6 +7,8 @@ parser, type checker and (experimental) evaluator for machine CSP files.
 There is also a program, `cspmchecker`, that makes use of this library to
 provide command line type checking.
 
+[![Build Status](https://secure.travis-ci.org/tomgr/libcspm.png)](http://travis-ci.org/tomgr/libcspm)
+
 Installation
 ------------
 
