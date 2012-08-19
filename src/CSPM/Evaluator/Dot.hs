@@ -6,10 +6,9 @@ module CSPM.Evaluator.Dot (
 ) where
 
 import CSPM.DataStructures.Names
-import CSPM.Evaluator.Exceptions
+import {-# SOURCE #-} CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
-import {-# SOURCE #-} CSPM.Evaluator.ValuePrettyPrinter()
 import CSPM.Evaluator.ValueSet hiding (cartesianProduct)
 import qualified CSPM.Evaluator.ValueSet as S
 import Data.List (groupBy)

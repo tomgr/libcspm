@@ -31,7 +31,7 @@ import qualified Data.Set as S
 import qualified Data.Sequence as Sq
 import qualified Data.Traversable as T
 
-import CSPM.Evaluator.Exceptions
+import {-# SOURCE #-} CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Values
 import qualified CSPM.Evaluator.ProcessValues as CE
 import Util.Exception

@@ -15,9 +15,7 @@ import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.ProcessValues
-import {-# SOURCE #-} CSPM.Evaluator.ValuePrettyPrinter()
 import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
-import CSPM.PrettyPrinter
 import Data.Array
 import qualified Data.Foldable as F
 import Data.Hashable
@@ -215,8 +213,7 @@ compareValues (VDot vs1) (VDot vs2) =
     if vs1 == vs2 then Just EQ else Nothing
 
 -- Every other possibility is invalid
-compareValues v1 v2 = panic $ "Cannot compare two values "++
-    show (prettyPrint v1)++ " "++show (prettyPrint v2)
+compareValues v1 v2 = panic $ "Cannot compare two values"
 
 instance Ord Value where
     -- This implementation is used for various internal measures, but not
@@ -236,7 +233,7 @@ instance Ord Value where
     compare v1 v2 = panic $
         -- Must be as a result of a mixed set of values, which cannot happen
         -- as a result of type checking.
-        "Internal sets - cannot order "++show (prettyPrint v1)++show (prettyPrint v2)
+        "Internal sets - cannot order "
       
 procName :: ScopeIdentifier -> ProcName
 procName = ProcName
