@@ -130,7 +130,7 @@ Library
     
     Extensions: DoAndIfThenElse
 
-Test-Suite unit-tests
+Test-Suite libcspm_tests
     Type: exitcode-stdio-1.0
     Main-is: Main.hs
 
