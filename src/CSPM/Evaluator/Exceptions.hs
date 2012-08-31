@@ -43,6 +43,11 @@ tailEmptyListMessage loc scope = mkErrorMessage loc $
     text "Attempt to take tail of empty list."
     $$ printCallStack scope
 
+divideByZeroMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
+divideByZeroMessage loc scope = mkErrorMessage loc $
+    text "Attempt to divide by zero"
+    $$ printCallStack scope
+
 funBindPatternMatchFailureMessage :: SrcSpan -> Name -> [[Value]] -> ErrorMessage
 funBindPatternMatchFailureMessage l n vss = mkErrorMessage l $
     hang (text "Pattern match failure whilst attempting to evaluate:") tabWidth

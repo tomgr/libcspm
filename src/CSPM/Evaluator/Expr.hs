@@ -121,7 +121,13 @@ instance Evaluatable (Exp Name) where
         VInt i1 <- eval e1
         VInt i2 <- eval e2
         case op of
-            Divide -> return $ VInt (i1 `div` i2)
+            Divide -> do
+                scopeId <- getParentScopeIdentifier
+                loc <- getCurrentExpressionLocation
+                return $ VInt $
+                        case i2 of
+                            0 -> throwError $ divideByZeroMessage loc scopeId
+                            _ -> i1 `div` i2
             Minus -> return $ VInt (i1 - i2)
             Mod -> return $ VInt (i1 `mod` i2)
             Plus -> return $ VInt (i1 + i2)
