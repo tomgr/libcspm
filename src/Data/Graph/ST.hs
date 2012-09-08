@@ -5,7 +5,7 @@ module Data.Graph.ST (
     -- * SCC Computation
     SCC(..), sccs,
     -- * Relation Tools
-    reflexiveTransitiveRepresentatives,
+    nonReflexiveRepresentativesForNodes,
 ) where
 
 import Control.Monad
@@ -250,8 +250,8 @@ intSccs graph = do
 -- member for a. Note, no pairs of the form a == b are returned, even if there
 -- is an edge from a to b. This is to minimise the size of the transitive
 -- closure.
-reflexiveTransitiveRepresentatives :: (Eq a, Hashable a) => Graph s a -> ST s [(a, a)]
-reflexiveTransitiveRepresentatives graph = do
+nonReflexiveRepresentativesForNodes :: (Eq a, Hashable a) => Graph s a -> ST s [(a, a)]
+nonReflexiveRepresentativesForNodes graph = do
     sccs <- intSccs graph
     let sccCount = length sccs
     -- A map from node id to the id of the scc id

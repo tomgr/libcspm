@@ -206,6 +206,6 @@ fdrSymmetricTransitiveClosure vs1 vs2 =
                 esSym = es ++ [(a,b) | (b,a) <- es]
                 nodes = map fst esSym
             g <- G.newGraph nodes esSym
-            rs <- G.reflexiveTransitiveRepresentatives g
+            rs <- G.nonReflexiveRepresentativesForNodes g
             return $! [tupleFromList [a,b] | (b,a) <- rs, S.member a vs2, S.member b vs2]
     in S.fromList $ runST computeRepresentatives
