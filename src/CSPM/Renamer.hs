@@ -715,10 +715,23 @@ varNotInScopeMessage n = do
     env <- gets environment
     let availablePp = [(show $ prettyPrint rn, (rn, n)) | (rn, n) <- HM.flatten env]
         suggestions = fuzzyLookup (show $ prettyPrint n) availablePp
+
+        availableTransExtern =
+            [(stringName b, b) | b <- builtins True, isTransparent b || isExternal b]
+        builtinSuggestions = fuzzyLookup (show $ prettyPrint n) availableTransExtern
     return $ 
         (prettyPrint n <+> text "is not in scope")
         P.$$ case suggestions of
-            [] -> empty
+            [] -> case builtinSuggestions of
+                    [] -> empty
+                    xs -> hang (text "Did you mean:") tabWidth (vcat (
+                            map (\ b ->
+                                prettyPrint (name b)
+                                <+> parens (text "import using" <+> quotes (
+                                    (text $ if isTransparent b then "transparent" else "external")
+                                    <+> prettyPrint (name b)
+                                ))) builtinSuggestions
+                        ))
             _ -> hang (text "Did you mean:") tabWidth (vcat (
                     (map (\ (rn, n) -> 
                         prettyPrint rn <+>
