@@ -2,6 +2,7 @@
 -- | Graph algorithms in the ST monad.
 module Data.Graph.ST (
     Graph, newGraph, newGraphNoDupeNodes,
+    successorNodes,
     -- * SCC Computation
     SCC(..), sccs,
     -- * Relation Tools
@@ -15,8 +16,8 @@ import Data.Array.Unboxed
 import Data.Hashable
 import qualified Data.HashTable.Class as H
 import qualified Data.HashTable.ST.Basic as B
-import Data.STRef
 import Data.List (sortBy)
+import Data.STRef
 import qualified Data.Set.MutableBit as BS
 
 type HashTable s k v = B.HashTable s k v
@@ -49,6 +50,11 @@ mapM' f = go []
 successorsForNode :: Graph s a -> Int -> [Int]
 successorsForNode gr nid =
     map (\ix -> successorsArray gr!ix) [successorStarts gr!nid..(successorStarts gr!(nid+1) -1)]
+
+successorNodes :: (Eq a, Hashable a) => Graph s a -> a -> ST s [a]
+successorNodes graph node = do
+    Just nid <- H.lookup (nodeMap graph) node
+    mapM (readArray (invNodeMap graph)) (successorsForNode graph nid)
 
 newGraph :: (Eq a, Hashable a) => [a] -> [(a, a)] -> ST s (Graph s a)
 newGraph nodes edges = do
@@ -154,7 +160,7 @@ sccs graph = do
 -- | An optimised implementation of Tarjan's SCC algorithm.
 --
 -- Returns the SCCs according to a reverse topological sort of the DAG of the
--- SCCs (i.e. if an scc x has an edge to an scc y, then y preceeds x).
+-- SCCs (i.e. if an scc x has an edge to an scc y, then x preceeds y).
 intSccs :: (Eq a, Hashable a) => Graph s a -> ST s [SCC Int]
 intSccs graph = do
     let successors = successorsArray graph
