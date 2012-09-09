@@ -70,7 +70,7 @@ builtInFunctions =
                 branches :: Sq.Seq UProc
                 branches = fmap (\ ev -> PUnaryOp (PPrefix ev) chaosCall) evSet
                 stopProc = PProcCall csp_stop_id csp_stop
-                p = POp PInternalChoice (stopProc Sq.<| branches)
+                p = POp PInternalChoice (Sq.fromList [stopProc, POp PExternalChoice branches])
         csp_loop [VProc p] = VProc (PUnaryOp PSeqCompLoop p)
 
         cspm_extensions [v] = do
