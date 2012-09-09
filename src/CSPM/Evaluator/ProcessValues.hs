@@ -162,6 +162,7 @@ instance (Eq pn, Eq (seq (Proc seq op pn ev evs evm)), Eq (op seq ev evs evm)) =
     (PBinaryOp op1 p1 p2) == (PBinaryOp op2 r1 r2) =
         op1 == op2 && p1 == r1 && p2 == r2
     (POp op1 ps1) == (POp op2 ps2) = op1 == op2 && ps1 == ps2
+    _ == _ = False
 
 instance (Hashable pn, Hashable (seq (Proc seq op pn ev evs evm)), Hashable (op seq ev evs evm)) =>
         Hashable (Proc seq op pn ev evs evm) where
