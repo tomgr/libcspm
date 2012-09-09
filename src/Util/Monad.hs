@@ -28,7 +28,7 @@ orM [m] = m
 orM (m:ms) = do
     b <- m
     if not b then orM ms else return True
-orM _ = error "orM of empty list"
+orM _ = return False
 
 ($$) :: Monad m => m (a -> b) -> m a -> m b
 ($$) fm argm = do
