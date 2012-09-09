@@ -1,4 +1,4 @@
-CHAOS({}) = STOP
+CHAOS({}) = STOP |~| 
 
 STOP =
 
