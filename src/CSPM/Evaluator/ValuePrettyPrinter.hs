@@ -154,7 +154,7 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
                             M.<+> M.prettyPrint evNew) $ F.toList evm) 
         M.<> M.text "]]"
     prettyPrint (PBinaryOp PSequentialComp p1 p2) =
-        M.prettyPrint p1 M.<+> M.text "->" M.<+> M.prettyPrint p2
+        M.prettyPrint p1 M.<+> M.text ";" M.<+> M.prettyPrint p2
     prettyPrint (PBinaryOp PSlidingChoice p1 p2) =
         M.prettyPrint p1 M.<+> M.text "|>" M.<+> M.prettyPrint p2
     prettyPrint (PProcCall n _) = M.prettyPrint n
