@@ -141,8 +141,6 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
                             M.prettyPrint evLeft M.<+> M.text "<-" 
                                 M.<+> M.prettyPrint evRight) $ F.toList evm)
         M.<> M.text "]" M.<+> M.prettyPrint p2
-    prettyPrint (PUnaryOp PSeqCompLoop p) =
-        M.text "loop" M.<> M.parens (M.prettyPrint p)
     prettyPrint (PUnaryOp (POperator op) p) = 
         M.prettyPrint op M.<> M.parens (M.prettyPrint p)
     prettyPrint (PUnaryOp (PPrefix e) p) =

@@ -81,7 +81,6 @@ data CSPOperator seq ev evs evm =
     -- Map from event of left process, to event of right that it synchronises
     -- with. (Left being p1, Right being p2 ps ps).
     | PLinkParallel evm
-    | PSeqCompLoop
     | POperator ProcOperator
     | PPrefix ev
     -- Map from Old -> New event
@@ -101,7 +100,6 @@ instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs)) =>
     hash PInterrupt = 7
     hash PInterleave = 8
     hash (PLinkParallel s) = combine 9 (hash s)
-    hash PSeqCompLoop = 10
     hash (POperator op) = combine 11 (hash op)
     hash (PPrefix ev) = combine 12 (hash ev)
     hash (PRename evm) = combine 13 (hash evm)
@@ -136,7 +134,6 @@ trimOperator PInterrupt = PInterrupt
 trimOperator PInterleave = PInterleave
 trimOperator (PLinkParallel evm) =
     PLinkParallel (fmap (\(ev,ev') -> (trimEvent ev, trimEvent ev')) evm)
-trimOperator PSeqCompLoop = PSeqCompLoop
 trimOperator (POperator op) = POperator op
 trimOperator (PPrefix ev) = PPrefix (trimEvent ev)
 trimOperator (PRename evm) = 

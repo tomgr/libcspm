@@ -71,7 +71,10 @@ builtInFunctions =
                 branches = fmap (\ ev -> PUnaryOp (PPrefix ev) chaosCall) evSet
                 stopProc = PProcCall csp_stop_id csp_stop
                 p = POp PInternalChoice (Sq.fromList [stopProc, POp PExternalChoice branches])
-        csp_loop [VProc p] = VProc (PUnaryOp PSeqCompLoop p)
+        csp_loop [VProc p] =
+            let pn = procName $ scopeId (nameForString "loop") [[VProc p]] Nothing
+                procCall = PProcCall pn (PBinaryOp PSequentialComp p procCall)
+            in VProc procCall
 
         cspm_extensions [v] = do
             exs <- extensions v

@@ -4,6 +4,8 @@ SKIP = ✓ -> STOP
 
 P = a -> SKIP
 
+loop(P) = P ; loop(P)
+
 Q = loop(P)
 
 procTest1 = Q
