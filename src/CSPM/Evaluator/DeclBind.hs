@@ -147,7 +147,12 @@ bindDecl (an@(An _ _ (NameType n e))) = return $
     [(n, do
         v <- eval e
         sets <- evalTypeExprToList v
-        return $ VSet $ cartesianProduct CartDot sets)]
+        -- If we only have one set then this is not a cartesian product, this is
+        -- just introducing another name (see TPC P543 and
+        -- evaluator/should_pass/nametypes.csp).
+        case sets of
+            [s] -> return $ VSet s
+            _ -> return $ VSet $ cartesianProduct CartDot sets)]
 bindDecl (an@(An _ _ (Assert _))) = return []
 bindDecl (an@(An _ _ (External ns))) = return []
 bindDecl (an@(An _ _ (Transparent ns))) = return []
