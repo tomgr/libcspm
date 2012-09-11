@@ -1,3 +1,9 @@
 nametype X = {0..1}
 
 test1 = X == {0..1}
+
+nametype Y = {0}.{1}
+
+datatype Z = A.Y
+
+test2 = member(A.0.1, Z)

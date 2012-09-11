@@ -383,7 +383,14 @@ valueSetToEventSet = CE.eventSetFromList . map valueEventToEvent . toList
 -- | Attempts to decompose the set into a cartesian product, returning Nothing
 -- if it cannot.
 unDotProduct :: ValueSet -> Maybe [ValueSet]
-unDotProduct (CartesianProduct vs vc) = return [CartesianProduct vs vc]
+unDotProduct (CartesianProduct vs CartTuple) = return [CartesianProduct vs CartTuple]
+unDotProduct (CartesianProduct (s1:ss) CartDot) =
+    -- This is reducible only if this set doesn't represent a set of datatype/
+    -- channel items.
+    case singletonValue s1 of
+        Just (VDataType _) -> return [CartesianProduct (s1:ss) CartDot]
+        Just (VChannel _) -> return [CartesianProduct (s1:ss) CartDot]
+        _ -> return (s1:ss)
 unDotProduct (AllSequences vs) = return [AllSequences vs]
 unDotProduct (IntSetFrom i1) = return [IntSetFrom i1]
 unDotProduct (Powerset s) = return [Powerset s]
