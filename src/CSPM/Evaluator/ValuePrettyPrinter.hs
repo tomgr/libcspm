@@ -106,6 +106,39 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
         M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (SVariableBind args Nothing)
 
 instance (Applicative m, F.Foldable seq, Functor seq, Monad m, 
+            M.MonadicPrettyPrintable m ev, M.MonadicPrettyPrintable m evs) => 
+        M.MonadicPrettyPrintable m (CSPOperator seq ev evs (seq (ev,ev))) where
+    prettyPrint (PAlphaParallel as) =
+        M.text "||" M.<+> M.list (mapM (\ a -> M.prettyPrint a) (F.toList as))
+    prettyPrint (PException a) =
+        M.text "[|" M.<> M.prettyPrint a M.<> M.text "|>" 
+    prettyPrint PExternalChoice = M.text "[]"
+    prettyPrint (PGenParallel a) =
+        M.text "||" M.<+> M.brackets (M.prettyPrint a)
+    prettyPrint (PHide a) =
+        M.char '\\' M.<+> M.prettyPrint a
+    prettyPrint PInternalChoice = M.text "|~|"
+    prettyPrint PInterleave = M.text "|||"
+    prettyPrint PInterrupt = M.text "/\\"
+    prettyPrint (PLinkParallel evm) =
+        M.text "[" M.<>
+            M.list (mapM (\(evLeft, evRight) -> 
+                            M.prettyPrint evLeft M.<+> M.text "<-" 
+                                M.<+> M.prettyPrint evRight) $ F.toList evm)
+        M.<> M.text "]"
+    prettyPrint (POperator op) = M.prettyPrint op
+    prettyPrint (PPrefix e) =
+        M.prettyPrint e M.<+> M.text "->"
+    prettyPrint (PRename evm) =
+        M.text "[[" 
+        M.<> M.list (mapM (\ (evOld, evNew) -> 
+                            M.prettyPrint evOld M.<+> M.text "<-" 
+                            M.<+> M.prettyPrint evNew) $ F.toList evm) 
+        M.<> M.text "]]"
+    prettyPrint PSequentialComp = M.text ";"
+    prettyPrint PSlidingChoice = M.text "|>"
+
+instance (Applicative m, F.Foldable seq, Functor seq, Monad m, 
             M.MonadicPrettyPrintable m pn, M.MonadicPrettyPrintable m ev,
             M.MonadicPrettyPrintable m evs) => 
         M.MonadicPrettyPrintable m (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
