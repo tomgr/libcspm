@@ -3,7 +3,8 @@ module Util.Monad (
     concatMapM,
     andM,
     orM,
-    ($$)
+    ($$),
+    whenM,
 ) where
 
 concatMapM :: (Monad m) => (a -> m [b]) -> [a] -> m [b]
@@ -35,3 +36,10 @@ orM _ = return False
     f <- fm
     arg <- argm
     return $ f arg
+
+whenM :: Monad m => m Bool -> m () -> m ()
+whenM bfunc func = do
+    b <- bfunc
+    case b of
+        True -> func
+        False -> return ()
