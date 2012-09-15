@@ -12,6 +12,7 @@ where
 
 import Control.Exception
 import Control.Monad.State
+import qualified Control.Monad.State.Strict as ST
 import Data.Typeable
 import Data.List
 import Prelude hiding (catch)
@@ -104,6 +105,14 @@ instance MonadIOException m => MonadIOException (StateT s m) where
     tryM prog = 
         StateT $ \st -> do
             x <- tryM (runStateT prog st)
+            case x of
+                Right (a, s) -> return $ (Right a, s)
+                Left e -> return $ (Left e, st)
+
+instance MonadIOException m => MonadIOException (ST.StateT s m) where
+    tryM prog = 
+        ST.StateT $ \st -> do
+            x <- tryM (ST.runStateT prog st)
             case x of
                 Right (a, s) -> return $ (Right a, s)
                 Left e -> return $ (Left e, st)
