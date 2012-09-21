@@ -1,0 +1,7 @@
+STOP =
+
+P = STOP [| {a.0, a.1} |> STOP
+
+procTest1 = P
+
+procTest1

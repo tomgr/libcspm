@@ -147,7 +147,7 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
                 M.parens (M.prettyPrint a M.<> M.comma M.<+> M.prettyPrint p))
             (F.toList as) (F.toList ps)))
     prettyPrint (PBinaryOp (PException a) p1 p2) =
-        M.prettyPrint p1 M.<+> M.text "[|" M.<> M.prettyPrint a M.<> M.text "|>" 
+        M.prettyPrint p1 M.<+> M.text "[|" M.<+> M.prettyPrint a M.<+> M.text "|>" 
             M.<+> M.prettyPrint p2
     prettyPrint (POp PExternalChoice ps) =
         let flatten (POp PExternalChoice ps) = concatMap flatten (F.toList ps)

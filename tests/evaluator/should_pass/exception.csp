@@ -1,0 +1,5 @@
+channel a : {0,1}
+
+P = STOP [| {a.0, a.1} |> STOP
+
+procTest1 = P
