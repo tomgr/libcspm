@@ -161,12 +161,18 @@ builtInFunctions =
             ]
         
         mkConstant (s, v) = (nameForString s, v)
+
+        evaluateProcOperator pop [p] = VProc $ 
+            -- We defer matching of the arguments here to allow definitions like
+            -- P = normal(P) to be evaluated. This allows the compiler to
+            -- produce a more sensible error message.
+            case p of
+                VProc p -> PUnaryOp (POperator pop) p
     in
         map mkFunc (
             map (\ (n, f) -> (n, VSet . f)) set_funcs
             ++ map (\ (n, f) -> (n, VList . f)) seq_funcs
-            ++ map (\ (n, po) -> 
-                        (n,\[VProc p]-> VProc $ PUnaryOp (POperator po) p)) proc_operators
+            ++ map (\ (n, po) -> (n, evaluateProcOperator po)) proc_operators
             ++ other_funcs)
         ++ map mkMonadicFunc monadic_funcs
         ++ map mkProc procs
