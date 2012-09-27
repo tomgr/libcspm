@@ -92,7 +92,18 @@ throwException = throw
  
 -- | A class to allow catching of SourceErrors in arbitrary monads.
 class Monad m => MonadIOException m where
-    tryM :: (MonadIOException m) => m a -> m (Either LibCSPMException a)
+    tryM :: MonadIOException m => m a -> m (Either LibCSPMException a)
+    -- | Runs the action, running the finaliser if an exception is thrown. The
+    -- exception is always rethrown.
+    finally :: MonadIOException m => m a -> m () -> m a
+    finally prog finaliser = do
+        result <- tryM $ do
+            r <- prog
+            finaliser
+            return r
+        case result of
+            Left err -> finaliser >> throwException err
+            Right result -> return result
     
 instance MonadIOException IO where
     tryM prog = do
