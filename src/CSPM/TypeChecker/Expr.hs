@@ -239,17 +239,14 @@ instance TypeCheckable (Exp Name) Type where
         -- Throw an error if a name is defined multiple times
         when (not (noDups fvs)) (panic "Dupes found in prefix after renaming.")
 
-        let c = hang (text "In the expression:") tabWidth $
-                    hcat (prettyPrint e1 : map prettyPrint fields)
-        addErrorContext c $ do
-            t1 <- typeCheck e1
-            let 
-                tcfs [] tsfields = do
-                    unify TEvent (TDot t1 (foldr1 TDot (reverse tsfields)))
-                    ensureIsProc e2
-                tcfs (f:fs) tsfields =
-                    typeCheckField f (\ t -> tcfs fs (t:tsfields))
-            local fvs (tcfs fields [])
+        t1 <- typeCheck e1
+        let 
+            tcfs [] tsfields = do
+                unify TEvent (TDot t1 (foldr1 TDot (reverse tsfields)))
+                ensureIsProc e2
+            tcfs (f:fs) tsfields =
+                typeCheckField f (\ t -> tcfs fs (t:tsfields))
+        local fvs (tcfs fields [])
 
     typeCheck' (LinkParallel e1 ties stmts e2) = do
         ensureIsProc e1
