@@ -1,0 +1,4 @@
+channel c : {0,1}
+
+procTest1 = ; x : <0,1> @ c.x -> SKIP
+procTest2 = ; x : <> @ c.x -> SKIP

@@ -290,6 +290,9 @@ instance TypeCheckable (Exp Name) Type where
         typeCheckReplicatedOp stmts (ensureIsProc e1)
     typeCheck' (ReplicatedInternalChoice stmts e1) =
         typeCheckReplicatedOp stmts (ensureIsProc e1)
+    typeCheck' (ReplicatedSequentialComp stmts e1) = do
+        typeCheckStmts TSeq stmts (ensureIsProc e1)
+        return $ TProc
     typeCheck' x = panic ("No case for type checking a "++show x)
 
 

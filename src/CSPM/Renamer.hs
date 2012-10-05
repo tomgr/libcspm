@@ -622,6 +622,9 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
             (tiesStmts', ties') <- renameStatements tiesStmts (rename ties)
             return (e', ties', tiesStmts'))
         return $ ReplicatedLinkParallel ties' tiesStmts' stmts' e'
+    rename (ReplicatedSequentialComp stmts e) = do
+        (stmts', e') <- renameStatements stmts (rename e)
+        return $ ReplicatedSequentialComp stmts' e'
 
 class FreeVars a where
     freeVars :: a -> RenamerMonad [UnRenamedName]

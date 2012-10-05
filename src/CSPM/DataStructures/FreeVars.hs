@@ -192,6 +192,7 @@ instance FreeVars (Exp Name) where
             fvsstmts = freeVars stmts
         in (d1 \\ fvsstmts)++d2
     freeVars' (ReplicatedParallel e1 stmts e2) = freeVarsStmts stmts [e1,e2]
+    freeVars' (ReplicatedSequentialComp stmts e1) = freeVarsStmts stmts [e1]
     
     freeVars' x = panic ("TCFreeVars.hs: unrecognised exp "++show x)
 

@@ -232,7 +232,9 @@ instance PrettyPrintable id => PrettyPrintable (Exp id) where
                 stmts (prettyPrint e)
     prettyPrint (ReplicatedParallel alpha stmts e) =
         ppRepOp (brackets (bars (prettyPrint alpha))) stmts (prettyPrint e)
-    
+    prettyPrint (ReplicatedSequentialComp stmts e) =
+        ppRepOp (text ";") stmts (prettyPrint e)
+        
     -- Patterns - this is only used when emitting parser errors about invalid
     -- expressions.
     prettyPrint (ExpPatWildCard) = char '_'

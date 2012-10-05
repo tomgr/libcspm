@@ -109,6 +109,8 @@ instance Compressable (Exp a) where
     mcompress (ReplicatedLinkParallel ties tiesStmts stmts e) =
         return ReplicatedLinkParallel $$ mcompress ties $$ mcompress tiesStmts 
                                         $$ mcompress stmts $$ mcompress e
+    mcompress (ReplicatedSequentialComp stmts e1) =
+        return ReplicatedSequentialComp $$ mcompress stmts $$ mcompress e1
     
 instance Compressable (CSPMFile a) where
     mcompress (CSPMFile ds) = return CSPMFile $$ mcompress ds

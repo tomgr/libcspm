@@ -197,6 +197,8 @@ instance Desugarable (Exp Name) where
     desugar (ReplicatedLinkParallel ties tiesStmts stmts e) =
         return ReplicatedLinkParallel $$ desugar ties $$ desugar tiesStmts
                                 $$ desugar stmts $$ desugar e
+    desugar (ReplicatedSequentialComp stmts e) =
+        return ReplicatedSequentialComp $$ desugar stmts $$ desugar e
     
 instance Desugarable (Field Name) where
     desugar (Output e) = return Output $$ desugar e

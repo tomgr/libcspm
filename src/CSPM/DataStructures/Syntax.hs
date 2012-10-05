@@ -396,7 +396,12 @@ data Exp id =
         repParReplicatedStatements :: [AnStmt id],
         repParProcess :: AnExp id
     }
-    
+    -- | Replicated sequential choice, e.g. @; x : <0,1> \@ P(x)@.
+    | ReplicatedSequentialComp {
+        repSeqCompStatements :: [AnStmt id],
+        repSeqCompProcess :: AnExp id
+    }
+
     -- | Used only for parsing - never appears in an AST.
     | ExpPatWildCard
     -- | Used only for parsing - never appears in an AST.

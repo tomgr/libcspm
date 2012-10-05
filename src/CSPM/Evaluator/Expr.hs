@@ -378,6 +378,10 @@ instance Evaluatable (Exp Name) where
         VSet s <- eval e1
         ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e2)
         return $ VProc $ POp (PGenParallel (S.valueSetToEventSet s)) ps
+    eval (ReplicatedSequentialComp stmts e) = do
+        ps <- evalStmts' (\(VList vs) -> Sq.fromList vs) stmts (evalProc e)
+        if Sq.null ps then lookupVar (builtInName "SKIP")
+        else return $ VProc $ F.foldr1 (PBinaryOp PSequentialComp) ps
     
     eval e = panic ("No clause to eval "++show e)
 
