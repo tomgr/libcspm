@@ -28,6 +28,7 @@ $notid = [[^0-9a-zA-Z_]\(\[$whitechar]
 
 @property = $propertychars+(\[$upperalpha+\])?
 
+@spaces = $white_no_nl*
 @white_no_nl = ((\-\-.*)|$white_no_nl)+
 @nl = ((\-\-.*\n)|$whitechar)*
 @comment = (\-\-.*) 
@@ -41,15 +42,15 @@ $notid = [[^0-9a-zA-Z_]\(\[$whitechar]
 -- the start of one and thus we do not allow newlines to come between them.
 tokens :-
     <0>@nl:\[                   { begin sem_prop }
-    <sem_prop>"tau priority"    { tok TTauPriority }
-    <sem_prop>"tau priority over" { tok TTauPriority }
-    <sem_prop>"deadlock free"   { tok TDeadlockFree }
-    <sem_prop>"deadlock-free"   { tok TDeadlockFree }
-    <sem_prop>"livelock free"   { tok TLivelockFree }
-    <sem_prop>"livelock-free"   { tok TLivelockFree }
-    <sem_prop>"divergence free" { tok TDivergenceFree }
-    <sem_prop>"divergence-free" { tok TDivergenceFree }
-    <sem_prop>"deterministic"   { tok TDeterministic }
+    <sem_prop>@spaces"tau priority"    { tok TTauPriority }
+    <sem_prop>@spaces"tau priority over" { tok TTauPriority }
+    <sem_prop>@spaces"deadlock free"   { tok TDeadlockFree }
+    <sem_prop>@spaces"deadlock-free"   { tok TDeadlockFree }
+    <sem_prop>@spaces"livelock free"   { tok TLivelockFree }
+    <sem_prop>@spaces"livelock-free"   { tok TLivelockFree }
+    <sem_prop>@spaces"divergence free" { tok TDivergenceFree }
+    <sem_prop>@spaces"divergence-free" { tok TDivergenceFree }
+    <sem_prop>@spaces"deterministic"   { tok TDeterministic }
     <sem_prop>@nl"[T]"          { tok (TModel Traces) }
     <sem_prop>@nl"[F]"          { tok (TModel Failures) }
     <sem_prop>@nl"[FD]"         { tok (TModel FailuresDivergences) }
@@ -57,8 +58,8 @@ tokens :-
     <sem_prop>@nl"[VD]"         { tok (TModel RevivalsDivergences) }
     <sem_prop>@nl"[R]"          { tok (TModel Refusals) }
     <sem_prop>@nl"[RD]"         { tok (TModel RefusalsDivergences) }
-    <sem_prop>"]:"              { begin 0 }
-    <sem_prop>"]"               { begin 0 }
+    <sem_prop>@spaces"]:"       { begin 0 }
+    <sem_prop>@spaces"]"        { begin 0 }
 
     <0>@nl"[T="@nl              { tok (TRefines Traces) }
     <0>@nl"[F="@nl              { tok (TRefines Failures) }
