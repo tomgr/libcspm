@@ -97,6 +97,8 @@ module CSPM (
     -- * Evaluator API
     bindFile, bindDeclaration,
     evaluateExpression,
+    -- * Shortcuts
+    stringToValue,
     -- * Low-Level API
     -- | Whilst this module provides many of the commonly used functionality 
     -- within the CSPM monad, sometimes there are additional functions exported
@@ -332,6 +334,13 @@ bindFile m = do
 -- to be desugared.
 evaluateExpression :: CSPMMonad m => TCExp -> m Value
 evaluateExpression e = runEvaluatorInCurrentState (EV.evaluateExp e)
+
+-- | Takes an expression string and a type and evaluates the expression,
+-- providing the expression is of the correct type.
+stringToValue :: CSPMMonad m => Type -> String -> m Value
+stringToValue typ str =
+    parseExpression str >>= renameExpression >>= 
+    ensureExpressionIsOfType typ >>= desugarExpression >>= evaluateExpression
 
 -- | Return the version of libcspm that is being used.
 getLibCSPMVersion :: Version
