@@ -7,6 +7,7 @@ module CSPM.TypeChecker.Exceptions (
     constraintUnificationErrorMessage,
     deprecatedNameUsed,
     unsafeNameUsed,
+    ErrorOptions(..), defaultErrorOptions,
 )
 where
 
@@ -64,3 +65,15 @@ unsafeNameUsed n =
     text "The invocation of" <+> prettyPrint n 
         <+> text "has not been type-checked."
     $$ text "Therefore, a runtime type error may occur."
+
+-- | A datatype used to hold which errors and warnings to actually emit.
+data ErrorOptions = ErrorOptions {
+        warnDeprecatedNamesUsed :: Bool,
+        warnUnsafeNamesUsed :: Bool
+    }
+
+defaultErrorOptions :: ErrorOptions
+defaultErrorOptions = ErrorOptions {
+        warnDeprecatedNamesUsed = True,
+        warnUnsafeNamesUsed = True
+    }

@@ -14,6 +14,7 @@ import qualified Paths_cspmchecker as C
 import Data.Version (showVersion)
 
 import CSPM
+import qualified CSPM.TypeChecker.Exceptions as TC
 import CSPM.PrettyPrinter
 import Monad
 import Util.Annotated
@@ -44,10 +45,11 @@ getFilesFromDir path = do
     fss <- mapM getFilesFromDir [dir | dir <- dirs']
     return $ files'++concat fss
 
-doFile :: FilePath -> Checker Bool
-doFile fp = do
+doFile :: Options -> FilePath -> Checker Bool
+doFile opts fp = do
     liftIO $ putStr $ "Checking "++fp++"....."
     res <- tryM $ do
+        modifyTypeCheckerErrorOptions (\ _ -> typeCheckerOptions opts)
         ms <- parseFile fp
         rms <- CSPM.renameFile ms
         typeCheckFile rms
@@ -70,12 +72,14 @@ printError s = liftIO $ putStrLn $ "\ESC[1;31m\STX"++s++"\ESC[0m\STX"
 data Options = Options {
         recursive :: Bool,
         help :: Bool,
-        printVersion :: Bool
+        printVersion :: Bool,
+        typeCheckerOptions :: TC.ErrorOptions
     }
 defaultOptions = Options { 
         recursive = False, 
         help = False,
-        printVersion = False
+        printVersion = False,
+        typeCheckerOptions = TC.defaultErrorOptions
     }
 
 options :: [OptDescr (Options -> Options)]
@@ -88,7 +92,21 @@ options = [
         "If the input file is a directory, check all files contained in all subdirectories",
     Option ['h'] ["help"] 
         (NoArg (\o -> o { help = True })) 
-        "Display usage message"
+        "Display usage message",
+    Option [] ["fno-warn-deprecations"]
+        (NoArg (\o -> o {
+            typeCheckerOptions = (typeCheckerOptions o) {
+                    TC.warnDeprecatedNamesUsed = False 
+                }
+            }))
+        "Disables type-checker warnings for deprecations",
+    Option [] ["fno-warn-unchecked-calls"]
+        (NoArg (\o -> o {
+            typeCheckerOptions = (typeCheckerOptions o) {
+                    TC.warnUnsafeNamesUsed = False 
+                }
+            }))
+        "Disables type-checker warnings for function calls that cannot be type-checked"
     ]
 
 header :: String
@@ -99,7 +117,7 @@ main = do
     args <- getArgs
     st <- initCheckerState
     runChecker st $ case getOpt RequireOrder options args of
-        (_,_,e:es) -> liftIO $ putStr $ show $ concat (e:es) ++ usageInfo header options
+        (_,_,e:es) -> liftIO $ putStr $ concat (e:es) ++ usageInfo header options
         (o,files, []) -> do
             let opts = foldl (flip id) defaultOptions o
             case (opts, files) of
@@ -112,8 +130,8 @@ main = do
                     liftIO $ putStr $ usageInfo header options
                 (Options { recursive = True }, dirs) -> do
                     tasks <- mapM (liftIO . getFilesFromDir) dirs
-                    countSuccesses (map doFile (concat tasks))
+                    countSuccesses (map (doFile opts) (concat tasks))
                 (_, []) -> 
                     liftIO $ putStr $ usageInfo header options
                 (_, files) -> 
-                    countSuccesses (map doFile files)
+                    countSuccesses (map (doFile opts) files)

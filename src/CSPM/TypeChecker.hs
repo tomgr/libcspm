@@ -2,7 +2,9 @@
 module CSPM.TypeChecker (
     typeCheck, typeCheckExpect,
     typeOfExp,
-    
+
+    ErrorOptions, modifyErrorOptions,
+
     initTypeChecker,
     TypeCheckMonad, TypeInferenceState,
     runTypeChecker, runFromStateToState,
@@ -15,6 +17,7 @@ import CSPM.DataStructures.Types
 import CSPM.TypeChecker.BuiltInFunctions
 import qualified CSPM.TypeChecker.Common as TC
 import CSPM.TypeChecker.Compressor
+import CSPM.TypeChecker.Exceptions
 import CSPM.TypeChecker.Expr()
 import CSPM.TypeChecker.File()
 import CSPM.TypeChecker.InteractiveStmt()

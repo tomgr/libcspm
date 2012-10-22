@@ -18,6 +18,7 @@ module CSPM.TypeChecker.Monad (
     markDatatypeAsComparableForEquality,
     datatypeIsComparableForEquality,
     unmarkDatatypeAsComparableForEquality,
+    modifyErrorOptions,
     
     raiseMessageAsError, raiseMessagesAsError, panic,
     manyErrorsIfFalse, errorIfFalseM, errorIfFalse, tryAndRecover, failM,
@@ -61,7 +62,9 @@ data TypeInferenceState = TypeInferenceState {
         inError :: Bool,
         symUnificationAllowed :: Bool,
         -- | The set of datatypes that can be compared for equality.
-        comparableForEqualityDataTypes :: [Name]
+        comparableForEqualityDataTypes :: [Name],
+        -- | The error options to use
+        errorOptions :: ErrorOptions
     }
     
 newTypeInferenceState :: TypeInferenceState
@@ -74,7 +77,8 @@ newTypeInferenceState = TypeInferenceState {
         unificationStack = [],
         inError = False,
         symUnificationAllowed = True,
-        comparableForEqualityDataTypes = []
+        comparableForEqualityDataTypes = [],
+        errorOptions = defaultErrorOptions
     }
 
 type TypeCheckMonad = StateT TypeInferenceState IO
@@ -92,6 +96,9 @@ runTypeChecker st prog = do
 
 getState :: TypeCheckMonad TypeInferenceState
 getState = gets id
+
+modifyErrorOptions :: (ErrorOptions -> ErrorOptions) -> TypeCheckMonad ()
+modifyErrorOptions f = modify (\st -> st { errorOptions = f (errorOptions st)})
 
 getEnvironment :: TypeCheckMonad Env.Environment
 getEnvironment = gets environment
@@ -137,11 +144,14 @@ getWarnings = gets warnings
 resetWarnings :: TypeCheckMonad ()
 resetWarnings = modify (\st -> st { warnings = [] })
 
-addWarning :: Warning -> TypeCheckMonad ()
-addWarning w = do
-    src <- getSrcSpan
-    let m = mkWarningMessage src w
-    modify (\ st -> st { warnings = m:(warnings st) })
+addWarning :: (ErrorOptions -> Bool) -> Warning -> TypeCheckMonad ()
+addWarning warningType w = do
+    -- Check and see if the warning is enabled
+    errorOpts <- gets errorOptions
+    when (warningType errorOpts) $ do
+        src <- getSrcSpan
+        let m = mkWarningMessage src w
+        modify (\ st -> st { warnings = m:(warnings st) })
 
 getInError :: TypeCheckMonad Bool
 getInError = gets inError

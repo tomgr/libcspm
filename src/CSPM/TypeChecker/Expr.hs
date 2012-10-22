@@ -171,10 +171,10 @@ instance TypeCheckable (Exp Name) Type where
         b <- isDeprecated n
         when b $ do
             r <- replacementForDeprecatedName n
-            addWarning (deprecatedNameUsed n r)
+            addWarning warnDeprecatedNamesUsed (deprecatedNameUsed n r)
         
         b <- isTypeUnsafe n
-        when b $ addWarning (unsafeNameUsed n)
+        when b $ addWarning warnUnsafeNamesUsed (unsafeNameUsed n)
         
         t <- getType n
         instantiate t
