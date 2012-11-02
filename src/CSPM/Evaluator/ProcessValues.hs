@@ -11,6 +11,7 @@ module CSPM.Evaluator.ProcessValues (
     ProcOperator(..), 
     ProcName(..),
     operator, components,
+    splitProcIntoComponents,
     prettyPrintAllRequiredProcesses,
     trimProcess,
 ) where
