@@ -92,6 +92,7 @@ module CSPM (
     -- * Type Checker API
     typeCheckFile, typeCheckInteractiveStmt, typeCheckExpression,
     ensureExpressionIsOfType, typeOfExpression, modifyTypeCheckerErrorOptions,
+    typeOfName,
     -- * Desugarer API
     desugarFile, desugarInteractiveStmt, desugarExpression,
     -- * Evaluator API
@@ -286,6 +287,13 @@ ensureExpressionIsOfType t exp = reportWarnings $ runTypeCheckerInCurrentState $
 typeOfExpression :: CSPMMonad m => TCExp -> m Type
 typeOfExpression exp = 
     reportWarnings $ runTypeCheckerInCurrentState (TC.typeOfExp exp)
+
+-- | Returns the type of the given name in the current context.
+--
+-- The file in which this name has been bound must have been typechecked using
+-- typeCheckFile.
+typeOfName :: CSPMMonad m => Name -> m TypeScheme
+typeOfName n = reportWarnings $ runTypeCheckerInCurrentState (TC.typeOfName n)
 
 modifyTypeCheckerErrorOptions :: CSPMMonad m =>
     (TC.ErrorOptions -> TC.ErrorOptions) -> m ()

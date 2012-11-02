@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module CSPM.TypeChecker (
     typeCheck, typeCheckExpect,
-    typeOfExp,
+    typeOfExp, typeOfName,
 
     ErrorOptions, modifyErrorOptions,
 
@@ -12,7 +12,8 @@ module CSPM.TypeChecker (
 
 import Control.Monad.Trans
 
-import CSPM.DataStructures.Syntax
+import CSPM.DataStructures.Names
+import CSPM.DataStructures.Syntax hiding (getType)
 import CSPM.DataStructures.Types
 import CSPM.TypeChecker.BuiltInFunctions
 import qualified CSPM.TypeChecker.Common as TC
@@ -56,3 +57,6 @@ typeOfExp exp = do
     case mt of 
         Just t -> evaluateDots t >>= compress
         Nothing -> typeCheck exp >> typeOfExp exp
+
+typeOfName :: Name -> TypeCheckMonad TypeScheme
+typeOfName = getType
