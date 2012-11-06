@@ -14,7 +14,7 @@ import qualified Paths_cspmchecker as C
 import Data.Version (showVersion)
 
 import CSPM
-import qualified CSPM.TypeChecker.Exceptions as TC
+import qualified CSPM.CommandLineOptions as CSPM
 import CSPM.PrettyPrinter
 import Monad
 import Util.Annotated
@@ -49,7 +49,7 @@ doFile :: Options -> FilePath -> Checker Bool
 doFile opts fp = do
     liftIO $ putStr $ "Checking "++fp++"....."
     res <- tryM $ do
-        modifyTypeCheckerErrorOptions (\ _ -> typeCheckerOptions opts)
+        CSPM.setOptions (cspmOptions opts)
         ms <- parseFile fp
         rms <- CSPM.renameFile ms
         typeCheckFile rms
@@ -73,13 +73,15 @@ data Options = Options {
         recursive :: Bool,
         help :: Bool,
         printVersion :: Bool,
-        typeCheckerOptions :: TC.ErrorOptions
+        cspmOptions :: CSPM.Options
     }
+
+defaultOptions :: Options
 defaultOptions = Options { 
         recursive = False, 
         help = False,
         printVersion = False,
-        typeCheckerOptions = TC.defaultErrorOptions
+        cspmOptions = CSPM.defaultOptions
     }
 
 options :: [OptDescr (Options -> Options)]
@@ -92,22 +94,9 @@ options = [
         "If the input file is a directory, check all files contained in all subdirectories",
     Option ['h'] ["help"] 
         (NoArg (\o -> o { help = True })) 
-        "Display usage message",
-    Option [] ["fno-warn-deprecations"]
-        (NoArg (\o -> o {
-            typeCheckerOptions = (typeCheckerOptions o) {
-                    TC.warnDeprecatedNamesUsed = False 
-                }
-            }))
-        "Disables type-checker warnings for deprecations",
-    Option [] ["fno-warn-unchecked-calls"]
-        (NoArg (\o -> o {
-            typeCheckerOptions = (typeCheckerOptions o) {
-                    TC.warnUnsafeNamesUsed = False 
-                }
-            }))
-        "Disables type-checker warnings for function calls that cannot be type-checked"
+        "Display usage message"
     ]
+    ++ CSPM.allOptions cspmOptions (\ opts x -> opts { cspmOptions = x })
 
 header :: String
 header = "Usage: cspmchecker [OPTION...] files..."

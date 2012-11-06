@@ -58,6 +58,7 @@ Library
 
     Exposed-Modules:
         CSPM,
+        CSPM.CommandLineOptions,
         CSPM.DataStructures.FreeVars,
         CSPM.DataStructures.Literals,
         CSPM.DataStructures.Names,
