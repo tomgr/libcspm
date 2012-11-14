@@ -48,6 +48,6 @@ Executable cspmcheckeri
         filepath >= 1.2, 
         mtl >= 2.0,
         directory >= 1.0,
-        haskeline >= 0.6
+        haskeline >= 0.7
   
     Hs-Source-Dirs: src/InteractiveChecker
