@@ -171,7 +171,7 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
     prettyPrint (PBinaryOp (PLinkParallel evm) p1 p2) =
         M.prettyPrint p1 M.<+> M.text "[" M.<>
             M.list (mapM (\(evLeft, evRight) -> 
-                            M.prettyPrint evLeft M.<+> M.text "<-" 
+                            M.prettyPrint evLeft M.<+> M.text "<->" 
                                 M.<+> M.prettyPrint evRight) $ F.toList evm)
         M.<> M.text "]" M.<+> M.prettyPrint p2
     prettyPrint (PUnaryOp (POperator op) p) = 
