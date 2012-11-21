@@ -336,7 +336,7 @@ instance Evaluatable (Exp Name) where
     eval (Rename e1 ties stmts) = do
         p1 <- evalProc e1
         ts <- evalTies stmts ties
-        return $ VProc $ PUnaryOp (PRename ts) p1
+        return $ VProc $ if Sq.null ts then p1 else PUnaryOp (PRename ts) p1
     eval (SequentialComp e1 e2) = do
         p1 <- evalProc e1
         p2 <- evalProc e2
