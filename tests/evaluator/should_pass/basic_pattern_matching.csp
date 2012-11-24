@@ -39,3 +39,10 @@ func12(_) = 2
 test12 = func12({}) == 0
 test13 = func12({0}) == 1
 test14 = func12({0,1}) == 2
+
+test15 = 1 == let f(-1) = 1 within f(-1)
+test16 = 2 ==
+    let
+        f(-1) = 1
+        f(_) = 2
+    within f(2)

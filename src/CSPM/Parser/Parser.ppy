@@ -599,6 +599,9 @@ convPat (anExp@ (An a b exp)) =
         trans (DotApp e1 e2) = PDotApp (convPat e1) (convPat e2)
         trans (List xs) = PList (map convPat xs)
         trans (Lit x) = PLit x
+        trans (MathsUnaryOp Negate e) =
+            case trans (unAnnotate e) of
+                PLit (Int x) -> PLit (Int (-x))
         trans (Set xs) = PSet (map convPat xs)
         trans (Paren x) = PParen (convPat x)
         trans (Tuple xs) = PTuple (map convPat xs)
