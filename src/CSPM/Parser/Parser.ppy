@@ -602,6 +602,7 @@ convPat (anExp@ (An a b exp)) =
         trans (MathsUnaryOp Negate e) =
             case trans (unAnnotate e) of
                 PLit (Int x) -> PLit (Int (-x))
+                _ -> throwSourceError [invalidPatternErrorMessage anExp]
         trans (Set xs) = PSet (map convPat xs)
         trans (Paren x) = PParen (convPat x)
         trans (Tuple xs) = PTuple (map convPat xs)
