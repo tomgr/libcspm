@@ -92,7 +92,7 @@ module CSPM (
     -- * Type Checker API
     typeCheckFile, typeCheckInteractiveStmt, typeCheckExpression,
     ensureExpressionIsOfType, typeOfExpression, modifyTypeCheckerErrorOptions,
-    typeOfName,
+    typeOfName, boundProcessNames,
     -- * Desugarer API
     desugarFile, desugarInteractiveStmt, desugarExpression,
     -- * Evaluator API
@@ -287,6 +287,28 @@ ensureExpressionIsOfType t exp = reportWarnings $ runTypeCheckerInCurrentState $
 typeOfExpression :: CSPMMonad m => TCExp -> m Type
 typeOfExpression exp = 
     reportWarnings $ runTypeCheckerInCurrentState (TC.typeOfExp exp)
+
+-- | Returns all currently bound process names, optionally including functions
+-- that evaluate to processes
+boundProcessNames :: CSPMMonad m =>
+    Bool -- ^ If true includes functions that evaluate to processes.
+    -> m [Name]
+boundProcessNames includeFunctions = do
+    ns <- getBoundNames
+    ts <- mapM typeOfName ns
+    let isProcessFunction (TFunction _ (f@(TFunction _ _))) =
+            isProcessFunction f
+        isProcessFunction (TFunction _ t) = isProcess t
+        isProcessFunction _ = False
+
+        isProcess TProc = True
+        isProcess _ = False
+
+        nonFuncNames = map fst $ filter (isProcess . typeSchemeType . snd)
+            (zip ns ts)
+        funcNames = map fst $ filter (isProcessFunction . typeSchemeType . snd)
+            (zip ns ts)
+    return $ nonFuncNames ++ (if includeFunctions then funcNames else [])
 
 -- | Returns the type of the given name in the current context.
 --

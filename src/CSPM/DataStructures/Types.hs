@@ -30,7 +30,10 @@ import Util.PrettyPrint
 newtype TypeVar = TypeVar Int deriving (Eq, Ord, Show)
 
 data TypeScheme =
-    ForAll [(TypeVar, [Constraint])] Type
+    ForAll {
+        typeSchemeVariables :: [(TypeVar, [Constraint])],
+        typeSchemeType :: Type
+    }
     deriving (Eq, Show)
     
 data Constraint =
