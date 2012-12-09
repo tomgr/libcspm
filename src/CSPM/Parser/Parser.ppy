@@ -173,9 +173,18 @@ InteractiveStmt :: { PInteractiveStmt }
     :
     "let" Exp "=" CExp                          {% do
                                                     d <- convDecl $2 $4 
+                                                    d <- annotateWithSymbolTable d
                                                     return $ AN2 (Bind [d])}
     | "assert" "anot" Assertion                 { AN (RunAssertion (ASNot $3)) }
     | "assert" Assertion                        { AN (RunAssertion $2) }
+    | "external" NameCommaList1                 {% do
+                                                    d <- annotateWithSymbolTable $
+                                                        AN2L (External (map unLoc $2))
+                                                    return $ AN2L (Bind [d]) }
+    | "transparent" NameCommaList1              {% do
+                                                    d <- annotateWithSymbolTable $
+                                                        AN2L (Transparent (map unLoc $2))
+                                                    return $ AN2L (Bind [d]) }
     | CExp                                      { AN (Evaluate $1) }
 
 Newlines :
