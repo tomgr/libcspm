@@ -88,7 +88,7 @@ makeBuiltins = do
         cspm_prioritise = ("prioritise", TFunction [TProc, TSeq (TSet TEvent)] TProc)
 
         builtInProcs :: [(String, Type)]
-        builtInProcs = [cspm_STOP, cspm_SKIP, cspm_CHAOS, cspm_prioritise]
+        builtInProcs = [cspm_STOP, cspm_SKIP, cspm_CHAOS]
 
         cspm_Int = ("Int", TSet TInt)
         cspm_Bool = ("Bool", TSet TBool)
@@ -150,7 +150,8 @@ makeBuiltins = do
             ("tau_loop_factor", TFunction [TProc] TProc),
             ("model_compress", TFunction [TProc] TProc),
             ("explicate", TFunction [TProc] TProc),
-            ("wbisim", TFunction [TProc] TProc)
+            ("wbisim", TFunction [TProc] TProc),
+            cspm_prioritise
             ]
 
     complexExternals <- complexExternalFunctions
