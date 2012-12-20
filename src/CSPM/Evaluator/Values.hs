@@ -17,7 +17,6 @@ import CSPM.Evaluator.Monad
 import CSPM.Evaluator.ProcessValues
 import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
 import Data.Array
-import qualified Data.Foldable as F
 import Data.Hashable
 import Prelude hiding (lookup)
 import Util.Exception
@@ -64,10 +63,7 @@ instance Eq ScopeIdentifier where
     SVariableBind vs1 p1 == SVariableBind vs2 p2 =
         vs1 == vs2 && p1 == p2
 
-instance Hashable ScopeIdentifier where
-    hash (SFunctionBind n1 args1 p1) =
-        combine 1 (combine (hash n1) (combine (hash args1) (hash p1)))
-    hash (SVariableBind vs1 p1) = combine 2 (combine (hash vs1) (hash p1))
+instance Hashable ScopeIdentifier
 
 instance Ord ScopeIdentifier where
     compare (SFunctionBind n1 vss1 p1) (SFunctionBind n2 vss2 p2) =
@@ -102,12 +98,7 @@ instance Eq FunctionIdentifier where
         n1 == n2 && args1 == args2 && parent1 == parent2
     _ == _ = False
 
-instance Hashable FunctionIdentifier where
-    hash (FBuiltInFunction n1 vs) = combine 2 (combine (hash n1) (hash vs))
-    hash (FLambda expr parent) =
-        combine 3 (combine (hash (show expr)) (hash parent))
-    hash (FMatchBind n vs parent) =
-        combine 4 (combine (hash n) (combine (hash vs) (hash parent)))
+instance Hashable FunctionIdentifier
 
 instance Ord FunctionIdentifier where
     compare (FBuiltInFunction n1 args1) (FBuiltInFunction n2 args2) =
@@ -147,21 +138,20 @@ removeThunk v = return v
 lookupVar :: Name -> EvaluationMonad Value
 lookupVar n = lookupVarMaybeThunk n >>= removeThunk
 
-instance (Ix i, Hashable a) => Hashable (Array i a) where
-    hash arr = F.foldr combine 0 (fmap hash arr)
+instance (Ix i, Hashable a) => Hashable (Array i a)
 
 instance Hashable Value where
-    hash (VInt i) = combine 1 (hash i)
-    hash (VBool b) = combine 2 (hash b)
-    hash (VTuple vs) = combine 5 (hash vs)
-    hash (VDot vs) = combine 6 (hash vs)
-    hash (VChannel n) = combine 7 (hash n)
-    hash (VDataType n) = combine 8 (hash n)
-    hash (VList vs) = combine 9 (hash vs)
-    hash (VSet vset) = combine 10 (hash vset)
+    hashWithSalt s (VInt i) = combine s $ combine 1 (hash i)
+    hashWithSalt s (VBool b) = combine s $ combine 2 (hash b)
+    hashWithSalt s (VTuple vs) = combine s $ combine 5 (hash vs)
+    hashWithSalt s (VDot vs) = combine s $ combine 6 (hash vs)
+    hashWithSalt s (VChannel n) = combine s $ combine 7 (hash n)
+    hashWithSalt s (VDataType n) = combine s $ combine 8 (hash n)
+    hashWithSalt s (VList vs) = combine s $ combine 9 (hash vs)
+    hashWithSalt s (VSet vset) = combine s $ combine 10 (hash vset)
     -- We identify all functions (for process names) - see comment below in Eq.
-    hash (VFunction id _) = combine 11 (hash id)
-    hash (VProc p) = combine 12 (hash p)
+    hashWithSalt s (VFunction id _) = combine s $ combine 11 (hash id)
+    hashWithSalt s (VProc p) = combine s $ combine 12 (hash p)
 
 instance Eq Value where
     VInt i1 == VInt i2 = i1 == i2

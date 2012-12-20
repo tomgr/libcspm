@@ -142,5 +142,4 @@ instance Eq a => Eq (Located a) where
 instance Ord b => Ord (Annotated a b) where
     compare a b = compare (unAnnotate a) (unAnnotate b)
 
-instance Hashable b => Hashable (Annotated a b) where
-    hash a = hash (unAnnotate a)
+instance Hashable b => Hashable (Annotated a b)
