@@ -59,16 +59,16 @@ data ValueSet =
     | Powerset ValueSet
 
 instance Hashable ValueSet where
-    hashWithSalt s Integers = combine s 1
-    hashWithSalt s Processes = combine s 2
-    hashWithSalt s (IntSetFrom lb) = combine s $ combine 3 lb
-    hashWithSalt s (AllSequences vs) = combine s $ combine 4 (hash vs)
+    hash Integers = 1
+    hash Processes = 2
+    hash (IntSetFrom lb) = combine 3 lb
+    hash (AllSequences vs) = combine 4 (hash vs)
     -- All the above are the ONLY possible representations of the sets (as the
     -- sets are infinite). However, other sets can be represented in multiple
     -- ways so we have to normalise to an explicit set, essentially. 
     -- This is already guaranteed to be sorted
-    hashWithSalt s (ExplicitSet vs) = combine s $ combine 5 (hash (S.toList vs))
-    hashWithSalt st s = combine st $ combine 5 (hash (sort $ toList s))
+    hash (ExplicitSet vs) = combine 5 (hash (S.toList vs))
+    hash s = combine 5 (hash (sort $ toList s))
 
 instance Eq ValueSet where
     s1 == s2 = compare s1 s2 == EQ
