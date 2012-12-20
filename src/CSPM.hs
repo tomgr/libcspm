@@ -97,7 +97,7 @@ module CSPM (
     desugarFile, desugarInteractiveStmt, desugarExpression,
     -- * Evaluator API
     bindFile, bindDeclaration,
-    evaluateExpression,
+    evaluateExpression, maybeProcessNameToProcess,
     -- * Shortcuts
     stringToValue,
     -- * Low-Level API
@@ -369,6 +369,12 @@ bindFile m = do
 -- to be desugared.
 evaluateExpression :: CSPMMonad m => TCExp -> m Value
 evaluateExpression e = runEvaluatorInCurrentState (EV.evaluateExp e)
+
+-- | Given a process name, attempts to convert the name into a process. This
+-- is only possible for top-level function applications.
+maybeProcessNameToProcess :: CSPMMonad m => EV.ProcName -> m (Maybe EV.UProc)
+maybeProcessNameToProcess pn =
+    runEvaluatorInCurrentState (EV.maybeProcessNameToProcess pn)
 
 -- | Takes an expression string and a type and evaluates the expression,
 -- providing the expression is of the correct type.

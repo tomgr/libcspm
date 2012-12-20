@@ -1,9 +1,10 @@
 module CSPM.Evaluator (
     evaluateExp, evaluateDecl, evaluateFile,
-    addToEnvironment,
+    addToEnvironment, maybeProcessNameToProcess,
     
     initEvaluator, runFromStateToState,
     EvaluationMonad, runEvaluator, EvaluationState,
+    module CSPM.Evaluator.ProcessValues,
     module CSPM.Evaluator.Values,
     module CSPM.Evaluator.ValueSet,
 ) where
@@ -16,6 +17,7 @@ import CSPM.Evaluator.Environment
 import CSPM.Evaluator.Expr
 import CSPM.Evaluator.File
 import CSPM.Evaluator.Monad
+import CSPM.Evaluator.ProcessValues
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import Util.Annotated
@@ -44,5 +46,15 @@ evaluateDecl d = bindDecls [d]
 evaluateFile :: TCCSPMFile -> EvaluationMonad [(Name, EvaluationMonad Value)]
 evaluateFile ms = bindFile ms
 
-addToEnvironment :: [(Name, EvaluationMonad Value)] -> EvaluationMonad EvaluationState
+addToEnvironment :: [(Name, EvaluationMonad Value)] ->
+    EvaluationMonad EvaluationState
 addToEnvironment bs = addScopeAndBindM bs getState
+
+-- | Attempts to convert a process name to a process, if possible.
+maybeProcessNameToProcess :: ProcName -> EvaluationMonad (Maybe UProc)
+maybeProcessNameToProcess (pn@(ProcName (SFunctionBind fn [args] Nothing))) = do
+    -- Evaluate the function again
+    VFunction _ func <- lookupVar fn
+    v <- func args
+    return $ Just $ PProcCall pn (let VProc p = v in p)
+maybeProcessNameToProcess _ = return Nothing
