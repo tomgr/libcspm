@@ -154,6 +154,11 @@ makeBuiltins = do
             cspm_prioritise
             ]
 
+        cspm_error fv = ("error", [TSeq TChar], fv)
+        cspm_show fv = ("show", [fv], TSeq TChar)
+
+        fdr3Extensions = [cspm_error, cspm_show]
+
     complexExternals <- complexExternalFunctions
 
     let
@@ -225,8 +230,9 @@ makeBuiltins = do
     bs6 <- mapM mkPatternType externalFunctions
     bs7 <- mapM mkPatternType transparentFunctions
     bs8 <- mapM mkPatternType externalAndTransparentFunctions
+    bs9 <- mapM (mkFuncType []) fdr3Extensions
 
-    let bs = bs1++bs2++bs2'++bs3++bs4++bs5++bs6++bs7++complexExternals++bs8
+    let bs = bs1++bs2++bs2'++bs3++bs4++bs5++bs6++bs7++complexExternals++bs8++bs9
 
     bs' <- mapM makeBuiltIn bs
     bs'' <- mapM (makeReplacements bs') bs'

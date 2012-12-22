@@ -1,0 +1,4 @@
+func(0) = 1
+func(x) = error(show(x)^" is not an allowed argument")
+
+test2 = func(4) == 1

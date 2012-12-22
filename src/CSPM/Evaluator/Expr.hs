@@ -102,7 +102,9 @@ instance Evaluatable (Exp Name) where
     eval (Lit lit) = return $
         case lit of
             Int i -> VInt i
-            Bool b -> VBool b   
+            Bool b -> VBool b
+            Char c -> VChar c
+            String s -> VList (map VChar s)
     eval (List es) = mapM eval es >>= return . VList
     eval (ListComp es stmts) = do
             xs <- evalStmts (\(VList xs) -> xs) stmts (mapM eval es)

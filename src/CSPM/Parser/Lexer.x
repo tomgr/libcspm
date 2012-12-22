@@ -35,6 +35,32 @@ $notid = [[^0-9a-zA-Z_]\(\[$whitechar]
 @nltok = (@comment|())\n@nl
 @notnot = [^n]|(n[^o])|(no[^t])
 
+-- For string identification
+$symbol = [\!\#\$\%\&\*\+\.\/\<\=\>\?\@\\\^\|\-\~]
+$large = [A-Z \xc0-\xd6 \xd8-\xde]
+$small = [a-z \xdf-\xf6 \xf8-\xff \_]
+$string_alpha = [$small $large]
+$graphic   = [$string_alpha $symbol $digit \:\"\']
+
+$octit     = 0-7
+$hexit     = [0-9 A-F a-f]
+
+@decimal     = $digit+
+@octal       = $octit+
+@hexadecimal = $hexit+
+@exponent    = [eE] [\-\+] @decimal
+
+$cntrl   = [$large \@\[\\\]\^\_]
+@ascii   = \^ $cntrl | NUL | SOH | STX | ETX | EOT | ENQ | ACK
+     | BEL | BS | HT | LF | VT | FF | CR | SO | SI | DLE
+     | DC1 | DC2 | DC3 | DC4 | NAK | SYN | ETB | CAN | EM
+     | SUB | ESC | FS | GS | RS | US | SP | DEL
+$charesc = [abfnrtv\\\"\'\&]
+@escape  = \\ ($charesc | @ascii | @decimal | o @octal | x @hexadecimal)
+@gap     = \\ $whitechar+ \\
+@string  = $graphic # [\"\\] | " " | @escape | @gap
+
+
 -- Note that we allow newlines to preceed all tokens, except for those that
 -- may possibly be at the start of a new expression. Therefore, for example,
 -- as a + may never be at the start of an expression we allow newlines before
@@ -173,8 +199,11 @@ tokens :-
     <0>"#"@nl                   { tok THash }
 
     -- 'Wildcards'
-    <0>$alpha+$alphanum*$prime* { stok (\s -> TIdent s) }
+    <0>$alpha+$alphanum*$prime* { stok (\ s -> TIdent s) }
     <0>@nl$digit+               { stok (\ s -> TInteger (read s)) }
+    <0>@nl \' ($graphic # [\'\\] | " " | @escape) \' 
+                                { stok (\ s -> TChar (read s)) }
+    <0>@nl\"@string*\"          { stok (\ s -> TString (read s)) }
 
     -- Must be after names
     <0>@nl"_"@nl                { tok TWildCard }

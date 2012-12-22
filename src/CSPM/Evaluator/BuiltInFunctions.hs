@@ -20,6 +20,7 @@ import CSPM.Prelude
 import qualified Data.Graph.ST as G
 import Util.Exception
 import Util.Prelude
+import Util.PrettyPrint
 
 bMap = M.fromList [(stringName b, name b) | b <- builtins True]
 builtInName s = M.findWithDefault (panic "builtin not found") s bMap
@@ -50,6 +51,10 @@ builtInFunctions =
             in VFunction fid (\[x] -> f x >>= return . VSet)
         cspm_mtransclose [VSet s1, VSet s2] = fdrSymmetricTransitiveClosure s1 s2
         cspm_relational_inverse_image s = cspm_relational_image [cspm_transpose s]
+        cspm_show [v] =
+            VList (map VChar (show (prettyPrint v)))
+        cspm_error [err] = throwError' $ \ srcspan _ -> mkErrorMessage srcspan $
+            text "Error:" <+> prettyPrint err
         
         cspm_length [VList xs] = VInt $ length xs
         cspm_null [VList xs] = VBool $ null xs
@@ -118,13 +123,14 @@ builtInFunctions =
             ("empty", cspm_empty), ("CHAOS", csp_chaos),
             ("loop", csp_loop), ("relational_image", cspm_relational_image),
             ("relational_inverse_image", cspm_relational_inverse_image),
-            ("transpose", cspm_transpose)
+            ("transpose", cspm_transpose), ("show", cspm_show)
             ]
 
         -- | Functions that require a monadic context.
         monadic_funcs = [
             ("head", cspm_head), ("tail", cspm_tail), 
-            ("productions", cspm_productions), ("extensions", cspm_extensions)
+            ("productions", cspm_productions), ("extensions", cspm_extensions),
+             ("error", cspm_error)
             ]
         
         mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)

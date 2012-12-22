@@ -1,0 +1,2 @@
+test1 = let f('c') = true within f(head("c"))
+test2 = let f("c") = true within f(<'c'>)

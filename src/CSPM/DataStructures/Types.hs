@@ -66,6 +66,7 @@ data Type =
     | TProc
     | TInt
     | TBool
+    | TChar
     | TEvent
     -- Something that can be extended to the given type
     | TExtendable Type
@@ -198,6 +199,7 @@ prettyPrintType _ TBool = text "Bool"
 prettyPrintType _ TInt = text "Int"
 prettyPrintType _ TProc = text "Proc"
 prettyPrintType _ TEvent = text "Event"
+prettyPrintType _ TChar = text "Char"
 prettyPrintType vmap (TExtendable t) = text "Extenable to"<+>prettyPrintType vmap t
 
 collectConstraints :: Type -> [(TypeVar, [Constraint])]
@@ -221,4 +223,5 @@ collectConstraints = combine . collect
         collect TInt = []
         collect TProc = []
         collect TEvent = []
+        collect TChar = []
         collect (TExtendable t) = collect t

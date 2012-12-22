@@ -240,6 +240,9 @@ instance Desugarable (Pat Name) where
             return $ PCompDot (extractDotList p1'++extractDotList p2') (PDotApp p1 p2)
     desugar (PDoublePattern p1 p2) =
         return PDoublePattern $$ desugar p1 $$ desugar p2
+    desugar (PLit (String s)) = return $
+        PCompList (map (\ c -> An Unknown () (PLit (Char c))) s)
+            Nothing (PLit (String s))
     desugar (PLit l) = return PLit $$ desugar l
     -- We don't remove the Paren as people may pretty print a desugared
     -- expression, which would then not have parenthesis needed to

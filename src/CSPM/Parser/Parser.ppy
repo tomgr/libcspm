@@ -16,11 +16,12 @@ import Data.Char
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Types hiding (TDot)
+import CSPM.DataStructures.Types hiding (TDot, TChar)
 import CSPM.Parser.Exceptions
 import CSPM.Parser.Lexer
 import CSPM.Parser.Monad
 import CSPM.Parser.Tokens
+import Prelude hiding (getChar)
 import Util.Annotated
 }
 
@@ -42,6 +43,8 @@ import Util.Annotated
 %error { parseError }
 %token
     integer_literal     { L _ (TInteger _) }
+    char_literal        { L _ (TChar _) }
+    string_literal      { L _ (TString _) }
     ident               { L _ (TIdent _) }
     newline             { L _ TNewLine }
 
@@ -281,6 +284,8 @@ rNameCommaList :: { [Located UnRenamedName] }
 
 Literal :: { Located Literal }:
     integer_literal                 { LL (Int (getInt $1)) }
+    | char_literal                  { LL (Char (getChar $1)) }
+    | string_literal                { LL (String (getString $1)) }
     | "true"                        { LL (Bool True) }
     | "false"                       { LL (Bool False) }
 
@@ -625,6 +630,8 @@ convPat (anExp@ (An a b exp)) =
 
 -- Helper function to get the contents of tokens
 getInt (L _ (TInteger x)) = x
+getChar (L _ (TChar c)) = c
+getString (L _ (TString s)) = s
 getName (L _ (TIdent x)) = x
 getRefinesModel (L _ (TRefines x)) = x
 getPropModel (L _ (TModel x)) = x

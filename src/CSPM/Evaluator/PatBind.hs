@@ -71,6 +71,7 @@ instance Bindable (Pat Name) where
         in (m1 && m2, b1++b2)
     bind (PLit (Int i1)) (VInt i2) | i1 == i2 = (True, [])
     bind (PLit (Bool b1)) (VBool b2) | b1 == b2 = (True, [])
+    bind (PLit (Char c1)) (VChar c2) | c1 == c2 = (True, [])
     bind (PSet []) (VSet s) | empty s = (True, [])
     bind (PSet [p]) (VSet s) = 
         case singletonValue s of

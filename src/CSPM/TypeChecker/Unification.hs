@@ -36,6 +36,7 @@ freeTypeVars' (TDatatype n1) = return []
 freeTypeVars' TInt = return []
 freeTypeVars' TBool = return []
 freeTypeVars' TEvent = return []
+freeTypeVars' TChar = return []
 freeTypeVars' (TExtendable t) = freeTypeVars' t
 freeTypeVars' TProc = return []
 
@@ -94,6 +95,7 @@ occurs a TInt = return False
 occurs a TBool = return False
 occurs a TProc = return False
 occurs a TEvent = return False
+occurs a TChar = return False
 occurs a (TExtendable t) = occurs a t
 
 -- | Unifys all types to a single type. The first type is  used as the 
@@ -120,6 +122,7 @@ unifyConstraint c (TVar v) = do
         Right t         -> unifyConstraint c t
 unifyConstraint CSet TProc = return ()
 unifyConstraint c TInt = return ()
+unifyConstraint c TChar = return ()
  -- Bools are not orderable
 unifyConstraint c TBool | c /= COrd = return ()
 unifyConstraint CEq (TDatatype n) = do
@@ -364,6 +367,7 @@ unifyNoStk TInt TInt = return TInt
 unifyNoStk TBool TBool = return TBool
 unifyNoStk TProc TProc = return TProc
 unifyNoStk TEvent TEvent = return TEvent
+unifyNoStk TChar TChar = return TChar
 unifyNoStk (TDatatype n1) (TDatatype n2) 
     | n1 == n2 = return $ TDatatype n1
 
@@ -576,6 +580,7 @@ substituteType sub TInt = return TInt
 substituteType sub TBool = return TBool
 substituteType sub TProc = return TProc
 substituteType sub TEvent = return TEvent
+substituteType sub TChar = return TChar
 substituteType sub (TExtendable t) = substituteType sub t >>= return . TExtendable
 
 -- | Takes a type and attempts to simplify all TDots inside

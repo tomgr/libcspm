@@ -21,9 +21,11 @@ class TypeCheckable a b | a -> b where
     errorContext :: a -> Maybe ErrorContext
 
 instance TypeCheckable Literal Type where
-    errorContext a = Nothing
-    typeCheck' (Int n) = return TInt
-    typeCheck' (Bool b) = return TBool
+    errorContext _ = Nothing
+    typeCheck' (Int _) = return TInt
+    typeCheck' (Bool _) = return TBool
+    typeCheck' (Char _) = return TChar
+    typeCheck' (String _) = return $ TSeq TChar
     
 ensureAreEqual :: TypeCheckable a Type => [a] -> TypeCheckMonad Type
 ensureAreEqual [] = freshTypeVar

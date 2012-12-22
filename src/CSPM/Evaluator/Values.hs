@@ -27,6 +27,7 @@ type UProc = UnCompiledProc
 
 data Value =
     VInt Int
+    | VChar Char
     | VBool Bool
     | VTuple (Array Int Value)
     -- | If A is a datatype clause that has 3 fields a b c then a runtime
@@ -153,6 +154,7 @@ instance (Ix i, Hashable a) => Hashable (Array i a) where
 instance Hashable Value where
     hash (VInt i) = combine 1 (hash i)
     hash (VBool b) = combine 2 (hash b)
+    hash (VChar c) = combine 3 (hash c)
     hash (VTuple vs) = combine 5 (hash vs)
     hash (VDot vs) = combine 6 (hash vs)
     hash (VChannel n) = combine 7 (hash n)
@@ -166,6 +168,7 @@ instance Hashable Value where
 instance Eq Value where
     VInt i1 == VInt i2 = i1 == i2
     VBool b1 == VBool b2 = b1 == b2
+    VChar c1 == VChar c2 = c1 == c2
     VTuple vs1 == VTuple vs2 = vs1 == vs2
     VDot vs1 == VDot vs2 = vs1 == vs2
     VChannel n1 == VChannel n2 = n1 == n2
@@ -181,6 +184,7 @@ instance Eq Value where
 compareValues :: Value -> Value -> Maybe Ordering
 -- The following are all orderable and comparable
 compareValues (VInt i1) (VInt i2) = Just (compare i1 i2)
+compareValues (VChar c1) (VChar c2) = Just (compare c1 c2)
 compareValues (VBool b1) (VBool b2) = Just (compare b1 b2)
 compareValues (VTuple vs1) (VTuple vs2) =
     -- Tuples must be same length by type checking
@@ -219,6 +223,7 @@ instance Ord Value where
     -- This implementation is used for various internal measures, but not
     -- for implementing actual comparisons in CSPM.
     compare (VInt i1) (VInt i2) = compare i1 i2
+    compare (VChar c1) (VChar c2) = compare c1 c2
     compare (VBool b1) (VBool b2) = compare b1 b2
     compare (VTuple vs1) (VTuple vs2) = compare vs1 vs2
     compare (VList vs1) (VList vs2) = compare vs1 vs2
@@ -259,6 +264,7 @@ trimFunctionIdentifier (FMatchBind n args p) =
 
 trimValueForProcessName :: Value -> Value
 trimValueForProcessName (VInt i) = VInt i
+trimValueForProcessName (VChar c) = VChar c
 trimValueForProcessName (VBool b) = VBool b
 trimValueForProcessName (VTuple vs) = VTuple (fmap trimValueForProcessName vs)
 trimValueForProcessName (VList vs) = VList (map trimValueForProcessName vs)

@@ -10,6 +10,8 @@ import Util.PrettyPrint
 
 data Token = 
     TInteger Int
+    | TChar Char
+    | TString String
     | TFalse
     | TTrue
     | TIdent String
