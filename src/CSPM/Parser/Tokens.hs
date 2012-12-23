@@ -117,6 +117,8 @@ instance Show Token where
 
 instance PrettyPrintable Token where
     prettyPrint (TInteger i) = int i
+    prettyPrint (TChar c) = quotes (char c)
+    prettyPrint (TString s) = doubleQuotes (text s)
     prettyPrint TFalse = text "false"
     prettyPrint TTrue = text "true"
     prettyPrint (TIdent s) = text s
