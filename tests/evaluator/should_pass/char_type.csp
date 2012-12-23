@@ -1,0 +1,3 @@
+test1 = member('c', Char)
+test2 = member("c", Seq(Char))
+test3 = member("cd", Seq(Char))

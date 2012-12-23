@@ -158,12 +158,13 @@ builtInFunctions =
         
         cspm_Bool = ("Bool", VSet (S.fromList [snd cspm_true, snd cspm_false]))
         cspm_Int = ("Int", VSet S.Integers)
+        cspm_Char = ("Char", VSet (S.fromList (map VChar [minBound :: Char ..])))
         cspm_Proc = ("Proc", VSet S.Processes)
         cspm_Events = ("Events", VSet (S.fromList []))
 
         constants = [
             cspm_true, cspm_false, cspm_True, cspm_False,
-            cspm_Bool, cspm_Int, cspm_Proc, cspm_Events
+            cspm_Bool, cspm_Int, cspm_Proc, cspm_Events, cspm_Char
             ]
         
         mkConstant (s, v) = (nameForString s, v)

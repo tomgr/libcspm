@@ -94,6 +94,7 @@ makeBuiltins = do
         cspm_Bool = ("Bool", TSet TBool)
         cspm_Proc = ("Proc", TSet TProc)
         cspm_Events = ("Events", TSet TEvent)
+        cspm_Char = ("Char", TSet TChar)
         cspm_true = ("true", TBool)
         cspm_false = ("false", TBool)
         cspm_True = ("True", TBool)
@@ -101,7 +102,7 @@ makeBuiltins = do
 
         typeConstructors :: [(String, Type)]
         typeConstructors = [cspm_Int, cspm_Bool, cspm_Proc, cspm_Events, 
-            cspm_true, cspm_false, cspm_True, cspm_False]
+            cspm_Char, cspm_true, cspm_false, cspm_True, cspm_False]
 
         externalAndTransparentFunctions :: [(String, Type)]
         externalAndTransparentFunctions = [
