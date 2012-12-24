@@ -79,8 +79,8 @@ makeBuiltins = do
         cspm_concat fv = ("concat", [TSeq (TSeq fv)], TSeq fv)
         cspm_elem fv = ("elem", [fv, TSeq fv], TBool)       
         
-        seqs = [cspm_length, cspm_null, cspm_head, cspm_tail, cspm_concat,
-                cspm_elem]
+        seqs = [cspm_length, cspm_null, cspm_head, cspm_tail, cspm_concat]
+        eqSeqs = [cspm_elem]
 
         cspm_STOP = ("STOP", TProc)
         cspm_SKIP = ("SKIP", TProc)
@@ -224,7 +224,7 @@ makeBuiltins = do
 
     bs1 <- mapM (mkFuncType []) seqs
     bs2 <- mapM (mkFuncType [CSet]) setsSets
-    bs2' <- mapM (mkFuncType [CEq]) eqSets
+    bs2' <- mapM (mkFuncType [CEq]) (eqSets ++ eqSeqs)
     bs3 <- mapM mkPatternType typeConstructors
     bs4 <- mapM mkPatternType builtInProcs
     bs5 <- mapM mkUnsafeFuncType unsafeFunctionNames
