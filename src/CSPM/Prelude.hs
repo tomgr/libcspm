@@ -184,11 +184,8 @@ makeBuiltins = do
             let (n, t) = func
             return (n, ForAll [] t)
 
-        -- extensions :: Closeable a b c => a -> {c}
-        -- productions :: TExtendable a -> {a}
-        -- extensions :: TExtendable a b -> {b}
         unsafeFunctionNames :: [String]
-        unsafeFunctionNames = ["productions", "extensions"]
+        unsafeFunctionNames = []
 
         deprecatedNames :: [String]
         deprecatedNames = []
@@ -220,12 +217,23 @@ makeBuiltins = do
                 Nothing -> return b
         makeReplacements _ b = return b
 
+        makeExtensionsProductions = do
+            fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints []
+            fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints []
+            let t1 = ForAll [(tv1, []), (tv2, [CYieldable])]
+                        (TFunction [TDotable fv1 fv2] (TSet fv1))
+            fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints []
+            fv2ref <- freshTypeVarRef []
+            let t2 = ForAll [(tv2, [CYieldable])]
+                        (TFunction [TExtendable fv2 fv2ref] (TSet fv2))
+            return [("extensions", t1), ("productions", t2)]
+
     bs1 <- mapM (mkFuncType []) seqs
     bs2 <- mapM (mkFuncType [CSet]) setsSets
     bs2' <- mapM (mkFuncType [CEq]) (eqSets ++ eqSeqs)
     bs3 <- mapM mkPatternType typeConstructors
     bs4 <- mapM mkPatternType builtInProcs
-    bs5 <- mapM mkUnsafeFuncType unsafeFunctionNames
+    bs5 <- makeExtensionsProductions
     bs6 <- mapM mkPatternType externalFunctions
     bs7 <- mapM mkPatternType transparentFunctions
     bs8 <- mapM mkPatternType externalAndTransparentFunctions
@@ -235,5 +243,5 @@ makeBuiltins = do
 
     bs' <- mapM makeBuiltIn bs
     bs'' <- mapM (makeReplacements bs') bs'
-
+    
     return bs''

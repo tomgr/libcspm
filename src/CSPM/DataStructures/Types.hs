@@ -46,6 +46,8 @@ data Constraint =
     | CInputable
     -- | Can form sets of the type.
     | CSet
+    -- | Is something that can be yielded on the right hand side of =>.
+    | CYieldable
     deriving (Eq, Ord, Show)
 
 constraintImpliedBy :: Constraint -> Constraint -> Bool
@@ -144,6 +146,7 @@ instance PrettyPrintable Constraint where
     prettyPrint COrd = text "Ord"
     prettyPrint CInputable = text "Inputable"
     prettyPrint CSet = text "Set"
+    prettyPrint CYieldable = text "Yieldable"
 
 -- | Pretty prints several types using the same variable substitutions
 prettyPrintTypes :: [Type] -> [Doc]

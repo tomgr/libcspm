@@ -132,9 +132,16 @@ unifyConstraint c (TExtendable t pt) = do
     res <- readTypeRef pt
     case res of
         Left _  ->
+            if c == CYieldable then
+                writeTypeRef pt t
+            else 
                 when (c /= CEq || c /= CSet) $ raiseMessageAsError $
                     constraintUnificationErrorMessage c (TExtendable t pt)
         Right t -> unifyConstraint c t
+unifyConstraint CYieldable (TDatatype n) = return ()
+unifyConstraint CYieldable TEvent = return ()
+unifyConstraint CYieldable t =
+    raiseMessageAsError $ constraintUnificationErrorMessage CYieldable t
 unifyConstraint CSet TProc = return ()
 unifyConstraint c TInt = return ()
 unifyConstraint c TChar = return ()
