@@ -168,8 +168,13 @@ instance PrettyPrintable TypeScheme where
             -- | Map from int to letter to improve presentation
             vmap = zip (map (\ (TypeVar n, _) -> n) ts) ['a'..'z']
             -- | Vars with constraints
-            varsWithCs = [(v, c) | (v, cs) <- ts, c <- reduceConstraints cs, cs /= []]
+            varsWithCs = [(v, c) | (v, cs) <- nub (sortConstraints ts),
+                                    c <- reduceConstraints cs, cs /= []]
 
+            compareConstraints (TypeVar tv1, cs1) (TypeVar tv2, cs2) =
+                compare (safeApply vmap tv1) (safeApply vmap tv2)
+                `thenCmp` compare cs1 cs2
+            sortConstraints = sortBy compareConstraints
             constraintsText = 
                 hsep (
                     punctuate comma [
