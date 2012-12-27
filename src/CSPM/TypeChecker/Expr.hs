@@ -151,12 +151,14 @@ instance TypeCheckable (Exp Name) Type where
             ensureHasConstraint CSet t
             return $ TSet t
     typeCheck' (SetEnum es) =  do
-        mapM ensureIsChannel es
-        return $ TSet TEvent
+        fv <- freshTypeVarWithConstraints [CYieldable]
+        mapM (flip ensureIsExtendable fv) es
+        return $ TSet fv
     typeCheck' (SetEnumComp es stmts) = 
         typeCheckStmts TSet stmts $ do
-            mapM ensureIsChannel es
-            return $ TSet TEvent
+            fv <- freshTypeVarWithConstraints [CYieldable]
+            mapM (flip ensureIsExtendable fv) es
+            return $ TSet fv
     typeCheck' (SetEnumFrom lb) = do
         ensureIsInt lb
         return $ TSet TInt
