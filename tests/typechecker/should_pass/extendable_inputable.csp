@@ -1,0 +1,7 @@
+test1(c, x) =
+    let y = {| x |} within
+    c?y : {x} -> c?x -> STOP
+
+-- unify TEvent (TDot c (TExtendable a))
+-- unify (TDotable (TExtendable a) TEvent) c
+-- 

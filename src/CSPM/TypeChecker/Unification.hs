@@ -134,8 +134,11 @@ unifyConstraint c (TExtendable t pt) = do
         Left _  ->
             if c == CYieldable then
                 writeTypeRef pt t
+            else if c == CInputable then do
+                unifyConstraint c t
+                writeTypeRef pt t
             else 
-                when (c /= CEq || c /= CSet) $ raiseMessageAsError $
+                when (c /= CEq && c /= CSet) $ raiseMessageAsError $
                     constraintUnificationErrorMessage c (TExtendable t pt)
         Right t -> unifyConstraint c t
 unifyConstraint CYieldable (TDatatype n) = return ()
@@ -161,8 +164,6 @@ unifyConstraint CEq (TSeq t) = unifyConstraint CEq t
 unifyConstraint COrd (TSeq t) = unifyConstraint CEq t
 unifyConstraint CInputable (TTuple _) = return ()
 unifyConstraint c (TTuple ts) = mapM_ (unifyConstraint c) ts
---unifyConstraint Inputable (TExtendable t) =
--- todo: we need, in this case to insist this type is of type t
 -- Dotable types are not orderable (as events and datatypes are not). Nor are
 -- they inputable. We can create sets of them though.
 unifyConstraint CEq (TDotable a b) = unifyConstraint CEq a >> unifyConstraint CEq b
