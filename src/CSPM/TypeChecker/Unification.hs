@@ -532,6 +532,9 @@ unifyNoStk (TExtendable t pt) (TDotable argt rt) = do
     writeTypeRef pt t'
     return t'
 
+unifyNoStk (TExtendable t1 pt1) (TExtendable t2 pt2) | pt1 == pt2 = do
+    t <- unify t1 t2
+    return $ TExtendable t pt1
 unifyNoStk (TExtendable t1 pt1) (TExtendable t2 pt2) = do
     t <- unify t1 t2
     -- They need to use the same variable now
