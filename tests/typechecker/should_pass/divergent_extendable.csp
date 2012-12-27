@@ -1,0 +1,3 @@
+F(x, y, z) = let a = {|x|} within (x.y, x.z)
+
+G(c) = F(c, 1, 1)

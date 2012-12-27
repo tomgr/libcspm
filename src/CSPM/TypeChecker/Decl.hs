@@ -238,7 +238,8 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                 ForAll [] typeCon <- getType nclause
                 (actFields, dataType) <- dotableToDotList typeCon
                 -- Check that the datatype is the correct subtype.
-                unify (TExtendable parentType) dataType
+                tvref' <- freshTypeVarRef []
+                unify (TExtendable parentType tvref') dataType
                 -- Check that the fields are compatible with the expected fields.
                 zipWithM unify actFields tsFields
             ) clauses

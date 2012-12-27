@@ -4,7 +4,7 @@ module CSPM.DataStructures.Types (
     prettyPrintTypes,
     constraintImpliedBy, reduceConstraints,
     -- * Creation of Types
-    freshTypeVar, freshTypeVarWithConstraints,
+    freshTypeVar, freshTypeVarWithConstraints, freshTypeVarRef,
 
     -- * Symbol Tables
     SymbolTable, PSymbolTable, freshPSymbolTable, readPSymbolTable, 
@@ -22,6 +22,7 @@ import System.IO.Unsafe
 
 import CSPM.DataStructures.Names
 import Util.PartialFunctions
+import Util.Prelude
 import Util.PrettyPrint
 
 -- *************************************************************************
@@ -69,7 +70,7 @@ data Type =
     | TChar
     | TEvent
     -- Something that can be extended to the given type
-    | TExtendable Type
+    | TExtendable Type TypeVarRef
     | TSet Type
     | TSeq Type
     | TDot Type Type
@@ -107,11 +108,14 @@ takeTypeVarFromSupply = do
 freshTypeVar :: MonadIO m => m Type
 freshTypeVar = freshTypeVarWithConstraints []
 
-freshTypeVarWithConstraints :: MonadIO m => [Constraint] -> m Type
-freshTypeVarWithConstraints cs = do
+freshTypeVarRef :: MonadIO m => [Constraint] -> m TypeVarRef
+freshTypeVarRef cs = do
     tv <- takeTypeVarFromSupply
     ioRef <- freshPType
-    return $ TVar (TypeVarRef tv cs ioRef)
+    return $ TypeVarRef tv cs ioRef
+
+freshTypeVarWithConstraints :: MonadIO m => [Constraint] -> m Type
+freshTypeVarWithConstraints cs = freshTypeVarRef cs >>= return . TVar
 
 type SymbolTable = PartialFunction Name TypeScheme
 type PType = IORef (Maybe Type)
@@ -200,7 +204,8 @@ prettyPrintType _ TInt = text "Int"
 prettyPrintType _ TProc = text "Proc"
 prettyPrintType _ TEvent = text "Event"
 prettyPrintType _ TChar = text "Char"
-prettyPrintType vmap (TExtendable t) = text "Extenable to"<+>prettyPrintType vmap t
+prettyPrintType vmap (TExtendable t _) =
+    text "Extendable" <+> prettyPrintType vmap t
 
 collectConstraints :: Type -> [(TypeVar, [Constraint])]
 collectConstraints = combine . collect
@@ -224,4 +229,4 @@ collectConstraints = combine . collect
         collect TProc = []
         collect TEvent = []
         collect TChar = []
-        collect (TExtendable t) = collect t
+        collect (TExtendable t _) = collect t

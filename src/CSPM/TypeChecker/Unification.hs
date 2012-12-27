@@ -37,7 +37,11 @@ freeTypeVars' TInt = return []
 freeTypeVars' TBool = return []
 freeTypeVars' TEvent = return []
 freeTypeVars' TChar = return []
-freeTypeVars' (TExtendable t) = freeTypeVars' t
+freeTypeVars' (TExtendable t pt) = do
+    res <- readTypeRef pt
+    case res of 
+        Left _ -> freeTypeVars' t
+        Right t -> freeTypeVars' t
 freeTypeVars' TProc = return []
 
 -- | Generalise the types of the declarations. The parameter 'names' gives the 
@@ -96,7 +100,11 @@ occurs a TBool = return False
 occurs a TProc = return False
 occurs a TEvent = return False
 occurs a TChar = return False
-occurs a (TExtendable t) = occurs a t
+occurs a (TExtendable t pt) = do
+    res <- readTypeRef pt
+    case res of 
+        Left _ -> occurs a t
+        Right t -> occurs a t
 
 -- | Unifys all types to a single type. The first type is  used as the 
 -- expected Type in error messages.
@@ -120,6 +128,13 @@ unifyConstraint c (TVar v) = do
                 applySubstitution v fv
                 return ()
         Right t         -> unifyConstraint c t
+unifyConstraint c (TExtendable t pt) = do
+    res <- readTypeRef pt
+    case res of
+        Left _  ->
+                when (c /= CEq || c /= CSet) $ raiseMessageAsError $
+                    constraintUnificationErrorMessage c (TExtendable t pt)
+        Right t -> unifyConstraint c t
 unifyConstraint CSet TProc = return ()
 unifyConstraint c TInt = return ()
 unifyConstraint c TChar = return ()
@@ -139,8 +154,6 @@ unifyConstraint CEq (TSeq t) = unifyConstraint CEq t
 unifyConstraint COrd (TSeq t) = unifyConstraint CEq t
 unifyConstraint CInputable (TTuple _) = return ()
 unifyConstraint c (TTuple ts) = mapM_ (unifyConstraint c) ts
-unifyConstraint CEq (TExtendable t) = unifyConstraint CEq t
-unifyConstraint CSet (TExtendable t) = unifyConstraint CSet t
 --unifyConstraint Inputable (TExtendable t) =
 -- todo: we need, in this case to insist this type is of type t
 -- Dotable types are not orderable (as events and datatypes are not). Nor are
@@ -326,7 +339,7 @@ combineTypeLists as bs = raiseUnificationError True
 -- stack in order to ensure error messages are helpful.
 unify :: Type -> Type -> TypeCheckMonad Type
 unify texp tact = do
-    text <- compress texp
+    texp <- compress texp
     tact <- compress tact
     addUnificationPair (texp, tact) (unifyNoStk texp tact)
 
@@ -399,7 +412,7 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
     rt <- unify rtA rtB
 
     case (rtA, rtB) of
-        (TExtendable t1, TExtendable t2) | t1 == t2 -> do
+        (TExtendable t1 pt1, TExtendable t2 pt2) | t1 == t2 -> do
             -- In this case we have two things of the form X=>Eventable,
             -- X'=> Eventable. WLOG suppose X'=X^Y. Then, we unify to X.Y=>Eventable.
             as <- evalTypeList LongestMatch argsA
@@ -408,8 +421,8 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
                 bs' = map (snd . reduceDotable . toNormalForm) bs
             ts <- zipWithM unify as' bs'
             let ts' = drop (length ts) (if length as == length ts then bs else as)
-            return $ TDotable (foldl1 TDot (ts++ts')) (TExtendable t1)
-        (TExtendable t1, _) -> do
+            return $ TDotable (foldl1 TDot (ts++ts')) (TExtendable t1 pt1)
+        (TExtendable _ _, _) -> do
             -- Firstly, evaluate each type list to reduce it; this means
             -- that it will not have any terms like TDotable TInt ..., TInt..
             as <- evalTypeList LongestMatch argsA
@@ -424,7 +437,7 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
             -- The most general type will have the arguments of bs, rather
             -- than the arguments of as (bs provide more information).
             return $ TDotable (foldl1 TDot bs) rt
-        (_, TExtendable t1) -> do
+        (_, TExtendable _ _) -> do
             as <- evalTypeList LongestMatch argsA
             bs <- evalTypeList LongestMatch argsB
             let bs' = map (snd . reduceDotable . toNormalForm) bs
@@ -466,13 +479,13 @@ unifyNoStk TEvent (TDot t1 t2) = do
     unify (TDotable t2 TEvent) t1
     return TEvent
 
-unifyNoStk (TDot t1 t2) (TExtendable t) = do
+unifyNoStk (TDot t1 t2) (TExtendable t pt) = do
     b <- symmetricUnificationAllowed
     if not b then raiseUnificationError False else return ()
-    tl <- unify (TDotable t2 (TExtendable t)) t1
+    tl <- unify (TDotable t2 (TExtendable t pt)) t1
     return $ TDot tl t2
 
-unifyNoStk (TExtendable t) (TDot t1 t2) = do
+unifyNoStk (TExtendable t pt) (TDot t1 t2) = do
     -- We actually want the 'shortest match rule' here, so we inline a version
     -- of evalTypeList that does so.
     tl <- typeToDotList (TDot t1 t2)
@@ -485,9 +498,9 @@ unifyNoStk (TExtendable t) (TDot t1 t2) = do
     -- the usual way (which will require the longest match rule).
     case foldr1 TDot tl of
         TDot t1 t2 -> do
-            t1' <- unify (TDotable t2 (TExtendable t)) t1
+            t1' <- unify (TDotable t2 (TExtendable t pt)) t1
             return $ TDot t1' t2
-        tl -> unify (TExtendable t) tl
+        tl -> unify (TExtendable t pt) tl
 
 unifyNoStk (TDot t1 t2) (TDotable argt rt) = do
     b <- symmetricUnificationAllowed
@@ -499,16 +512,32 @@ unifyNoStk (TDotable argt rt) (TDot t1 t2) = do
     unify (TDotable t2 (TDotable argt rt)) t1
     return $ TDotable argt rt
 
-unifyNoStk (TDotable argt rt) (TExtendable t) = do
-    unify (TExtendable t) rt
-    return $ TDotable argt rt
-unifyNoStk (TExtendable t) (TDotable argt rt) = do
-    unify (TExtendable t) rt
-    return $ TDotable argt rt
+unifyNoStk (TDotable argt rt) (TExtendable t pt) = do
+    tvref' <- freshTypeVarRef []
+    rt' <- unify (TExtendable t tvref') rt
+    let t' = TDotable argt rt'
+    writeTypeRef pt t'
+    return t'
+unifyNoStk (TExtendable t pt) (TDotable argt rt) = do
+    tvref' <- freshTypeVarRef []
+    rt' <- unify (TExtendable t tvref') rt
+    let t' = TDotable argt rt'
+    writeTypeRef pt t'
+    return t'
 
-unifyNoStk (TExtendable t1) (TExtendable t2) = unify t1 t2 >>= return . TExtendable
-unifyNoStk (TExtendable t1) t2 = unify t1 t2
-unifyNoStk t1 (TExtendable t2) = unify t1 t2
+unifyNoStk (TExtendable t1 pt1) (TExtendable t2 pt2) = do
+    t <- unify t1 t2
+    -- They need to use the same variable now
+    writeTypeRef pt2 (TExtendable t pt1)
+    return $ TExtendable t pt1
+unifyNoStk (TExtendable t1 pt) t2 = do
+    t <- unify t1 t2
+    writeTypeRef pt t
+    return t
+unifyNoStk t1 (TExtendable t2 pt) = do
+    t <- unify t1 t2
+    writeTypeRef pt t
+    return t
 
 unifyNoStk t1 t2 = raiseUnificationError False
 
@@ -581,7 +610,13 @@ substituteType sub TBool = return TBool
 substituteType sub TProc = return TProc
 substituteType sub TEvent = return TEvent
 substituteType sub TChar = return TChar
-substituteType sub (TExtendable t) = substituteType sub t >>= return . TExtendable
+substituteType sub (TExtendable t pt) = do
+    res <- readTypeRef pt
+    case res of
+        Left _ -> do
+            t' <- substituteType sub t
+            return $ TExtendable t' pt
+        Right t' -> substituteType sub t'
 
 -- | Takes a type and attempts to simplify all TDots inside
 -- by combining TDotable t1 t2 and arguments.
@@ -594,6 +629,11 @@ evaluateDots (TVar t) = do
 evaluateDots (TSet t) = evaluateDots t >>= return . TSet
 evaluateDots (TSeq t) = evaluateDots t >>= return . TSeq
 evaluateDots (TTuple ts) = mapM evaluateDots ts >>= return . TTuple
+evaluateDots (TExtendable t pt) = do
+    mt <- readTypeRef pt
+    case mt of
+        Left _ -> return $ TExtendable t pt
+        Right t -> evaluateDots t
 evaluateDots (TFunction t1 t2) = do
     t1' <- mapM evaluateDots t1
     t2' <- evaluateDots t2
@@ -631,6 +671,21 @@ evalTypeList m (TDotable argt rt : arg : args)
         let (argsA, rtA) = reduceDotable arg
         t <- unify argt rtA
         evalTypeList m (foldr TDotable rt argsA : args)
+evalTypeList LongestMatch (TExtendable urt pt : args) = do
+    args <- evalTypeList LongestMatch args
+    let reqType = foldr TDotable urt args
+    res <- readTypeRef pt
+    case res of
+        Right t' -> unify reqType t' >> return ()
+        Left _ -> writeTypeRef pt reqType
+    return [urt]
+evalTypeList ShortestMatch (TExtendable urt pt : arg : args) = do
+    res <- readTypeRef pt
+    let reqType = TDotable arg urt
+    case res of
+        Right t' -> unify reqType t' >> return ()
+        Left _ -> writeTypeRef pt reqType
+    evalTypeList ShortestMatch (urt : args)
 -- If the first argument isn't a dotable we ignore it.
 evalTypeList m (t:ts) = do
     ts <- evalTypeList m ts

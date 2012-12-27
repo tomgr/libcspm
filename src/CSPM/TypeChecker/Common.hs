@@ -54,7 +54,9 @@ ensureIsChannel :: TypeCheckable a b => a -> TypeCheckMonad b
 ensureIsChannel e = ensureIsExtendable e TEvent
 
 ensureIsExtendable :: TypeCheckable a b => a -> Type -> TypeCheckMonad b
-ensureIsExtendable e t = typeCheckExpect e (TExtendable t)
+ensureIsExtendable e t = do
+    tvref <- freshTypeVarRef []
+    typeCheckExpect e (TExtendable t tvref)
 
 ensureIsEvent :: TypeCheckable a b => a -> TypeCheckMonad b
 ensureIsEvent e = typeCheckExpect e TEvent

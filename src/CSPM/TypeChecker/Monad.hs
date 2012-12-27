@@ -372,4 +372,9 @@ compress (TDot t1 t2) = do
     t1' <- compress t1
     t2' <- compress t2
     return $ TDot t1' t2'
+compress (tr @ (TExtendable t pt)) = do
+    res <- readTypeRef pt
+    case res of
+        Left tv -> return tr
+        Right t -> compress t
 compress t = return t
