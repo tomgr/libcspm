@@ -191,11 +191,9 @@ makeBuiltins = do
         unsafeFunctionNames = ["productions", "extensions"]
 
         deprecatedNames :: [String]
-        deprecatedNames = ["True", "False"]
+        deprecatedNames = []
 
         replacementForDeprecatedName :: String -> Maybe String
-        replacementForDeprecatedName "True" = Just "true"
-        replacementForDeprecatedName "False" = Just "false"
         replacementForDeprecatedName _ = Nothing
 
         makeBuiltIn :: (String, TypeScheme) -> IO BuiltIn
