@@ -212,8 +212,11 @@ prettyPrintType _ TInt = text "Int"
 prettyPrintType _ TProc = text "Proc"
 prettyPrintType _ TEvent = text "Event"
 prettyPrintType _ TChar = text "Char"
-prettyPrintType vmap (TExtendable t _) =
-    text "Extendable" <+> prettyPrintType vmap t
+prettyPrintType vmap (TExtendable t (TypeVarRef (TypeVar n) _ _)) =
+    (case safeApply vmap n of
+        Just c  -> char c
+        Nothing -> int n
+    ) <> text "=>*" <> prettyPrintType vmap t
 
 collectConstraints :: Type -> [(TypeVar, [Constraint])]
 collectConstraints = combine . collect
@@ -237,4 +240,4 @@ collectConstraints = combine . collect
         collect TProc = []
         collect TEvent = []
         collect TChar = []
-        collect (TExtendable t _) = collect t
+        collect (TExtendable t (TypeVarRef v cs _)) = (v, cs) : collect t

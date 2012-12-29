@@ -1,0 +1,6 @@
+channel  c : Int.Int
+channel  d : Int.Bool
+
+test(x,y) = STOP[[x.0 <- y.1]]
+
+test2 = test(c, c)

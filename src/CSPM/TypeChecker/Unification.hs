@@ -4,7 +4,7 @@ module CSPM.TypeChecker.Unification (
 ) where
 
 import Control.Monad
-import Data.List (nub)
+import Data.List (nub, sort)
 import Prelude
 
 import CSPM.DataStructures.Names
@@ -18,7 +18,7 @@ import Util.Monad
 -- | Return the free type variables (and their constraints) for all 'TypeVar's 
 -- that occur in 'Type'.
 freeTypeVars :: Type -> TypeCheckMonad [(TypeVar, [Constraint])]
-freeTypeVars = liftM nub . freeTypeVars'    
+freeTypeVars = liftM (nub . sort) . freeTypeVars'    
 freeTypeVars' :: Type -> TypeCheckMonad [(TypeVar, [Constraint])]
 freeTypeVars' (TVar tv) = do
     typ <- readTypeRef tv
@@ -40,7 +40,9 @@ freeTypeVars' TChar = return []
 freeTypeVars' (TExtendable t pt) = do
     res <- readTypeRef pt
     case res of 
-        Left _ -> freeTypeVars' t
+        Left (tv, cs) -> do
+            ts <- freeTypeVars' t
+            return $ (tv, cs):ts
         Right t -> freeTypeVars' t
 freeTypeVars' TProc = return []
 
@@ -103,7 +105,7 @@ occurs a TChar = return False
 occurs a (TExtendable t pt) = do
     res <- readTypeRef pt
     case res of 
-        Left _ -> occurs a t
+        Left (tv, cs) -> if a == tv then return True else occurs a t
         Right t -> occurs a t
 
 -- | Unifys all types to a single type. The first type is  used as the 
@@ -415,12 +417,9 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
         -- to get to this return type
         (argsA, rtA) = (reduceDotable . toNormalForm) a
         (argsB, rtB) = (reduceDotable . toNormalForm) b
-    -- The return type of the combined dotable must be the unified version
-    -- of the return types
-    rt <- unify rtA rtB
-
     case (rtA, rtB) of
-        (TExtendable t1 pt1, TExtendable t2 pt2) | t1 == t2 -> do
+        (TExtendable t1 pt1, TExtendable t2 pt2) -> do
+            rt <- unify rtA rtB
             -- In this case we have two things of the form X=>Eventable,
             -- X'=> Eventable. WLOG suppose X'=X^Y. Then, we unify to X.Y=>Eventable.
             as <- evalTypeList LongestMatch argsA
@@ -441,17 +440,31 @@ unifyNoStk (a@(TDotable _ _)) (b@(TDotable _ _)) = do
             let as' = map (snd . reduceDotable . toNormalForm) as
             -- These must be equal to the argument types that are required to
             -- reach rtB, hence we unify.
-            zipWithM unify as' bs
+            ts <- zipWithM unify as' bs
+            let remainingArgs = drop (length as') bs
+            unify rtA (foldr TDotable rtB remainingArgs)
             -- The most general type will have the arguments of bs, rather
             -- than the arguments of as (bs provide more information).
-            return $ TDotable (foldl1 TDot bs) rt
+            let ts' = drop (length ts) (if length as' == length ts then bs else as')
+                args = ts ++ ts'
+            return $ TDotable (foldl1 TDot args) rtB
         (_, TExtendable _ _) -> do
+            rt <- unify rtA rtB
             as <- evalTypeList LongestMatch argsA
             bs <- evalTypeList LongestMatch argsB
             let bs' = map (snd . reduceDotable . toNormalForm) bs
-            zipWithM unify as bs'
-            return $ TDotable (foldl1 TDot as) rt
+            ts <- zipWithM unify as bs'
+            let remainingArgs = drop (length bs') as
+            unify (foldr TDotable rtA remainingArgs) rtB
+            -- The most general type will have the arguments of bs, rather
+            -- than the arguments of as (bs provide more information).
+            let ts' = drop (length ts) (if length bs' == length ts then as else bs')
+                args = ts ++ ts'
+            return $ TDotable (foldl1 TDot args) rtA
         (_, _) -> do
+            -- The return type of the combined dotable must be the unified version
+            -- of the return types
+            rt <- unify rtA rtB
             -- If neither is a TExtendable then the args must be the same.
             -- Hence, unify the two argument lists.
             args <- combineTypeLists argsA argsB
@@ -621,13 +634,15 @@ substituteType sub TBool = return TBool
 substituteType sub TProc = return TProc
 substituteType sub TEvent = return TEvent
 substituteType sub TChar = return TChar
-substituteType sub (TExtendable t pt) = do
+substituteType (sub@(tv, tsub)) (TExtendable t (pt @(TypeVarRef tv' cs ioref))) = do
     res <- readTypeRef pt
     case res of
         Left _ -> do
             t' <- substituteType sub t
-            return $ TExtendable t' pt
+            let pt' = if tv == tv' then spt else pt
+            return $ TExtendable t' pt'
         Right t' -> substituteType sub t'
+    where TVar spt = tsub
 
 -- | Takes a type and attempts to simplify all TDots inside
 -- by combining TDotable t1 t2 and arguments.
