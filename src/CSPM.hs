@@ -116,6 +116,7 @@ module CSPM (
 )
 where
 
+import Control.Applicative
 import Control.Monad.State
 import Data.Version
 import System.FilePath
@@ -387,6 +388,7 @@ stringToValue typ str =
 getLibCSPMVersion :: Version
 getLibCSPMVersion = version
 
-instance (CSPMMonad m, M.MonadicPrettyPrintable EV.EvaluationMonad a) => 
+instance (Applicative m, CSPMMonad m,
+            M.MonadicPrettyPrintable EV.EvaluationMonad a) => 
         M.MonadicPrettyPrintable m a where
     prettyPrint = runEvaluatorInCurrentState . M.prettyPrint

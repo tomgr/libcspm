@@ -2,6 +2,7 @@
 module Util.MonadicPrettyPrint(
     module Util.MonadicPrettyPrintInternal,
     MonadicPrettyPrintable(..),
+    prettyPrintPrec, prettyPrintBriefPrec,
     tabWidth,
     tabIndent,
     shortDouble,
@@ -14,9 +15,25 @@ module Util.MonadicPrettyPrint(
 import Control.Applicative hiding (empty)
 import Numeric
 import Util.MonadicPrettyPrintInternal
+import Util.Precedence
 
-class MonadicPrettyPrintable m a where
+prettyPrintPrec :: (MonadicPrettyPrintable m a, Precedence a) => Int -> a -> m Doc
+prettyPrintPrec prec a = prettyParen (prec < precedence a) $ prettyPrint a
+
+prettyPrintBriefPrec :: (MonadicPrettyPrintable m a, Precedence a) => Int -> a -> m Doc
+prettyPrintBriefPrec prec a =
+    prettyParen (prec < precedence a) $ prettyPrintBrief a
+
+class (Applicative m, Monad m) => MonadicPrettyPrintable m a where
     prettyPrint :: a -> m Doc
+    -- | As prettyPrint, but yields a briefer description.
+    prettyPrintBrief :: a -> m Doc
+
+    prettyPrintBrief = prettyPrint
+
+prettyParen :: (Applicative m, Monad m) => Bool -> m Doc -> m Doc
+prettyParen False d = d
+prettyParen True d = parens d
 
 -- | The width, in spaces, of a tab character.
 tabWidth :: Int
