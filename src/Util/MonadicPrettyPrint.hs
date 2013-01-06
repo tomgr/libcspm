@@ -10,6 +10,7 @@ module Util.MonadicPrettyPrint(
     angles, bars, list, dotSep,
     speakNth,
     punctuateFront,
+    ellipsis,
 ) where
 
 import Control.Applicative hiding (empty)
@@ -17,12 +18,14 @@ import Numeric
 import Util.MonadicPrettyPrintInternal
 import Util.Precedence
 
-prettyPrintPrec :: (MonadicPrettyPrintable m a, Precedence a) => Int -> a -> m Doc
+prettyPrintPrec :: (MonadicPrettyPrintable m a, Precedence a) =>
+    Int -> a -> m Doc
 prettyPrintPrec prec a = prettyParen (prec < precedence a) $ prettyPrint a
 
-prettyPrintBriefPrec :: (MonadicPrettyPrintable m a, Precedence a) => Int -> a -> m Doc
+prettyPrintBriefPrec :: (MonadicPrettyPrintable m a, Precedence a) =>
+    Int -> a -> m Doc
 prettyPrintBriefPrec prec a =
-    prettyParen (prec < precedence a) $ prettyPrintBrief a
+    prettyParen (prec <= precedence a) $ prettyPrintBrief a
 
 class (Applicative m, Monad m) => MonadicPrettyPrintable m a where
     prettyPrint :: a -> m Doc
@@ -100,3 +103,6 @@ punctuateFront sep dsm = dsm >>= \ds ->
     case ds of
         [] -> return []
         (x:xs) -> sequence [sep <> return x | x <- xs] >>= return . (x:)
+
+ellipsis :: (Applicative m, Monad m) => m Doc
+ellipsis = char '…'

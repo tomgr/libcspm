@@ -56,6 +56,10 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
     prettyPrint Tick = M.char '✓'
     prettyPrint (UserEvent v) = M.prettyPrint v
 
+    prettyPrintBrief Tau = M.char 'τ'
+    prettyPrintBrief Tick = M.char '✓'
+    prettyPrintBrief (UserEvent v) = M.prettyPrintBrief v
+
 instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m ProcOperator where
     prettyPrint (Chase True) = M.text "chase"
     prettyPrint (Chase False) = M.text "chase_no_cache"
@@ -93,6 +97,7 @@ instance (F.Foldable f) => M.MonadicPrettyPrintable Identity (f Event) where
 instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
         M.MonadicPrettyPrintable m ProcName where
     prettyPrint (ProcName s) = M.prettyPrint s
+    prettyPrintBrief (ProcName s) = M.prettyPrintBrief s
 
 instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
         M.MonadicPrettyPrintable m ScopeIdentifier where
@@ -105,6 +110,20 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
         M.text "ANNON" M.<> (M.parens (M.list (mapM M.prettyPrint args)))
     prettyPrint (SVariableBind args (Just pn)) =
         M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (SVariableBind args Nothing)
+
+    prettyPrintBrief (SFunctionBind n args Nothing) =
+        M.prettyPrintBrief n M.<> M.hcat (mapM (\as -> M.parens $
+            case as of 
+                [] -> M.empty
+                _ -> M.ellipsis) args)
+    prettyPrintBrief (SFunctionBind n args (Just pn)) =
+        M.prettyPrintBrief pn M.<> M.text "::"
+        M.<> M.prettyPrintBrief (SFunctionBind n args Nothing)
+    prettyPrintBrief (SVariableBind args Nothing) =
+        M.text "ANNON" M.<> (M.parens (M.list (mapM M.prettyPrintBrief args)))
+    prettyPrintBrief (SVariableBind args (Just pn)) =
+        M.prettyPrintBrief pn M.<> M.text "::"
+        M.<> M.prettyPrintBrief (SVariableBind args Nothing)
 
 instance (Applicative m, F.Foldable seq, Functor seq, Monad m, 
             M.MonadicPrettyPrintable m ev, M.MonadicPrettyPrintable m evs) => 
@@ -157,7 +176,7 @@ instance Precedence (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
     precedence (PProcCall _ _) = 0
     precedence (PUnaryOp (POperator _) _) = 0
 
-ppBinaryOp ::
+ppBinaryOp, ppBriefBinaryOp ::
     (F.Foldable seq, Functor seq, M.MonadicPrettyPrintable m pn,
         M.MonadicPrettyPrintable m ev, M.MonadicPrettyPrintable m evs) => 
     Proc seq CSPOperator pn ev evs (seq (ev,ev)) ->
@@ -168,6 +187,10 @@ ppBinaryOp ::
 ppBinaryOp op opd p1 p2 =
     M.sep (sequence [M.prettyPrintPrec (precedence op) p1,
         opd M.<+> M.prettyPrintPrec (precedence op) p2])
+
+ppBriefBinaryOp op opd p1 p2 =
+    M.sep (sequence [M.prettyPrintBriefPrec (precedence op) p1,
+        opd M.<+> M.prettyPrintBriefPrec (precedence op) p2])
 
 instance 
     (F.Foldable seq, Functor seq, M.MonadicPrettyPrintable m pn,
@@ -196,10 +219,11 @@ instance
                 mapM (M.prettyPrintPrec (precedence op)) ps')
     prettyPrint (op@(POp (PGenParallel a) ps)) =
         M.sep (M.punctuateFront
-                (M.text "[|" M.<+> M.prettyPrint a M.<+> M.text "|]")
+                (M.text "[|" M.<+> M.prettyPrint a M.<+> M.text "|] ")
                 (mapM (M.prettyPrintPrec (precedence op)) (F.toList ps)))
     prettyPrint (op@(PUnaryOp (PHide a) p)) =
-        M.prettyPrint p M.<+> M.char '\\' M.<+> M.prettyPrint a
+        M.prettyPrintPrec (precedence op) p
+        M.<+> M.char '\\' M.<+> M.prettyPrint a
     prettyPrint (op@(POp PInternalChoice ps)) =
         let flatten (POp PInternalChoice ps) = concatMap flatten (F.toList ps)
             flatten p = [p]
@@ -210,9 +234,7 @@ instance
         M.sep (M.punctuateFront (M.text "||| ") $
             mapM (M.prettyPrintPrec (precedence op)) $ F.toList ps)
     prettyPrint (op@(PBinaryOp PInterrupt p1 p2)) =
-        M.sep (sequence [
-            M.prettyPrintPrec (precedence op) p1,
-            M.text "/\\" M.<+> M.prettyPrintPrec (precedence op) p2])
+        ppBinaryOp op (M.text "/\\") p1 p2
     prettyPrint (op@(PBinaryOp (PLinkParallel evm) p1 p2)) =
         M.prettyPrintPrec (precedence op) p1 M.<+> M.text "[" M.<>
             M.list (mapM (\(evLeft, evRight) -> 
@@ -235,6 +257,50 @@ instance
     prettyPrint (op@(PBinaryOp PSlidingChoice p1 p2)) =
         ppBinaryOp op (M.text "[>") p1 p2
     prettyPrint (PProcCall n _) = M.prettyPrint n
+
+    prettyPrintBrief (op@(POp (PAlphaParallel as) ps)) =
+        M.sep (M.punctuateFront (M.text "[…||…] ")
+            (mapM (M.prettyPrintBriefPrec (precedence op)) (F.toList ps)))
+    prettyPrintBrief (op@(PBinaryOp (PException a) p1 p2)) =
+        ppBriefBinaryOp op (M.text "[|…|>") p1 p2
+    prettyPrintBrief (op@(POp PExternalChoice ps)) =
+        let flatten (POp PExternalChoice ps) = concatMap flatten (F.toList ps)
+            flatten p = [p]
+            ps' = flatten (POp PExternalChoice ps)
+        in M.sep (M.punctuateFront (M.text "[] ") $
+                mapM (M.prettyPrintBriefPrec (precedence op)) ps')
+    prettyPrintBrief (op@(POp (PGenParallel a) ps)) =
+        M.sep (M.punctuateFront (M.text "[|…|] ")
+            (mapM (M.prettyPrintBriefPrec (precedence op)) (F.toList ps)))
+    prettyPrintBrief (op@(PUnaryOp (PHide a) p)) =
+        M.prettyPrintBriefPrec (precedence op) p
+        M.<+> M.char '\\' M.<+> M.braces M.ellipsis
+    prettyPrintBrief (op@(POp PInternalChoice ps)) =
+        let flatten (POp PInternalChoice ps) = concatMap flatten (F.toList ps)
+            flatten p = [p]
+            ps' = flatten (POp PInternalChoice ps)
+        in M.sep (M.punctuateFront (M.text "|~| ") $
+                mapM (M.prettyPrintBriefPrec (precedence op)) ps')
+    prettyPrintBrief (op@(POp PInterleave ps)) =
+        M.sep (M.punctuateFront (M.text "||| ") $
+            mapM (M.prettyPrintBriefPrec (precedence op)) $ F.toList ps)
+    prettyPrintBrief (op@(PBinaryOp PInterrupt p1 p2)) =
+        ppBriefBinaryOp op (M.text "/\\") p1 p2
+    prettyPrintBrief (op@(PBinaryOp (PLinkParallel evm) p1 p2)) =
+        ppBriefBinaryOp op (M.text "[…<->…]") p1 p2
+    prettyPrintBrief (op@(PUnaryOp (POperator cop) p)) = 
+        M.prettyPrintBrief cop M.<>
+            M.parens (M.prettyPrintBriefPrec (precedence op) p)
+    prettyPrintBrief (op@(PUnaryOp (PPrefix e) p)) =
+        M.prettyPrintBrief e M.<+> M.text "->" M.<+> M.ellipsis
+        --M.<+> M.prettyPrintBriefPrec (precedence op) p
+    prettyPrintBrief (op@(PUnaryOp (PRename evm) p)) =
+        M.prettyPrintBriefPrec (precedence op) p M.<> M.text "[[…]]"
+    prettyPrintBrief (op@(PBinaryOp PSequentialComp p1 p2)) =
+        ppBriefBinaryOp op (M.char ';') p1 p2
+    prettyPrintBrief (op@(PBinaryOp PSlidingChoice p1 p2)) =
+        ppBriefBinaryOp op (M.text "[>") p1 p2
+    prettyPrintBrief (PProcCall n _) = M.prettyPrintBrief n
 
 instance (Applicative m, Monad m,
         M.MonadicPrettyPrintable m TCExp,
@@ -270,6 +336,17 @@ instance (Applicative m, Monad m,
             _ -> M.hcat (mapM (\ as -> M.parens (M.list (mapM M.prettyPrint as))) args)
     prettyPrint (VProc p) = M.prettyPrint p
     prettyPrint (VThunk th) = M.text "<thunk>"
+
+    prettyPrintBrief (VSet s) = M.braces M.ellipsis
+    prettyPrintBrief (VList s) = M.angles M.ellipsis
+    prettyPrintBrief (VTuple vs) =
+        M.parens (M.list $ mapM M.prettyPrintBrief (elems vs))
+    prettyPrintBrief (VDot vs) = M.dotSep (mapM M.prettyPrintBrief vs)
+    prettyPrintBrief (VChannel n) = M.prettyPrint n
+    prettyPrintBrief (VDataType n) = M.prettyPrint n
+    prettyPrintBrief (VFunction _ _) = M.text "<function>"
+    prettyPrintBrief (VProc p) = M.prettyPrintBrief p
+    prettyPrintBrief v = M.prettyPrint v 
 
 instance M.MonadicPrettyPrintable EvaluationMonad ValueSet where
     prettyPrint Integers = M.text "Integers"
