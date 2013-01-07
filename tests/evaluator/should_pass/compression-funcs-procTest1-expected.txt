@@ -1,5 +1,3 @@
-STOP =
-
 procTest1 =
     chase(STOP)
     [] chase_no_cache(STOP)

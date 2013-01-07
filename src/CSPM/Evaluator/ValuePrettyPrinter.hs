@@ -384,3 +384,17 @@ instance M.MonadicPrettyPrintable Identity ValueSet where
         M.hcat (M.punctuate (M.text ".") (mapM M.prettyPrint vss))
     prettyPrint (s@(ExplicitSet _)) =
         M.braces (M.list (mapM M.prettyPrint (toList s)))
+
+-- | Pretty prints the given process and all processes that it depends upon.
+prettyPrintAllRequiredProcesses ::
+    (F.Foldable seq, PrettyPrintable (Proc seq op ProcName ev evs evm)) => 
+    Proc seq op ProcName ev evs evm -> Doc
+prettyPrintAllRequiredProcesses p =
+    let
+        (pInit, namedPs') = splitProcIntoComponents p
+        stopName = head [name b | b <- builtins False, stringName b == "STOP"]
+        namedPs =
+            filter (\ (ProcName s, _) -> scopeFunctionName s /= stopName) namedPs'
+        ppNamedProc (n,p) =
+            hang (prettyPrint n <+> char '=') tabWidth (prettyPrint p)
+    in vcat (punctuate (char '\n') ((map ppNamedProc namedPs)++[prettyPrint pInit]))

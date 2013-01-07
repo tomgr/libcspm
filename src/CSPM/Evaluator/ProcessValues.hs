@@ -12,7 +12,6 @@ module CSPM.Evaluator.ProcessValues (
     ProcName(..),
     operator, components,
     splitProcIntoComponents,
-    prettyPrintAllRequiredProcesses,
     trimProcess,
 ) where
 
@@ -21,7 +20,6 @@ import qualified Data.Foldable as F
 import qualified Data.Sequence as S
 import Data.Hashable
 import Util.Exception
-import Util.PrettyPrint
 import Util.Prelude
 
 -- | Events, as represented in the LTS.
@@ -222,16 +220,3 @@ splitProcIntoComponents p =
             if explored pns n then pns
             else explore ((n, p):pns) p
     in (p, explore [] p)
-
--- | Pretty prints the given process and all processes that it depends upon.
-prettyPrintAllRequiredProcesses ::
-    (Eq pn, F.Foldable seq, PrettyPrintable pn,
-        PrettyPrintable (Proc seq op pn ev evs evm)) => 
-    Proc seq op pn ev evs evm -> Doc
-prettyPrintAllRequiredProcesses p =
-    let
-        (pInit, namedPs) = splitProcIntoComponents p
-        ppNamedProc (n,p) =
-            hang (prettyPrint n <+> char '=') tabWidth (prettyPrint p)
-    in 
-        vcat (punctuate (char '\n') ((map ppNamedProc namedPs)++[prettyPrint pInit]))

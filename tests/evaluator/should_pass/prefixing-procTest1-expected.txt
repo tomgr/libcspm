@@ -20,8 +20,6 @@ Dump((0, Y.0.false)) = STOP
 
 Dump((0, X.1)) = STOP
 
-STOP =
-
 Dump((0, X.0)) = STOP
 
 procTest1 =

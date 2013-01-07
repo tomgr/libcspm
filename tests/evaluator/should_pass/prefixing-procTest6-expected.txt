@@ -1,7 +1,5 @@
 Dump((1, X.1)) = STOP
 
-STOP =
-
 Dump((0, X.0)) = STOP
 
 procTest6 =

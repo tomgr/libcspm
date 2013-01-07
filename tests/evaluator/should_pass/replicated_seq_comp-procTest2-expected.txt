@@ -1,5 +1,3 @@
-STOP =
-
 SKIP = ✓ -> STOP
 
 procTest2 = SKIP

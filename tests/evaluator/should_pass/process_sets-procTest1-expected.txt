@@ -1,6 +1,4 @@
-CHAOS({}) = STOP |~| 
-
-STOP =
+CHAOS({}) = STOP |~| STOP
 
 procTest1 = STOP [] CHAOS({})
 

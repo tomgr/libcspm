@@ -1,7 +1,5 @@
 procTest5::ANNON(1)::Q = c.1 -> STOP
 
-STOP =
-
 procTest5::ANNON(0)::Q = c.0 -> STOP
 
 procTest5 = procTest5::ANNON(0)::Q [] procTest5::ANNON(1)::Q

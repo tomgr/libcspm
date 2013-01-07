@@ -1,5 +1,3 @@
-STOP =
-
 P = c -> STOP
 
 Wrapper(P) = c -> P

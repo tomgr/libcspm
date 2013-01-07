@@ -7,6 +7,7 @@ import Control.Monad.Trans
 import Data.List
 import CSPM
 import CSPM.Evaluator.ProcessValues
+import CSPM.Evaluator.ValuePrettyPrinter
 import Monad
 import Prelude hiding (catch)
 import System.Directory

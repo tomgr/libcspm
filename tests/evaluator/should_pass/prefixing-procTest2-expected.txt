@@ -44,8 +44,6 @@ Dump((0, false, Y.0.false)) = STOP
 
 Dump((0, false, X.1)) = STOP
 
-STOP =
-
 Dump((0, false, X.0)) = STOP
 
 procTest2 =

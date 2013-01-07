@@ -2,8 +2,6 @@ P(1)::Q = c.1 -> STOP
 
 P(1) = P(1)::Q
 
-STOP =
-
 P(0)::Q = c.0 -> STOP
 
 P(0) = P(0)::Q

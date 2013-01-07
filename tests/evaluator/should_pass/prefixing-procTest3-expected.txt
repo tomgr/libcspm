@@ -68,8 +68,6 @@ Dump(X.0.Y.0.false) = STOP
 
 Dump(X.0.X.1) = STOP
 
-STOP =
-
 Dump(X.0.X.0) = STOP
 
 procTest3 =

@@ -1,7 +1,5 @@
 P(procTest1::(\x @ length(x) == 1)) = STOP
 
-STOP =
-
 P(procTest1::(\x @ length(x) == 0)) = STOP
 
 procTest1 =
