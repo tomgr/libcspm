@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, IncoherentInstances,
     MultiParamTypeClasses, TypeSynonymInstances, UndecidableInstances #-}
-module CSPM.Evaluator.ValuePrettyPrinter () where
+module CSPM.Evaluator.ValuePrettyPrinter (
+    prettyPrintAllRequiredProcesses,
+) where
 
 import Control.Applicative
 import Control.Monad
@@ -13,6 +15,7 @@ import CSPM.Evaluator.ProcessValues
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import CSPM.PrettyPrinter
+import CSPM.Prelude
 import qualified Data.Foldable as F
 import qualified Data.Sequence as S
 import Data.List (partition)
@@ -192,32 +195,41 @@ ppBriefBinaryOp op opd p1 p2 =
     M.sep (sequence [M.prettyPrintBriefPrec (precedence op) p1,
         opd M.<+> M.prettyPrintBriefPrec (precedence op) p2])
 
+maybeNull :: (Applicative m, F.Foldable s, Monad m) => s a -> m Doc -> m Doc
+maybeNull s _ | null (F.toList s) = M.text "STOP"
+maybeNull _ d = d
+
+maybeNull' :: (Applicative m, F.Foldable s, Monad m) => s a -> m Doc -> m Doc
+maybeNull' s _ | null (F.toList s) = M.text "SKIP"
+maybeNull' _ d = d
+
 instance 
     (F.Foldable seq, Functor seq, M.MonadicPrettyPrintable m pn,
         M.MonadicPrettyPrintable m ev, M.MonadicPrettyPrintable m evs) => 
         M.MonadicPrettyPrintable m 
             (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
 
-    prettyPrint (op@(POp (PAlphaParallel as) ps)) =
-        if length (F.toList as) == 2 then
-            let [p1, p2] = F.toList ps
-                [a1, a2] = F.toList as
-            in ppBinaryOp op (
-                M.char '[' M.<> M.prettyPrint a1 M.<+>
-                M.text "||" M.<+> M.prettyPrint a2 M.<> M.char ']') p1 p2
-        else
-            M.text "||" M.<+> M.braces (M.list (zipWithM (\ a p -> 
-                    M.parens (M.prettyPrint a M.<> M.comma M.<+> M.prettyPrint p))
-                (F.toList as) (F.toList ps)))
+    prettyPrint (op@(POp (PAlphaParallel as) ps)) = maybeNull' ps $ 
+        case length (F.toList as) of
+            2 ->
+                let [p1, p2] = F.toList ps
+                    [a1, a2] = F.toList as
+                in ppBinaryOp op (
+                    M.char '[' M.<> M.prettyPrint a1 M.<+>
+                    M.text "||" M.<+> M.prettyPrint a2 M.<> M.char ']') p1 p2
+            _ ->
+                M.text "||" M.<+> M.braces (M.list (zipWithM (\ a p -> 
+                        M.parens (M.prettyPrint a M.<> M.comma M.<+> M.prettyPrint p))
+                    (F.toList as) (F.toList ps)))
     prettyPrint (op@(PBinaryOp (PException a) p1 p2)) =
         ppBinaryOp op (M.text "[|" M.<+> M.prettyPrint a M.<+> M.text "|>") p1 p2
     prettyPrint (op@(POp PExternalChoice ps)) =
         let flatten (POp PExternalChoice ps) = concatMap flatten (F.toList ps)
             flatten p = [p]
             ps' = flatten (POp PExternalChoice ps)
-        in M.sep (M.punctuateFront (M.text "[] ") $
-                mapM (M.prettyPrintPrec (precedence op)) ps')
-    prettyPrint (op@(POp (PGenParallel a) ps)) =
+        in maybeNull ps' $ M.sep (M.punctuateFront (M.text "[] ") $
+                    mapM (M.prettyPrintPrec (precedence op)) ps')
+    prettyPrint (op@(POp (PGenParallel a) ps)) = maybeNull' ps $ 
         M.sep (M.punctuateFront
                 (M.text "[|" M.<+> M.prettyPrint a M.<+> M.text "|] ")
                 (mapM (M.prettyPrintPrec (precedence op)) (F.toList ps)))
@@ -230,7 +242,7 @@ instance
             ps' = flatten (POp PInternalChoice ps)
         in M.sep (M.punctuateFront (M.text "|~| ") $
                 mapM (M.prettyPrintPrec (precedence op)) ps')
-    prettyPrint (op@(POp PInterleave ps)) =
+    prettyPrint (op@(POp PInterleave ps)) = maybeNull ps $ 
         M.sep (M.punctuateFront (M.text "||| ") $
             mapM (M.prettyPrintPrec (precedence op)) $ F.toList ps)
     prettyPrint (op@(PBinaryOp PInterrupt p1 p2)) =
@@ -258,7 +270,7 @@ instance
         ppBinaryOp op (M.text "[>") p1 p2
     prettyPrint (PProcCall n _) = M.prettyPrint n
 
-    prettyPrintBrief (op@(POp (PAlphaParallel as) ps)) =
+    prettyPrintBrief (op@(POp (PAlphaParallel as) ps)) = maybeNull' ps $ 
         M.sep (M.punctuateFront (M.text "[…||…] ")
             (mapM (M.prettyPrintBriefPrec (precedence op)) (F.toList ps)))
     prettyPrintBrief (op@(PBinaryOp (PException a) p1 p2)) =
@@ -267,9 +279,9 @@ instance
         let flatten (POp PExternalChoice ps) = concatMap flatten (F.toList ps)
             flatten p = [p]
             ps' = flatten (POp PExternalChoice ps)
-        in M.sep (M.punctuateFront (M.text "[] ") $
+        in maybeNull ps' $ M.sep (M.punctuateFront (M.text "[] ") $
                 mapM (M.prettyPrintBriefPrec (precedence op)) ps')
-    prettyPrintBrief (op@(POp (PGenParallel a) ps)) =
+    prettyPrintBrief (op@(POp (PGenParallel a) ps)) = maybeNull' ps $ 
         M.sep (M.punctuateFront (M.text "[|…|] ")
             (mapM (M.prettyPrintBriefPrec (precedence op)) (F.toList ps)))
     prettyPrintBrief (op@(PUnaryOp (PHide a) p)) =
@@ -281,7 +293,7 @@ instance
             ps' = flatten (POp PInternalChoice ps)
         in M.sep (M.punctuateFront (M.text "|~| ") $
                 mapM (M.prettyPrintBriefPrec (precedence op)) ps')
-    prettyPrintBrief (op@(POp PInterleave ps)) =
+    prettyPrintBrief (op@(POp PInterleave ps)) = maybeNull ps $ 
         M.sep (M.punctuateFront (M.text "||| ") $
             mapM (M.prettyPrintBriefPrec (precedence op)) $ F.toList ps)
     prettyPrintBrief (op@(PBinaryOp PInterrupt p1 p2)) =
