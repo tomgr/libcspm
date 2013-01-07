@@ -211,6 +211,12 @@ instance
 
     prettyPrint (op@(POp (PAlphaParallel as) ps)) = maybeNull' ps $ 
         case length (F.toList as) of
+            1 -> 
+                let [p1] = F.toList ps
+                    [a1] = F.toList as
+                in
+                    M.prettyPrintBriefPrec (precedence op) p1 M.<+>
+                    M.text "[" M.<> M.prettyPrint a1 M.<+> M.text "|| {}] SKIP"
             2 ->
                 let [p1, p2] = F.toList ps
                     [a1, a2] = F.toList as
@@ -218,9 +224,10 @@ instance
                     M.char '[' M.<> M.prettyPrint a1 M.<+>
                     M.text "||" M.<+> M.prettyPrint a2 M.<> M.char ']') p1 p2
             _ ->
-                M.text "||" M.<+> M.braces (M.list (zipWithM (\ a p -> 
-                        M.parens (M.prettyPrint a M.<> M.comma M.<+> M.prettyPrint p))
-                    (F.toList as) (F.toList ps)))
+                M.text "|| (a, p) :" M.<+> M.braces (M.list (
+                    zipWithM (\ a p -> M.parens $ M.sep $ sequence [
+                            M.prettyPrint a, M.comma M.<+> M.prettyPrint p]
+                    ) (F.toList as) (F.toList ps))) M.<+> M.text "@ [a] p"
     prettyPrint (op@(PBinaryOp (PException a) p1 p2)) =
         ppBinaryOp op (M.text "[|" M.<+> M.prettyPrint a M.<+> M.text "|>") p1 p2
     prettyPrint (op@(POp PExternalChoice ps)) =
@@ -271,8 +278,11 @@ instance
     prettyPrint (PProcCall n _) = M.prettyPrint n
 
     prettyPrintBrief (op@(POp (PAlphaParallel as) ps)) = maybeNull' ps $ 
-        M.sep (M.punctuateFront (M.text "[…||…] ")
-            (mapM (M.prettyPrintBriefPrec (precedence op)) (F.toList ps)))
+        if length (F.toList as) == 1 then
+            let [p] = F.toList ps in
+            M.prettyPrintBriefPrec (precedence op) p M.<+> M.text "[…||…] SKIP"
+        else M.sep (M.punctuateFront (M.text "[…||…] ")
+                (mapM (M.prettyPrintBriefPrec (precedence op)) (F.toList ps)))
     prettyPrintBrief (op@(PBinaryOp (PException a) p1 p2)) =
         ppBriefBinaryOp op (M.text "[|…|>") p1 p2
     prettyPrintBrief (op@(POp PExternalChoice ps)) =
