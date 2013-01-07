@@ -1,0 +1,3 @@
+channel c
+
+procTest1 = [c <-> c] x : <> @ x

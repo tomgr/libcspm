@@ -54,6 +54,16 @@ funBindPatternMatchFailureMessage l n vss = mkErrorMessage l $
         (prettyPrint n <> 
             hcat (map (\ vs -> parens (list (map prettyPrint vs))) vss))
 
+replicatedLinkParallelOverEmptySeqMessage :: Exp Name -> SrcSpan ->
+    Maybe ScopeIdentifier -> ErrorMessage
+replicatedLinkParallelOverEmptySeqMessage p l scope = mkErrorMessage l $
+    hang (
+        hang (text "The sequence expression in"<>colon) tabWidth 
+            (prettyPrint p)
+    ) tabWidth
+    (text "evaluated to the empty sequence. However, replicated linked parallel is not defined for the empty sequence.")
+    $$ printCallStack scope
+
 replicatedInternalChoiceOverEmptySetMessage :: Exp Name -> SrcSpan -> 
     Maybe ScopeIdentifier -> ErrorMessage
 replicatedInternalChoiceOverEmptySetMessage p l scope = mkErrorMessage l $

@@ -361,18 +361,20 @@ instance Evaluatable (Exp Name) where
     eval (ReplicatedInterleave stmts e) = do
         ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
         return $ VProc $ POp PInterleave ps
-    eval (ReplicatedInternalChoice stmts e) = do
+    eval (e'@(ReplicatedInternalChoice stmts e)) = do
         ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
-        let e' = ReplicatedInternalChoice stmts e
         if Sq.null ps then
             throwError' $ replicatedInternalChoiceOverEmptySetMessage e'
         else return $ VProc $ POp PInternalChoice ps
-    eval (ReplicatedLinkParallel ties tiesStmts stmts e) = do
+    eval (e'@(ReplicatedLinkParallel ties tiesStmts stmts e)) = do
         tsps <- evalStmts' (\(VList vs) -> Sq.fromList vs) stmts $ do
             ts <- evalTies tiesStmts ties
             p <- evalProc e
             return (ts, p)
-        let 
+        if Sq.null tsps then
+            throwError' $ replicatedLinkParallelOverEmptySeqMessage e'
+        else do
+        let
             (tsps' Sq.:> (_, lastProc)) = Sq.viewr tsps
             mkLinkPar (ts, p1) p2 = PBinaryOp (PLinkParallel ts) p1 p2
         return $ VProc $ F.foldr mkLinkPar lastProc tsps'
