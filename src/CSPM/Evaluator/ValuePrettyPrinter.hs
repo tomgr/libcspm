@@ -261,7 +261,7 @@ instance
                                 M.<+> M.prettyPrint evRight) $ F.toList evm)
         M.<> M.text "]" M.<+> M.prettyPrintPrec (precedence op) p2
     prettyPrint (op@(PUnaryOp (POperator cop) p)) = 
-        M.prettyPrint cop M.<> M.parens (M.prettyPrintPrec (precedence op) p)
+        M.prettyPrint cop M.<> M.parens (M.prettyPrintPrec 100 p)
     prettyPrint (op@(PUnaryOp (PPrefix e) p)) =
         M.prettyPrint e M.<+> M.text "->"
         M.<+> M.prettyPrintPrec (precedence op) p
@@ -312,7 +312,7 @@ instance
         ppBriefBinaryOp op (M.text "[…<->…]") p1 p2
     prettyPrintBrief (op@(PUnaryOp (POperator cop) p)) = 
         M.prettyPrintBrief cop M.<>
-            M.parens (M.prettyPrintBriefPrec (precedence op) p)
+            M.parens (M.prettyPrintBriefPrec 100 p)
     prettyPrintBrief (op@(PUnaryOp (PPrefix e) p)) =
         M.prettyPrintBrief e M.<+> M.text "->" M.<+> M.ellipsis
         --M.<+> M.prettyPrintBriefPrec (precedence op) p
