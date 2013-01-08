@@ -430,9 +430,24 @@ renameVarRHS n = do
             addErrors [mkErrorMessage loc msg]
             return $ panic "error name evaluated"
 
+checkFieldsValid :: [PField] -> RenamerMonad ()
+checkFieldsValid fs = do
+    let
+        chk [] = True
+        chk (NonDetInput _ _ : fs) = chk fs
+        chk (_ : fs) = chk' fs
+
+        chk' [] = True
+        chk' (NonDetInput _ _ : fs) = False
+        chk' (_ : fs) = chk' fs
+    when (not (chk (map unAnnotate fs))) $ do
+        loc <- gets srcSpan
+        throwSourceError $ [mkErrorMessage loc $ invalidFieldsErrorMessage fs]
+
 renameFields :: [PField] -> RenamerMonad a -> RenamerMonad ([TCField], a)
 renameFields fs inner = do
     checkDuplicates fs
+    checkFieldsValid fs
     -- No duplicates, so we can just add one scope
     addScope (do
         -- We do the fields left to right, to ensure that the scoping is correct
@@ -747,3 +762,9 @@ qualifiedVarNotAllowedInPat :: Pat UnRenamedName -> Error
 qualifiedVarNotAllowedInPat p =
     prettyPrint p <+>
     text "is an invalid pattern as non-datatype/channel qualified names are not allowed"
+
+invalidFieldsErrorMessage :: [PField] -> Error
+invalidFieldsErrorMessage fs =
+    hcat (map prettyPrint fs) <+>
+    text "is not a valid field sequence as a $ occurs after a ? or a !."
+
