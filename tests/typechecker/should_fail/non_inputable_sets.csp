@@ -1,0 +1,7 @@
+channel a : {0..3}.{0..3}
+
+datatype A = B.{0} | C.{1}
+
+channel c : A
+
+P = c?x:{B, C}?y -> a.y.y -> STOP
