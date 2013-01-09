@@ -131,35 +131,56 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
 instance (Applicative m, F.Foldable seq, Functor seq, Monad m, 
             M.MonadicPrettyPrintable m ev, M.MonadicPrettyPrintable m evs) => 
         M.MonadicPrettyPrintable m (CSPOperator seq ev evs (seq (ev,ev))) where
+    prettyPrintBrief (PAlphaParallel _) = M.text "[ || ]"
+    prettyPrintBrief (PException _) = M.text "[| |>"
+    prettyPrintBrief PExternalChoice = M.text "[]"
+    prettyPrintBrief (PGenParallel _) = M.text "[| |]"
+    prettyPrintBrief (PHide _) = M.text "\\"
+    prettyPrintBrief PInternalChoice = M.text "|~|"
+    prettyPrintBrief PInterrupt = M.text "/\\"
+    prettyPrintBrief PInterleave = M.text "|||"
+    prettyPrintBrief (PLinkParallel _) = M.text "[ <-> ]"
+    prettyPrintBrief (POperator op) = M.prettyPrintBrief op
+    prettyPrintBrief (PPrefix _) = M.text "->"
+    prettyPrintBrief (PRename _) = M.text "[[ ]]"
+    prettyPrintBrief PSequentialComp = M.text ";"
+    prettyPrintBrief PSlidingChoice = M.text "[>"
+
     prettyPrint (PAlphaParallel as) =
-        M.text "||" M.<+> M.list (mapM (\ a -> M.prettyPrint a) (F.toList as))
+        M.text "Alphabetised parallel with process alphabets:"
+        M.$$ (M.tabIndent $ M.vcat $
+            mapM (\ (cid, a) -> M.int cid M.<> M.colon M.<+> M.prettyPrint a)
+                (zip [1..] (F.toList as)))
     prettyPrint (PException a) =
-        M.text "[|" M.<> M.prettyPrint a M.<> M.text "|>" 
-    prettyPrint PExternalChoice = M.text "[]"
+        M.text "Exception with event set:"
+        M.$$ M.tabIndent (M.prettyPrint a)
+    prettyPrint PExternalChoice = M.text "External Choice"
     prettyPrint (PGenParallel a) =
-        M.text "||" M.<+> M.brackets (M.prettyPrint a)
+        M.text "Generalised Parallel synchronising:"
+        M.$$ M.tabIndent (M.prettyPrint a)
     prettyPrint (PHide a) =
-        M.char '\\' M.<+> M.prettyPrint a
-    prettyPrint PInternalChoice = M.text "|~|"
-    prettyPrint PInterleave = M.text "|||"
-    prettyPrint PInterrupt = M.text "/\\"
-    prettyPrint (PLinkParallel evm) =
-        M.text "[" M.<>
-            M.list (mapM (\(evLeft, evRight) -> 
-                            M.prettyPrint evLeft M.<+> M.text "<-" 
-                                M.<+> M.prettyPrint evRight) $ F.toList evm)
-        M.<> M.text "]"
-    prettyPrint (POperator op) = M.prettyPrint op
-    prettyPrint (PPrefix e) =
-        M.prettyPrint e M.<+> M.text "->"
-    prettyPrint (PRename evm) =
-        M.text "[[" 
-        M.<> M.list (mapM (\ (evOld, evNew) -> 
-                            M.prettyPrint evOld M.<+> M.text "<-" 
-                            M.<+> M.prettyPrint evNew) $ F.toList evm) 
-        M.<> M.text "]]"
-    prettyPrint PSequentialComp = M.text ";"
-    prettyPrint PSlidingChoice = M.text "|>"
+        M.text "Hiding event set:"
+        M.$$ M.tabIndent (M.prettyPrint a)
+    prettyPrint PInternalChoice = M.text "Internal Choice"
+    prettyPrint PInterrupt = M.text "Interrupt"
+    prettyPrint PInterleave = M.text "Interleave"
+    prettyPrint (PLinkParallel em) =
+        M.text "Link Parallel synchronising:"
+        M.$$ (M.tabIndent $ M.vcat $
+            mapM (\(ev1, ev2) ->
+                    M.prettyPrint ev1 M.<+> M.text "<->" M.<+> M.prettyPrint ev2)
+                (F.toList em))
+    prettyPrint (POperator op) = 
+        M.text "Compression using" M.<+> M.prettyPrint op
+    prettyPrint (PPrefix ev) = M.text "Prefix" M.<+> M.prettyPrint ev
+    prettyPrint (PRename em) =
+        M.text "Renaming using map:"
+        M.$$ (M.tabIndent $ M.vcat $
+            mapM (\(ev1, ev2) ->
+                    M.prettyPrint ev1 M.<+> M.text "->" M.<+> M.prettyPrint ev2)
+                (F.toList em))
+    prettyPrint PSequentialComp = M.text "Sequential Composition"
+    prettyPrint PSlidingChoice = M.text "Sliding Choice"
 
 instance Precedence (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
     precedence (PUnaryOp (PHide _) _) = 10
