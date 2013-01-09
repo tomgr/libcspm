@@ -385,7 +385,7 @@ instance M.MonadicPrettyPrintable EvaluationMonad ValueSet where
         case mvs of
             Just vs ->
                 -- Compression succesful
-                M.text "{|" M.<+> M.list (mapM M.prettyPrint vs) M.<+> M.text "|}"
+                M.text "{|" M.<> M.list (mapM M.prettyPrint vs) M.<> M.text "|}"
             Nothing -> 
                 case s of
                     CartesianProduct vss CartDot ->
