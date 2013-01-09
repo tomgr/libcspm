@@ -11,10 +11,11 @@ import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet hiding (cartesianProduct)
 import qualified CSPM.Evaluator.ValueSet as S
-import Data.List (groupBy)
+import Data.List (groupBy, sortBy)
 import Data.Maybe (catMaybes)
 import Util.Exception
 import Util.List
+import Util.Prelude
 
 dataTypeInfo :: Name -> EvaluationMonad (Value, Int, Array Int ValueSet)
 dataTypeInfo n = do
@@ -328,20 +329,20 @@ compressIntoEnumeratedSet vs =
         repeatablyCompress vs = do
             let initiallyEqual :: [[[Value]]]
                 initiallyEqual = groupBy (\ xs ys ->
-                    head xs == head ys && init xs == init ys) vs
+                    head xs == head ys && init xs == init ys) $
+                    sortBy (\ xs ys -> compare (head xs) (head ys)
+                            `thenCmp` compare (init xs) (init ys)) vs
                 -- head is required above (consider [x]).
-                processNothing Nothing vs = [VDot vs]
-                processNothing (Just _) vs = []
+                processNothing Nothing vss = map VDot vss
+                processNothing (Just _) vss = []
             gs <- mapM splitGroup initiallyEqual
-            let vsDone = zipWith processNothing gs vs
+            let vsDone = zipWith processNothing gs initiallyEqual
             -- Now, repeatably compress the prefixes that were equal.
             case catMaybes gs of
                 [] -> return Nothing
                 xs -> do
                     vsRecursive <- forceRepeatablyCompress xs
                     return $! Just (vsRecursive ++ concat vsDone)
-
-        setValues = toList vs
     in case toList vs of
             [] -> return Nothing
             (vs @ (VDot ((VChannel _) :_) : _)) ->
