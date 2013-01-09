@@ -175,7 +175,8 @@ unifyConstraint CInputable (TDot t1 t2) = do
     case t of
         TDot t1 t2 -> mapM_ (unifyConstraint CInputable) [t1,t2]
         _ -> unifyConstraint CInputable t
-unifyConstraint c (TDot t1 t2) = unifyConstraint c t1 >> unifyConstraint c t2
+unifyConstraint c (TDot t1 t2) | c /= COrd =
+    unifyConstraint c t1 >> unifyConstraint c t2
 unifyConstraint CSet (TSet t) = unifyConstraint CSet t
 unifyConstraint CInputable (TSet t) = return ()
 unifyConstraint CEq (TSet t) = unifyConstraint CEq t
