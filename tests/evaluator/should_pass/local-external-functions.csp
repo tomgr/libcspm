@@ -1,0 +1,9 @@
+test1 =
+    let
+        external transpose
+    within transpose({(0,true)}) == {(true, 0)}
+
+procTest1 =
+    let
+        transparent normal
+    within normal(STOP)

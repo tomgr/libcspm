@@ -2128,6 +2128,8 @@ checkLetDecls decls = map checkDecl decls
             let
                 check (FunBind a b) = anDecl
                 check (PatBind a b) = anDecl
+                check (External a) = anDecl
+                check (Transparent a) = anDecl
                 check _ = throwSourceError [invalidLetDeclarationErrorMessage anDecl]
             in check decl
 
