@@ -219,7 +219,12 @@ instance Desugarable (Pat Name) where
         let
             combine (as1, Just (p, bs1)) (as2, Nothing) = (as1, Just (p, bs1++as2))
             combine (as1, Nothing) (as2, p) = (as1++as2, p)
-            
+            combine _ _ = throwSourceError [mkErrorMessage l err]
+                where
+                    l = loc p1
+                    err = prettyPrint (PConcat p1 p2) <+> 
+                        text "is not a valid sequence pattern."
+
             extractCompList :: TCPat -> ([TCPat], Maybe (TCPat, [TCPat]))
             extractCompList (An _ _ (PCompList ps mp _)) = (ps, mp)
             extractCompList p = ([], Just (p, []))
