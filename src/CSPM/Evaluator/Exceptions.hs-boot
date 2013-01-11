@@ -25,4 +25,4 @@ cardOfInfiniteSetMessage :: ValueSet -> ErrorMessage
 cannotDifferenceSetsMessage :: ValueSet -> ValueSet -> ErrorMessage
 dotIsNotValidMessage :: Value -> Int -> Value -> ValueSet -> SrcSpan ->
     Maybe ScopeIdentifier -> ErrorMessage
-setNotRectangularErrorMessage :: ValueSet -> ValueSet -> ErrorMessage
+setNotRectangularErrorMessage :: SrcSpan -> ValueSet -> ValueSet -> ErrorMessage

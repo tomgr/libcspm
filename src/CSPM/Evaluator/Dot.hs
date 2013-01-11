@@ -253,8 +253,8 @@ takeFirstField (v:vs) = return (v, vs)
 -- sets such that the cartesian product is equal to the original set.
 --
 -- This throws an error if the set cannot be decomposed.
-splitIntoFields :: ValueSet -> EvaluationMonad [ValueSet]
-splitIntoFields vs = do
+splitIntoFields :: Name -> ValueSet -> EvaluationMonad [ValueSet]
+splitIntoFields n vs = do
     let values = toList vs
         extract (VDot vs) = vs
         -- | Splits a dot list into the separate fields.
@@ -279,8 +279,8 @@ splitIntoFields vs = do
                                         -- If we have a single field don't wrap it in a VDot.
                                         [x] -> x
                                         _ -> S.cartesianProduct S.CartDot sets
-                            if cartProduct /= vs then
-                                throwError $ setNotRectangularErrorMessage vs cartProduct
+                            if cartProduct /= vs then throwError $
+                                setNotRectangularErrorMessage (nameDefinition n) vs cartProduct
                             else return $ sets
                         _ -> return $ [vs]
 

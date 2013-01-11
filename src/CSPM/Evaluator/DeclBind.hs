@@ -94,7 +94,7 @@ bindDecl (an@(An _ _ (Channel ns me))) =
         mkChan :: Name -> EvaluationMonad Value
         mkChan n = do
             fields <- case me of
-                Just e -> eval e >>= evalTypeExprToList
+                Just e -> eval e >>= evalTypeExprToList n
                 Nothing -> return []
             let arity = fromIntegral (length fields)
             return $! tupleFromList [VDot [VChannel n], VInt arity, tupleFromList (map VSet fields)]
@@ -112,7 +112,7 @@ bindDecl (an@(An _ _ (DataType n cs))) =
         mkDataTypeClause :: DataTypeClause Name -> (Name, EvaluationMonad Value)
         mkDataTypeClause (DataTypeClause nc me) = (nc, do
             vss <- case me of
-                Just e -> eval e >>= evalTypeExprToList
+                Just e -> eval e >>= evalTypeExprToList nc
                 Nothing -> return []
             let arity = fromIntegral (length vss)
             return $ tupleFromList [VDot [VDataType nc], VInt arity, tupleFromList (map VSet vss)])
@@ -134,7 +134,7 @@ bindDecl (an@(An _ _ (SubType n cs))) =
                 mkSet (DataTypeClause nc me) = do
                     (_, _, fields) <- dataTypeInfo nc
                     fs <- case me of
-                            Just e -> eval e >>= evalTypeExprToList
+                            Just e -> eval e >>= evalTypeExprToList nc
                             Nothing -> return []
                     let s = cartesianProduct CartDot (fromList [VDataType nc] : fs)
                     vs <- mapM productionsSet (toList s)
@@ -146,7 +146,7 @@ bindDecl (an@(An _ _ (SubType n cs))) =
 bindDecl (an@(An _ _ (NameType n e))) = return $
     [(n, do
         v <- eval e
-        sets <- evalTypeExprToList v
+        sets <- evalTypeExprToList n v
         -- If we only have one set then this is not a cartesian product, this is
         -- just introducing another name (see TPC P543 and
         -- evaluator/should_pass/nametypes.csp).
@@ -161,6 +161,6 @@ evalTypeExpr :: Value -> ValueSet
 evalTypeExpr (VSet s) = s
 evalTypeExpr (VTuple vs) = cartesianProduct CartTuple (map evalTypeExpr (elems vs))
 
-evalTypeExprToList :: Value -> EvaluationMonad [ValueSet]
-evalTypeExprToList (VDot vs) = concatMapM evalTypeExprToList vs
-evalTypeExprToList v = splitIntoFields (evalTypeExpr v)
+evalTypeExprToList :: Name -> Value -> EvaluationMonad [ValueSet]
+evalTypeExprToList n (VDot vs) = concatMapM (evalTypeExprToList n) vs
+evalTypeExprToList n v = splitIntoFields n (evalTypeExpr v)
