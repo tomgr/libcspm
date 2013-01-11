@@ -4,6 +4,7 @@ module CSPM.Evaluator.Expr (
 ) where
 
 import qualified Data.Foldable as F
+import Data.List (nub)
 import Data.Maybe
 import Data.Sequence ((<|))
 import qualified Data.Sequence as Sq
@@ -334,11 +335,13 @@ instance Evaluatable (Exp Name) where
         p1 <- evalProc e1
         p2 <- evalProc e2
         ts <- evalTies stmts ties
-        return $ VProc $ PBinaryOp (PLinkParallel ts) p1 p2
+        return $ VProc $
+            PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
     eval (Rename e1 ties stmts) = do
         p1 <- evalProc e1
         ts <- evalTies stmts ties
-        return $ VProc $ if Sq.null ts then p1 else PUnaryOp (PRename ts) p1
+        return $ VProc $ if Sq.null ts then p1 else
+            PUnaryOp (PRename (removeDuplicateTies ts)) p1
     eval (SequentialComp e1 e2) = do
         p1 <- evalProc e1
         p2 <- evalProc e2
@@ -376,7 +379,8 @@ instance Evaluatable (Exp Name) where
         else do
         let
             (tsps' Sq.:> (_, lastProc)) = Sq.viewr tsps
-            mkLinkPar (ts, p1) p2 = PBinaryOp (PLinkParallel ts) p1 p2
+            mkLinkPar (ts, p1) p2 =
+                PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
         return $ VProc $ F.foldr mkLinkPar lastProc tsps'
     eval (ReplicatedParallel e1 stmts e2) = do
         VSet s <- eval e1
@@ -396,6 +400,9 @@ evalProc :: Evaluatable a => a -> EvaluationMonad UProc
 evalProc a = eval a >>= \v -> case v of
     VProc x -> return x
     _       -> panic "Type checker error"
+
+removeDuplicateTies :: Sq.Seq (Event, Event) -> Sq.Seq (Event, Event)
+removeDuplicateTies = Sq.fromList . nub . F.toList . Sq.unstableSort
 
 evalTies :: [TCStmt] -> [(TCExp, TCExp)] -> EvaluationMonad (Sq.Seq (Event, Event))
 evalTies stmts ties = do

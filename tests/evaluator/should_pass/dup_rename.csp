@@ -1,0 +1,3 @@
+channel c, d
+
+procTest1 = STOP[[c <- d | _ <- {0,1}]]
