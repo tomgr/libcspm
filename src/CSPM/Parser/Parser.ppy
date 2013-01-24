@@ -178,8 +178,8 @@ InteractiveStmt :: { PInteractiveStmt }
                                                     d <- convDecl $2 $4 
                                                     d <- annotateWithSymbolTable d
                                                     return $ AN2 (Bind [d])}
-    | "assert" "anot" Assertion                 { AN (RunAssertion (ASNot $3)) }
-    | "assert" Assertion                        { AN (RunAssertion $2) }
+    | "assert" "anot" Assertion                 { AN2 (RunAssertion (AN2 (ASNot $3))) }
+    | "assert" Assertion                        { AN2 (RunAssertion $2) }
     | "external" NameCommaList1                 {% do
                                                     d <- annotateWithSymbolTable $
                                                         AN2L (External (map unLoc $2))
@@ -227,30 +227,30 @@ DeclA :: { PDecl }
     | "subtype" Name "=" DataTypeClauseList1    { AN2L (SubType (unLoc $2) $4) }
     | "external" NameCommaList1                 { AN2L (External (map unLoc $2)) }
     | "transparent" NameCommaList1              { AN2L (Transparent (map unLoc $2)) }
-    | "assert" "anot" Assertion                 { AN (Assert (ASNot $3)) }
-    | "assert" Assertion                        { AN (Assert $2) }
+    | "assert" "anot" Assertion                 { AN2 (Assert (AN2 (ASNot $3))) }
+    | "assert" Assertion                        { AN2 (Assert $2) }
     | "nametype" Name "=" CExp                  { AN2 (NameType (unLoc $2) $4) }
     | "module" Name newline DeclList
       "exports" newline DeclList "endmodule"    { AN2 (Module (unLoc $2) [] 
                                                     (map checkModuleDecl $4)
                                                     (map checkModuleDecl $7)) }
 
-Assertion :: { Assertion UnRenamedName }
+Assertion :: { PAssertion }
     :
-    CExp refines CExp                       { (Refinement $1 (getRefinesModel $2) $3 []) }
-    | CExp refines CExp ModelOption         { (Refinement $1 (getRefinesModel $2) $3 [$4]) }
-    | CExp SemanticProperty                 { (PropertyCheck $1 $2 Nothing) }
-    | CExp SemanticProperty model           { (PropertyCheck $1 $2 (Just (getPropModel $3))) }
-SemanticProperty :: { SemanticProperty }
+    CExp refines CExp                       { AN2 (Refinement $1 (getRefinesModel $2) $3 []) }
+    | CExp refines CExp ModelOption         { AN2 (Refinement $1 (getRefinesModel $2) $3 [unLoc $4]) }
+    | CExp SemanticProperty                 { AN2 (PropertyCheck $1 (unLoc $2) Nothing) }
+    | CExp SemanticProperty model           { AN2 (PropertyCheck $1 (unLoc $2) (Just (getPropModel $3))) }
+SemanticProperty :: { Located SemanticProperty }
     :
-    "deadlock free"                             { DeadlockFreedom }
-    | "livelock free"                           { LivelockFreedom }
-    | "divergence free"                         { LivelockFreedom }
-    | "deterministic"                           { Deterministic }
+    "deadlock free"                             { LL DeadlockFreedom }
+    | "livelock free"                           { LL LivelockFreedom }
+    | "divergence free"                         { LL LivelockFreedom }
+    | "deterministic"                           { LL Deterministic }
 
-ModelOption :: { ModelOption UnRenamedName }
+ModelOption :: { Located (ModelOption UnRenamedName) }
     :
-    "tau priority" CExp                         { TauPriority $2 }
+    "tau priority" CExp                         { AN2 (TauPriority $2) }
 
 DataTypeClause :: { PDataTypeClause }
     :

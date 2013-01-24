@@ -95,22 +95,22 @@ happyIn15 x = Happy_GHC_Exts.unsafeCoerce# x
 happyOut15 :: (HappyAbsSyn t8 t9 t28 t29) -> (PDecl)
 happyOut15 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut15 #-}
-happyIn16 :: (Assertion UnRenamedName) -> (HappyAbsSyn t8 t9 t28 t29)
+happyIn16 :: (PAssertion) -> (HappyAbsSyn t8 t9 t28 t29)
 happyIn16 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyIn16 #-}
-happyOut16 :: (HappyAbsSyn t8 t9 t28 t29) -> (Assertion UnRenamedName)
+happyOut16 :: (HappyAbsSyn t8 t9 t28 t29) -> (PAssertion)
 happyOut16 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut16 #-}
-happyIn17 :: (SemanticProperty) -> (HappyAbsSyn t8 t9 t28 t29)
+happyIn17 :: (Located SemanticProperty) -> (HappyAbsSyn t8 t9 t28 t29)
 happyIn17 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyIn17 #-}
-happyOut17 :: (HappyAbsSyn t8 t9 t28 t29) -> (SemanticProperty)
+happyOut17 :: (HappyAbsSyn t8 t9 t28 t29) -> (Located SemanticProperty)
 happyOut17 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut17 #-}
-happyIn18 :: (ModelOption UnRenamedName) -> (HappyAbsSyn t8 t9 t28 t29)
+happyIn18 :: (Located (ModelOption UnRenamedName)) -> (HappyAbsSyn t8 t9 t28 t29)
 happyIn18 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyIn18 #-}
-happyOut18 :: (HappyAbsSyn t8 t9 t28 t29) -> (ModelOption UnRenamedName)
+happyOut18 :: (HappyAbsSyn t8 t9 t28 t29) -> (Located (ModelOption UnRenamedName))
 happyOut18 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut18 #-}
 happyIn19 :: (PDataTypeClause) -> (HappyAbsSyn t8 t9 t28 t29)
@@ -509,7 +509,7 @@ happyReduction_5 happy_x_3
 	 =  case happyOutTok happy_x_1 of { happy_var_1 -> 
 	case happyOut16 happy_x_3 of { happy_var_3 -> 
 	happyIn7
-		 (annotate happy_var_1 (RunAssertion (ASNot happy_var_3))
+		 (annotate2 happy_var_1 happy_var_3 (RunAssertion (annotate2 happy_var_1 happy_var_3 (ASNot happy_var_3)))
 	)}}
 
 happyReduce_6 = happySpecReduce_2  1# happyReduction_6
@@ -518,7 +518,7 @@ happyReduction_6 happy_x_2
 	 =  case happyOutTok happy_x_1 of { happy_var_1 -> 
 	case happyOut16 happy_x_2 of { happy_var_2 -> 
 	happyIn7
-		 (annotate happy_var_1 (RunAssertion happy_var_2)
+		 (annotate2 happy_var_1 happy_var_2 (RunAssertion happy_var_2)
 	)}}
 
 happyReduce_7 = happyMonadReduce 2# 1# happyReduction_7
@@ -717,7 +717,7 @@ happyReduction_29 happy_x_3
 	 =  case happyOutTok happy_x_1 of { happy_var_1 -> 
 	case happyOut16 happy_x_3 of { happy_var_3 -> 
 	happyIn15
-		 (annotate happy_var_1 (Assert (ASNot happy_var_3))
+		 (annotate2 happy_var_1 happy_var_3 (Assert (annotate2 happy_var_1 happy_var_3 (ASNot happy_var_3)))
 	)}}
 
 happyReduce_30 = happySpecReduce_2  9# happyReduction_30
@@ -726,7 +726,7 @@ happyReduction_30 happy_x_2
 	 =  case happyOutTok happy_x_1 of { happy_var_1 -> 
 	case happyOut16 happy_x_2 of { happy_var_2 -> 
 	happyIn15
-		 (annotate happy_var_1 (Assert happy_var_2)
+		 (annotate2 happy_var_1 happy_var_2 (Assert happy_var_2)
 	)}}
 
 happyReduce_31 = happyReduce 4# 9# happyReduction_31
@@ -771,7 +771,7 @@ happyReduction_33 happy_x_3
 	case happyOutTok happy_x_2 of { happy_var_2 -> 
 	case happyOut30 happy_x_3 of { happy_var_3 -> 
 	happyIn16
-		 ((Refinement happy_var_1 (getRefinesModel happy_var_2) happy_var_3 [])
+		 (annotate2 happy_var_1 happy_var_3 (Refinement happy_var_1 (getRefinesModel happy_var_2) happy_var_3 [])
 	)}}}
 
 happyReduce_34 = happyReduce 4# 10# happyReduction_34
@@ -785,7 +785,7 @@ happyReduction_34 (happy_x_4 `HappyStk`
 	case happyOut30 happy_x_3 of { happy_var_3 -> 
 	case happyOut18 happy_x_4 of { happy_var_4 -> 
 	happyIn16
-		 ((Refinement happy_var_1 (getRefinesModel happy_var_2) happy_var_3 [happy_var_4])
+		 (annotate2 happy_var_1 happy_var_4 (Refinement happy_var_1 (getRefinesModel happy_var_2) happy_var_3 [unLoc happy_var_4])
 	) `HappyStk` happyRest}}}}
 
 happyReduce_35 = happySpecReduce_2  10# happyReduction_35
@@ -794,7 +794,7 @@ happyReduction_35 happy_x_2
 	 =  case happyOut30 happy_x_1 of { happy_var_1 -> 
 	case happyOut17 happy_x_2 of { happy_var_2 -> 
 	happyIn16
-		 ((PropertyCheck happy_var_1 happy_var_2 Nothing)
+		 (annotate2 happy_var_1 happy_var_2 (PropertyCheck happy_var_1 (unLoc happy_var_2) Nothing)
 	)}}
 
 happyReduce_36 = happySpecReduce_3  10# happyReduction_36
@@ -805,40 +805,45 @@ happyReduction_36 happy_x_3
 	case happyOut17 happy_x_2 of { happy_var_2 -> 
 	case happyOutTok happy_x_3 of { happy_var_3 -> 
 	happyIn16
-		 ((PropertyCheck happy_var_1 happy_var_2 (Just (getPropModel happy_var_3)))
+		 (annotate2 happy_var_1 happy_var_3 (PropertyCheck happy_var_1 (unLoc happy_var_2) (Just (getPropModel happy_var_3)))
 	)}}}
 
 happyReduce_37 = happySpecReduce_1  11# happyReduction_37
 happyReduction_37 happy_x_1
-	 =  happyIn17
-		 (DeadlockFreedom
-	)
+	 =  case happyOutTok happy_x_1 of { happy_var_1 -> 
+	happyIn17
+		 (liftLoc happy_var_1 DeadlockFreedom
+	)}
 
 happyReduce_38 = happySpecReduce_1  11# happyReduction_38
 happyReduction_38 happy_x_1
-	 =  happyIn17
-		 (LivelockFreedom
-	)
+	 =  case happyOutTok happy_x_1 of { happy_var_1 -> 
+	happyIn17
+		 (liftLoc happy_var_1 LivelockFreedom
+	)}
 
 happyReduce_39 = happySpecReduce_1  11# happyReduction_39
 happyReduction_39 happy_x_1
-	 =  happyIn17
-		 (LivelockFreedom
-	)
+	 =  case happyOutTok happy_x_1 of { happy_var_1 -> 
+	happyIn17
+		 (liftLoc happy_var_1 LivelockFreedom
+	)}
 
 happyReduce_40 = happySpecReduce_1  11# happyReduction_40
 happyReduction_40 happy_x_1
-	 =  happyIn17
-		 (Deterministic
-	)
+	 =  case happyOutTok happy_x_1 of { happy_var_1 -> 
+	happyIn17
+		 (liftLoc happy_var_1 Deterministic
+	)}
 
 happyReduce_41 = happySpecReduce_2  12# happyReduction_41
 happyReduction_41 happy_x_2
 	happy_x_1
-	 =  case happyOut30 happy_x_2 of { happy_var_2 -> 
+	 =  case happyOutTok happy_x_1 of { happy_var_1 -> 
+	case happyOut30 happy_x_2 of { happy_var_2 -> 
 	happyIn18
-		 (TauPriority happy_var_2
-	)}
+		 (annotate2 happy_var_1 happy_var_2 (TauPriority happy_var_2)
+	)}}
 
 happyReduce_42 = happySpecReduce_3  13# happyReduction_42
 happyReduction_42 happy_x_3

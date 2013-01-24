@@ -284,6 +284,10 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
     typeCheck' (External ns) = return []
     typeCheck' (Assert a) = typeCheck a >> return []
 
+instance TypeCheckable TCAssertion () where
+    errorContext an = Nothing
+    typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
+
 instance TypeCheckable (Assertion Name) () where
     errorContext a = Just $ 
         hang (text "In the assertion" <> colon) tabWidth (prettyPrint a)

@@ -427,7 +427,7 @@ data Stmt id =
 data InteractiveStmt id =
     Evaluate (AnExp id)
     | Bind [AnDecl id]
-    | RunAssertion (Assertion id)
+    | RunAssertion (AnAssertion id)
     deriving (Eq, Ord, Show)
     
 -- *************************************************************************
@@ -440,7 +440,7 @@ data Decl id =
     -- | The binding of a pattern to an expression, e.g. @(p,q) = e@.
     | PatBind (AnPat id) (AnExp id)
     -- | An assertion in a file, e.g. @assert P [T= Q@.
-    | Assert (Assertion id)
+    | Assert (AnAssertion id)
     -- | An import of an external function, e.g. @external test@,
     | External {
         externalImportedNames :: [id]
@@ -482,7 +482,7 @@ data Assertion id =
         propertyCheckModel :: Maybe Model
     }
     -- | The negation of an assertion, not currently supported.
-    | ASNot (Assertion id)
+    | ASNot (AnAssertion id)
     deriving (Eq, Ord, Show)
         
 data Model = 
