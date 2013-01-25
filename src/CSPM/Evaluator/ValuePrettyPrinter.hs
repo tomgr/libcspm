@@ -47,7 +47,8 @@ instance PrettyPrintable ValueSet where
 instance PrettyPrintable UnCompiledProc where
     prettyPrint = runIdentity . M.prettyPrint
 
-instance PrettyPrintable ProcOperator where
+instance (F.Foldable seq, M.MonadicPrettyPrintable Identity evs) =>
+        PrettyPrintable (ProcOperator seq evs) where
     prettyPrint = runIdentity . M.prettyPrint
 
 instance PrettyPrintable ScopeIdentifier where
@@ -63,17 +64,34 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
     prettyPrintBrief Tick = M.char '✓'
     prettyPrintBrief (UserEvent v) = M.prettyPrintBrief v
 
-instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m ProcOperator where
+instance (Applicative m, F.Foldable seq, Monad m, M.MonadicPrettyPrintable m evs) =>
+        M.MonadicPrettyPrintable m (ProcOperator seq evs) where
     prettyPrint (Chase True) = M.text "chase"
     prettyPrint (Chase False) = M.text "chase_no_cache"
     prettyPrint Diamond = M.text "diamond"
     prettyPrint Explicate = M.text "explicate"
     prettyPrint Normalize = M.text "normal"
+    prettyPrint (Prioritise as) = M.text "prioritise"
+        M.<> M.parens (M.angles (M.list (mapM M.prettyPrint (F.toList as))))
     prettyPrint ModelCompress = M.text "model_compress"
     prettyPrint StrongBisim = M.text "sbisim"
     prettyPrint TauLoopFactor = M.text "tau_loop_factor"
     prettyPrint WeakBisim = M.text "wbisim"
 
+    prettyPrintBrief (Prioritise as) = M.text "prioritise"
+    prettyPrintBrief op = M.prettyPrint op
+
+ppOperatorWithArg (Prioritise as) proc = do
+    M.text "prioritise" M.<> M.parens (proc M.<> M.comma M.<+>
+        M.angles (M.list (mapM M.prettyPrint (F.toList as))))
+ppOperatorWithArg op proc = M.prettyPrint op M.<> M.parens proc
+
+ppBriefOperatorWithArg (Prioritise as) proc = do
+    M.text "prioritise" M.<> M.parens (proc M.<> M.comma
+        M.<+> M.ellipsis)
+ppBriefOperatorWithArg op proc =
+    M.prettyPrint op M.<> M.parens proc
+    
 instance (F.Foldable f) => M.MonadicPrettyPrintable EvaluationMonad (f Event) where
     prettyPrint sevs =
         let
@@ -166,6 +184,8 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
     prettyPrintBrief (PRename _) = M.text "[[ ]]"
     prettyPrintBrief PSequentialComp = M.text ";"
     prettyPrintBrief PSlidingChoice = M.text "[>"
+    prettyPrintBrief (PSynchronisingExternalChoice _) = M.text "[+ +]"
+    prettyPrintBrief (PSynchronisingInterrupt _) = M.text "/+ +\\"
 
     prettyPrint (PAlphaParallel as) =
         M.text "Alphabetised parallel with process alphabets:"
@@ -202,6 +222,12 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
                 (F.toList em))
     prettyPrint PSequentialComp = M.text "Sequential Composition"
     prettyPrint PSlidingChoice = M.text "Sliding Choice"
+    prettyPrint (PSynchronisingExternalChoice evs) =
+        M.text "Synchronising external choice, synchronising on:"
+        M.$$ M.tabIndent (M.prettyPrint evs)
+    prettyPrint (PSynchronisingInterrupt evs) =
+        M.text "Synchronising interrupt, synchronising on:"
+        M.$$ M.tabIndent (M.prettyPrint evs)
 
 instance Precedence (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
     precedence (PUnaryOp (PHide _) _) = 10
@@ -212,7 +238,9 @@ instance Precedence (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
     precedence (PBinaryOp (PLinkParallel _) _ _) = 8
     precedence (POp PInternalChoice _) = 7
     precedence (POp PExternalChoice _) = 6
+    precedence (POp (PSynchronisingExternalChoice _) _) = 6
     precedence (PBinaryOp PInterrupt _ _) = 5
+    precedence (PBinaryOp (PSynchronisingInterrupt _) _ _) = 5
     precedence (PBinaryOp PSlidingChoice _ _) = 4
     precedence (PBinaryOp PSequentialComp _ _) = 3
     precedence (PUnaryOp (PPrefix _) _) = 2
@@ -303,7 +331,7 @@ instance
                                 M.<+> M.prettyPrint evRight) $ F.toList evm)
         M.<> M.text "]" M.<+> M.prettyPrintPrec (precedence op) p2
     prettyPrint (op@(PUnaryOp (POperator cop) p)) = 
-        M.prettyPrint cop M.<> M.parens (M.prettyPrintPrec 100 p)
+        ppOperatorWithArg cop (M.prettyPrintPrec 100 p)
     prettyPrint (op@(PUnaryOp (PPrefix e) p)) =
         M.prettyPrint e M.<+> M.text "->"
         M.<+> M.prettyPrintPrec (precedence op) p
@@ -318,6 +346,14 @@ instance
     prettyPrint (op@(PBinaryOp PSlidingChoice p1 p2)) =
         ppBinaryOp op (M.text "[>") p1 p2
     prettyPrint (PProcCall n _) = M.prettyPrint n
+    prettyPrint (op@(POp (PSynchronisingExternalChoice alpha) ps)) =
+        let ps' = F.toList ps
+        in maybeNull ps' $ M.sep (M.punctuateFront
+            (M.text "[+" M.<> M.prettyPrint alpha M.<> M.text "+] ") $
+            mapM (M.prettyPrintPrec (precedence op)) ps')
+    prettyPrint (op@(PBinaryOp (PSynchronisingInterrupt es) p1 p2)) =
+        ppBinaryOp op (M.text "/+" M.<+> M.prettyPrint es M.<+> M.text "+\\")
+            p1 p2
 
     prettyPrintBrief (op@(POp (PAlphaParallel as) ps)) = maybeNull' ps $ 
         if length (F.toList as) == 1 then
@@ -353,8 +389,7 @@ instance
     prettyPrintBrief (op@(PBinaryOp (PLinkParallel evm) p1 p2)) =
         ppBriefBinaryOp op (M.text "[…<->…]") p1 p2
     prettyPrintBrief (op@(PUnaryOp (POperator cop) p)) = 
-        M.prettyPrintBrief cop M.<>
-            M.parens (M.prettyPrintBriefPrec 100 p)
+        ppBriefOperatorWithArg cop (M.prettyPrintBriefPrec 100 p)
     prettyPrintBrief (op@(PUnaryOp (PPrefix e) p)) =
         M.prettyPrintBrief e M.<+> M.text "->" M.<+> M.ellipsis
         --M.<+> M.prettyPrintBriefPrec (precedence op) p
@@ -369,6 +404,7 @@ instance
 instance (Applicative m, Monad m,
         M.MonadicPrettyPrintable m TCExp,
         M.MonadicPrettyPrintable m UProc,
+        M.MonadicPrettyPrintable m UProcOperator,
         M.MonadicPrettyPrintable m ValueSet) =>
         M.MonadicPrettyPrintable m Value where
     prettyPrint (VInt i) = M.int i

@@ -1,0 +1,14 @@
+channel a : {0..10}
+channel b
+
+P1 = STOP /+ {} +\ STOP
+P2 = STOP [+ {} +] STOP
+P3 = STOP[+{}+]STOP
+P4 = STOP/+{}+\STOP
+P5 = [+{}+] x : {STOP} @ x
+P6 = STOP /+ {a.0,a.1} +\ STOP
+P7 = STOP /+ {|a|} +\ STOP
+P8 = STOP /+ {|a, b|} +\ STOP
+P9 = STOP [+ {a.0,a.1} +] STOP
+P10 = STOP [+ {|a|} +] STOP
+P11 = STOP [+ {|a, b|} +] STOP

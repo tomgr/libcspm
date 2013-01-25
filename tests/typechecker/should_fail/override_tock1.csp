@@ -1,0 +1,9 @@
+tock = 1
+
+f = 1+tock
+
+g(x) = 1
+
+Timed (g) {
+    P = STOP
+}

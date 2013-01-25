@@ -1,0 +1,3 @@
+channel tock : {0}
+
+P = tock.0 -> P

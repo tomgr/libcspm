@@ -1,0 +1,5 @@
+T = STOP [+{a}+] STOP
+
+procTest5 = T
+
+procTest5

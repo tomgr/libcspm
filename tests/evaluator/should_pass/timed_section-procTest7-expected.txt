@@ -1,0 +1,17 @@
+SE2 = STOP [+{a}+] STOP
+
+SI2 = STOP /+ {a} +\ STOP
+
+IN2 = STOP /\ STOP
+
+E2 = STOP [] STOP
+
+AP2 = STOP [{a} || {a}] STOP
+
+GP2 = STOP [| {a} |] STOP
+
+I2 = STOP ||| STOP
+
+procTest7 = I2 [] GP2 [] AP2 [] E2 [] IN2 [] SI2 [] SE2
+
+procTest7

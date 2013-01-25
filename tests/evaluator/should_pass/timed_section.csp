@@ -1,0 +1,44 @@
+channel a, b, tock
+OneStep(_) = 1
+
+TwoOrThreeStep(a) = 2
+TwoOrThreeStep(b) = 3
+TwoOrThreeStep(ev) = error("Unsupported event "^show(ev))
+
+Timed(OneStep) {
+    P = a -> P
+
+    Timed(TwoOrThreeStep) {
+        R = a -> b -> R
+
+        Q = a -> Q [] b -> Q
+    }
+    
+    S = STOP [+{a}+] STOP
+
+    I1 = STOP ||| STOP
+    GP1 = STOP [|{a}|] STOP
+    AP1 = STOP [{a} || {a}] STOP
+    E1 = STOP [] STOP
+    IN1 = STOP /\ STOP
+    SI1 = STOP /+{a}+\ STOP
+    SE1 = STOP [+{a}+] STOP
+}
+
+T = STOP [+{a}+] STOP
+
+I2 = STOP ||| STOP
+GP2 = STOP [|{a}|] STOP
+AP2 = STOP [{a} || {a}] STOP
+E2 = STOP [] STOP
+IN2 = STOP /\ STOP
+SI2 = STOP /+{a}+\ STOP
+SE2 = STOP [+{a}+] STOP
+
+procTest1 = P
+procTest2 = R
+procTest3 = Q
+procTest4 = S
+procTest5 = T
+procTest6 = I1 [] GP1 [] AP1 [] E1 [] IN1 [] SI1 [] SE1
+procTest7 = I2 [] GP2 [] AP2 [] E2 [] IN2 [] SI2 [] SE2

@@ -325,15 +325,15 @@ modifyTypeCheckerErrorOptions f = reportWarnings $
 
 -- | Desugar a file, preparing it for evaulation.
 desugarFile :: CSPMMonad m => TCCSPMFile -> m TCCSPMFile
-desugarFile m = DS.desugar m
+desugarFile m = DS.runDesugar $ DS.desugar m
 
 -- | Desugars an expression.
 desugarExpression :: CSPMMonad m => TCExp -> m TCExp
-desugarExpression e = DS.desugar e
+desugarExpression e = DS.runDesugar $ DS.desugar e
 
 -- | Desugars an interactive statement.
 desugarInteractiveStmt :: CSPMMonad m => TCInteractiveStmt -> m TCInteractiveStmt
-desugarInteractiveStmt s = DS.desugar s
+desugarInteractiveStmt s = DS.runDesugar $ DS.desugar s
 
 -- Evaluator API
 

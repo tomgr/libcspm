@@ -1,0 +1,5 @@
+S = STOP [+{a, tock}+] STOP
+
+procTest4 = S
+
+procTest4

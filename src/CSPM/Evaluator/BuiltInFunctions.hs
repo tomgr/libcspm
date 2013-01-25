@@ -88,6 +88,12 @@ builtInFunctions =
             exs <- productions v
             return $ VSet $ S.fromList exs
 
+        csp_prioritise [p, VList alphas] =
+            let sets = map (\ (VSet s) -> S.valueSetToEventSet s) alphas
+                pop = Prioritise (Sq.fromList sets)
+            in case p of
+                VProc p -> VProc $ PUnaryOp (POperator pop) p
+
         -- | Functions that return sets
         set_funcs = [
             ("union", cspm_union), ("inter", cspm_inter), 
@@ -123,14 +129,15 @@ builtInFunctions =
             ("empty", cspm_empty), ("CHAOS", csp_chaos),
             ("loop", csp_loop), ("relational_image", cspm_relational_image),
             ("relational_inverse_image", cspm_relational_inverse_image),
-            ("transpose", cspm_transpose), ("show", cspm_show)
+            ("transpose", cspm_transpose), ("show", cspm_show),
+            ("prioritise", csp_prioritise)
             ]
 
         -- | Functions that require a monadic context.
         monadic_funcs = [
             ("head", cspm_head), ("tail", cspm_tail), 
             ("productions", cspm_productions), ("extensions", cspm_extensions),
-             ("error", cspm_error)
+            ("error", cspm_error)
             ]
         
         mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)

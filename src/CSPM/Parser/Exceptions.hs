@@ -4,6 +4,7 @@ module CSPM.Parser.Exceptions (
     invalidModuleDeclarationErrorMessage,
     invalidExpressionErrorMessage,
     invalidIncludeErrorMessage,
+    invalidTimedSectionDeclarationErrorMessage,
     lexicalErrorMessage,
     parseErrorMessage,
     fileAccessErrorMessage,
@@ -30,6 +31,10 @@ invalidLetDeclarationErrorMessage d = mkErrorMessage (loc d) $
 invalidModuleDeclarationErrorMessage :: PDecl -> ErrorMessage
 invalidModuleDeclarationErrorMessage d = mkErrorMessage (loc d) $
     hang (prettyPrint d) tabWidth (text "is not a valid declaration in a module")
+
+invalidTimedSectionDeclarationErrorMessage :: PDecl -> ErrorMessage
+invalidTimedSectionDeclarationErrorMessage d = mkErrorMessage (loc d) $
+    hang (prettyPrint d) tabWidth (text "is not a valid declaration in a timed section")
 
 invalidExpressionErrorMessage :: PExp -> ErrorMessage
 invalidExpressionErrorMessage e = mkErrorMessage (loc e) $

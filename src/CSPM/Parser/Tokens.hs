@@ -32,6 +32,8 @@ data Token =
     | TEndModule
     | TScope
 
+    | TTimed
+
     | TComma
     | TDot
     | TExclamationMark
@@ -107,6 +109,11 @@ data Token =
     | TRException
     | TParallel
 
+    | TLSyncInterrupt
+    | TRSyncInterrupt
+    | TLSyncExtChoice
+    | TRSyncExtChoice
+
     | TEOF
     deriving Eq
     
@@ -138,6 +145,8 @@ instance PrettyPrintable Token where
     prettyPrint TExports = text "exports"
     prettyPrint TEndModule = text "endmodule"
     prettyPrint TScope = text "::"
+
+    prettyPrint TTimed = text "Timed"
 
     prettyPrint TComma = char ','
     prettyPrint TDot = char '.'
@@ -213,5 +222,10 @@ instance PrettyPrintable Token where
     prettyPrint TSlidingChoice = text "[>"
     prettyPrint TRException = text "|>"
     prettyPrint TParallel = text "||"
+
+    prettyPrint TLSyncInterrupt = text "/+"
+    prettyPrint TRSyncInterrupt = text "+\\"
+    prettyPrint TLSyncExtChoice = text "[+"
+    prettyPrint TRSyncExtChoice = text "+]"
 
     prettyPrint TEOF = text "EOF"

@@ -84,6 +84,7 @@ import Util.Annotated
     "exports"           { L _ TExports }
     "endmodule"         { L _ TEndModule }
     "::"                { L _ TScope }
+    "Timed"             { L _ TTimed }
 
     "assert"            { L _ TAssert }
     "deadlock free"     { L _ TDeadlockFree }
@@ -140,6 +141,11 @@ import Util.Annotated
     ";"                 { L _ TSemiColon }
     "&"                 { L _ TGuard }
 
+    "[+"                { L _ TLSyncExtChoice }
+    "+]"                { L _ TRSyncExtChoice }
+    "/+"                { L _ TLSyncInterrupt }
+    "+\\"               { L _ TRSyncInterrupt }
+
 -- TODO: lambda dot
 %nonassoc "let" "within" "@" "if" "then" "else"
 %nonassoc "@@" --COLON AT AS
@@ -147,8 +153,8 @@ import Util.Annotated
 %left "|||"
 %nonassoc "|>" "[|" "|]" "[" "]" "||" --"[[" "]]" -- PROB
 %left "|~|"
-%left "[]"
-%left "/\\"
+%left "[]" "[+" "+]"
+%left "/\\" "/+" "+\\"
 %left "[>"
 %left ";"
 %right "&" "->" --GUARD WHERESQ (this is &[)
@@ -234,6 +240,8 @@ DeclA :: { PDecl }
       "exports" newline DeclList "endmodule"    { AN2 (Module (unLoc $2) [] 
                                                     (map checkModuleDecl $4)
                                                     (map checkModuleDecl $7)) }
+    | "Timed" "(" CExp ")" "{" DeclList "}"     { AN2 (TimedSection Nothing $3
+                                                    (map checkTimedDecl $6)) }
 
 Assertion :: { PAssertion }
     :
@@ -398,6 +406,10 @@ ExpA :: { PExp }
     | Exp "[>" Exp                  { AN2 (SlidingChoice $1 $3) }
     | Exp ";" Exp                   { AN2 (SequentialComp $1 $3) }
     | Exp "&" Exp                   { AN2 (GuardedExp $1 $3) }
+
+    | Exp "[+" Exp "+]" Exp         { AN2 (SynchronisingExternalChoice $1 $3 $5) }
+    | Exp "/+" Exp "+\\" Exp        { AN2 (SynchronisingInterrupt $1 $3 $5) }
+
     --- TODO: check all on LHS are generators only
     -- TODO: check LHS all use <- only
     | Exp "[[" RenameList1 OptStmtList "]]" { AN2 (Rename $1 $3 $4) }
@@ -410,6 +422,9 @@ ExpA :: { PExp }
     | "[|" Exp "|]" StmtCommaList "@" Exp { AN2 (ReplicatedParallel $2 $4 $6) }
     | "[" TieList1 OptStmtList "]" StmtCommaList "@" Exp { AN2 (ReplicatedLinkParallel $2 $3 $5 $7) }
     | ";" StmtCommaList "@" Exp     { AN2 (ReplicatedSequentialComp $2 $4) }
+    | "[+" Exp "+]" StmtCommaList "@" Exp
+                                    { AN2 (ReplicatedSynchronisingExternalChoice
+                                        $2 $4 $6) }
 
 Field :: { PField }
     :
@@ -529,6 +544,7 @@ checkLetDecls decls = map checkDecl decls
                 check (PatBind a b) = anDecl
                 check (External a) = anDecl
                 check (Transparent a) = anDecl
+                check (TimedSection _ _ _) = anDecl
                 check _ = throwSourceError [invalidLetDeclarationErrorMessage anDecl]
             in check decl
 
@@ -536,6 +552,11 @@ checkModuleDecl :: PDecl -> PDecl
 checkModuleDecl (anDecl@(An _ _ (Assert _))) =
     throwSourceError [invalidModuleDeclarationErrorMessage anDecl]
 checkModuleDecl d = d
+
+checkTimedDecl :: PDecl -> PDecl
+checkTimedDecl (anDecl@(An _ _ (Assert _))) =
+    throwSourceError [invalidTimedSectionDeclarationErrorMessage anDecl]
+checkTimedDecl d = d
 
 checkExp :: PExp -> PExp
 checkExp (anExp@(An a b exp)) =
@@ -591,6 +612,10 @@ checkExp (anExp@(An a b exp)) =
         check (Rename e ties stmts) = Rename (checkExp e) ties stmts
         check (SequentialComp e1 e2) = SequentialComp (checkExp e1) (checkExp e2)
         check (SlidingChoice e1 e2) = SlidingChoice (checkExp e1) (checkExp e2)
+        check (SynchronisingExternalChoice e1 e2 e3) =
+            SynchronisingExternalChoice (checkExp e1) (checkExp e2) (checkExp e3)
+        check (SynchronisingInterrupt e1 e2 e3) =
+            SynchronisingInterrupt (checkExp e1) (checkExp e2) (checkExp e3)
 
         check (ReplicatedAlphaParallel stmts e1 e2) = 
             ReplicatedAlphaParallel stmts (checkExp e1) (checkExp e2)
@@ -603,6 +628,9 @@ checkExp (anExp@(An a b exp)) =
             ReplicatedLinkParallel ties tiesStmts stmts (checkExp e)
         check (ReplicatedSequentialComp stmts e1) = 
             ReplicatedSequentialComp stmts (checkExp e1)
+        check (ReplicatedSynchronisingExternalChoice e1 stmts e3) =
+            ReplicatedSynchronisingExternalChoice (checkExp e1) stmts
+                (checkExp e3)
         
         check x = throwSourceError [invalidExpressionErrorMessage anExp]
     in

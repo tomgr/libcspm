@@ -1,0 +1,7 @@
+f(_) = 1
+
+channel a, tock
+
+Timed (f) {
+    P = a -> STOP        
+}

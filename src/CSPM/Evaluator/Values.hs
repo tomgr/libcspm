@@ -1,5 +1,6 @@
 module CSPM.Evaluator.Values (
-    Value(..), UProc, Proc(..), CSPOperator(..), ProcOperator(..), Event(..),
+    Value(..), UProc, UProcOperator, Proc(..), CSPOperator(..),
+    ProcOperator(..), Event(..), EventSet,
     ScopeIdentifier(..), FunctionIdentifier(..),
     compareValues,
     procName, scopeId, annonymousScopeId,
@@ -24,6 +25,7 @@ import Util.Exception
 import Util.Prelude
 
 type UProc = UnCompiledProc
+type UProcOperator = UnCompiledProcOperator
 
 data Value =
     VInt Int
@@ -133,9 +135,10 @@ tupleFromList vs = VTuple $! listArray (0, length vs - 1) vs
 noSave :: EvaluationMonad Value -> EvaluationMonad Value
 noSave prog = do
     pn <- getParentScopeIdentifier
-    return $ VThunk $ case pn of
-                        Just x -> updateParentScopeIdentifier x prog
-                        Nothing -> prog
+    tok <- gets timedSection
+    return $ VThunk $ modify (\ st -> st {
+            CSPM.Evaluator.Monad.parentScopeIdentifier = pn,
+            timedSection = tok }) prog
 
 maybeSave :: Type -> EvaluationMonad Value -> EvaluationMonad Value
 maybeSave TProc prog = noSave prog

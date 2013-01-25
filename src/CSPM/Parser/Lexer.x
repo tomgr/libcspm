@@ -124,6 +124,10 @@ tokens :-
     <0>@nl"||"@nl               { tok TParallel }
     <0>@nl";"@nl                { tok TSemiColon }
     <0>@nl"&"@nl                { tok TGuard }
+    <0>@nl"/+"@nl               { tok TLSyncInterrupt }
+    <0>@nl"+\"@nl               { tok TRSyncInterrupt }
+    <0>@nl"[+"@nl               { tok TLSyncExtChoice }
+    <0>@nl"+]"@nl               { tok TRSyncExtChoice }
 
     -- Boolean Operators
     <0>@nl"and"/$notid          { soakTok TAnd }
@@ -186,6 +190,7 @@ tokens :-
     <0>"endmodule"/$notid       { tok TEndModule }
     <0>@nl"\"@nl                { tok TBackSlash }
     <0>@nl"@"@nl                { tok TLambdaDot }
+    <0>"Timed"/$notid           { soakTok TTimed }
 
     -- Arithmetic
     <0>@nl"+"@nl                { tok TPlus }
