@@ -115,9 +115,31 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
         M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (SVariableBind args Nothing)
 
     prettyPrintBrief (SFunctionBind n args Nothing) =
-        M.prettyPrintBrief n M.<> M.hcat (mapM (\as -> M.parens $
+        let
+            spaceThreashold = 15
+
+            spaceCost :: Value -> Int
+            spaceCost (VInt _) = 1
+            spaceCost (VBool _) = 1
+            spaceCost (VTuple arr) = 2 + length vs + sum (map spaceCost vs)
+                where vs = F.toList arr 
+            spaceCost (VDot vs) = length vs + sum (map spaceCost vs)
+            spaceCost (VChannel n) = length (show (prettyPrint n))
+            spaceCost (VDataType n) = length (show (prettyPrint n))
+            spaceCost (VList vs) = 2 + length vs + sum (map spaceCost vs)
+            spaceCost (VSet s) = 2 + length vs + sum (map spaceCost vs)
+                where vs = toList s
+            spaceCost (VFunction _ _) = spaceThreashold
+            spaceCost (VProc _) = spaceThreashold
+            spaceCost (VThunk _) = spaceThreashold
+
+            areSmall :: [Value] -> Bool
+            areSmall vs = sum (map spaceCost vs) < spaceThreashold
+            
+        in M.prettyPrintBrief n M.<> M.hcat (mapM (\as -> M.parens $
             case as of 
                 [] -> M.empty
+                as | areSmall as -> M.list (mapM M.prettyPrint as)
                 _ -> M.ellipsis) args)
     prettyPrintBrief (SFunctionBind n args (Just pn)) =
         M.prettyPrintBrief pn M.<> M.text "::"
