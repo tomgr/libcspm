@@ -61,6 +61,10 @@ instance Compressable (Exp a) where
     mcompress (ListComp es stmts) = return ListComp $$ mcompress es $$ mcompress stmts  
     mcompress (ListEnumFrom e) = return ListEnumFrom $$ mcompress e
     mcompress (ListEnumFromTo e1 e2) = return ListEnumFromTo $$ mcompress e1 $$ mcompress e2
+    mcompress (ListEnumFromComp e stmts) =
+        return ListEnumFromComp $$ mcompress e $$ mcompress stmts
+    mcompress (ListEnumFromToComp e1 e2 stmts) =
+        return ListEnumFromToComp $$ mcompress e1 $$ mcompress e2 $$ mcompress stmts
     mcompress (ListLength e) = return ListLength $$ mcompress e
     mcompress (MathsBinaryOp op e1 e2) = return 
         (MathsBinaryOp op) $$ mcompress e1 $$ mcompress e2
@@ -73,6 +77,10 @@ instance Compressable (Exp a) where
     mcompress (SetEnumComp es stmts) = return SetEnumComp $$ mcompress es $$ mcompress stmts
     mcompress (SetEnumFrom e) = return SetEnumFrom $$ mcompress e
     mcompress (SetEnumFromTo e1 e2) = return SetEnumFromTo $$ mcompress e1 $$ mcompress e2
+    mcompress (SetEnumFromComp e stmts) =
+        return SetEnumFromComp $$ mcompress e $$ mcompress stmts
+    mcompress (SetEnumFromToComp e1 e2 stmts) =
+        return SetEnumFromToComp $$ mcompress e1 $$ mcompress e2 $$ mcompress stmts
     mcompress (Tuple es) = return Tuple $$ mcompress es
     mcompress (Var n) = return (Var n)
 

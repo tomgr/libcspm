@@ -119,6 +119,8 @@ instance FreeVars (Exp Name) where
         in fvse \\ fvStmts
     freeVars' (ListEnumFrom e1) = freeVars' e1
     freeVars' (ListEnumFromTo e1 e2) = freeVars' [e1,e2]
+    freeVars' (ListEnumFromComp e1 stmts) = freeVarsStmts stmts [e1]
+    freeVars' (ListEnumFromToComp e1 e2 stmts) = freeVarsStmts stmts [e1, e2]
     freeVars' (ListLength e) = freeVars' e
     freeVars' (MathsBinaryOp _ e1 e2) = freeVars' [e1,e2]
     freeVars' (MathsUnaryOp _ e1) = freeVars' e1
@@ -140,6 +142,8 @@ instance FreeVars (Exp Name) where
         in fvse \\ fvStmts
     freeVars' (SetEnumFrom e1) = freeVars' e1
     freeVars' (SetEnumFromTo e1 e2) = freeVars' [e1,e2]
+    freeVars' (SetEnumFromComp e1 stmts) = freeVarsStmts stmts [e1]
+    freeVars' (SetEnumFromToComp e1 e2 stmts) = freeVarsStmts stmts [e1, e2]
     freeVars' (SetEnum es) = freeVars' es
     freeVars' (Tuple es) = freeVars' es
     freeVars' (Var n) = [n]

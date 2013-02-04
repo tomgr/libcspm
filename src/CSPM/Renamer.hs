@@ -566,6 +566,15 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
         return $ ListComp es' stmts'
     rename (ListEnumFrom e) = return ListEnumFrom $$ rename e
     rename (ListEnumFromTo e1 e2) = return ListEnumFromTo $$ rename e1 $$ rename e2
+    rename (ListEnumFromComp e stmts) = do
+        (stmts', e') <- renameStatements stmts (rename e)
+        return $ ListEnumFromComp e' stmts'
+    rename (ListEnumFromToComp e1 e2 stmts) = do
+        (stmts', (e1', e2')) <- renameStatements stmts $ do
+            e1' <- rename e1
+            e2' <- rename e2
+            return (e1', e2')
+        return $ ListEnumFromToComp e1' e2' stmts'
     rename (ListLength e) = return ListLength $$ rename e
     rename (MathsBinaryOp op e1 e2) = return 
         (MathsBinaryOp op) $$ rename e1 $$ rename e2
@@ -581,6 +590,15 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
         return $ SetEnumComp es' stmts'
     rename (SetEnumFrom e) = return SetEnumFrom $$ rename e
     rename (SetEnumFromTo e1 e2) = return SetEnumFromTo $$ rename e1 $$ rename e2
+    rename (SetEnumFromComp e stmts) = do
+        (stmts', e') <- renameStatements stmts (rename e)
+        return $ SetEnumFromComp e' stmts'
+    rename (SetEnumFromToComp e1 e2 stmts) = do
+        (stmts', (e1', e2')) <- renameStatements stmts $ do
+            e1' <- rename e1
+            e2' <- rename e2
+            return (e1', e2')
+        return $ SetEnumFromToComp e1' e2' stmts'
     rename (Tuple es) = return Tuple $$ rename es
     rename (Var n) = return Var $$ renameVarRHS n
 

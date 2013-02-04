@@ -165,6 +165,10 @@ instance PrettyPrintable id => PrettyPrintable (Exp id) where
     prettyPrint (ListEnumFrom lb) = angles (prettyPrint lb <> text "..")
     prettyPrint (ListEnumFromTo lb ub) = 
         angles (prettyPrint lb <> text ".." <> prettyPrint ub)
+    prettyPrint (ListEnumFromComp lb stmts) = 
+        angles (ppComp' [prettyPrint lb <> text ".."] stmts)
+    prettyPrint (ListEnumFromToComp lb ub stmts) = 
+        angles (ppComp' [prettyPrint lb <> text ".." <> prettyPrint ub] stmts)
     prettyPrint (Lit lit) = prettyPrint lit
     prettyPrint (MathsUnaryOp op e1) = prettyPrint op <> prettyPrint e1
     prettyPrint (MathsBinaryOp op e1 e2) =
@@ -177,6 +181,10 @@ instance PrettyPrintable id => PrettyPrintable (Exp id) where
     prettyPrint (SetEnumFrom lb) = braces (prettyPrint lb <> text "..")
     prettyPrint (SetEnumFromTo lb ub) =
         braces (prettyPrint lb <> text ".." <> prettyPrint ub)
+    prettyPrint (SetEnumFromComp lb stmts) = 
+        braces (ppComp' [prettyPrint lb <> text ".."] stmts)
+    prettyPrint (SetEnumFromToComp lb ub stmts) = 
+        braces (ppComp' [prettyPrint lb <> text ".." <> prettyPrint ub] stmts)
     prettyPrint (Tuple exps) = parens (list (map prettyPrint exps))
     prettyPrint (Var qname) = prettyPrint qname
         

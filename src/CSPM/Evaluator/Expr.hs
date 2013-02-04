@@ -117,6 +117,17 @@ instance Evaluatable (Exp Name) where
         VInt lb <- eval e1
         VInt ub <- eval e2
         return $ VList (map VInt [lb..ub])
+    eval (ListEnumFromComp e1 stmts) = do
+        ss <- evalStmts (\ (VList xs) -> xs) stmts $ do
+                VInt lb <- eval e1
+                return $ map VInt [lb..]
+        return $ VList ss
+    eval (ListEnumFromToComp e1 e2 stmts) = do
+        ss <- evalStmts (\ (VList xs) -> xs) stmts $ do
+                VInt lb <- eval e1
+                VInt ub <- eval e2
+                return $ map VInt [lb..ub]
+        return $ VList ss
     eval (ListLength e) = do
         VList xs <- eval e 
         return $ VInt (length xs)
@@ -159,6 +170,17 @@ instance Evaluatable (Exp Name) where
         VInt lb <- eval e1
         VInt ub <- eval e2
         return $ VSet (S.fromList (map VInt [lb..ub]))
+    eval (SetEnumFromComp e1 stmts) = do
+        ss <- evalStmts (\ (VSet s) -> S.toList s) stmts $ do
+                VInt lb <- eval e1
+                return [S.IntSetFrom lb]
+        return $ VSet $ S.unions ss
+    eval (SetEnumFromToComp e1 e2 stmts) = do
+        ss <- evalStmts (\ (VSet s) -> S.toList s) stmts $ do
+                VInt lb <- eval e1
+                VInt ub <- eval e2
+                return [S.fromList (map VInt [lb..ub])]
+        return $ VSet $ S.unions ss
     eval (Tuple es) = mapM eval es >>= return . tupleFromList
     eval (Var n) | isNameDataConstructor n = do
         (dc, _, _) <- dataTypeInfo n

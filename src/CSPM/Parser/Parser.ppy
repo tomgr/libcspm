@@ -363,6 +363,8 @@ ExpA :: { PExp }
     | BegSeq ExpCommaList "|" StmtCommaList EndSeq { AN2 (ListComp $2 $4) }
     | BegSeq Exp ".." EndSeq        { AN2 (ListEnumFrom $2) }
     | BegSeq Exp ".." Exp EndSeq    { AN2 (ListEnumFromTo $2 $4) }
+    | BegSeq Exp ".." "|" StmtCommaList EndSeq { AN2 (ListEnumFromComp $2 $5) }
+    | BegSeq Exp ".." Exp "|" StmtCommaList EndSeq { AN2 (ListEnumFromToComp $2 $4 $6) }
     | Exp "^" Exp                   { AN2 (Concat $1 $3) }
     | "#" Exp                       { AN2 (ListLength $2) }
 
@@ -371,6 +373,8 @@ ExpA :: { PExp }
     | "{" ExpCommaList "|" StmtCommaList "}" { AN2 (SetComp $2 $4) }
     | "{" Exp ".." "}"              { AN2 (SetEnumFrom $2) }
     | "{" Exp ".." Exp "}"          { AN2 (SetEnumFromTo $2 $4) }
+    | "{" Exp ".." "|" StmtCommaList "}" { AN2 (SetEnumFromComp $2 $5) }
+    | "{" Exp ".." Exp "|" StmtCommaList "}" { AN2 (SetEnumFromToComp $2 $4 $6) }
     | "{|" ExpCommaList "|}"        { AN2 (SetEnum $2) }
     | "{|" ExpCommaList "|" StmtCommaList "|}" { AN2 (SetEnumComp $2 $4) }
 
@@ -550,6 +554,9 @@ checkExp (anExp@(An a b exp)) =
         check (ListComp es stmts) = ListComp (map checkExp es) stmts
         check (ListEnumFrom e) = ListEnumFrom (checkExp e)
         check (ListEnumFromTo e1 e2) = ListEnumFromTo (checkExp e1) (checkExp e2)
+        check (ListEnumFromComp e1 stmts) = ListEnumFromComp (checkExp e1) stmts
+        check (ListEnumFromToComp e1 e2 stmts) =
+            ListEnumFromToComp (checkExp e1) (checkExp e2) stmts
         check (ListLength e) = ListLength (checkExp e)
         check (MathsBinaryOp op e1 e2) = MathsBinaryOp op (checkExp e1) (checkExp e2)
         check (MathsUnaryOp op e) = MathsUnaryOp op (checkExp e)
@@ -558,6 +565,9 @@ checkExp (anExp@(An a b exp)) =
         check (SetComp es stmts) = SetComp (map checkExp es) stmts
         check (SetEnumFrom e) = SetEnumFrom (checkExp e)
         check (SetEnumFromTo e1 e2) = SetEnumFromTo (checkExp e1) (checkExp e2)
+        check (SetEnumFromComp e1 stmts) = SetEnumFromComp (checkExp e1) stmts
+        check (SetEnumFromToComp e1 e2 stmts) =
+            SetEnumFromToComp (checkExp e1) (checkExp e2) stmts
         check (SetEnum es) = SetEnum (map checkExp es)
         -- We don't need to check inside stmts as they will have been checked
         -- upon creation

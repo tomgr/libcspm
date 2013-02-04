@@ -130,6 +130,15 @@ instance TypeCheckable (Exp Name) Type where
         ensureIsInt lb
         ensureIsInt ub
         return $ TSeq TInt
+    typeCheck' (ListEnumFromComp lb stmts) = do
+        typeCheckStmts TSeq stmts $ do
+            ensureIsInt lb
+            return $ TSeq TInt
+    typeCheck' (ListEnumFromToComp lb ub stmts) = do
+        typeCheckStmts TSeq stmts $ do
+            ensureIsInt lb
+            ensureIsInt ub
+            return $ TSeq TInt
     typeCheck' (ListLength e) = do
         ensureIsList e
         return $ TInt
@@ -166,6 +175,15 @@ instance TypeCheckable (Exp Name) Type where
         ensureIsInt lb
         ensureIsInt ub
         return $ TSet TInt
+    typeCheck' (SetEnumFromComp lb stmts) = do
+        typeCheckStmts TSet stmts $ do
+            ensureIsInt lb
+            return $ TSet TInt
+    typeCheck' (SetEnumFromToComp lb ub stmts) = do
+        typeCheckStmts TSet stmts $ do
+            ensureIsInt lb
+            ensureIsInt ub
+            return $ TSet TInt
     typeCheck' (Tuple es) = do
         ts <- mapM typeCheck es
         return $ TTuple ts

@@ -205,6 +205,19 @@ data Exp id =
         listEnumFromToLowerBound :: AnExp id,
         listEnumFromToUpperBound :: AnExp id
     }
+    -- | List of integers from the given value, concatenating all adjacent
+    -- lists, e.g. @<x.. | x <- <0>>@.
+    | ListEnumFromComp {
+        listEnumFromCompLowerBound :: AnExp id,
+        listEnumFromCompStatements :: [AnStmt id]
+    }
+    -- | List of integers between the given values, concatenating all items into
+    -- one list, e.g. @<x..y | (x,y) <- <(0,1)>>@.
+    | ListEnumFromToComp {
+        listEnumFromToCompLowerBound :: AnExp id,
+        listEnumFromToCompUpperBound :: AnExp id,
+        listEnumFromToCompStatements :: [AnStmt id]
+    }
     -- | The length of the list, e.g. @#list@.
     | ListLength {
         listLengthExpression :: AnExp id
@@ -253,6 +266,19 @@ data Exp id =
         setEnumFromToLowerBound :: AnExp id,
         -- | The upper bound.
         setEnumFromToUpperBound :: AnExp id
+    }
+    -- | Set of integers from the given value, concatenating all adjacent
+    -- sets, e.g. @{x.. | x <- {0}}@.
+    | SetEnumFromComp {
+        setEnumFromCompLowerBound :: AnExp id,
+        setEnumFromCompStatements :: [AnStmt id]
+    }
+    -- | Set of integers between the given values, concatenating all items into
+    -- one set, e.g. @{x..y | (x,y) <- {(0,1)}}@.
+    | SetEnumFromToComp {
+        setEnumFromToCompLowerBound :: AnExp id,
+        setEnumFromToCompUpperBound :: AnExp id,
+        setEnumFromToCompStatements :: [AnStmt id]
     }
     -- | Tuples, e.g. @(1,2)@.
     | Tuple {

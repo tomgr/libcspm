@@ -150,6 +150,10 @@ instance Desugarable (Exp Name) where
     desugar (ListComp es stmts) = return ListComp $$ desugar es $$ desugar stmts
     desugar (ListEnumFrom e) = return ListEnumFrom $$ desugar e
     desugar (ListEnumFromTo e1 e2) = return ListEnumFromTo $$ desugar e1 $$ desugar e2
+    desugar (ListEnumFromComp e stmts) =
+        return ListEnumFromComp $$ desugar e $$ desugar stmts
+    desugar (ListEnumFromToComp e1 e2 stmts) =
+        return ListEnumFromToComp $$ desugar e1 $$ desugar e2 $$ desugar stmts
     desugar (ListLength e) = return ListLength $$ desugar e
     desugar (MathsBinaryOp op e1 e2) = 
         return (MathsBinaryOp op) $$ desugar e1 $$ desugar e2
@@ -161,6 +165,10 @@ instance Desugarable (Exp Name) where
     desugar (SetEnumComp es stmts) = return SetEnumComp $$ desugar es $$ desugar stmts
     desugar (SetEnumFrom e) = return SetEnumFrom $$ desugar e
     desugar (SetEnumFromTo e1 e2) = return SetEnumFromTo $$ desugar e1 $$ desugar e2
+    desugar (SetEnumFromComp e stmts) =
+        return SetEnumFromComp $$ desugar e $$ desugar stmts
+    desugar (SetEnumFromToComp e1 e2 stmts) =
+        return SetEnumFromToComp $$ desugar e1 $$ desugar e2 $$ desugar stmts
     desugar (Tuple es) = return Tuple $$ desugar es
     desugar (Var n) = return (Var n)
 
