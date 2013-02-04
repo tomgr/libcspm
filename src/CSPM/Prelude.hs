@@ -112,7 +112,8 @@ makeBuiltins = do
 
         externalFunctions :: [(String, Type)]
         externalFunctions = [
-            ("loop", TFunction [TProc] TProc)
+            ("loop", TFunction [TProc] TProc),
+            cspm_prioritise
             ]
 
         complexExternalFunctions :: IO [(String, TypeScheme)]
@@ -151,8 +152,7 @@ makeBuiltins = do
             ("tau_loop_factor", TFunction [TProc] TProc),
             ("model_compress", TFunction [TProc] TProc),
             ("explicate", TFunction [TProc] TProc),
-            ("wbisim", TFunction [TProc] TProc),
-            cspm_prioritise
+            ("wbisim", TFunction [TProc] TProc)
             ]
 
         cspm_error fv = ("error", [TSeq TChar], fv)
