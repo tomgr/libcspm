@@ -1,0 +1,9 @@
+<x>^xs = <1,2>
+
+test1 = x == 1
+test2 = xs == <2>
+
+a.b = 3.2
+
+test3 = a == 3
+test4 = b == 2

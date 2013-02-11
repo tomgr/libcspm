@@ -20,6 +20,11 @@ instance FreeVars a => FreeVars (Annotated b a) where
 
 instance FreeVars (Pat Name) where
     freeVars (PConcat p1 p2) = freeVars p1++freeVars p2
+    freeVars (PCompList p1 p2 _) = concatMap freeVars p1 ++ 
+        case p2 of
+            Just (p2, ps) -> freeVars p2 ++ concatMap freeVars ps
+            Nothing -> []
+    freeVars (PCompDot ps _) = concatMap freeVars ps
     freeVars (PDotApp p1 p2) = freeVars p1++freeVars p2
     freeVars (PDoublePattern p1 p2) = freeVars p1++freeVars p2
     freeVars (PList ps) = concatMap freeVars ps
