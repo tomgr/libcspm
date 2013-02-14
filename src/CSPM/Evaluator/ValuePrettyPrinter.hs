@@ -132,15 +132,14 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
             spaceCost (VFunction _ _) = spaceThreashold
             spaceCost (VProc _) = spaceThreashold
             spaceCost (VThunk _) = spaceThreashold
-
-            areSmall :: [Value] -> Bool
-            areSmall vs = sum (map spaceCost vs) < spaceThreashold
             
-        in M.prettyPrintBrief n M.<> M.hcat (mapM (\as -> M.parens $
-            case as of 
-                [] -> M.empty
-                as | areSmall as -> M.list (mapM M.prettyPrint as)
-                _ -> M.ellipsis) args)
+            smallPP :: (Applicative m, Monad m, M.MonadicPrettyPrintable m Value)
+                => Value -> m Doc
+            smallPP v | spaceCost v < spaceThreashold = M.prettyPrintBrief v
+            smallPP _ = M.ellipsis
+        in M.prettyPrintBrief n M.<> M.hcat (mapM (\as ->
+                if length as >= spaceThreashold then M.ellipsis
+                else M.parens $ M.list $ mapM smallPP as) args)
     prettyPrintBrief (SFunctionBind n args (Just pn)) =
         M.prettyPrintBrief pn M.<> M.text "::"
         M.<> M.prettyPrintBrief (SFunctionBind n args Nothing)
