@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, ScopedTypeVariables,
+    TypeSynonymInstances #-}
 module Util.Exception (
     Exception,
     LibCSPMException(..),
@@ -92,12 +93,24 @@ throwException = throw
  
 -- | A class to allow catching of SourceErrors in arbitrary monads.
 class Monad m => MonadIOException m where
+    -- | Runs the action, catching any non-fatal LibCSPMExecptions (i.e. non-
+    -- Panic).
     tryM :: MonadIOException m => m a -> m (Either LibCSPMException a)
+    tryM prog = do
+        ev <- tryM' prog
+        case ev of
+            Left (e@(Panic x)) -> throwException e
+            _ -> return ev
+
+    -- | Runs the action, catching all exceptions and returning them. Non
+    -- LibCSPMExceptions are converted to a panic.
+    tryM' :: MonadIOException m => m a -> m (Either LibCSPMException a)
+
     -- | Runs the action, running the finaliser if an exception is thrown. The
     -- exception is always rethrown.
     finally :: MonadIOException m => m a -> m () -> m a
     finally prog finaliser = do
-        result <- tryM $ do
+        result <- tryM' $ do
             r <- prog
             finaliser
             return r
@@ -106,24 +119,27 @@ class Monad m => MonadIOException m where
             Right result -> return result
     
 instance MonadIOException IO where
-    tryM prog = do
+    tryM' prog = do
         r <- try prog
         case r of
-            Left (e@(Panic _)) -> throwException e
-            _ -> return r
+            Right a -> return $ Right a
+            Left (e :: SomeException) ->
+                case fromException e :: Maybe LibCSPMException of
+                    Just e -> return $ Left e
+                    Nothing -> return $ Left (Panic (show e))
 
 instance MonadIOException m => MonadIOException (StateT s m) where
-    tryM prog = 
+    tryM' prog = 
         StateT $ \st -> do
-            x <- tryM (runStateT prog st)
+            x <- tryM' (runStateT prog st)
             case x of
                 Right (a, s) -> return $ (Right a, s)
                 Left e -> return $ (Left e, st)
 
 instance MonadIOException m => MonadIOException (ST.StateT s m) where
-    tryM prog = 
+    tryM' prog = 
         ST.StateT $ \st -> do
-            x <- tryM (ST.runStateT prog st)
+            x <- tryM' (ST.runStateT prog st)
             case x of
                 Right (a, s) -> return $ (Right a, s)
                 Left e -> return $ (Left e, st)
