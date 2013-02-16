@@ -36,7 +36,7 @@ import Util.Annotated
 
 %name parseFile_ CSPMFile
 %name parseInteractiveStmt_ InteractiveStmt
-%name parseExpression_ Exp
+%name parseExpression_ CExp
 %lexer { getNextTokenWrapper } { L _ TEOF }
 %monad { ParseMonad }
 %tokentype { LToken }
