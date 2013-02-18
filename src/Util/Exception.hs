@@ -102,9 +102,11 @@ class Monad m => MonadIOException m where
             Left (e@(Panic x)) -> throwException e
             _ -> return ev
 
-    -- | Runs the action, catching all exceptions and returning them. Non
-    -- LibCSPMExceptions are converted to a panic.
+    -- | Runs the action, catching all exceptions including panics.
     tryM' :: MonadIOException m => m a -> m (Either LibCSPMException a)
+
+    -- | Converts arbitrary exceptions to panics, rethrowing them.
+    convertExceptionsToPanics :: MonadIOException m => m a -> m a
 
     -- | Runs the action, running the finaliser if an exception is thrown. The
     -- exception is always rethrown.
@@ -123,10 +125,16 @@ instance MonadIOException IO where
         r <- try prog
         case r of
             Right a -> return $ Right a
-            Left (e :: SomeException) ->
+            Left (e :: LibCSPMException) -> return $ Left e
+
+    convertExceptionsToPanics prog = do
+        r <- try prog
+        case r of
+            Left (e :: SomeException) -> throwException $
                 case fromException e :: Maybe LibCSPMException of
-                    Just e -> return $ Left e
-                    Nothing -> return $ Left (Panic (show e))
+                    Just e -> e
+                    Nothing -> Panic (show e)
+            Right a -> return a
 
 instance MonadIOException m => MonadIOException (StateT s m) where
     tryM' prog = 
@@ -135,6 +143,8 @@ instance MonadIOException m => MonadIOException (StateT s m) where
             case x of
                 Right (a, s) -> return $ (Right a, s)
                 Left e -> return $ (Left e, st)
+    convertExceptionsToPanics prog = do
+        StateT $ \st -> convertExceptionsToPanics (runStateT prog st)
 
 instance MonadIOException m => MonadIOException (ST.StateT s m) where
     tryM' prog = 
@@ -143,3 +153,5 @@ instance MonadIOException m => MonadIOException (ST.StateT s m) where
             case x of
                 Right (a, s) -> return $ (Right a, s)
                 Left e -> return $ (Left e, st)
+    convertExceptionsToPanics prog = do
+        ST.StateT $ \st -> convertExceptionsToPanics (ST.runStateT prog st)
