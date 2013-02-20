@@ -22,13 +22,9 @@ import Util.Exception
 import Util.Prelude
 import Util.PrettyPrint
 
-bMap = M.fromList [(stringName b, name b) | b <- builtins True]
-builtInName s = M.findWithDefault (panic "builtin not found") s bMap
-
 builtInFunctions :: [(Name, Value)]
 builtInFunctions = 
     let
-        nameForString s = builtInName s
         cspm_union [VSet s1, VSet s2] = S.union s1 s2
         cspm_inter [VSet s1, VSet s2] = S.intersection s1 s2
         cspm_diff [VSet s1, VSet s2] = S.difference s1 s2
@@ -47,7 +43,7 @@ builtInFunctions =
             S.fromList [VTuple (listArray (0,1) [arr!1, arr!0]) | VTuple arr <- S.toList s]
         cspm_relational_image [VSet s] = 
             let f = relationalImage s 
-                fid = FBuiltInFunction (nameForString "relational_image") [VSet s]
+                fid = FBuiltInFunction (builtInName "relational_image") [VSet s]
             in VFunction fid (\[x] -> f x >>= return . VSet)
         cspm_mtransclose [VSet s1, VSet s2] = fdrSymmetricTransitiveClosure s1 s2
         cspm_relational_inverse_image s = cspm_relational_image [cspm_transpose s]
@@ -70,14 +66,14 @@ builtInFunctions =
                 -- | We convert the set into an explicit set as this makes
                 -- comparisons faster than leaving it as a set represented as
                 -- (for instance) a CompositeSet of CartProduct sets.
-                n = procName $ scopeId (nameForString "CHAOS") [[VSet $ S.fromList $ S.toList a]] Nothing
+                n = procName $ scopeId (builtInName "CHAOS") [[VSet $ S.fromList $ S.toList a]] Nothing
                 evSet = S.valueSetToEventSet a
                 branches :: Sq.Seq UProc
                 branches = fmap (\ ev -> PUnaryOp (PPrefix ev) chaosCall) evSet
-                stopProc = PProcCall csp_stop_id csp_stop
-                p = POp PInternalChoice (Sq.fromList [stopProc, POp PExternalChoice branches])
+                p = POp PInternalChoice $
+                    Sq.fromList [csp_stop, POp PExternalChoice branches]
         csp_loop [VProc p] =
-            let pn = procName $ scopeId (nameForString "loop") [[VProc p]] Nothing
+            let pn = procName $ scopeId (builtInName "loop") [[VProc p]] Nothing
                 procCall = PProcCall pn (PBinaryOp PSequentialComp p procCall)
             in VProc procCall
 
@@ -137,12 +133,12 @@ builtInFunctions =
         monadic_funcs = [
             ("head", cspm_head), ("tail", cspm_tail), 
             ("productions", cspm_productions), ("extensions", cspm_extensions),
-            ("error", cspm_error)
+            ("error", cspm_error), ("TSTOP", csp_tstop), ("TSKIP", csp_tskip)
             ]
         
         mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)
         mkMonadicFunc (s, f) =
-            let n = nameForString s
+            let n = builtInName s
             in (n, VFunction (FBuiltInFunction n []) f)
 
         procs = [
@@ -150,13 +146,31 @@ builtInFunctions =
             ("SKIP", csp_skip)
             ]
         
-        csp_skip_id = procName (scopeId (nameForString "SKIP") [] Nothing)
-        csp_stop_id = procName (scopeId (nameForString "STOP") [] Nothing)
-        -- We actually inline stop, for efficiency
-        csp_stop = PProcCall csp_stop_id (POp PExternalChoice Sq.empty)
-        csp_skip = PProcCall csp_skip_id (PUnaryOp (PPrefix Tick) csp_stop)
-        
-        mkProc (s, p) = (nameForString s, VProc p)
+        csp_skip_id = scopeId (builtInName "SKIP") [] Nothing
+        csp_stop_id = scopeId (builtInName "STOP") [] Nothing
+        csp_stop =
+            PProcCall (procName csp_stop_id) (POp PExternalChoice Sq.empty)
+        csp_skip =
+            PProcCall (procName csp_skip_id) (PUnaryOp (PPrefix Tick) csp_stop)
+
+        csp_tstop [] = do
+            Just (_, tn) <- gets timedSection
+            let
+                pid = procName (scopeId tn [] (Just csp_stop_id))
+                proc = PUnaryOp (PPrefix (UserEvent $ VDot [VChannel tn])) pc
+                pc = PProcCall pid proc
+            return $ VProc pc
+
+        csp_tskip [] = do
+            Just (_, tn) <- gets timedSection
+            let
+                pid = procName (scopeId tn [] (Just csp_skip_id))
+                proc = PUnaryOp (PPrefix (UserEvent $ VDot [VChannel tn])) pc
+                pc = PProcCall pid $ POp PExternalChoice $
+                    proc Sq.<| csp_skip Sq.<| Sq.empty
+            return $ VProc pc
+
+        mkProc (s, p) = (builtInName s, VProc p)
         
         cspm_true = ("true", VBool True)
         cspm_false = ("false", VBool False)
@@ -174,7 +188,7 @@ builtInFunctions =
             cspm_Bool, cspm_Int, cspm_Proc, cspm_Events, cspm_Char
             ]
         
-        mkConstant (s, v) = (nameForString s, v)
+        mkConstant (s, v) = (builtInName s, v)
 
         evaluateProcOperator pop [p] = VProc $ 
             -- We defer matching of the arguments here to allow definitions like

@@ -23,6 +23,9 @@ Timed(OneStep) {
     IN1 = STOP /\ STOP
     SI1 = STOP /+{a}+\ STOP
     SE1 = STOP [+{a}+] STOP
+
+    ST1 = STOP
+    SK1 = SKIP
 }
 
 T = STOP [+{a}+] STOP
@@ -34,11 +37,13 @@ E2 = STOP [] STOP
 IN2 = STOP /\ STOP
 SI2 = STOP /+{a}+\ STOP
 SE2 = STOP [+{a}+] STOP
+ST2 = STOP
+SK2 = SKIP
 
 procTest1 = P
 procTest2 = R
 procTest3 = Q
 procTest4 = S
 procTest5 = T
-procTest6 = I1 [] GP1 [] AP1 [] E1 [] IN1 [] SI1 [] SE1
-procTest7 = I2 [] GP2 [] AP2 [] E2 [] IN2 [] SI2 [] SE2
+procTest6 = I1 [] GP1 [] AP1 [] E1 [] IN1 [] SI1 [] SE1 [] ST1 [] SK1
+procTest7 = I2 [] GP2 [] AP2 [] E2 [] IN2 [] SI2 [] SE2 [] ST2 [] SK2

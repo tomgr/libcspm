@@ -7,6 +7,7 @@ import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
 import CSPM.PrettyPrinter
+import CSPM.Prelude
 import Util.Annotated
 import Util.Exception
 import Util.Monad
@@ -196,7 +197,11 @@ instance Desugarable (Exp Name) where
     desugar (SetEnumFromToComp e1 e2 stmts) =
         return SetEnumFromToComp $$ desugar e1 $$ desugar e2 $$ desugar stmts
     desugar (Tuple es) = return Tuple $$ desugar es
-    desugar (Var n) = return (Var n)
+    desugar (Var n) | n == builtInName "STOP" =
+        maybeTimedSection (return $ Var n) (mkApplication "TSTOP" [])
+    desugar (Var n) | n == builtInName "SKIP" =
+        maybeTimedSection (return $ Var n) (mkApplication "TSKIP" [])
+    desugar (Var n) = return $ Var n
 
     desugar (AlphaParallel e1 e2 e3 e4) =
         return AlphaParallel $$ desugar e1 $$ desugar e2 $$ desugar e3 $$ desugar e4
@@ -337,3 +342,10 @@ linkedParallelTimedSectionError loc = mkErrorMessage loc $
 nondetFieldTimedSectionError :: SrcSpan -> ErrorMessage
 nondetFieldTimedSectionError loc = mkErrorMessage loc $
     text "A non-deterministic input (i.e. $) is not allowed in a timed section."
+
+mkApplication :: String -> [AnExp Name] -> DesugarMonad (Exp Name)
+mkApplication fn args = do
+    srcSpan <- asks currentLoc
+    ptype <- freshPType
+    setPType ptype TProc
+    return $ App (An srcSpan (Just TProc, ptype) (Var (builtInName fn))) args

@@ -1,3 +1,9 @@
+SKIP = ✓ -> STOP
+
+SK2 = SKIP
+
+ST2 = STOP
+
 SE2 = STOP [+{a}+] STOP
 
 SI2 = STOP /+ {a} +\ STOP
@@ -12,6 +18,7 @@ GP2 = STOP [| {a} |] STOP
 
 I2 = STOP ||| STOP
 
-procTest7 = I2 [] GP2 [] AP2 [] E2 [] IN2 [] SI2 [] SE2
+procTest7 =
+    I2 [] GP2 [] AP2 [] E2 [] IN2 [] SI2 [] SE2 [] ST2 [] SK2
 
 procTest7

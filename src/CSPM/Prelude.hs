@@ -3,15 +3,18 @@
 module CSPM.Prelude (
     BuiltIn(..),
     builtins,
+    builtInName,
     transparentFunctionForOccName,
     externalFunctionForOccName
 ) 
 where
 
+import qualified Data.Map as M
 import System.IO.Unsafe
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Types
+import Util.Exception
 
 data BuiltIn = 
     BuiltIn {
@@ -22,16 +25,21 @@ data BuiltIn =
         typeScheme :: TypeScheme,
         isTypeUnsafe :: Bool,
         isExternal :: Bool,
+        isHidden :: Bool,
         isTransparent :: Bool
     }
 
 instance Eq BuiltIn where
     b1 == b2 = name b1 == name b2
 
+bMap = M.fromList [(stringName b, name b) | b <- builtins True]
+builtInName s = M.findWithDefault (panic "builtin not found") s bMap
+
 builtins :: Bool -> [BuiltIn]
 builtins includeHidden = 
     if includeHidden then allBuiltins 
-    else [b | b <- allBuiltins, not (isExternal b), not (isTransparent b)]
+    else [b | b <- allBuiltins, not (isHidden b), not (isExternal b),
+            not (isTransparent b)]
 
 transparentFunctionForOccName :: OccName -> Maybe BuiltIn
 transparentFunctionForOccName (OccName s) =
@@ -85,9 +93,11 @@ makeBuiltins = do
         cspm_STOP = ("STOP", TProc)
         cspm_SKIP = ("SKIP", TProc)
         cspm_CHAOS = ("CHAOS", TFunction [TSet TEvent] TProc)
+        csp_tskip = ("TSKIP", TFunction [] TProc)
+        csp_tstop = ("TSTOP", TFunction [] TProc)
 
         builtInProcs :: [(String, Type)]
-        builtInProcs = [cspm_STOP, cspm_SKIP, cspm_CHAOS]
+        builtInProcs = [cspm_STOP, cspm_SKIP, cspm_CHAOS, csp_tstop, csp_tskip]
 
         cspm_Int = ("Int", TSet TInt)
         cspm_Bool = ("Bool", TSet TBool)
@@ -169,6 +179,8 @@ makeBuiltins = do
             map fst transparentFunctions
             ++map fst externalAndTransparentFunctions
 
+        hiddenNames = ["TSKIP", "TSTOP"]
+
         mkFuncType cs func = do
             fv @ (TVar (TypeVarRef tv _ _)) <- freshTypeVarWithConstraints cs
             let (n, args, ret) = func fv
@@ -201,6 +213,7 @@ makeBuiltins = do
                 isDeprecated = s `elem` deprecatedNames,
                 deprecatedReplacement = Nothing,
                 typeScheme = ts,
+                isHidden = s `elem` hiddenNames,
                 isTypeUnsafe = s `elem` unsafeFunctionNames,
                 isExternal = s `elem` externalNames,
                 isTransparent = s `elem` transparentNames
