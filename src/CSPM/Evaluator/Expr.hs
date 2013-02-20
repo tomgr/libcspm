@@ -342,7 +342,8 @@ instance Evaluatable (Exp Name) where
     eval (Hiding e1 e2) = do
         p <- evalProc e1
         VSet s <- eval e2
-        return $ VProc $ PUnaryOp (PHide (S.valueSetToEventSet s)) p
+        if S.empty s then return $ VProc p
+        else return $ VProc $ PUnaryOp (PHide (S.valueSetToEventSet s)) p
     eval (InternalChoice e1 e2) = do
         ps <- evalProcs [e1, e2]
         return $ VProc $ POp PInternalChoice ps
