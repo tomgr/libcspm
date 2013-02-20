@@ -1,0 +1,3 @@
+channel tock : {0}
+
+Timed (\ _ @ 0) { }

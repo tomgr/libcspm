@@ -1,11 +1,11 @@
 {-# LANGUAGE FlexibleInstances #-}
-module CSPM.Desugar (Desugarable(..)) where
+module CSPM.Desugar (Desugarable(..), runDesugar) where
 
-import Control.Monad.Trans
+import Control.Monad.Reader
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Types (TypeScheme(..))
+import CSPM.DataStructures.Types
 import CSPM.PrettyPrinter
 import Util.Annotated
 import Util.Exception
@@ -16,7 +16,7 @@ class FreeVars a where
     freeVars :: a -> [Name]
 
 instance FreeVars a => FreeVars (Annotated b a) where
-    freeVars (An _ _ inner) = freeVars inner
+    freeVars (An loc _ inner) = freeVars inner
 
 instance FreeVars (Pat Name) where
     freeVars (PConcat p1 p2) = freeVars p1++freeVars p2
@@ -36,8 +36,23 @@ instance FreeVars (Pat Name) where
     freeVars (PVar n) = [n]
     freeVars (PWildCard) = []
 
+data DesugarState = DesugarState {
+        inTimedSection :: Bool,
+        currentLoc :: SrcSpan
+    }
+
+type DesugarMonad = ReaderT DesugarState IO
+
+runDesugar :: MonadIO m => DesugarMonad a -> m a
+runDesugar prog = liftIO $ runReaderT prog (DesugarState False Unknown)
+
+maybeTimedSection :: DesugarMonad a -> DesugarMonad a -> DesugarMonad a
+maybeTimedSection nonTimed timed = do
+    b <- asks inTimedSection
+    if b then timed else nonTimed
+
 class Desugarable a where
-    desugar :: MonadIO m => a -> m a
+    desugar :: a -> DesugarMonad a
 
 instance Desugarable a => Desugarable [a] where
     desugar xs = mapM desugar xs
@@ -45,7 +60,9 @@ instance Desugarable a => Desugarable (Maybe a) where
     desugar Nothing = return Nothing
     desugar (Just a) = desugar a >>= return . Just
 instance Desugarable a => Desugarable (Annotated b a) where
-    desugar (An l b i) = desugar i >>= \ x -> return (An l b x)
+    desugar (An l b i) =
+        local (\ st -> st { currentLoc = l }) $
+            desugar i >>= \ x -> return (An l b x)
 instance (Desugarable a, Desugarable b) => Desugarable (a,b) where
     desugar (a,b) = do
         a' <- desugar a
@@ -57,7 +74,7 @@ instance Desugarable (CSPMFile Name) where
         t <- return CSPMFile $$ desugarDecls ds
         return t
 
-desugarDecl :: MonadIO m => TCDecl -> m [TCDecl]
+desugarDecl :: TCDecl -> DesugarMonad [TCDecl]
 desugarDecl (an@(An x y (PatBind p e))) = do
     p' <- desugar p
     e' <- desugar e
@@ -114,9 +131,13 @@ desugarDecl (An x y d) = do
             DataType n cs -> return (DataType n) $$ desugar cs
             SubType n cs -> return (SubType n) $$ desugar cs
             NameType n e -> return (NameType n) $$ desugar e
+            TimedSection (Just n) f ds ->
+                return TimedSection $$ return (Just n) $$ desugar f $$
+                    local (\st -> st { inTimedSection = True })
+                        (concatMapM desugarDecl ds)
     return [An x y d']
 
-desugarDecls :: MonadIO m => [TCDecl] -> m [TCDecl]
+desugarDecls :: [TCDecl] -> DesugarMonad [TCDecl]
 desugarDecls = concatMapM desugarDecl
 
 instance Desugarable (Assertion Name) where
@@ -190,12 +211,29 @@ instance Desugarable (Exp Name) where
     desugar (Interrupt e1 e2) = return Interrupt $$ desugar e1 $$ desugar e2
     desugar (Interleave e1 e2) = return Interleave $$ desugar e1 $$ desugar e2
     desugar (LinkParallel e1 ties stmts e2) = 
-        return LinkParallel $$ desugar e1 $$ desugar ties $$ desugar stmts $$ desugar e2
-    desugar (Prefix e1 fs e2) = return Prefix $$ desugar e1 $$ desugar fs $$ desugar e2
+        maybeTimedSection
+            (return LinkParallel $$ desugar e1 $$ desugar ties $$ desugar stmts
+                $$ desugar e2)
+            (asks currentLoc >>= \ loc ->
+                throwSourceError [linkedParallelTimedSectionError loc])
+    desugar (Prefix e1 fs e2) = do
+        dp <- return Prefix $$ desugar e1 $$ desugar fs $$ desugar e2
+        maybeTimedSection
+            (return dp)
+            (do
+                n <- mkFreshInternalName
+                srcSpan <- asks currentLoc
+                ptype <- freshPType
+                setPType ptype TProc
+                return $ TimedPrefix n (An srcSpan (Just TProc, ptype) dp))
     desugar (Rename e1 ties stmts) =
         return Rename $$ desugar e1 $$ desugar ties $$ desugar stmts
     desugar (SequentialComp e1 e2) = return SequentialComp $$ desugar e1 $$ desugar e2
     desugar (SlidingChoice e1 e2) = return SlidingChoice $$ desugar e1 $$ desugar e2
+    desugar (SynchronisingExternalChoice e1 e2 e3) =
+        return SynchronisingExternalChoice $$ desugar e1 $$ desugar e2 $$ desugar e3
+    desugar (SynchronisingInterrupt e1 e2 e3) =
+        return SynchronisingInterrupt $$ desugar e1 $$ desugar e2 $$ desugar e3
     
     desugar (ReplicatedAlphaParallel stmts e1 e2) =
         return ReplicatedAlphaParallel $$ desugar stmts $$ desugar e1 $$ desugar e2
@@ -208,15 +246,24 @@ instance Desugarable (Exp Name) where
     desugar (ReplicatedParallel stmts e1 e2) =
         return ReplicatedParallel $$ desugar stmts $$ desugar e1 $$ desugar e2
     desugar (ReplicatedLinkParallel ties tiesStmts stmts e) =
-        return ReplicatedLinkParallel $$ desugar ties $$ desugar tiesStmts
-                                $$ desugar stmts $$ desugar e
+        maybeTimedSection
+            (return ReplicatedLinkParallel $$ desugar ties $$ desugar tiesStmts
+                $$ desugar stmts $$ desugar e)
+            (asks currentLoc >>= \ loc ->
+                throwSourceError [linkedParallelTimedSectionError loc])
     desugar (ReplicatedSequentialComp stmts e) =
         return ReplicatedSequentialComp $$ desugar stmts $$ desugar e
+    desugar (ReplicatedSynchronisingExternalChoice e1 stmts e2) =
+        return ReplicatedSynchronisingExternalChoice $$ desugar e1 $$ desugar stmts $$ desugar e2
     
 instance Desugarable (Field Name) where
     desugar (Output e) = return Output $$ desugar e
     desugar (Input p e) = return Input $$ desugar p $$ desugar e
-    desugar (NonDetInput p e) = return NonDetInput $$ desugar p $$ desugar e
+    desugar (NonDetInput p e) =
+        maybeTimedSection (return NonDetInput $$ desugar p $$ desugar e)
+            (do
+                loc <- asks currentLoc
+                throwSourceError [nondetFieldTimedSectionError loc])
 
 instance Desugarable (Stmt Name) where
     desugar (Generator p e) = return Generator $$ desugar p $$ desugar e
@@ -268,16 +315,25 @@ instance Desugarable (Pat Name) where
     desugar (PParen p) = desugar p >>= return . unAnnotate
     desugar (PSet []) = return $ PSet []
     desugar (PSet [p]) = return PSet $$ (desugar p >>= (\x -> return [x]))
-    desugar (PSet ps) = throwSourceError [mkErrorMessage l err]
-        where
-            -- TODO: get a proper location for the whole
-            -- pattern
-            l = loc (head ps)
-            err = prettyPrint (PSet ps) <+> 
-                text "is not a valid set pattern as set patterns may only match at most one element."
+    desugar (PSet ps) = do
+        loc <- asks currentLoc
+        throwSourceError [invalidSetPatternMessage (PSet ps) loc]
     desugar (PTuple ps) = return PTuple $$ desugar ps
     desugar (PVar n) = return $ PVar n
     desugar (PWildCard) = return PWildCard
 
 instance Desugarable Literal where
     desugar l = return l
+
+invalidSetPatternMessage :: Pat Name -> SrcSpan -> ErrorMessage
+invalidSetPatternMessage pat loc = mkErrorMessage loc $
+    text "The pattern" <+> prettyPrint pat <+> 
+    text "is invalid as set patterns may only match at most one element."
+
+linkedParallelTimedSectionError :: SrcSpan -> ErrorMessage
+linkedParallelTimedSectionError loc = mkErrorMessage loc $
+    text "The linked parallel operator is not allowed in a timed section."
+
+nondetFieldTimedSectionError :: SrcSpan -> ErrorMessage
+nondetFieldTimedSectionError loc = mkErrorMessage loc $
+    text "A non-deterministic input (i.e. $) is not allowed in a timed section."

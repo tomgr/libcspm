@@ -27,6 +27,7 @@ instance BoundNames (Decl Name) where
     boundNames (Transparent ns) = []
     boundNames (Assert _) = []
     boundNames (Module _ _ ds1 ds2) = boundNames (ds1 ++ ds2)
+    boundNames (TimedSection _ _ ds) = boundNames ds
 instance BoundNames (DataTypeClause Name) where
     boundNames (DataTypeClause n _) = [n]
 
@@ -178,6 +179,8 @@ instance FreeVars (Exp Name) where
         in d1++d2
     freeVars' (SequentialComp e1 e2) = freeVars' [e1,e2]
     freeVars' (SlidingChoice e1 e2) = freeVars' [e1,e2]
+    freeVars' (SynchronisingExternalChoice e1 e2 e3) = freeVars' [e1,e2,e3]
+    freeVars' (SynchronisingInterrupt e1 e2 e3) = freeVars' [e1,e2,e3]
 
     freeVars' (ReplicatedAlphaParallel stmts e1 e2) = 
         freeVarsStmts stmts [e1,e2]
@@ -195,8 +198,11 @@ instance FreeVars (Exp Name) where
             -- The ties may depend on variables bound by stmts too
             fvsstmts = freeVars stmts
         in (d1 \\ fvsstmts)++d2
-    freeVars' (ReplicatedParallel e1 stmts e2) = freeVarsStmts stmts [e1,e2]
+    freeVars' (ReplicatedParallel e1 stmts e2) =
+        freeVars' e1 ++ freeVarsStmts stmts [e2]
     freeVars' (ReplicatedSequentialComp stmts e1) = freeVarsStmts stmts [e1]
+    freeVars' (ReplicatedSynchronisingExternalChoice e1 stmts e2) = 
+        freeVars' e1 ++ freeVarsStmts stmts [e2]
     
     freeVars' x = panic ("TCFreeVars.hs: unrecognised exp "++show x)
 
@@ -234,6 +240,8 @@ instance FreeVars (Decl Name) where
     freeVars' (Transparent ns) = []
     freeVars' (Assert a) = freeVars a
     freeVars' (Module _ _ ds1 ds2) = freeVars' ds1 ++ freeVars' ds2
+    freeVars' (TimedSection (Just n) f ds) =
+        n : freeVars' f ++ concatMap freeVars' ds
 
 instance FreeVars (Assertion Name) where
     freeVars' (Refinement e1 m e2 opts) = freeVars [e1, e2] ++ freeVars opts

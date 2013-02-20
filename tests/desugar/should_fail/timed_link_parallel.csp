@@ -1,0 +1,6 @@
+channel a, b
+channel tock
+
+Timed (\_ @ 1) {
+    procTest1 = STOP [a <-> b] STOP
+}

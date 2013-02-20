@@ -1,0 +1,5 @@
+channel a
+
+external prioritise
+
+procTest1 = prioritise(STOP, <{a}, {}>)

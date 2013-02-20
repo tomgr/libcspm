@@ -55,6 +55,10 @@ instance PrettyPrintable id => PrettyPrintable (Decl id) where
         $$ text "exports"
         $$ tabIndent (vcat (punctuate (char '\n') (map prettyPrint exported)))
         $$ text "endmodule"
+    prettyPrint (TimedSection _ f ds) =
+        text "Timed" <+> parens (prettyPrint f) <+> char '{'
+        $$ tabIndent (vcat (punctuate (char '\n') (map prettyPrint ds)))
+        $$ char '}'
         
 instance PrettyPrintable id => PrettyPrintable (Assertion id) where
     prettyPrint (Refinement e1 m e2 opts) =
@@ -225,6 +229,12 @@ instance PrettyPrintable id => PrettyPrintable (Exp id) where
         ppBinOp (prettyPrint e1) (char ';') (prettyPrint e2)
     prettyPrint (SlidingChoice e1 e2) =
         ppBinOp (prettyPrint e1) (text "[>") (prettyPrint e2)
+    prettyPrint (SynchronisingExternalChoice e1 a e2) =
+        ppBinOp (prettyPrint e1) (text "[+" <> prettyPrint a <> text "+]")
+            (prettyPrint e2)
+    prettyPrint (SynchronisingInterrupt e1 a e2) =
+        ppBinOp (prettyPrint e1) (text "/+" <> prettyPrint a <> text "+\\")
+            (prettyPrint e2)
 
     prettyPrint (ReplicatedAlphaParallel stmts alpha e) = 
         ppRepOp (text "||") stmts 
@@ -242,12 +252,17 @@ instance PrettyPrintable id => PrettyPrintable (Exp id) where
         ppRepOp (brackets (bars (prettyPrint alpha))) stmts (prettyPrint e)
     prettyPrint (ReplicatedSequentialComp stmts e) =
         ppRepOp (text ";") stmts (prettyPrint e)
+    prettyPrint (ReplicatedSynchronisingExternalChoice e1 stmts e2) =
+        ppRepOp (text "[+" <> prettyPrint e1 <> text "+]")
+            stmts (prettyPrint e2)
         
     -- Patterns - this is only used when emitting parser errors about invalid
     -- expressions.
     prettyPrint (ExpPatWildCard) = char '_'
     prettyPrint (ExpPatDoublePattern e1 e2) = 
         prettyPrint e1 <+> text "@@" <+> prettyPrint e2
+
+    prettyPrint (TimedPrefix _ p) = prettyPrint p
 
 instance PrettyPrintable id => PrettyPrintable (Field id) where
     prettyPrint (Output exp) = 

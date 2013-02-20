@@ -1,0 +1,7 @@
+channel c : {0,1}
+
+channel tock
+
+Timed (\_ @ 1) {
+    procTest1 = c$x -> STOP
+}

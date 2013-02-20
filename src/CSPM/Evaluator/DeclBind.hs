@@ -156,6 +156,16 @@ bindDecl (an@(An _ _ (NameType n e))) = return $
 bindDecl (an@(An _ _ (Assert _))) = return []
 bindDecl (an@(An _ _ (External ns))) = return []
 bindDecl (an@(An _ _ (Transparent ns))) = return []
+bindDecl (an@(An _ _ (TimedSection (Just tn) f ds))) = do
+    nds <- concatMapM bindDecl ds
+    let packageDecl :: EvaluationMonad Value -> EvaluationMonad Value
+        packageDecl value = do
+            VFunction _ wrappedFunc <- eval f
+            st <- gets id
+            let func (UserEvent v) = c
+                    where VInt c = runEvaluator st (wrappedFunc [v])
+            return $! runEvaluator st $ setTimedCSP tn func value
+    return $! map (\ (n,d) -> (n, packageDecl d)) nds
 
 evalTypeExpr :: Value -> ValueSet
 evalTypeExpr (VSet s) = s

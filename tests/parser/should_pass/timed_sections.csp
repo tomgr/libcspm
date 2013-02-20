@@ -1,0 +1,11 @@
+Timed (f) {
+    P = a -> b -> P
+
+    Q = x
+
+    channel y
+
+    Timed (y) {
+        P = maosfklas
+    }
+}

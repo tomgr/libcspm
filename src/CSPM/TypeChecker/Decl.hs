@@ -31,6 +31,10 @@ typeCheckDecls decls = do
     let flattenDecl :: TCDecl -> [TCDecl]
         flattenDecl (An _ _ (Module _ _ ds1 ds2)) =
             concatMap flattenDecl ds1++concatMap flattenDecl ds2
+        flattenDecl (d@(An _ _ (TimedSection _ _ ds))) =
+            -- We need to type-check the function in the timed section, but we
+            -- flatten the decls so that dependencies work out ok.
+            d : concatMap flattenDecl ds
         flattenDecl x = [x]
         flatDecls = concatMap flattenDecl decls
 
@@ -39,8 +43,10 @@ typeCheckDecls decls = do
         invDeclMap = invert declMap
 
     let
-        namesBoundByDecls = map (\ (decl, declId) -> 
-            (declId, boundNames decl)) declMap
+        namesBoundByDecls = concatMap (\ (decl, declId) ->
+            case decl of
+                An _ _ (TimedSection _ _ _) -> []
+                _ -> [(declId, boundNames decl)]) declMap
 
         -- | Map from names to the identifier of the declaration that it is
         -- defined by.
@@ -100,6 +106,11 @@ typeCheckDecls decls = do
             ts <- mapM getType ns
             setPSymbolTable (snd psymbtable) (zip ns ts)
             mapM_ annotate (ds1++ds2)
+        annotate (decl@(An _ psymbtable (TimedSection _ _ ds))) = do
+            let ns = boundNames decl
+            ts <- mapM getType ns
+            setPSymbolTable (snd psymbtable) (zip ns ts)
+            mapM_ annotate ds
         annotate (decl@(An _ psymbtable _)) = do
             let ns = boundNames decl
             ts <- mapM getType ns
@@ -177,6 +188,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         text "In the declaration of:" <+> list (map prettyPrint ns)
     errorContext (Assert a) = Just $
         text "In the assertion:" <+> prettyPrint a
+    errorContext (TimedSection _ _ _) = Nothing
     errorContext (Transparent ns) = Nothing
     errorContext (External ns) = Nothing
     
@@ -283,6 +295,10 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
     typeCheck' (Transparent ns) = return []
     typeCheck' (External ns) = return []
     typeCheck' (Assert a) = typeCheck a >> return []
+    typeCheck' (TimedSection (Just tn) f _) = do
+        typeCheckExpect (Var tn) TEvent
+        typeCheckExpect f (TFunction [TEvent] TInt)
+        return []
 
 instance TypeCheckable TCAssertion () where
     errorContext an = Nothing

@@ -1,0 +1,4 @@
+channel a : {0..10}
+channel b
+
+P1 = STOP [+ {1} +] STOP

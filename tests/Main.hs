@@ -84,7 +84,7 @@ runSections :: IO [Test]
 runSections = do
     let 
         testDir = "tests"
-        sections = ["parser", "prettyprinter", "typechecker", "evaluator"]
+        sections = map fst testFunctions
     
     fs <- mapM (\section -> do
             shouldPassFiles <- getAndFilterDirectoryContents $ 
@@ -125,7 +125,8 @@ testFunctions = [
         ("parser", parserTest),
         ("typechecker", typeCheckerTest),
         ("prettyprinter", prettyPrinterTest),
-        ("evaluator", evaluatorTest)
+        ("evaluator", evaluatorTest),
+        ("desugar", desugarTest)
     ]
 
 typeCheckerTest :: FilePath -> TestM ()
@@ -149,6 +150,15 @@ prettyPrinterTest fp = do
     let str = show (prettyPrint ms)
     ms' <- parseStringAsFile str
     if ms /= ms' then throwException UserError else return ()
+
+desugarTest :: FilePath -> TestM ()
+desugarTest fp = do
+    tms <- disallowErrors $ do
+        ms <- parseFile fp
+        rms <- CSPM.renameFile ms
+        typeCheckFile rms
+    dsms <- desugarFile tms
+    return ()
 
 disallowErrors :: TestM a -> TestM a
 disallowErrors a = do
@@ -198,7 +208,7 @@ evaluatorTest fp = do
                                     (dropExtension fp)++"-"++s++"-expected.txt"
                             expectedOutput <- liftIO $ readFile expectedOutputFile
                             let output = prettyPrintAllRequiredProcesses proc
-                            when (show output /= expectedOutput) $
+                            when (not (compareOutputs (show output) expectedOutput)) $
                                 throwSourceError [mkErrorMessage (loc p) $
                                         text "The output of" 
                                         <+> prettyPrint n 
@@ -209,3 +219,32 @@ evaluatorTest fp = do
                     _ -> return ()
             _ -> return ()
         ) (map unAnnotate ds)
+
+-- | Compares two strings for equality, allowing internal names to be different,
+-- but consistently so.
+compareOutputs :: String -> String -> Bool
+compareOutputs s1 s2 =
+    let
+        hasNum :: String -> Bool
+        hasNum [] = False
+        hasNum (c:_) = '0' <= c && c <= '9'
+
+        cmp :: [(String, String)] -> String -> String -> Bool
+        cmp nameMap [] [] = True
+        cmp nameMap [] _ = False
+        cmp nameMap _ [] = False
+        cmp nameMap ('i':xs) ('i':ys) | hasNum xs && hasNum ys =
+            let
+                isSpace ' ' = True
+                isSpace _ = False
+
+                (n1, xs') = break isSpace xs
+                (n2, ys') = break isSpace xs
+            in if n1 /= n2 then
+                    -- Check name map
+                    case lookup n1 nameMap of
+                        Just n2' -> n2 == n2' && cmp nameMap xs' ys'
+                        Nothing -> cmp ((n1, n2):nameMap) xs' ys'
+                else cmp nameMap xs' ys'
+        cmp nameMap (x:xs) (y:ys) = x == y && cmp nameMap xs ys
+    in cmp [] s1 s2

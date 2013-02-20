@@ -103,6 +103,12 @@ instance Compressable (Exp a) where
         Rename $$ mcompress e1 $$ mcompress ties $$ mcompress stmts
     mcompress (SequentialComp e1 e2) = return SequentialComp $$ mcompress e1 $$ mcompress e2
     mcompress (SlidingChoice e1 e2) = return SlidingChoice $$ mcompress e1 $$ mcompress e2
+    mcompress (SynchronisingExternalChoice e1 e2 e3) =
+        return SynchronisingExternalChoice $$ mcompress e1 $$ mcompress e2
+            $$ mcompress e3
+    mcompress (SynchronisingInterrupt e1 e2 e3) =
+        return SynchronisingInterrupt $$ mcompress e1 $$ mcompress e2
+            $$ mcompress e3
     
     mcompress (ReplicatedAlphaParallel stmts e1 e2) =
         return ReplicatedAlphaParallel $$ mcompress stmts $$ mcompress e1 $$ mcompress e2
@@ -119,6 +125,9 @@ instance Compressable (Exp a) where
                                         $$ mcompress stmts $$ mcompress e
     mcompress (ReplicatedSequentialComp stmts e1) =
         return ReplicatedSequentialComp $$ mcompress stmts $$ mcompress e1
+    mcompress (ReplicatedSynchronisingExternalChoice e1 stmts e3) =
+        return ReplicatedSynchronisingExternalChoice $$ mcompress e1
+            $$ mcompress stmts $$ mcompress e3
     
 instance Compressable (CSPMFile a) where
     mcompress (CSPMFile ds) = return CSPMFile $$ mcompress ds
@@ -135,6 +144,8 @@ instance Compressable (Decl a) where
     mcompress (NameType n e) = return (NameType n) $$ mcompress e
     mcompress (Module n [] ds1 ds2) =
         return (Module n []) $$ mcompress ds1 $$ mcompress ds2
+    mcompress (TimedSection mn f ds) =
+        return TimedSection $$ return mn $$ mcompress f $$ mcompress ds
 
 instance Compressable (Assertion a) where
     mcompress (Refinement e1 m e2 opts) = return 

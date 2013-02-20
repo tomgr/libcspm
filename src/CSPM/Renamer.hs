@@ -230,6 +230,7 @@ renameDeclarations topLevel ds prog = do
                 addModuleContext mn $ mapM_ insertChannelsAndDataTypes pubDs
                 -- We can't do the same for the private names because this would
                 -- break scoping.
+            TimedSection _ _ ds -> mapM_ insertChannelsAndDataTypes ds
             _ -> return ()
     
         insertBoundNames :: NameMaker -> PDecl -> RenamerMonad ()
@@ -287,6 +288,7 @@ renameDeclarations topLevel ds prog = do
                         Just n <- lookupName rn'
                         return (rn, n)) fvs
                 mapM_ (\(rn, n) -> setName (Qual mn rn) n) rns
+            TimedSection _ _ ds -> mapM_ (insertBoundNames nameMaker) ds
             _ -> return ()
 
         -- | resetModuleContext must be called in ALL cases, apart from the
@@ -360,6 +362,11 @@ renameDeclarations topLevel ds prog = do
                     privDs' <- mapM renameRightHandSide privDs
                     pubDs' <- mapM renameRightHandSide pubDs
                     return $ Module n' [] privDs' pubDs'
+            TimedSection Nothing f ds -> do
+                f' <- addScope $ rename f
+                ds' <- mapM renameRightHandSide ds
+                tock <- renameVarRHS (UnQual (OccName "tock"))
+                return $ TimedSection (Just tock) f' ds'
 
 renamePattern :: NameMaker -> PPat -> RenamerMonad TCPat
 renamePattern nm ap =
@@ -629,7 +636,11 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
         return $ Rename e1' ties' stmts'
     rename (SequentialComp e1 e2) = return SequentialComp $$ rename e1 $$ rename e2
     rename (SlidingChoice e1 e2) = return SlidingChoice $$ rename e1 $$ rename e2
-    
+    rename (SynchronisingExternalChoice e1 e2 e3) =
+        return SynchronisingExternalChoice $$ rename e1 $$ rename e2 $$ rename e3
+    rename (SynchronisingInterrupt e1 e2 e3) =
+        return SynchronisingInterrupt $$ rename e1 $$ rename e2 $$ rename e3
+
     rename (ReplicatedAlphaParallel stmts e1 e2) = do
         (stmts', (e1', e2')) <- renameStatements stmts (do
             e1' <- rename e1
@@ -658,6 +669,10 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
     rename (ReplicatedSequentialComp stmts e) = do
         (stmts', e') <- renameStatements stmts (rename e)
         return $ ReplicatedSequentialComp stmts' e'
+    rename (ReplicatedSynchronisingExternalChoice e1 stmts e2) = do
+        e1' <- rename e1
+        (stmts', e2') <- renameStatements stmts (rename e2)
+        return $ ReplicatedSynchronisingExternalChoice e1' stmts' e2'
 
 class FreeVars a where
     freeVars :: a -> RenamerMonad [UnRenamedName]
@@ -716,6 +731,7 @@ instance FreeVars (Decl UnRenamedName) where
     freeVars (Module (UnQual n) ps _ expDs) = do
         ns <- freeVars expDs
         return $ UnQual n : map (Qual n) ns
+    freeVars (TimedSection _ _ ds) = freeVars ds
 
 -- ********************
 -- Error Messages

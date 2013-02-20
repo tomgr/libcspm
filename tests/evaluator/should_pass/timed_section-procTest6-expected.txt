@@ -1,0 +1,17 @@
+SE1 = STOP [+{a, tock}+] STOP
+
+SI1 = STOP /+ {a, tock} +\ STOP
+
+IN1 = STOP /+ {tock} +\ STOP
+
+E1 = STOP [+{tock}+] STOP
+
+AP1 = STOP [{a, tock} || {a, tock}] STOP
+
+GP1 = STOP [| {a, tock} |] STOP
+
+I1 = STOP [| {tock} |] STOP
+
+procTest6 = I1 [] GP1 [] AP1 [] E1 [] IN1 [] SI1 [] SE1
+
+procTest6

@@ -285,16 +285,27 @@ instance TypeCheckable (Exp Name) Type where
             ast <- mapM ensureIsChannel as
             zipWithM typeCheckExpect bs ast
             return TProc
-            
+
+    typeCheck' (SynchronisingExternalChoice e1 e2 e3) = do
+        ensureIsProc e1
+        typeCheckExpect e2 (TSet TEvent)
+        ensureIsProc e3
+        return TProc
+    typeCheck' (SynchronisingInterrupt e1 e2 e3) = do
+        ensureIsProc e1
+        typeCheckExpect e2 (TSet TEvent)
+        ensureIsProc e3
+        return TProc
+
     -- Replicated Operators
     typeCheck' (ReplicatedAlphaParallel stmts alpha proc) =
         typeCheckReplicatedOp stmts $ do
             t1 <- typeCheck alpha
             unify (TSet TEvent) t1
             ensureIsProc proc
-    typeCheck' (ReplicatedParallel alpha stmts proc) =
+    typeCheck' (ReplicatedParallel alpha stmts proc) = do
+        typeCheckExpect alpha (TSet TEvent)
         typeCheckReplicatedOp stmts $ do
-            typeCheckExpect alpha (TSet TEvent)
             ensureIsProc proc
     typeCheck' (ReplicatedLinkParallel ties tiesStmts stmts proc) = do
         typeCheckStmts TSeq stmts $ do
@@ -313,6 +324,9 @@ instance TypeCheckable (Exp Name) Type where
     typeCheck' (ReplicatedSequentialComp stmts e1) = do
         typeCheckStmts TSeq stmts (ensureIsProc e1)
         return $ TProc
+    typeCheck' (ReplicatedSynchronisingExternalChoice e1 stmts e3) = do
+        typeCheckExpect e1 (TSet TEvent)
+        typeCheckReplicatedOp stmts $ ensureIsProc e3
     typeCheck' x = panic ("No case for type checking a "++show x)
 
 

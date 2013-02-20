@@ -5,6 +5,7 @@ import Prelude hiding (lookup)
 
 import CSPM.DataStructures.Names
 import CSPM.Evaluator.Environment
+import CSPM.Evaluator.ProcessValues
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.Annotated
 import Util.Exception
@@ -13,7 +14,8 @@ data EvaluationState =
     EvaluationState {
         environment :: Environment,
         parentScopeIdentifier :: Maybe ScopeIdentifier,
-        currentExpressionLocation :: SrcSpan
+        currentExpressionLocation :: SrcSpan,
+        timedSection :: Maybe (Event -> Int, Name)
     }
   
 type EvaluationMonad = Reader EvaluationState
@@ -82,3 +84,17 @@ throwError' f = do
     loc <- gets currentExpressionLocation
     stk <- gets parentScopeIdentifier
     throwError (f loc stk)
+
+setTimedCSP :: Name -> (Event -> Int) -> EvaluationMonad a -> EvaluationMonad a
+setTimedCSP tock func prog =
+    modify (\ st -> st { timedSection = Just (func, tock) }) prog
+
+maybeTimedCSP ::
+    EvaluationMonad a ->
+    (Name -> (Event -> Int) -> EvaluationMonad a) ->
+    EvaluationMonad a
+maybeTimedCSP nonTimedProg timedProg = do
+    mfunc <- gets timedSection
+    case mfunc of
+        Nothing -> nonTimedProg
+        Just (f, tock) -> timedProg tock f

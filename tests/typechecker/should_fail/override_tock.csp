@@ -1,0 +1,7 @@
+id(_) = 1
+
+Timed (id) {
+        
+}
+
+f = tock + 1

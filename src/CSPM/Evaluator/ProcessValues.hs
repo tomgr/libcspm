@@ -6,7 +6,7 @@ module CSPM.Evaluator.ProcessValues (
     Event(..),
     EventSet, eventSetFromList,
     -- * Processes
-    Proc(..), UnCompiledProc,
+    Proc(..), UnCompiledProc, UnCompiledProcOperator,
     CSPOperator(..),
     ProcOperator(..), 
     ProcName(..),
@@ -46,27 +46,29 @@ instance Hashable Event where
 newtype ProcName = ProcName (ScopeIdentifier) deriving (Eq, Hashable, Ord)
 
 -- | An operator that can be applied to processes.
-data ProcOperator =
+data ProcOperator seq evs =
     Chase Bool
     | Diamond 
     | Explicate 
     | Normalize 
     | ModelCompress
+    | Prioritise (seq evs)
     | StrongBisim 
     | TauLoopFactor 
     | WeakBisim
     deriving (Eq, Ord)
 
-instance Hashable ProcOperator where
+instance Hashable (seq evs) => Hashable (ProcOperator seq evs) where
     hash (Chase True) = 1
     hash (Chase False) = 2
     hash Diamond = 3
     hash Explicate = 4
     hash Normalize = 5
-    hash ModelCompress = 6
-    hash StrongBisim = 7
-    hash TauLoopFactor = 8
-    hash WeakBisim = 9
+    hash (Prioritise evs) = combine 6 (hash evs)
+    hash ModelCompress = 7
+    hash StrongBisim = 8
+    hash TauLoopFactor = 9
+    hash WeakBisim = 10
 
 data CSPOperator seq ev evs evm =
     PAlphaParallel (seq evs)
@@ -80,12 +82,14 @@ data CSPOperator seq ev evs evm =
     -- Map from event of left process, to event of right that it synchronises
     -- with. (Left being p1, Right being p2 ps ps).
     | PLinkParallel evm
-    | POperator ProcOperator
+    | POperator (ProcOperator seq evs)
     | PPrefix ev
     -- Map from Old -> New event
     | PRename evm
     | PSequentialComp
     | PSlidingChoice
+    | PSynchronisingExternalChoice evs
+    | PSynchronisingInterrupt evs
     deriving (Eq, Ord)
 
 instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs)) =>
@@ -104,6 +108,8 @@ instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs)) =>
     hash (PRename evm) = combine 13 (hash evm)
     hash PSequentialComp = 14
     hash PSlidingChoice = 15
+    hash (PSynchronisingExternalChoice evs) = combine 16 (hash evs)
+    hash (PSynchronisingInterrupt evs) = combine 17 (hash evs)
 
 errorThunk = panic "Trimmed process evaluated"
 
@@ -139,6 +145,10 @@ trimOperator (PRename evm) =
     PRename (fmap (\(ev,ev') -> (trimEvent ev, trimEvent ev')) evm)
 trimOperator PSequentialComp = PSequentialComp
 trimOperator PSlidingChoice = PSlidingChoice
+trimOperator (PSynchronisingExternalChoice evs) =
+    PSynchronisingExternalChoice (fmap trimEvent evs)
+trimOperator (PSynchronisingInterrupt evs) =
+    PSynchronisingInterrupt (fmap trimEvent evs)
 
 -- | A compiled process. Note this is an infinite data structure (due to
 -- PProcCall) as this makes compilation easy (we can easily chase
@@ -185,6 +195,8 @@ instance (Ord pn, Ord (seq (Proc seq op pn ev evs evm)), Ord (op seq ev evs evm)
 
 type UnCompiledProc = 
     Proc S.Seq CSPOperator ProcName Event (S.Seq Event) (S.Seq (Event, Event))
+type UnCompiledProcOperator =
+    ProcOperator S.Seq (S.Seq Event)
 
 instance Hashable a => Hashable (S.Seq a) where
     hash a = foldr combine 0 (F.toList (fmap hash a))

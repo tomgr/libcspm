@@ -315,11 +315,25 @@ instance Evaluatable (Exp Name) where
             p <- evalNonDetFields ev (map unAnnotate fs)
             return $ VProc p --(simplify p)
 
+    eval (TimedPrefix n e) = do
+        -- Evaluate the prefix process
+        p <- evalProc e
+        Just (eventFunc, tockName) <- gets timedSection
+        let addTocker (POp PExternalChoice ps) =
+                POp PExternalChoice (fmap addTocker ps)
+            addTocker (PUnaryOp (PPrefix ev) p) =
+                PUnaryOp (PPrefix ev) (makeTocker tockName (eventFunc ev) p)
+            p' = addTocker p
+            tocker = PUnaryOp (PPrefix (tock tockName)) procCall
+            mainProc = POp PExternalChoice (tocker <| p' <| Sq.empty)
+            procCall = PProcCall (procName $ scopeId n [] Nothing) mainProc
+        return $ VProc procCall
+
     eval (AlphaParallel e1 e2 e3 e4) = do
         p1 <- evalProc e1
         p2 <- evalProc e4
-        VSet a1 <- eval e2
-        VSet a2 <- eval e3
+        VSet a1 <- timedCSPSyncSet $ eval e2
+        VSet a2 <- timedCSPSyncSet $ eval e3
         return $ VProc $ POp (PAlphaParallel 
                 (S.valueSetToEventSet a1 <| S.valueSetToEventSet a2 <| Sq.empty))
                 (p1 <| p2 <| Sq.empty)
@@ -331,10 +345,14 @@ instance Evaluatable (Exp Name) where
     eval (ExternalChoice e1 e2) = do
         p1 <- evalProc e1
         p2 <- evalProc e2
-        return $ VProc $ POp PExternalChoice (p1 <| p2 <| Sq.empty)
+        let ps = (p1 <| p2 <| Sq.empty)
+        maybeTimedCSP
+            (return $ VProc $ POp PExternalChoice ps)
+            (\ tn _ -> return $ VProc $
+                POp (PSynchronisingExternalChoice (tockSet tn)) ps)
     eval (GenParallel e1 e2 e3) = do
         ps <- evalProcs [e1, e3]
-        VSet a <- eval e2
+        VSet a <- timedCSPSyncSet $ eval e2
         return $ VProc $ POp (PGenParallel (S.valueSetToEventSet a)) ps
     eval (GuardedExp guard proc) = do
         VBool b <- eval guard
@@ -350,10 +368,15 @@ instance Evaluatable (Exp Name) where
     eval (Interrupt e1 e2) = do
         p1 <- evalProc e1
         p2 <- evalProc e2
-        return $ VProc $ PBinaryOp PInterrupt p1 p2
+        maybeTimedCSP
+            (return $ VProc $ PBinaryOp PInterrupt p1 p2)
+            (\ tn _ -> return $ VProc $
+                PBinaryOp (PSynchronisingInterrupt (tockSet tn)) p1 p2)
     eval (Interleave e1 e2) = do
         ps <- evalProcs [e1, e2]
-        return $ VProc $ POp PInterleave ps
+        maybeTimedCSP
+            (return $ VProc $ POp PInterleave ps)
+            (\ tn _ -> return $ VProc $ POp (PGenParallel (tockSet tn)) ps)
     eval (LinkParallel e1 ties stmts e2) = do
         p1 <- evalProc e1
         p2 <- evalProc e2
@@ -373,20 +396,36 @@ instance Evaluatable (Exp Name) where
         p1 <- evalProc e1
         p2 <- evalProc e2
         return $ VProc $ PBinaryOp PSlidingChoice p1 p2
+    eval (SynchronisingExternalChoice e1 e2 e3) = do
+        ps <- evalProcs [e1, e3]
+        VSet a <- timedCSPSyncSet $ eval e2
+        return $ VProc $ POp
+            (PSynchronisingExternalChoice (S.valueSetToEventSet a)) ps
+    eval (SynchronisingInterrupt e1 e2 e3) = do
+        p1 <- evalProc e1
+        VSet a <- timedCSPSyncSet $ eval e2
+        p2 <- evalProc e3
+        return $ VProc $
+            PBinaryOp (PSynchronisingInterrupt (S.valueSetToEventSet a)) p1 p2
     
     eval (ReplicatedAlphaParallel stmts e1 e2) = do
         aps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts $ do
-            VSet s <- eval e1
+            VSet s <- timedCSPSyncSet $ eval e1
             p <- evalProc e2
             return (S.valueSetToEventSet s, p)
         let (as, ps) = unzipSq aps
         return $ VProc $ POp (PAlphaParallel as) ps
     eval (ReplicatedExternalChoice stmts e) = do
         ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
-        return $ VProc $ POp PExternalChoice ps
+        maybeTimedCSP
+            (return $ VProc $ POp PExternalChoice ps)
+            (\ tn _ -> return $ VProc $
+                POp (PSynchronisingExternalChoice (tockSet tn)) ps)
     eval (ReplicatedInterleave stmts e) = do
         ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
-        return $ VProc $ POp PInterleave ps
+        maybeTimedCSP
+            (return $ VProc $ POp PInterleave ps)
+            (\ tn _ -> return $ VProc $ POp (PGenParallel (tockSet tn)) ps)
     eval (e'@(ReplicatedInternalChoice stmts e)) = do
         ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
         if Sq.null ps then
@@ -406,13 +445,18 @@ instance Evaluatable (Exp Name) where
                 PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
         return $ VProc $ F.foldr mkLinkPar lastProc tsps'
     eval (ReplicatedParallel e1 stmts e2) = do
-        VSet s <- eval e1
+        VSet s <- timedCSPSyncSet $ eval e1
         ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e2)
         return $ VProc $ POp (PGenParallel (S.valueSetToEventSet s)) ps
     eval (ReplicatedSequentialComp stmts e) = do
         ps <- evalStmts' (\(VList vs) -> Sq.fromList vs) stmts (evalProc e)
         if Sq.null ps then lookupVar (builtInName "SKIP")
         else return $ VProc $ F.foldr1 (PBinaryOp PSequentialComp) ps
+    eval (ReplicatedSynchronisingExternalChoice e1 stmts e2) = do
+        VSet a <- timedCSPSyncSet $ eval e1
+        ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e2)
+        return $ VProc $ POp
+            (PSynchronisingExternalChoice (S.valueSetToEventSet a)) ps
     
     eval e = panic ("No clause to eval "++show e)
 
@@ -495,3 +539,24 @@ evalStmts' extract anStmts prog =
 unzipSq :: Sq.Seq (a,b) -> (Sq.Seq a, Sq.Seq b)
 unzipSq sqs = F.foldr 
     (\ (a,b) (as, bs) -> (a <| as, b <| bs) ) (Sq.empty, Sq.empty) sqs
+
+timedCSPSyncSet :: EvaluationMonad Value -> EvaluationMonad Value
+timedCSPSyncSet prog = do
+    VSet a <- prog
+    maybeTimedCSP
+        (return $ VSet a)
+        (\ tn _ -> return $ VSet (S.union (S.fromList [tockValue tn]) a))
+
+tock :: Name -> Event
+tock tn = UserEvent (tockValue tn)
+
+tockValue :: Name -> Value
+tockValue tn = VDot [VChannel tn]
+
+tockSet :: Name -> EventSet
+tockSet tn = Sq.singleton (tock tn)
+
+makeTocker :: Name -> Int -> UProc -> UProc
+makeTocker tn 0 p = p
+makeTocker tn tocks p =
+    PUnaryOp (PPrefix (tock tn)) (makeTocker tn (tocks-1) p)

@@ -85,7 +85,6 @@ makeBuiltins = do
         cspm_STOP = ("STOP", TProc)
         cspm_SKIP = ("SKIP", TProc)
         cspm_CHAOS = ("CHAOS", TFunction [TSet TEvent] TProc)
-        cspm_prioritise = ("prioritise", TFunction [TProc, TSeq (TSet TEvent)] TProc)
 
         builtInProcs :: [(String, Type)]
         builtInProcs = [cspm_STOP, cspm_SKIP, cspm_CHAOS]
@@ -113,7 +112,7 @@ makeBuiltins = do
         externalFunctions :: [(String, Type)]
         externalFunctions = [
             ("loop", TFunction [TProc] TProc),
-            cspm_prioritise
+            ("prioritise", TFunction [TProc, TSeq (TSet TEvent)] TProc)
             ]
 
         complexExternalFunctions :: IO [(String, TypeScheme)]

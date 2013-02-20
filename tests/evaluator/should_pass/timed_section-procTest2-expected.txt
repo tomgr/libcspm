@@ -1,0 +1,9 @@
+i1465 = tock -> i1465 [] b -> tock -> tock -> tock -> R
+
+i1464 = tock -> i1464 [] a -> tock -> tock -> i1465
+
+R = i1464
+
+procTest2 = R
+
+procTest2

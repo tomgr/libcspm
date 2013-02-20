@@ -380,6 +380,18 @@ data Exp id =
         slidingChoiceLeftProcess :: AnExp id,
         slidingChoiceRightProcess :: AnExp id
     }
+    -- | Synchronising external choice, e.g. @P [+A+] Q@.
+    | SynchronisingExternalChoice {
+        synchronisingExternalChoiceLeftProcess :: AnExp id,
+        synchronisingExternalChoiceAlphabet :: AnExp id,
+        synchronisingExternalChoiceRightProcess :: AnExp id
+    }
+    -- | Synchronising interrupt, e.g. @P /+A+\ Q@.
+    | SynchronisingInterrupt {
+        synchronisingInterruptLeftProcess :: AnExp id,
+        synchronisingInterruptAlphabet :: AnExp id,
+        synchronisingInterruptRightProcess :: AnExp id
+    }
 
     -- Replicated Operators
     -- | Replicated alphabetised parallel, e.g. @|| x : X \@ [| A(x) |] P(x)@.
@@ -427,11 +439,25 @@ data Exp id =
         repSeqCompStatements :: [AnStmt id],
         repSeqCompProcess :: AnExp id
     }
+    -- | Replicated synchronising external choice, e.g. @[+ A +] x : X \@ P(x)@.
+    | ReplicatedSynchronisingExternalChoice {
+        repSynchronisingExtChoiceAlphabet :: AnExp id,
+        repSynchronisingExtChoiceReplicatedStatements :: [AnStmt id],
+        repSynchronisingExtChoiceProcess :: AnExp id
+    }
 
     -- | Used only for parsing - never appears in an AST.
     | ExpPatWildCard
     -- | Used only for parsing - never appears in an AST.
     | ExpPatDoublePattern (AnExp id) (AnExp id)
+
+    -- | A timed prefix - only appears after desugaring.
+    | TimedPrefix {
+        -- | The name used to recurse back to this process.
+        timedPrefixRecursionName :: id,
+        -- | The original Prefix clause (it MUST be a regular Prefix).
+        timedPrefixOriginalPrefix :: AnExp id
+    }
     
     deriving (Eq, Ord, Show)
 
@@ -489,6 +515,13 @@ data Decl id =
         moduleArguments :: [AnPat id],
         modulePrivateDeclarations :: [AnDecl id],
         moduleExportedDeclarations :: [AnDecl id]
+    }
+    -- | A timed section, e.g. @Timed(f) { P = a -> b -> P }@.
+    | TimedSection {
+        -- | The tock instance used - set by the renamer.
+        timedSectionTockName :: Maybe Name,
+        timedSectionFunction :: AnExp id,
+        timedSectionContents :: [AnDecl id]
     }
     deriving (Eq, Ord, Show)
 

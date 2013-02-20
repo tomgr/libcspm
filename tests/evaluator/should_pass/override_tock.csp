@@ -1,0 +1,3 @@
+f(tock) = tock+1
+
+test1 = f(1) == 2
