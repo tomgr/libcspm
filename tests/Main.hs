@@ -84,7 +84,7 @@ runSections :: IO [Test]
 runSections = do
     let 
         testDir = "tests"
-        sections = ["parser", "prettyprinter", "typechecker", "evaluator"]
+        sections = map fst testFunctions
     
     fs <- mapM (\section -> do
             shouldPassFiles <- getAndFilterDirectoryContents $ 
@@ -125,7 +125,8 @@ testFunctions = [
         ("parser", parserTest),
         ("typechecker", typeCheckerTest),
         ("prettyprinter", prettyPrinterTest),
-        ("evaluator", evaluatorTest)
+        ("evaluator", evaluatorTest),
+        ("desugar", desugarTest)
     ]
 
 typeCheckerTest :: FilePath -> TestM ()
@@ -149,6 +150,15 @@ prettyPrinterTest fp = do
     let str = show (prettyPrint ms)
     ms' <- parseStringAsFile str
     if ms /= ms' then throwException UserError else return ()
+
+desugarTest :: FilePath -> TestM ()
+desugarTest fp = do
+    tms <- disallowErrors $ do
+        ms <- parseFile fp
+        rms <- CSPM.renameFile ms
+        typeCheckFile rms
+    dsms <- desugarFile tms
+    return ()
 
 disallowErrors :: TestM a -> TestM a
 disallowErrors a = do
