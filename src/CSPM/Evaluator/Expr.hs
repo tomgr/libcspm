@@ -356,7 +356,12 @@ instance Evaluatable (Exp Name) where
         return $ VProc $ POp (PGenParallel (S.valueSetToEventSet a)) ps
     eval (GuardedExp guard proc) = do
         VBool b <- eval guard
-        if b then eval proc else lookupVar (builtInName "STOP")
+        if b then eval proc
+        else maybeTimedCSP
+                (lookupVar (builtInName "STOP"))
+                (\ _ _ -> do
+                    VFunction _ tstop <- lookupVar (builtInName "TSTOP")
+                    tstop [])
     eval (Hiding e1 e2) = do
         p <- evalProc e1
         VSet s <- eval e2

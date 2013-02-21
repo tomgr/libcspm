@@ -1,3 +1,5 @@
+GE1 = STOP::tock
+
 SKIP = ✓ -> STOP
 
 SKIP::tock = tock -> SKIP::tock [] SKIP
@@ -23,6 +25,6 @@ STOP::tock = tock -> STOP::tock
 I1 = STOP::tock [| {tock} |] STOP::tock
 
 procTest6 =
-    I1 [] GP1 [] AP1 [] E1 [] IN1 [] SI1 [] SE1 [] ST1 [] SK1
+    I1 [] GP1 [] AP1 [] E1 [] IN1 [] SI1 [] SE1 [] ST1 [] SK1 [] GE1
 
 procTest6
