@@ -399,6 +399,12 @@ instance
         ppBriefBinaryOp op (M.char ';') p1 p2
     prettyPrintBrief (op@(PBinaryOp PSlidingChoice p1 p2)) =
         ppBriefBinaryOp op (M.text "[>") p1 p2
+    prettyPrintBrief (op@(POp (PSynchronisingExternalChoice alpha) ps)) =
+        let ps' = F.toList ps
+        in maybeNull ps' $ M.sep (M.punctuateFront (M.text "[+…+] ") $
+                mapM (M.prettyPrintBriefPrec (precedence op)) ps')
+    prettyPrintBrief (op@(PBinaryOp (PSynchronisingInterrupt es) p1 p2)) =
+        ppBriefBinaryOp op (M.text "/+…+\\") p1 p2
     prettyPrintBrief (PProcCall n _) = M.prettyPrintBrief n
 
 instance (Applicative m, Monad m,
