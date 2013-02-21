@@ -50,3 +50,10 @@ procTest4 = S
 procTest5 = T
 procTest6 = I1 [] GP1 [] AP1 [] E1 [] IN1 [] SI1 [] SE1 [] ST1 [] SK1 [] GE1
 procTest7 = I2 [] GP2 [] AP2 [] E2 [] IN2 [] SI2 [] SE2 [] ST2 [] SK2 [] GE2
+procTest8 = [+{a}+] x : {0,1,2} @ STOP
+procTest9 =
+    let
+        Timed (\ _ @ 4) {
+            P = a -> STOP   
+        }
+    within P

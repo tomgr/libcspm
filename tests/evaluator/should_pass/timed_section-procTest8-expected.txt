@@ -1,0 +1,3 @@
+procTest8 = STOP [+{a}+] STOP [+{a}+] STOP
+
+procTest8
