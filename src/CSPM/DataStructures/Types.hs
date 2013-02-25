@@ -102,10 +102,8 @@ typeVarSupply = unsafePerformIO (do
 
 takeTypeVarFromSupply :: MonadIO m => m TypeVar
 takeTypeVarFromSupply = do
-    s <- liftIO $ readIORef typeVarSupply
-    let (s1, s2) = split2 s
-    liftIO $ writeIORef typeVarSupply s2
-    return $ TypeVar $ supplyValue s1
+    s <- liftIO $ atomicModifyIORef typeVarSupply split2
+    return $ TypeVar $ supplyValue s
 
 freshTypeVar :: MonadIO m => m Type
 freshTypeVar = freshTypeVarWithConstraints []
