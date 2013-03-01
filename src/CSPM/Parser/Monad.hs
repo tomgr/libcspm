@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module CSPM.Parser.Monad (
     ParseMonad, ParserState(..), 
     FileParserState(..), movePos,
@@ -14,7 +15,9 @@ where
 
 import Control.Exception
 import Control.Monad.State
+#if __GLASGOW_HASKELL__ < 705
 import Prelude hiding (catch)
+#endif
 import System.FilePath
 
 import CSPM.Parser.Exceptions
