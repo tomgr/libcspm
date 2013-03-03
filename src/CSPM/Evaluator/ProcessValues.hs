@@ -49,8 +49,8 @@ newtype ProcName = ProcName (ScopeIdentifier) deriving (Eq, Hashable, Ord)
 data ProcOperator seq evs =
     Chase Bool
     | Diamond 
-    | Explicate 
-    | Normalize 
+    | Explicate Bool
+    | Normalize Bool
     | ModelCompress
     | Prioritise (seq evs)
     | StrongBisim 
@@ -62,13 +62,15 @@ instance Hashable (seq evs) => Hashable (ProcOperator seq evs) where
     hash (Chase True) = 1
     hash (Chase False) = 2
     hash Diamond = 3
-    hash Explicate = 4
-    hash Normalize = 5
-    hash (Prioritise evs) = combine 6 (hash evs)
-    hash ModelCompress = 7
-    hash StrongBisim = 8
-    hash TauLoopFactor = 9
-    hash WeakBisim = 10
+    hash (Explicate True) = 4
+    hash (Explicate False) = 5
+    hash (Normalize True)= 6
+    hash (Normalize False)= 7
+    hash (Prioritise evs) = combine 8 (hash evs)
+    hash ModelCompress = 9
+    hash StrongBisim = 10
+    hash TauLoopFactor = 11
+    hash WeakBisim = 12
 
 data CSPOperator seq ev evs evm =
     PAlphaParallel (seq evs)

@@ -1,0 +1,3 @@
+procTest2 = lazyenumerate(STOP)
+
+procTest2

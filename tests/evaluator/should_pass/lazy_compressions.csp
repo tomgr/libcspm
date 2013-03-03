@@ -1,0 +1,7 @@
+transparent lazynorm
+
+procTest1 = lazynorm(STOP)
+
+transparent lazyenumerate
+
+procTest2 = lazyenumerate(STOP)

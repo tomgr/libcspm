@@ -1,0 +1,3 @@
+procTest1 = lazynorm(STOP)
+
+procTest1

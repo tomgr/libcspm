@@ -69,8 +69,10 @@ instance (Applicative m, F.Foldable seq, Monad m, M.MonadicPrettyPrintable m evs
     prettyPrint (Chase True) = M.text "chase"
     prettyPrint (Chase False) = M.text "chase_no_cache"
     prettyPrint Diamond = M.text "diamond"
-    prettyPrint Explicate = M.text "explicate"
-    prettyPrint Normalize = M.text "normal"
+    prettyPrint (Explicate False) = M.text "explicate"
+    prettyPrint (Explicate True) = M.text "lazyenumerate"
+    prettyPrint (Normalize False) = M.text "normal"
+    prettyPrint (Normalize True) = M.text "lazynorm"
     prettyPrint (Prioritise as) = M.text "prioritise"
         M.<> M.parens (M.angles (M.list (mapM M.prettyPrint (F.toList as))))
     prettyPrint ModelCompress = M.text "model_compress"

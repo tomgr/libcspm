@@ -155,12 +155,14 @@ makeBuiltins = do
 
         transparentFunctions :: [(String, Type)]
         transparentFunctions = [
+            ("explicate", TFunction [TProc] TProc),
+            ("lazyenumerate", TFunction [TProc] TProc),
             ("diamond", TFunction [TProc] TProc),
             ("normal", TFunction [TProc] TProc),
+            ("lazynorm", TFunction [TProc] TProc),
             ("sbisim", TFunction [TProc] TProc),
             ("tau_loop_factor", TFunction [TProc] TProc),
             ("model_compress", TFunction [TProc] TProc),
-            ("explicate", TFunction [TProc] TProc),
             ("wbisim", TFunction [TProc] TProc)
             ]
 
