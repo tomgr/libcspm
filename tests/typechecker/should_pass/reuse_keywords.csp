@@ -1,0 +1,5 @@
+endmodule' = 2
+P = endmodule' + 1
+
+endmoduleX = 2
+Q = endmoduleX + 1
