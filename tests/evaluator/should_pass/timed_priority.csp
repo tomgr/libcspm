@@ -1,0 +1,7 @@
+channel tock
+
+Timed (\ _ @ 1) {
+    P = timed_priority(STOP)
+}
+
+procTest1 = P

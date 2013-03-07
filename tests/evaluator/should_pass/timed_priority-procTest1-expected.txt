@@ -1,0 +1,7 @@
+STOP::tock = tock -> STOP::tock
+
+P = prioritise(STOP::tock, <{}, {tock}>)
+
+procTest1 = P
+
+procTest1

@@ -166,6 +166,8 @@ makeBuiltins = do
             ("wbisim", TFunction [TProc] TProc)
             ]
 
+        csp_timed_priority = ("timed_priority", TFunction [TProc] TProc)
+
         cspm_error fv = ("error", [TSeq TChar], fv)
         cspm_show fv = ("show", [fv], TSeq TChar)
 
@@ -181,7 +183,7 @@ makeBuiltins = do
             map fst transparentFunctions
             ++map fst externalAndTransparentFunctions
 
-        hiddenNames = ["TSKIP", "TSTOP"]
+        hiddenNames = ["TSKIP", "TSTOP", "timed_priority"]
 
         mkFuncType cs func = do
             fv @ (TVar (TypeVarRef tv _ _)) <- freshTypeVarWithConstraints cs
@@ -248,7 +250,7 @@ makeBuiltins = do
     bs3 <- mapM mkPatternType typeConstructors
     bs4 <- mapM mkPatternType builtInProcs
     bs5 <- makeExtensionsProductions
-    bs6 <- mapM mkPatternType externalFunctions
+    bs6 <- mapM mkPatternType (externalFunctions++[csp_timed_priority])
     bs7 <- mapM mkPatternType transparentFunctions
     bs8 <- mapM mkPatternType externalAndTransparentFunctions
     bs9 <- mapM (mkFuncType []) fdr3Extensions

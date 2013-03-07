@@ -288,7 +288,16 @@ renameDeclarations topLevel ds prog = do
                         Just n <- lookupName rn'
                         return (rn, n)) fvs
                 mapM_ (\(rn, n) -> setName (Qual mn rn) n) rns
-            TimedSection _ _ ds -> mapM_ (insertBoundNames nameMaker) ds
+            TimedSection _ _ ds -> do
+                rns <- addScope $ do
+                    setName (UnQual (OccName "timed_priority"))
+                        (builtInName ("timed_priority"))
+                    mapM_ (insertBoundNames nameMaker) ds
+                    fvs <- freeVars ds
+                    mapM (\ rn -> do
+                        Just n <- lookupName rn
+                        return (rn, n)) fvs
+                mapM_ (\(rn, n) -> setName rn n) rns
             _ -> return ()
 
         -- | resetModuleContext must be called in ALL cases, apart from the
@@ -364,9 +373,12 @@ renameDeclarations topLevel ds prog = do
                     return $ Module n' [] privDs' pubDs'
             TimedSection Nothing f ds -> do
                 f' <- addScope $ rename f
-                ds' <- mapM renameRightHandSide ds
                 tock <- renameVarRHS (UnQual (OccName "tock"))
-                return $ TimedSection (Just tock) f' ds'
+                addScope $ do
+                    setName (UnQual (OccName "timed_priority"))
+                        (builtInName ("timed_priority"))
+                    ds' <- mapM renameRightHandSide ds
+                    return $ TimedSection (Just tock) f' ds'
 
 renamePattern :: NameMaker -> PPat -> RenamerMonad TCPat
 renamePattern nm ap =

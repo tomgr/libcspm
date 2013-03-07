@@ -89,6 +89,11 @@ builtInFunctions =
                 pop = Prioritise (Sq.fromList sets)
             in case p of
                 VProc p -> VProc $ PUnaryOp (POperator pop) p
+        csp_timed_priority [VProc p] = do
+            Just (_, tn) <- gets timedSection
+            let tock = UserEvent $ VDot [VChannel tn]
+                pop = Prioritise $ Sq.fromList $ [Sq.empty, Sq.singleton tock]
+            return $ VProc $ PUnaryOp (POperator pop) p
 
         -- | Functions that return sets
         set_funcs = [
@@ -135,7 +140,8 @@ builtInFunctions =
         monadic_funcs = [
             ("head", cspm_head), ("tail", cspm_tail), 
             ("productions", cspm_productions), ("extensions", cspm_extensions),
-            ("error", cspm_error), ("TSTOP", csp_tstop), ("TSKIP", csp_tskip)
+            ("error", cspm_error), ("TSTOP", csp_tstop), ("TSKIP", csp_tskip),
+            ("timed_priority", csp_timed_priority)
             ]
         
         mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)

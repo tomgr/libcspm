@@ -1,0 +1,2 @@
+transparent timed_priority
+P = timed_priority(STOP)
