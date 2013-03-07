@@ -2524,9 +2524,9 @@ happyDoAction i tk st
                      where (new_state) = (n Happy_GHC_Exts.-# (1# :: Happy_GHC_Exts.Int#))
    where (off)    = indexShortOffAddr happyActOffsets st
          (off_i)  = (off Happy_GHC_Exts.+# i)
-     check  = if (off_i Happy_GHC_Exts.>=# (0# :: Happy_GHC_Exts.Int#))
-            then (indexShortOffAddr happyCheck off_i Happy_GHC_Exts.==#  i)
-            else False
+         check  = if (off_i Happy_GHC_Exts.>=# (0# :: Happy_GHC_Exts.Int#))
+                then (indexShortOffAddr happyCheck off_i Happy_GHC_Exts.==#  i)
+                else False
          (action)
           | check     = indexShortOffAddr happyTable off_i
           | otherwise = indexShortOffAddr happyDefActions st
