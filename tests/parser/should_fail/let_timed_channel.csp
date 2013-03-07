@@ -1,0 +1,6 @@
+P =
+    let
+        Timed (\ _ @ 1) {
+            channel c
+        }
+    within P

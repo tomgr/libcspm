@@ -23,6 +23,7 @@ import CSPM.Parser.Monad
 import CSPM.Parser.Tokens
 import Prelude hiding (getChar)
 import Util.Annotated
+import Util.Exception (panic)
 }
 
 -- Lift the src span from $1 to the resulting token
@@ -535,22 +536,27 @@ convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) =
 -- | Throws an error if a declaration that is not allowed inside a let 
 -- expression is found.
 checkLetDecls :: [PDecl] -> [PDecl]
-checkLetDecls decls = map checkDecl decls
+checkLetDecls decls =
+    if and (map checkDecl decls) then
+        decls
+    else panic "checkLetDecls: Invalid state."
     where
-        checkDecl :: PDecl -> PDecl
+        checkDecl :: PDecl -> Bool
         checkDecl (anDecl@(An _ _ decl)) =
             let
-                check (FunBind a b) = anDecl
-                check (PatBind a b) = anDecl
-                check (External a) = anDecl
-                check (Transparent a) = anDecl
-                check (TimedSection _ _ _) = anDecl
+                check (FunBind a b) = True
+                check (PatBind a b) = True
+                check (External a) = True
+                check (Transparent a) = True
+                check (TimedSection _ _ ds) = and (map checkDecl ds)
                 check _ = throwSourceError [invalidLetDeclarationErrorMessage anDecl]
             in check decl
-
+    
 checkModuleDecl :: PDecl -> PDecl
 checkModuleDecl (anDecl@(An _ _ (Assert _))) =
     throwSourceError [invalidModuleDeclarationErrorMessage anDecl]
+checkModuleDecl (anDecl@(An x y (TimedSection a b ds))) =
+    An x y (TimedSection a b (map checkModuleDecl ds))
 checkModuleDecl d = d
 
 checkTimedDecl :: PDecl -> PDecl

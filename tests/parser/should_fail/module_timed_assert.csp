@@ -1,0 +1,7 @@
+module M
+
+exports
+    Timed (\ _ @ 1) {
+        assert STOP [T= STOP
+    }
+endmodule

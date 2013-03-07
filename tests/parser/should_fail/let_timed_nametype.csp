@@ -1,0 +1,6 @@
+P =
+    let
+        Timed (\ _ @ 1) {
+            nametype X = {}
+        }
+    within P
