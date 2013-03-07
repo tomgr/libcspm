@@ -560,8 +560,6 @@ checkModuleDecl (anDecl@(An x y (TimedSection a b ds))) =
 checkModuleDecl d = d
 
 checkTimedDecl :: PDecl -> PDecl
-checkTimedDecl (anDecl@(An _ _ (Assert _))) =
-    throwSourceError [invalidTimedSectionDeclarationErrorMessage anDecl]
 checkTimedDecl d = d
 
 checkExp :: PExp -> PExp

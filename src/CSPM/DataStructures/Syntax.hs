@@ -8,7 +8,7 @@
 -- using the 'Annotated' datatype.
 module CSPM.DataStructures.Syntax (
     -- * Files
-    CSPMFile(..),
+    CSPMFile(..), allAssertionsInFile,
     -- * Declarations
     Decl(..), Match(..),
     -- ** Assertions
@@ -107,6 +107,19 @@ type TCInteractiveStmt = AnInteractiveStmt Name
 -- *************************************************************************
 data CSPMFile id = CSPMFile [AnDecl id]
     deriving (Eq, Ord, Show)
+
+allAssertionsInFile :: AnCSPMFile a -> [AnAssertion a]
+allAssertionsInFile (An _ _ (CSPMFile ds)) =
+    let
+        assertionsInDecl' = assertionsInDecl . unAnnotate
+        assertionsInDecl (Assert a) = [a]
+        assertionsInDecl (Module _ _ dsps dsps') =
+            concatMap assertionsInDecl' dsps ++
+            concatMap assertionsInDecl' dsps'
+        assertionsInDecl (TimedSection _ _ ds) =
+            concatMap assertionsInDecl' ds
+        assertionsInDecl _ = []
+    in concatMap assertionsInDecl' ds
 
 -- *************************************************************************
 -- Expressions
