@@ -48,13 +48,14 @@ newtype ProcName = ProcName (ScopeIdentifier) deriving (Eq, Hashable, Ord)
 -- | An operator that can be applied to processes.
 data ProcOperator seq evs =
     Chase Bool
-    | Diamond 
+    | Determinise
+    | Diamond
     | Explicate Bool
     | Normalize Bool
     | ModelCompress
     | Prioritise (seq evs)
-    | StrongBisim 
-    | TauLoopFactor 
+    | StrongBisim
+    | TauLoopFactor
     | WeakBisim
     deriving (Eq, Ord)
 
@@ -71,6 +72,7 @@ instance Hashable (seq evs) => Hashable (ProcOperator seq evs) where
     hash StrongBisim = 10
     hash TauLoopFactor = 11
     hash WeakBisim = 12
+    hash Determinise = 13
 
 data CSPOperator seq ev evs evm =
     PAlphaParallel (seq evs)

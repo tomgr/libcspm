@@ -68,6 +68,7 @@ instance (Applicative m, F.Foldable seq, Monad m, M.MonadicPrettyPrintable m evs
         M.MonadicPrettyPrintable m (ProcOperator seq evs) where
     prettyPrint (Chase True) = M.text "chase"
     prettyPrint (Chase False) = M.text "chase_no_cache"
+    prettyPrint Determinise = M.text "deter"
     prettyPrint Diamond = M.text "diamond"
     prettyPrint (Explicate False) = M.text "explicate"
     prettyPrint (Explicate True) = M.text "lazyenumerate"
