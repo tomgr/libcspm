@@ -121,6 +121,7 @@ makeBuiltins = do
 
         externalFunctions :: [(String, Type)]
         externalFunctions = [
+            ("deter", TFunction [TProc] TProc),
             ("loop", TFunction [TProc] TProc),
             ("prioritise", TFunction [TProc, TSeq (TSet TEvent)] TProc)
             ]
@@ -157,7 +158,6 @@ makeBuiltins = do
         transparentFunctions = [
             ("explicate", TFunction [TProc] TProc),
             ("lazyenumerate", TFunction [TProc] TProc),
-            ("deter", TFunction [TProc] TProc),
             ("diamond", TFunction [TProc] TProc),
             ("normal", TFunction [TProc] TProc),
             ("lazynorm", TFunction [TProc] TProc),

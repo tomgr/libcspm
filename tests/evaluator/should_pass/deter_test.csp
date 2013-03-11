@@ -1,0 +1,3 @@
+external deter
+
+procTest1 = deter(STOP)
