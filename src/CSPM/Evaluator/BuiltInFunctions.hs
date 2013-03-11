@@ -113,6 +113,7 @@ builtInFunctions =
         proc_operators = [
             ("chase", Chase True),
             ("chase_nocache", Chase False),
+            ("deter", Determinise),
             ("diamond", Diamond),
             ("explicate", Explicate False),
             ("lazyenumerate", Explicate True),
