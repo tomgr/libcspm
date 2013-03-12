@@ -38,6 +38,11 @@ headEmptyListMessage loc scope = mkErrorMessage loc $
     text "Attempt to take head of empty list."
     $$ printCallStack scope
 
+prioritiseEmptyListMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
+prioritiseEmptyListMessage loc scope = mkErrorMessage loc $ 
+    text "Prioritise must be called with a non-empty list."
+    $$ printCallStack scope
+
 tailEmptyListMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
 tailEmptyListMessage loc scope = mkErrorMessage loc $ 
     text "Attempt to take tail of empty list."

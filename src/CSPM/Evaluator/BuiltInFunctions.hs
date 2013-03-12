@@ -84,11 +84,11 @@ builtInFunctions =
             exs <- productions v
             return $ VSet $ S.fromList exs
 
-        csp_prioritise [p, VList alphas] =
+        csp_prioritise [_, VList []] = throwError' prioritiseEmptyListMessage
+        csp_prioritise [VProc p, VList alphas] =
             let sets = map (\ (VSet s) -> S.valueSetToEventSet s) alphas
                 pop = Prioritise (Sq.fromList sets)
-            in case p of
-                VProc p -> VProc $ PUnaryOp (POperator pop) p
+            in return $ VProc $ PUnaryOp (POperator pop) p
         csp_timed_priority [VProc p] = do
             Just (_, tn) <- gets timedSection
             let tock = UserEvent $ VDot [VChannel tn]
@@ -133,8 +133,7 @@ builtInFunctions =
             ("empty", cspm_empty), ("CHAOS", csp_chaos),
             ("loop", csp_loop), ("relational_image", cspm_relational_image),
             ("relational_inverse_image", cspm_relational_inverse_image),
-            ("transpose", cspm_transpose), ("show", cspm_show),
-            ("prioritise", csp_prioritise)
+            ("transpose", cspm_transpose), ("show", cspm_show)
             ]
 
         -- | Functions that require a monadic context.
@@ -142,7 +141,8 @@ builtInFunctions =
             ("head", cspm_head), ("tail", cspm_tail), 
             ("productions", cspm_productions), ("extensions", cspm_extensions),
             ("error", cspm_error), ("TSTOP", csp_tstop), ("TSKIP", csp_tskip),
-            ("timed_priority", csp_timed_priority)
+            ("timed_priority", csp_timed_priority),
+            ("prioritise", csp_prioritise)
             ]
         
         mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)
