@@ -1,0 +1,8 @@
+channel a,b,c
+Sigma = {a,b,c}
+channel ev : Sigma
+
+test0 = card({ev.a}) == 1
+test1 = card({ev.x | x <- Sigma}) == card(Sigma)
+
+-- procTest1 = STOP[[x <- ev.x.0.V | x <- Sigma]]

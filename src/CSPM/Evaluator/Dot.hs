@@ -111,6 +111,7 @@ combineDots v1 v2 =
         -- | Split a value up into the values that could be used as fields.
         splitIntoFields :: Value -> [Value]
         splitIntoFields (v@(VDot (VDataType n:_))) = [v]
+        splitIntoFields (v@(VDot (VChannel n:_))) = [v]
         splitIntoFields (VDot vs) = vs
         splitIntoFields v = [v]
 
