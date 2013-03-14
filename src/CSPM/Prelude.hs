@@ -95,9 +95,11 @@ makeBuiltins = do
         cspm_CHAOS = ("CHAOS", TFunction [TSet TEvent] TProc)
         csp_tskip = ("TSKIP", TFunction [] TProc)
         csp_tstop = ("TSTOP", TFunction [] TProc)
+        csp_wait = ("WAIT", TFunction [TInt] TProc)
 
         builtInProcs :: [(String, Type)]
-        builtInProcs = [cspm_STOP, cspm_SKIP, cspm_CHAOS, csp_tstop, csp_tskip]
+        builtInProcs = [cspm_STOP, cspm_SKIP, cspm_CHAOS, csp_tstop, csp_tskip,
+            csp_wait]
 
         cspm_Int = ("Int", TSet TInt)
         cspm_Bool = ("Bool", TSet TBool)
@@ -184,7 +186,7 @@ makeBuiltins = do
             map fst transparentFunctions
             ++map fst externalAndTransparentFunctions
 
-        hiddenNames = ["TSKIP", "TSTOP", "timed_priority"]
+        hiddenNames = ["TSKIP", "TSTOP", "timed_priority", "WAIT"]
 
         mkFuncType cs func = do
             fv @ (TVar (TypeVarRef tv _ _)) <- freshTypeVarWithConstraints cs

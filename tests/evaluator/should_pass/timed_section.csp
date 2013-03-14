@@ -30,6 +30,8 @@ Timed(OneStep) {
     GE1 = false & STOP
 
     repSeqComp = ; x : <> @ STOP 
+
+    waitN = WAIT(5) ; waitN
 }
 
 T = STOP [+{a}+] STOP
@@ -60,3 +62,4 @@ procTest9 =
         }
     within P
 procTest10 = repSeqComp
+procTest11 = waitN

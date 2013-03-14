@@ -142,7 +142,7 @@ builtInFunctions =
             ("productions", cspm_productions), ("extensions", cspm_extensions),
             ("error", cspm_error), ("TSTOP", csp_tstop), ("TSKIP", csp_tskip),
             ("timed_priority", csp_timed_priority),
-            ("prioritise", csp_prioritise)
+            ("prioritise", csp_prioritise), ("WAIT", csp_wait)
             ]
         
         mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)
@@ -178,6 +178,17 @@ builtInFunctions =
                 pc = PProcCall pid $ POp PExternalChoice $
                     proc Sq.<| csp_skip Sq.<| Sq.empty
             return $ VProc pc
+
+        csp_wait [VInt tocks] = do
+            Just (_, tn) <- gets timedSection
+            let
+                mkTocker 0 = csp_skip
+                mkTocker n =
+                    PUnaryOp (PPrefix (UserEvent $ VDot [VChannel tn]))
+                        (mkTocker (n-1))
+                waitId = scopeId (builtInName "WAIT") [[VInt tocks]] Nothing
+                pid = procName (scopeId tn [] (Just waitId))
+            return $ VProc $ PProcCall pid $ mkTocker tocks
 
         mkProc (s, p) = (builtInName s, VProc p)
         

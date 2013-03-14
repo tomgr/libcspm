@@ -182,6 +182,9 @@ reAnnotate (An a b _) m = do
     v <- m
     return $ An a b v
 
+timedNames :: [String]
+timedNames = ["timed_priority", "WAIT"]
+
 -- | Renames the declarations in the current scope.
 renameDeclarations :: Bool -> [PDecl] -> RenamerMonad a -> RenamerMonad ([TCDecl], a)
 renameDeclarations topLevel ds prog = do
@@ -290,8 +293,8 @@ renameDeclarations topLevel ds prog = do
                 mapM_ (\(rn, n) -> setName (Qual mn rn) n) rns
             TimedSection _ _ ds -> do
                 rns <- addScope $ do
-                    setName (UnQual (OccName "timed_priority"))
-                        (builtInName ("timed_priority"))
+                    mapM_ (\ n -> setName (UnQual (OccName n)) (builtInName n))
+                        timedNames
                     mapM_ (insertBoundNames nameMaker) ds
                     fvs <- freeVars ds
                     mapM (\ rn -> do
@@ -375,8 +378,8 @@ renameDeclarations topLevel ds prog = do
                 f' <- addScope $ rename f
                 tock <- renameVarRHS (UnQual (OccName "tock"))
                 addScope $ do
-                    setName (UnQual (OccName "timed_priority"))
-                        (builtInName ("timed_priority"))
+                    mapM_ (\ n -> setName (UnQual (OccName n)) (builtInName n))
+                        timedNames
                     ds' <- mapM renameRightHandSide ds
                     return $ TimedSection (Just tock) f' ds'
 

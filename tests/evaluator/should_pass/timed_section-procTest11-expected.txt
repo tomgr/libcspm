@@ -1,0 +1,9 @@
+SKIP = ✓ -> STOP
+
+WAIT(5)::tock = tock -> tock -> tock -> tock -> tock -> SKIP
+
+waitN = WAIT(5)::tock ; waitN
+
+procTest11 = waitN
+
+procTest11
