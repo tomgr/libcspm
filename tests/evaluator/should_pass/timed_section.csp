@@ -28,6 +28,8 @@ Timed(OneStep) {
     SK1 = SKIP
 
     GE1 = false & STOP
+
+    repSeqComp = ; x : <> @ STOP 
 }
 
 T = STOP [+{a}+] STOP
@@ -57,3 +59,4 @@ procTest9 =
             P = a -> STOP   
         }
     within P
+procTest10 = repSeqComp

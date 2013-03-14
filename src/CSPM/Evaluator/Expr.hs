@@ -455,7 +455,12 @@ instance Evaluatable (Exp Name) where
         return $ VProc $ POp (PGenParallel (S.valueSetToEventSet s)) ps
     eval (ReplicatedSequentialComp stmts e) = do
         ps <- evalStmts' (\(VList vs) -> Sq.fromList vs) stmts (evalProc e)
-        if Sq.null ps then lookupVar (builtInName "SKIP")
+        if Sq.null ps then
+            maybeTimedCSP
+                (lookupVar (builtInName "SKIP"))
+                (\ _ _ -> do
+                    VFunction _ tskip <- lookupVar (builtInName "TSKIP")
+                    tskip [])
         else return $ VProc $ F.foldr1 (PBinaryOp PSequentialComp) ps
     eval (ReplicatedSynchronisingExternalChoice e1 stmts e2) = do
         VSet a <- timedCSPSyncSet $ eval e1

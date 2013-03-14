@@ -1,0 +1,9 @@
+SKIP = ✓ -> STOP
+
+SKIP::tock = tock -> SKIP::tock [] SKIP
+
+repSeqComp = SKIP::tock
+
+procTest10 = repSeqComp
+
+procTest10
