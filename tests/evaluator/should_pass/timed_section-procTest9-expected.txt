@@ -1,9 +1,10 @@
 STOP::tock = tock -> STOP::tock
 
-i1507 =
-    tock -> i1507 [] a -> tock -> tock -> tock -> tock -> STOP::tock
+procTest9::P::i1569 =
+    tock -> procTest9::P::i1569
+    [] a -> tock -> tock -> tock -> tock -> STOP::tock
 
-procTest9::P = i1507
+procTest9::P = procTest9::P::i1569
 
 procTest9 = procTest9::P
 

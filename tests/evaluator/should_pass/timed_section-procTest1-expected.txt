@@ -1,7 +1,7 @@
-i1458 = tock -> i1458 [] a -> tock -> P
+P::i1564 = tock -> P::i1564 [] a -> tock -> P
 
-P = i1458
+P = P::i1564
 
 procTest1 = P
 
-procTest1
+proc

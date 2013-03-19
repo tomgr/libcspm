@@ -319,6 +319,7 @@ instance Evaluatable (Exp Name) where
         -- Evaluate the prefix process
         p <- evalProc e
         Just (eventFunc, tockName) <- gets timedSection
+        parentScope <- getParentScopeIdentifier
         let addTocker (POp PExternalChoice ps) =
                 POp PExternalChoice (fmap addTocker ps)
             addTocker (PUnaryOp (PPrefix ev) p) =
@@ -326,7 +327,7 @@ instance Evaluatable (Exp Name) where
             p' = addTocker p
             tocker = PUnaryOp (PPrefix (tock tockName)) procCall
             mainProc = POp PExternalChoice (tocker <| p' <| Sq.empty)
-            procCall = PProcCall (procName $ scopeId n [] Nothing) mainProc
+            procCall = PProcCall (procName $ scopeId n [] parentScope) mainProc
         return $ VProc procCall
 
     eval (AlphaParallel e1 e2 e3 e4) = do

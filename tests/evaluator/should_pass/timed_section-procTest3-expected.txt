@@ -1,8 +1,8 @@
-i1469 = tock -> i1469 [] b -> tock -> tock -> tock -> Q
+Q::i1568 = tock -> Q::i1568 [] b -> tock -> tock -> tock -> Q
 
-i1468 = tock -> i1468 [] a -> tock -> tock -> Q
+Q::i1567 = tock -> Q::i1567 [] a -> tock -> tock -> Q
 
-Q = i1468 [+{tock}+] i1469
+Q = Q::i1567 [+{tock}+] Q::i1568
 
 procTest3 = Q
 

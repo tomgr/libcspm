@@ -1,0 +1,15 @@
+P(1)::i1513 = tock -> P(1)::i1513 [] c.1 -> tock -> STOP::tock
+
+P(1) = P(1)::i1513
+
+STOP::tock = tock -> STOP::tock
+
+P(0)::i1513 = tock -> P(0)::i1513 [] c.0 -> tock -> STOP::tock
+
+P(0) = P(0)::i1513
+
+Ps = P(0) [| {tock} |] P(1)
+
+procTest1 = Ps
+
+procTest1
