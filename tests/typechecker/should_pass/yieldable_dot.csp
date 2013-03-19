@@ -1,0 +1,5 @@
+channel c : { 0 }
+channel d : productions(e.c.0)
+channel e : {| c |}
+
+P = STOP[[x <- d.e.x | x <- extensions(d.e)]]

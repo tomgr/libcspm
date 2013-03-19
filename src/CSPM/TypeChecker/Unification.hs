@@ -145,6 +145,12 @@ unifyConstraint c (TExtendable t pt) = do
         Right t -> unifyConstraint c t
 unifyConstraint CYieldable (TDatatype n) = return ()
 unifyConstraint CYieldable TEvent = return ()
+unifyConstraint CYieldable (TDot t1 t2) = do
+    t <- evaluateDots (TDot t1 t2)
+    case t of
+        TDot _ _ -> raiseMessageAsError $
+            constraintUnificationErrorMessage CYieldable t
+        _ -> unifyConstraint CYieldable t
 unifyConstraint CYieldable t =
     raiseMessageAsError $ constraintUnificationErrorMessage CYieldable t
 unifyConstraint CSet TProc = return ()
