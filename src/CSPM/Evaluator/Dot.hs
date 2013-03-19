@@ -65,8 +65,9 @@ combineDots v1 v2 =
                             -- Start a new field, or return nothing if we
                             -- are full
                             Nothing | fieldCount < a -> do
-                                checkIsValidForField mn (VDot (nd:vs++[v])) fieldCount v
-                                return $ Just (VDot (nd:vs++[v]))
+                                b <- checkIsValidForField mn (VDot (nd:vs++[v])) fieldCount v
+                                if b then return $ Just (VDot (nd:vs++[v]))
+                                else return $ Nothing
                             Nothing | fieldCount == a -> return Nothing
                             Nothing | fieldCount > a -> panic "Malformed dot encountered."
         maybeDotFieldOn vbase v = return Nothing
