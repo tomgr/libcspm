@@ -1,0 +1,5 @@
+channel c : {0}.{1}
+datatype X = D.{0}.{1}
+
+test1 = productions(c.0)
+test2 = productions(D.0)

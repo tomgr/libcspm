@@ -236,15 +236,20 @@ makeBuiltins = do
                 Nothing -> return b
         makeReplacements _ b = return b
 
-        makeExtensionsProductions = do
+        makeExtensionType = do
             fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints []
             fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints []
-            let t1 = ForAll [(tv1, []), (tv2, [CYieldable])]
+            return $ ForAll [(tv1, []), (tv2, [CYieldable])]
                         (TFunction [TDotable fv1 fv2] (TSet fv1))
-            fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints []
-            fv2ref <- freshTypeVarRef []
-            let t2 = ForAll [(tv2, [CYieldable])]
-                        (TFunction [TExtendable fv2 fv2ref] (TSet fv2))
+        makeProductionsType = do
+            fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints []
+            fv2 @ (TVar (fv2ref@(TypeVarRef tv2 _ _))) <-
+                freshTypeVarWithConstraints []
+            return $ ForAll [(tv1, [CYieldable]), (tv2, [])]
+                        (TFunction [TExtendable fv1 fv2ref] (TSet fv1))
+        makeExtensionsProductions = do
+            t1 <- makeExtensionType
+            t2 <- makeProductionsType
             return [("extensions", t1), ("productions", t2)]
 
     bs1 <- mapM (mkFuncType []) seqs
