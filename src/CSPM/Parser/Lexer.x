@@ -166,8 +166,8 @@ tokens :-
     <0>@nl"$"@nl                { tok TDollar }
     <0>@nl"<-"@nl               { tok TDrawnFrom }
     <0>@nl"<->"@nl              { tok TTie }
-    <0>@nl":"/[^:]              { soakTok TColon }
     <0>"::"                     { tok TScope }
+    <0>@nl":"                   { soakTok TColon }
 
     <0>@nl"@@"@nl               { tok TDoubleAt }
 
