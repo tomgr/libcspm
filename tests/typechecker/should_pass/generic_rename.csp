@@ -1,0 +1,7 @@
+-- generic :: Inputable a => (a => Event, a => Event, Event => Event) -> Proc
+generic(in, out, pass) =
+    let
+        R = in?x -> in.x -> out.x -> let z = out.x within pass.z -> R
+        P = pass.in?x -> pass.out.x -> R
+        Z = P[[pass.out <- out]]
+    within STOP
