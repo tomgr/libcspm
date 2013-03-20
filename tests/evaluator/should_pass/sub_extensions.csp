@@ -1,0 +1,7 @@
+datatype X = Y.{0,1}
+
+datatype Z = A.{Y.0}
+
+test1 = extensions(A) == {Y.0}
+test2 = extensions(Y) == {0,1}
+-- test3 = extensions(A.Y) == {0}

@@ -247,15 +247,7 @@ instance Evaluatable (Exp Name) where
                     evExtensions evBase (p:ps) bs = do
                         vs <- extensionsOperator (p:ps) evBase
                         mps <- mapM (\v -> do
-                                let 
-                                    -- The extensions operator always returns a
-                                    -- dot list. However, here, in the case the
-                                    -- dotlist contains only one item, we do not
-                                    -- want to bind to the dot list, rather to
-                                    -- the value inside.
-                                    extract (VDot [v]) = v
-                                    extract v = v
-                                    (matches, bs') = bind p (extract v)
+                                let (matches, bs') = bind p v
                                 if matches then do
                                     evBase' <- combineDots evBase v
                                     proc <- evExtensions evBase' ps (bs++bs')

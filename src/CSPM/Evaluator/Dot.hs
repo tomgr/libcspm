@@ -157,7 +157,7 @@ oneFieldExtensions (VDot (dn:vs)) = do
                 Nothing -> 
                     if arity == fieldCount then [VDot []]
                     else -- We still have fields to complete
-                        map (\ v -> VDot [v]) (toList (fieldSets!(length vs)))
+                        toList (fieldSets!(length vs))
 oneFieldExtensions _ = return [VDot []]
 
 -- | Takes a datatype or a channel value and then computes all x such that 
@@ -167,7 +167,12 @@ extensions :: Value -> EvaluationMonad [Value]
 extensions v = extensionsSet v >>= return . toList
 
 extensionsSet :: Value -> EvaluationMonad ValueSet
-extensionsSet v = extensionsSets v >>= return . S.cartesianProduct CartDot
+extensionsSet v = do
+    sets <- extensionsSets v
+    return $
+        case sets of
+            [s] -> s
+            _ -> S.cartesianProduct CartDot sets
 
 -- | Takes a value and returns a set of fields such that ev.x is a full thing.
 -- Further, the field sets are guaranteed to be representable as a full
