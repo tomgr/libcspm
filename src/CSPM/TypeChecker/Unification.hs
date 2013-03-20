@@ -700,6 +700,9 @@ evalTypeList m (TDotable argt rt : arg : args)
         -- Implement shortest match rule (if isVar ag)
         t <- unify argt arg
         evalTypeList m (rt:args)
+    | isDotable argt && isDotable arg = do
+        unify argt arg
+        return [rt]
     | isDotable arg = do
         let (argsA, rtA) = reduceDotable arg
         t <- unify argt rtA
