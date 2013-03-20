@@ -702,7 +702,7 @@ evalTypeList m (TDotable argt rt : arg : args)
         evalTypeList m (rt:args)
     | isDotable argt && isDotable arg = do
         unify argt arg
-        return [rt]
+        evalTypeList m (rt:args)
     | isDotable arg = do
         let (argsA, rtA) = reduceDotable arg
         t <- unify argt rtA
