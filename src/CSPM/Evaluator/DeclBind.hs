@@ -173,4 +173,4 @@ evalTypeExpr (VTuple vs) = cartesianProduct CartTuple (map evalTypeExpr (elems v
 
 evalTypeExprToList :: Name -> Value -> EvaluationMonad [ValueSet]
 evalTypeExprToList n (VDot vs) = concatMapM (evalTypeExprToList n) vs
-evalTypeExprToList n v = splitIntoFields n (evalTypeExpr v)
+evalTypeExprToList n v = splitIntoFields False n (evalTypeExpr v)

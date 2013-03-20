@@ -1,0 +1,17 @@
+datatype Z = A.{0,1}.{0,1}
+datatype Y = X.{A.0.1, A.1.0}
+
+test1 = member(X.A.0.1, Y)
+test2 = extensions(X.A) == {0.1, 1.0}
+test3 = extensions(X.A.0) == {1}
+test4 = extensions(X.A.1) == {0}
+test5 = productions(X) == Y
+test6 = productions(X.A.0) == {X.A.0.1}
+test7 = productions(X.A.1) == {X.A.1.0}
+test8 = productions(X.A.0.1) == {X.A.0.1}
+test9 = productions(X.A.1.0) == {X.A.1.0}
+
+channel c : Y
+
+procTest1 = c.X.A.0?x -> STOP
+procTest2 = c.X.A?x -> STOP

@@ -16,6 +16,7 @@ module CSPM.Evaluator.ValueSet (
     difference,
     -- * Derived functions
     CartProductType(..), cartesianProduct, powerset, allSequences,
+    fastUnDotCartProduct,
     -- * Specialised Functions
     singletonValue,
     valueSetToEventSet,
@@ -386,7 +387,8 @@ unDotProduct :: ValueSet -> Maybe [ValueSet]
 unDotProduct (CartesianProduct vs CartTuple) = return [CartesianProduct vs CartTuple]
 unDotProduct (CartesianProduct (s1:ss) CartDot) =
     -- This is reducible only if this set doesn't represent a set of datatype/
-    -- channel items.
+    -- channel items.  If this is the case recursively express as a CartDot
+    -- though
     case singletonValue s1 of
         Just (VDataType _) -> return [CartesianProduct (s1:ss) CartDot]
         Just (VChannel _) -> return [CartesianProduct (s1:ss) CartDot]
@@ -408,3 +410,7 @@ unDotProduct (ExplicitSet s) =
     case head (S.toList s) of
         VDot _ -> Nothing
         _ -> Just [ExplicitSet s]
+
+fastUnDotCartProduct :: ValueSet -> Maybe [ValueSet]
+fastUnDotCartProduct (CartesianProduct s CartDot) = Just s
+fastUnDotCartProduct _ = Nothing

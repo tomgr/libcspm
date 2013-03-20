@@ -1,0 +1,4 @@
+datatype Z = A.{0,1}.{0,1}
+datatype Y = X.{A.0.1, A.1.0}
+
+test1 = card({X.A.0.0}) == 1

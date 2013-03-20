@@ -1,0 +1,4 @@
+datatype A = B
+channel c : A
+channel d : {| c |}
+channel final : {| c, d |}

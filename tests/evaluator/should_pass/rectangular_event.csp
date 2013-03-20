@@ -1,0 +1,5 @@
+channel a
+channel b : Bool
+channel d : {a,b.false}
+
+test1 = (d.a) != (d.b.false)

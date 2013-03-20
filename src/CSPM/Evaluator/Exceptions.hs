@@ -126,12 +126,15 @@ dotIsNotValidMessage (value@(VDot (h:_))) field fieldValue fieldOptions loc scop
         $$ hang (text "is not a member of the set") tabWidth (prettyPrint fieldOptions)
         $$ printCallStack scope
 
-setNotRectangularErrorMessage :: SrcSpan -> ValueSet -> ValueSet -> ErrorMessage
-setNotRectangularErrorMessage loc s1 s2 = mkErrorMessage loc $
+setNotRectangularErrorMessage :: SrcSpan -> ValueSet -> Maybe ValueSet -> ErrorMessage
+setNotRectangularErrorMessage loc s1 ms2 = mkErrorMessage loc $
     hang (text "The set:") tabWidth (prettyPrint s1)
     $$ text "cannot be decomposed into a cartesian product (i.e. it is not rectangular)."
-    $$ hang (text "The cartesian product is equal to:") tabWidth 
-        -- Force evaluation to a proper set, not a cart product.
-        (prettyPrint (fromList (toList s2)))
-    $$ hang (text "and thus the following values are missing:") tabWidth
-        (prettyPrint (difference s2 s1))
+    $$ case ms2 of
+        Just s2 -> 
+            hang (text "The cartesian product is equal to:") tabWidth 
+                -- Force evaluation to a proper set, not a cart product.
+                (prettyPrint (fromList (toList s2)))
+            $$ hang (text "and thus the following values are missing:") tabWidth
+                (prettyPrint (difference s2 s1))
+        Nothing -> empty
