@@ -287,11 +287,15 @@ combineTypeLists (a:as) (b:bs) | not (isDotable a) && not (isDotable b) = do
     ts <- combineTypeLists as bs
     return (t:ts)
 
--- ASSUMPTION: argt is not a TDot, or a TDotable. 
+-- ASSUMPTION: argt is not a TDot
 
 -- Otherwise, if the head of one of the lists is dotable then we proceed
 -- as follows
 combineTypeLists ((a0@(TDotable argt rt)):a:as) (b:bs)
+    | isDotable argt = do
+        -- No choice but to unify a with argt
+        unify argt a
+        combineTypeLists (rt:as) (b:bs)
     | (isSimple a || (isVar a && as /= [])) = do
         -- By assumption a is not a TDot and so either, a is simple and
         -- hence we unify argt and a or, it is a var. Then, providing 
@@ -331,6 +335,9 @@ combineTypeLists ((a0@(TDotable argt rt)):a:as) (b:bs)
 
 -- Symmetric case of above
 combineTypeLists (a:as) ((TDotable argt rt):b:bs)
+    | isDotable argt = do
+        unify argt b
+        combineTypeLists (a:as) (rt:bs)
     | (isSimple b || (isVar b && bs /= [])) = do
         unify b argt
         combineTypeLists (a:as) (rt:bs)
