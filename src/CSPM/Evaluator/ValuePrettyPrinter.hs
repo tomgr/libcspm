@@ -74,24 +74,27 @@ instance (Applicative m, F.Foldable seq, Monad m, M.MonadicPrettyPrintable m evs
     prettyPrint (Explicate True) = M.text "lazyenumerate"
     prettyPrint (Normalize False) = M.text "normal"
     prettyPrint (Normalize True) = M.text "lazynorm"
-    prettyPrint (Prioritise as) = M.text "prioritise"
+    prettyPrint (Prioritise cache as) =
+        (if cache then M.text "prioritise" else M.text "prioritise_nocache")
         M.<> M.parens (M.angles (M.list (mapM M.prettyPrint (F.toList as))))
     prettyPrint ModelCompress = M.text "model_compress"
     prettyPrint StrongBisim = M.text "sbisim"
     prettyPrint TauLoopFactor = M.text "tau_loop_factor"
     prettyPrint WeakBisim = M.text "wbisim"
 
-    prettyPrintBrief (Prioritise as) = M.text "prioritise"
+    prettyPrintBrief (Prioritise True as) = M.text "prioritise"
+    prettyPrintBrief (Prioritise False as) = M.text "prioritise_nocache"
     prettyPrintBrief op = M.prettyPrint op
 
-ppOperatorWithArg (Prioritise as) proc = do
-    M.text "prioritise" M.<> M.parens (proc M.<> M.comma M.<+>
+ppOperatorWithArg (Prioritise cache as) proc = do
+    (if cache then M.text "prioritise" else M.text "prioritise_nocache")
+    M.<> M.parens (proc M.<> M.comma M.<+>
         M.angles (M.list (mapM M.prettyPrint (F.toList as))))
 ppOperatorWithArg op proc = M.prettyPrint op M.<> M.parens proc
 
-ppBriefOperatorWithArg (Prioritise as) proc = do
-    M.text "prioritise" M.<> M.parens (proc M.<> M.comma
-        M.<+> M.ellipsis)
+ppBriefOperatorWithArg (Prioritise cache as) proc = do
+    (if cache then M.text "prioritise" else M.text "prioritise_nocache")
+    M.<> M.parens (proc M.<> M.comma M.<+> M.ellipsis)
 ppBriefOperatorWithArg op proc =
     M.prettyPrint op M.<> M.parens proc
     

@@ -125,7 +125,8 @@ makeBuiltins = do
         externalFunctions = [
             ("deter", TFunction [TProc] TProc),
             ("loop", TFunction [TProc] TProc),
-            ("prioritise", TFunction [TProc, TSeq (TSet TEvent)] TProc)
+            ("prioritise", TFunction [TProc, TSeq (TSet TEvent)] TProc),
+            ("prioritise_nocache", TFunction [TProc, TSeq (TSet TEvent)] TProc)
             ]
 
         complexExternalFunctions :: IO [(String, TypeScheme)]

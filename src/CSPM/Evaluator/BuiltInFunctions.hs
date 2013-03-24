@@ -84,15 +84,16 @@ builtInFunctions =
             exs <- productions v
             return $ VSet $ S.fromList exs
 
-        csp_prioritise [_, VList []] = throwError' prioritiseEmptyListMessage
-        csp_prioritise [VProc p, VList alphas] =
+        csp_prioritise _ [_, VList []] = throwError' prioritiseEmptyListMessage
+        csp_prioritise cache [VProc p, VList alphas] =
             let sets = map (\ (VSet s) -> S.valueSetToEventSet s) alphas
-                pop = Prioritise (Sq.fromList sets)
+                pop = Prioritise cache (Sq.fromList sets)
             in return $ VProc $ PUnaryOp (POperator pop) p
         csp_timed_priority [VProc p] = do
             Just (_, tn) <- gets timedSection
             let tock = UserEvent $ VDot [VChannel tn]
-                pop = Prioritise $ Sq.fromList $ [Sq.empty, Sq.singleton tock]
+                pop = Prioritise True $ Sq.fromList $
+                        [Sq.empty, Sq.singleton tock]
             return $ VProc $ PUnaryOp (POperator pop) p
 
         -- | Functions that return sets
@@ -142,7 +143,9 @@ builtInFunctions =
             ("productions", cspm_productions), ("extensions", cspm_extensions),
             ("error", cspm_error), ("TSTOP", csp_tstop), ("TSKIP", csp_tskip),
             ("timed_priority", csp_timed_priority),
-            ("prioritise", csp_prioritise), ("WAIT", csp_wait)
+            ("prioritise", csp_prioritise True),
+            ("prioritise_nocache", csp_prioritise False),
+            ("WAIT", csp_wait)
             ]
         
         mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)

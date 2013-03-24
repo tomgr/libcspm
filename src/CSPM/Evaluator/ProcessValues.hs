@@ -53,7 +53,7 @@ data ProcOperator seq evs =
     | Explicate Bool
     | Normalize Bool
     | ModelCompress
-    | Prioritise (seq evs)
+    | Prioritise Bool (seq evs)
     | StrongBisim
     | TauLoopFactor
     | WeakBisim
@@ -67,12 +67,13 @@ instance Hashable (seq evs) => Hashable (ProcOperator seq evs) where
     hash (Explicate False) = 5
     hash (Normalize True)= 6
     hash (Normalize False)= 7
-    hash (Prioritise evs) = combine 8 (hash evs)
-    hash ModelCompress = 9
-    hash StrongBisim = 10
-    hash TauLoopFactor = 11
-    hash WeakBisim = 12
-    hash Determinise = 13
+    hash (Prioritise False evs) = combine 8 (hash evs)
+    hash (Prioritise True evs) = combine 9 (hash evs)
+    hash ModelCompress = 10
+    hash StrongBisim = 11
+    hash TauLoopFactor = 12
+    hash WeakBisim = 13
+    hash Determinise = 14
 
 data CSPOperator seq ev evs evm =
     PAlphaParallel (seq evs)
