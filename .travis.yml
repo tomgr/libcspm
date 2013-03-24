@@ -1,1 +1,8 @@
 language: haskell
+notifications:
+  hipchat:
+    rooms:
+      - secure: "a1hPEbI6X3yOcb7RaGLLiMNDNugh9mriNtDQdTy6+CaPGJ3tX8T2QYPnLipG\nm+P55un6ARJK+jCy2ZzuoYMdxbIq3s8ohYq5PA5kGGmeE26SnJ/Gd/5GyWXl\nWYBQSXcEj5F+ZQ1tunW4WFWegj4t9RPXnWunTfsEGLHXhDLACcE="
+    on_success: always
+    on_failure: always
+    on_start: always
