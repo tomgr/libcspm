@@ -1,0 +1,9 @@
+STOP::tock = tock -> STOP::tock
+
+P::i1347 = tock -> P::i1347 [] c.0 -> tock -> STOP::tock
+
+P = P::i1347
+
+procTest1 = P
+
+procTest1

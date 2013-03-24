@@ -56,7 +56,11 @@ instance PrettyPrintable id => PrettyPrintable (Decl id) where
         $$ tabIndent (vcat (punctuate (char '\n') (map prettyPrint exported)))
         $$ text "endmodule"
     prettyPrint (TimedSection _ f ds) =
-        text "Timed" <+> parens (prettyPrint f) <+> char '{'
+        text "Timed"
+        <+> case f of
+                Just f -> parens (prettyPrint f)
+                Nothing -> empty
+        <+> char '{'
         $$ tabIndent (vcat (punctuate (char '\n') (map prettyPrint ds)))
         $$ char '}'
         

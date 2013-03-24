@@ -533,7 +533,7 @@ data Decl id =
     | TimedSection {
         -- | The tock instance used - set by the renamer.
         timedSectionTockName :: Maybe Name,
-        timedSectionFunction :: AnExp id,
+        timedSectionFunction :: Maybe (AnExp id),
         timedSectionContents :: [AnDecl id]
     }
     deriving (Eq, Ord, Show)

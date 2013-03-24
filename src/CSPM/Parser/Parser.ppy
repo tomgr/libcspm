@@ -241,7 +241,11 @@ DeclA :: { PDecl }
       "exports" newline DeclList "endmodule"    { AN2 (Module (unLoc $2) [] 
                                                     (map checkModuleDecl $4)
                                                     (map checkModuleDecl $7)) }
-    | "Timed" "(" CExp ")" "{" DeclList "}"     { AN2 (TimedSection Nothing $3
+    | "Timed" "{" DeclList "}"                  { AN2 (TimedSection Nothing
+                                                    Nothing
+                                                    (map checkTimedDecl $3)) }
+    | "Timed" "(" CExp ")" "{" DeclList "}"     { AN2 (TimedSection Nothing
+                                                    (Just $3)
                                                     (map checkTimedDecl $6)) }
 
 Assertion :: { PAssertion }

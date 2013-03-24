@@ -297,7 +297,9 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
     typeCheck' (Assert a) = typeCheck a >> return []
     typeCheck' (TimedSection (Just tn) f _) = do
         typeCheckExpect (Var tn) TEvent
-        typeCheckExpect f (TFunction [TEvent] TInt)
+        case f of
+            Just f -> typeCheckExpect f (TFunction [TEvent] TInt) >> return ()
+            Nothing -> return ()
         return []
 
 instance TypeCheckable TCAssertion () where

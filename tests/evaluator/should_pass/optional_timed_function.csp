@@ -1,0 +1,8 @@
+channel tock
+channel c : {0..1}
+
+Timed {
+    P = c.0 -> STOP
+}
+
+procTest1 = P

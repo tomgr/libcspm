@@ -160,10 +160,14 @@ bindDecl (an@(An _ _ (TimedSection (Just tn) f ds))) = do
     nds <- concatMapM bindDecl ds
     let packageDecl :: EvaluationMonad Value -> EvaluationMonad Value
         packageDecl value = do
-            VFunction _ wrappedFunc <- eval f
             st <- gets id
-            let func (UserEvent v) = c
-                    where VInt c = runEvaluator st (wrappedFunc [v])
+            func <- case f of
+                Just f -> do
+                    VFunction _ wrappedFunc <- eval f
+                    let func (UserEvent v) = c
+                            where VInt c = runEvaluator st (wrappedFunc [v])
+                    return func
+                Nothing -> return $ \ (UserEvent _) -> 1
             return $! runEvaluator st $ setTimedCSP tn func value
     return $! map (\ (n,d) -> (n, packageDecl d)) nds
 
