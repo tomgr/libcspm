@@ -239,6 +239,10 @@ isDotable :: Type -> Bool
 isDotable (TDotable _ _) = True
 isDotable _ = False
 
+isExtendable :: Type -> Bool
+isExtendable (TExtendable _ _) = True
+isExtendable _ = False
+
 isSimple :: Type -> Bool
 isSimple a = not (isDotable a) && not (isVar a)
 
@@ -723,6 +727,10 @@ evalTypeList m (TDotable argt rt : arg : args)
         -- Implement SHORTEST match rule
         unify arg' arg
         return [foldr TDotable urt args]
+    | isExtendable arg = do
+        let TExtendable rtA ptref = arg
+        t <- unify argt rtA
+        evalTypeList m (TExtendable rt ptref : args)
     | not (isDotable arg) = do
         -- Implement shortest match rule (if isVar ag)
         t <- unify argt arg
