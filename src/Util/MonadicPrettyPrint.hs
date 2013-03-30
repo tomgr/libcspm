@@ -2,7 +2,7 @@
 module Util.MonadicPrettyPrint(
     module Util.MonadicPrettyPrintInternal,
     MonadicPrettyPrintable(..),
-    prettyPrintPrec, prettyPrintBriefPrec,
+    prettyPrintPrec, prettyPrintBriefPrec, ppBinaryOp, ppBinaryOp',
     tabWidth,
     tabIndent,
     shortDouble,
@@ -18,15 +18,6 @@ import Numeric
 import Util.MonadicPrettyPrintInternal
 import Util.Precedence
 
-prettyPrintPrec :: (MonadicPrettyPrintable m a, Precedence a) =>
-    Int -> a -> m Doc
-prettyPrintPrec prec a = prettyParen (prec < precedence a) $ prettyPrint a
-
-prettyPrintBriefPrec :: (MonadicPrettyPrintable m a, Precedence a) =>
-    Int -> a -> m Doc
-prettyPrintBriefPrec prec a =
-    prettyParen (prec <= precedence a) $ prettyPrintBrief a
-
 class (Applicative m, Monad m) => MonadicPrettyPrintable m a where
     prettyPrint :: a -> m Doc
     -- | As prettyPrint, but yields a briefer description.
@@ -34,9 +25,43 @@ class (Applicative m, Monad m) => MonadicPrettyPrintable m a where
 
     prettyPrintBrief = prettyPrint
 
-prettyParen :: (Applicative m, Monad m) => Bool -> m Doc -> m Doc
-prettyParen False d = d
-prettyParen True d = parens d
+data Argument = LeftArg | RightArg
+
+prettyPrintPrec :: (MonadicPrettyPrintable m a, Precedence a) =>
+    a -> a -> m Doc
+prettyPrintPrec ctxt op =
+    maybeParen (precedence ctxt < precedence op) $ prettyPrint op
+
+prettyPrintBriefPrec :: (MonadicPrettyPrintable m a, Precedence a) =>
+    Int -> a -> m Doc
+prettyPrintBriefPrec prec a =
+    maybeParen (prec <= precedence a) $ prettyPrintBrief a
+
+prettyPrintPrec' :: (MonadicPrettyPrintable m a, Precedence a) =>
+    Argument -> a -> a -> m Doc
+prettyPrintPrec' argt ctxt op =
+    maybeParen (needsParen argt ctxt op) $ prettyPrint op
+
+needsParen :: Precedence a => Argument -> a -> a -> Bool
+needsParen argt ctxt op | precedence ctxt < precedence op = True
+needsParen argt ctxt op | precedence ctxt > precedence op = False
+needsParen argt ctxt op | not (sameOperator ctxt op) = True
+needsParen LeftArg ctxt op | associativity ctxt /= AssocLeft = True
+needsParen RightArg ctxt op | associativity ctxt /= AssocRight = True
+needsParen _ _ _ = False
+
+ppBinaryOp, ppBinaryOp' :: (MonadicPrettyPrintable m a, Precedence a) =>
+    a -> m Doc -> a -> a -> m Doc
+ppBinaryOp op opd p1 p2 =
+    sep (sequence [prettyPrintPrec op p1, opd <+> prettyPrintPrec op p2])
+ppBinaryOp' op opd p1 p2 =
+    cat (sequence [prettyPrintPrec' LeftArg op p1,
+        opd <> prettyPrintPrec' RightArg op p2])
+
+-- | Maybe parenthesise the given document.
+maybeParen :: (Applicative m, Monad m) => Bool -> m Doc -> m Doc
+maybeParen False d = d
+maybeParen True d = parens d
 
 -- | The width, in spaces, of a tab character.
 tabWidth :: Int

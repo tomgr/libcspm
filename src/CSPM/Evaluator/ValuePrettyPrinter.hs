@@ -263,13 +263,10 @@ ppBinaryOp, ppBriefBinaryOp ::
     Proc seq CSPOperator pn ev evs (seq (ev,ev)) -> 
     Proc seq CSPOperator pn ev evs (seq (ev,ev)) ->
     m Doc
-ppBinaryOp op opd p1 p2 =
-    M.sep (sequence [M.prettyPrintPrec (precedence op) p1,
-        opd M.<+> M.prettyPrintPrec (precedence op) p2])
-
 ppBriefBinaryOp op opd p1 p2 =
     M.sep (sequence [M.prettyPrintBriefPrec (precedence op) p1,
         opd M.<+> M.prettyPrintBriefPrec (precedence op) p2])
+ppBinaryOp = M.ppBinaryOp
 
 maybeNull :: (Applicative m, F.Foldable s, Monad m) => s a -> m Doc -> m Doc
 maybeNull s _ | null (F.toList s) = M.text "STOP"
@@ -311,38 +308,38 @@ instance
             flatten p = [p]
             ps' = flatten (POp PExternalChoice ps)
         in maybeNull ps' $ M.sep (M.punctuateFront (M.text "[] ") $
-                    mapM (M.prettyPrintPrec (precedence op)) ps')
+                    mapM (M.prettyPrintPrec op) ps')
     prettyPrint (op@(POp (PGenParallel a) ps)) = maybeNull' ps $ 
         M.sep (M.punctuateFront
                 (M.text "[|" M.<+> M.prettyPrint a M.<+> M.text "|] ")
-                (mapM (M.prettyPrintPrec (precedence op)) (F.toList ps)))
+                (mapM (M.prettyPrintPrec op) (F.toList ps)))
     prettyPrint (op@(PUnaryOp (PHide a) p)) =
-        M.prettyPrintPrec (precedence op) p
+        M.prettyPrintPrec op p
         M.<+> M.char '\\' M.<+> M.prettyPrint a
     prettyPrint (op@(POp PInternalChoice ps)) =
         let flatten (POp PInternalChoice ps) = concatMap flatten (F.toList ps)
             flatten p = [p]
             ps' = flatten (POp PInternalChoice ps)
         in M.sep (M.punctuateFront (M.text "|~| ") $
-                mapM (M.prettyPrintPrec (precedence op)) ps')
+                mapM (M.prettyPrintPrec op) ps')
     prettyPrint (op@(POp PInterleave ps)) = maybeNull ps $ 
         M.sep (M.punctuateFront (M.text "||| ") $
-            mapM (M.prettyPrintPrec (precedence op)) $ F.toList ps)
+            mapM (M.prettyPrintPrec op) $ F.toList ps)
     prettyPrint (op@(PBinaryOp PInterrupt p1 p2)) =
         ppBinaryOp op (M.text "/\\") p1 p2
     prettyPrint (op@(PBinaryOp (PLinkParallel evm) p1 p2)) =
-        M.prettyPrintPrec (precedence op) p1 M.<+> M.text "[" M.<>
+        M.prettyPrintPrec op p1 M.<+> M.text "[" M.<>
             M.list (mapM (\(evLeft, evRight) -> 
                             M.prettyPrint evLeft M.<+> M.text "<->" 
                                 M.<+> M.prettyPrint evRight) $ F.toList evm)
-        M.<> M.text "]" M.<+> M.prettyPrintPrec (precedence op) p2
+        M.<> M.text "]" M.<+> M.prettyPrintPrec op p2
     prettyPrint (op@(PUnaryOp (POperator cop) p)) = 
-        ppOperatorWithArg cop (M.prettyPrintPrec 100 p)
+        ppOperatorWithArg cop (M.prettyPrint p)
     prettyPrint (op@(PUnaryOp (PPrefix e) p)) =
         M.prettyPrint e M.<+> M.text "->"
-        M.<+> M.prettyPrintPrec (precedence op) p
+        M.<+> M.prettyPrintPrec op p
     prettyPrint (op@(PUnaryOp (PRename evm) p)) =
-        M.prettyPrintPrec (precedence op) p M.<> M.text "[[" 
+        M.prettyPrintPrec op p M.<> M.text "[[" 
         M.<> M.list (mapM (\ (evOld, evNew) -> 
                             M.prettyPrint evOld M.<+> M.text "<-" 
                             M.<+> M.prettyPrint evNew) $ F.toList evm) 
@@ -356,7 +353,7 @@ instance
         let ps' = F.toList ps
         in maybeNull ps' $ M.sep (M.punctuateFront
             (M.text "[+" M.<> M.prettyPrint alpha M.<> M.text "+] ") $
-            mapM (M.prettyPrintPrec (precedence op)) ps')
+            mapM (M.prettyPrintPrec op) ps')
     prettyPrint (op@(PBinaryOp (PSynchronisingInterrupt es) p1 p2)) =
         ppBinaryOp op (M.text "/+" M.<+> M.prettyPrint es M.<+> M.text "+\\")
             p1 p2
