@@ -275,12 +275,12 @@ tryAndRecover retainErrors prog handler = tryM prog >>= \x ->
 -- Type Operations
 -- *************************************************************************
 readTypeRef :: TypeVarRef -> TypeCheckMonad (Either (TypeVar, [Constraint]) Type)
-readTypeRef (TypeVarRef tv cs ioref) = 
-    do
-        mtyp <- readPType ioref
-        case mtyp of
-            Just t  -> return (Right t)
-            Nothing -> return (Left (tv, cs))
+readTypeRef (TypeVarRef tv cs ioref) = do
+    mtyp <- readPType ioref
+    case mtyp of
+        Just t  -> return (Right t)
+        Nothing -> return (Left (tv, cs))
+readTypeRef (RigidTypeVarRef tv cs _) = return $ Left (tv, cs)
 
 writeTypeRef :: TypeVarRef -> Type -> TypeCheckMonad ()
 writeTypeRef (TypeVarRef tv cs ioref) t = setPType ioref t

@@ -85,11 +85,11 @@ instantiate (ForAll ts t) = do
         
 -- | Does 'a' occur somewhere in 't'.
 occurs :: TypeVar -> Type -> TypeCheckMonad Bool
-occurs a (TVar (tvref @ (TypeVarRef tv _ _))) = do
+occurs a (TVar tvref) = do
     res <- readTypeRef tvref
     case res of 
-        Left (tv,cs)-> return $ a == tv
-        Right t     -> occurs a t
+        Left (tv, cs) -> return $ a == tv
+        Right t -> occurs a t
 occurs a (TSet t) = occurs a t
 occurs a (TSeq t) = occurs a t
 occurs a (TDot t1 t2) = liftM or (mapM (occurs a) [t1,t2])
@@ -121,12 +121,15 @@ unifyAll (t1:ts) = do
 -- constraint, or can be made to satsify the constraint by appropriate type
 -- substitutions, in which case the type substitutions are performed.
 unifyConstraint :: Constraint -> Type -> TypeCheckMonad ()
+unifyConstraint c (TVar v) | isRigid v = do
+    when (not (or (map (constraintImpliedBy c) (constraints v)))) $ do
+        raiseMessageAsError $ constraintUnificationErrorMessage c (TVar v)
 unifyConstraint c (TVar v) = do
     res <- readTypeRef v
     case res of
         Left (tva, cs)  -> 
             when (not (or (map (constraintImpliedBy c) cs))) $ do
-                fv <- freshTypeVarWithConstraints (nub (c:cs))
+                fv <- freshTypeVarWithConstraints (nub (sort (c:cs)))
                 applySubstitution v fv
                 return ()
         Right t         -> unifyConstraint c t
@@ -135,10 +138,10 @@ unifyConstraint c (TExtendable t pt) = do
     case res of
         Left _  ->
             if c == CYieldable then
-                writeTypeRef pt t
+                safeWriteTypeRef pt t
             else if c == CInputable then do
                 unifyConstraint c t
-                writeTypeRef pt t
+                safeWriteTypeRef pt t
             else 
                 when (c /= CEq && c /= CSet) $ raiseMessageAsError $
                     constraintUnificationErrorMessage c (TExtendable t pt)
@@ -375,14 +378,25 @@ unifyNoStk (TVar t1) (TVar t2) = do
     res1 <- readTypeRef t1
     res2 <- readTypeRef t2
     case (res1, res2) of
-        (Left (tv1, cs1), Left (tv2,cs2)) -> do
-            fv <- freshTypeVarWithConstraints (nub (cs1 ++ cs2))
-            applySubstitution t1 fv
-            applySubstitution t2 fv
-            return fv
-        (Left _, Right t)       -> unify (TVar t1) t
-        (Right t, Left _)       -> unify t (TVar t2)
-        (Right t1, Right t2)    -> unify t1 t2
+        (Left (tv1, cs1), Left (tv2, cs2)) -> do
+            let cs = nub $ sort $ cs1++cs2
+            if isRigid t1 && isRigid t2 then do
+                when (t1 /= t2) $ raiseUnificationError False
+                return $ TVar t1
+            else if isRigid t1 then do
+                mapM_ (flip unifyConstraint (TVar t1)) cs
+                applySubstitution t2 (TVar t1)
+            else if isRigid t2 then do
+                mapM_ (flip unifyConstraint (TVar t2)) cs
+                applySubstitution t1 (TVar t2)
+            else do
+                fv <- freshTypeVarWithConstraints cs
+                applySubstitution t1 fv
+                applySubstitution t2 fv
+                return fv
+        (Left _, Right t) -> unify (TVar t1) t
+        (Right t, Left _) -> unify t (TVar t2)
+        (Right t1, Right t2) -> unify t1 t2
 unifyNoStk (TVar a) b = do
     res <- readTypeRef a
     case res of
@@ -551,13 +565,13 @@ unifyNoStk (TDotable argt rt) (TExtendable t pt) = do
     tvref' <- freshTypeVarRef []
     rt' <- unify (TExtendable t tvref') rt
     let t' = TDotable argt rt'
-    writeTypeRef pt t'
+    safeWriteTypeRef pt t'
     return t'
 unifyNoStk (TExtendable t pt) (TDotable argt rt) = do
     tvref' <- freshTypeVarRef []
     rt' <- unify (TExtendable t tvref') rt
     let t' = TDotable argt rt'
-    writeTypeRef pt t'
+    safeWriteTypeRef pt t'
     return t'
 
 unifyNoStk (TExtendable t1 pt1) (TExtendable t2 pt2) | pt1 == pt2 = do
@@ -566,18 +580,23 @@ unifyNoStk (TExtendable t1 pt1) (TExtendable t2 pt2) | pt1 == pt2 = do
 unifyNoStk (TExtendable t1 pt1) (TExtendable t2 pt2) = do
     t <- unify t1 t2
     -- They need to use the same variable now
-    writeTypeRef pt2 (TExtendable t pt1)
+    if isRigid pt2 then safeWriteTypeRef pt1 (TExtendable t pt2)
+    else safeWriteTypeRef pt2 (TExtendable t pt1)
     return $ TExtendable t pt1
 unifyNoStk (TExtendable t1 pt) t2 = do
     t <- unify t1 t2
-    writeTypeRef pt t
+    safeWriteTypeRef pt t
     return t
 unifyNoStk t1 (TExtendable t2 pt) = do
     t <- unify t1 t2
-    writeTypeRef pt t
+    safeWriteTypeRef pt t
     return t
 
 unifyNoStk t1 t2 = raiseUnificationError False
+
+safeWriteTypeRef :: TypeVarRef -> Type -> TypeCheckMonad ()
+safeWriteTypeRef (RigidTypeVarRef tv cs n) t = raiseUnificationError False
+safeWriteTypeRef tvref t = writeTypeRef tvref t
 
 -- | Raises a unification error. If the passed flag is True then 
 -- any dots are not evaluated in the error. This is to avoid infinite loops that
@@ -599,32 +618,33 @@ raiseUnificationError isDotError = do
             return (t1, t2)) (return (t1,t2))
         return (t1, t2)) ts
     raiseMessageAsError $ unificationErrorMessage cts
-        
+
 -- Returns the type that we substitute for
 -- NB: in a quantified type we do not apply the substitution to any 
 -- quantified variables
 applySubstitution :: TypeVarRef -> Type -> TypeCheckMonad Type
-applySubstitution (tvref @ (TypeVarRef tv _ _)) typ = do
+applySubstitution tvref typ = do
     t' <- compress typ
-    b <- occurs tv typ
-    (b, t) <- if b then do
-            t <- evaluateDots t'
-            b <- occurs tv t
-            return (b,t)
-        else return (b, typ)
-    errorIfFalse (not b)
-        (infiniteUnificationMessage (TVar tvref) t')
-    writeTypeRef tvref t
-    return typ
+    b <- occurs (typeVar tvref) typ
+    if b then do
+        t <- evaluateDots t'
+        if t == TVar tvref then return t else do
+        b <- occurs (typeVar tvref) t
+        errorIfFalse (not b) (infiniteUnificationMessage (TVar tvref) typ)
+        safeWriteTypeRef tvref t
+        return t
+    else do
+        safeWriteTypeRef tvref typ
+        return typ
 
 -- | Applies a subtitution directly to the type. This is used in
 -- type instantiation where we create a fresh type for each universal 
 -- variable
 substituteType :: (TypeVar, Type) -> Type -> TypeCheckMonad Type
-substituteType (tv, t) (b @ (TVar (a @ (TypeVarRef tv' cs ioref)))) = do
-    res <- readTypeRef a
+substituteType (tv, t) (b @ (TVar tvref)) = do
+    res <- readTypeRef tvref
     case res of
-        Left tva -> if tv == tv' then return t else return b
+        Left (tv', _) -> if tv == tv' then return t else return b
         Right t' -> substituteType (tv, t) t'
 substituteType sub (TFunction targs tr) = do
     targs' <- mapM (substituteType sub) targs
@@ -648,12 +668,12 @@ substituteType sub TBool = return TBool
 substituteType sub TProc = return TProc
 substituteType sub TEvent = return TEvent
 substituteType sub TChar = return TChar
-substituteType (sub@(tv, tsub)) (TExtendable t (pt @(TypeVarRef tv' cs ioref))) = do
-    res <- readTypeRef pt
+substituteType (sub@(tv, tsub)) (TExtendable t tvref) = do
+    res <- readTypeRef tvref
     case res of
-        Left _ -> do
+        Left (tv', _) -> do
             t' <- substituteType sub t
-            let pt' = if tv == tv' then spt else pt
+            let pt' = if tv == tv' then spt else tvref
             return $ TExtendable t' pt'
         Right t' -> substituteType sub t'
     where TVar spt = tsub
@@ -720,14 +740,14 @@ evalTypeList LongestMatch (TExtendable urt pt : args) = do
     res <- readTypeRef pt
     case res of
         Right t' -> unify reqType t' >> return ()
-        Left _ -> writeTypeRef pt reqType
+        Left _ -> safeWriteTypeRef pt reqType
     return [urt]
 evalTypeList ShortestMatch (TExtendable urt pt : arg : args) = do
     res <- readTypeRef pt
     let reqType = TDotable arg urt
     case res of
         Right t' -> unify reqType t' >> return ()
-        Left _ -> writeTypeRef pt reqType
+        Left _ -> safeWriteTypeRef pt reqType
     evalTypeList ShortestMatch (urt : args)
 -- If the first argument isn't a dotable we ignore it.
 evalTypeList m (t:ts) = do

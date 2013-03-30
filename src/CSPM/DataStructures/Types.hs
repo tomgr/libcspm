@@ -1,10 +1,12 @@
 module CSPM.DataStructures.Types (
     -- * Data Structures
     TypeVar, TypeScheme(..), Constraint(..), Type(..), TypeVarRef(..),
-    prettyPrintTypes,
-    constraintImpliedBy, reduceConstraints,
+    prettyPrintTypes, isRigid, constraintImpliedBy, reduceConstraints,
+    collectConstraints,
+
     -- * Creation of Types
     freshTypeVar, freshTypeVarWithConstraints, freshTypeVarRef,
+    freshRigidTypeVarWithConstraints,
 
     -- * Symbol Tables
     SymbolTable, PSymbolTable, freshPSymbolTable, readPSymbolTable, 
@@ -86,14 +88,29 @@ data Type =
     deriving (Eq, Ord, Show)
 
 data TypeVarRef = 
-    TypeVarRef TypeVar [Constraint] PType
+    TypeVarRef {
+        typeVar :: TypeVar,
+        constraints :: [Constraint],
+        typePointer :: PType
+    }
+    | RigidTypeVarRef {
+        typeVar :: TypeVar,
+        constraints :: [Constraint],
+        rigidName :: Name
+    }
 
 instance Eq TypeVarRef where
-    (TypeVarRef tv1 _ _) == (TypeVarRef tv2 _ _) = tv1 == tv2
+    tvref1 == tvref2 = typeVar tvref1 == typeVar tvref2
 instance Ord TypeVarRef where
-    compare (TypeVarRef tv1 _ _) (TypeVarRef tv2 _ _) = compare tv1 tv2
+    compare tvref1 tvref2 = compare (typeVar tvref1) (typeVar tvref2)
 instance Show TypeVarRef where
-    show (TypeVarRef tv cs _) = "TypeVarRef "++show tv ++ show cs
+    show (TypeVarRef tv cs _) = "TypeVarRef "++show tv++" "++show cs
+    show (RigidTypeVarRef tv cs n) =
+        "RigidTypeVarRef "++show tv ++" "++show cs++" "++show n
+
+isRigid :: TypeVarRef -> Bool
+isRigid (RigidTypeVarRef _ _ _) = True
+isRigid _ = False 
 
 typeVarSupply :: IORef (Supply Int)
 typeVarSupply = unsafePerformIO (do
@@ -216,15 +233,16 @@ prettyPrintType vmap (TExtendable t (TypeVarRef (TypeVar n) _ _)) =
         Nothing -> int n
     ) <> text "=>*" <> prettyPrintType vmap t
 
-collectConstraints :: Type -> [(TypeVar, [Constraint])]
+collectConstraints :: Type -> [(TypeVarRef, [Constraint])]
 collectConstraints = combine . collect
     where
-        combine :: [(TypeVar, [Constraint])] -> [(TypeVar, [Constraint])]
+        combine :: [(TypeVarRef, [Constraint])] -> [(TypeVarRef, [Constraint])]
         combine xs = 
             map (\ ys -> (head (map fst ys), nub (concat (map snd ys))))
                 (groupBy (\ (v1, _) (v2, _) -> v1 == v2) xs)
-        collect :: Type -> [(TypeVar, [Constraint])]
-        collect (TVar (TypeVarRef v cs _)) = [(v, cs)]
+
+        collect :: Type -> [(TypeVarRef, [Constraint])]
+        collect (TVar tvref) = [(tvref, constraints tvref)]
         collect (TFunction targs tr) = 
             concatMap collect targs ++ collect tr
         collect (TSeq t) = collect t
@@ -238,4 +256,5 @@ collectConstraints = combine . collect
         collect TProc = []
         collect TEvent = []
         collect TChar = []
-        collect (TExtendable t (TypeVarRef v cs _)) = (v, cs) : collect t
+        collect (TExtendable t tvref) =
+            (tvref, constraints tvref) : collect t
