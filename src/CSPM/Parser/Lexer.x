@@ -169,6 +169,11 @@ tokens :-
     <0>"::"                     { tok TScope }
     <0>@nl":"                   { soakTok TColon }
 
+    <0>@nl" ::"@nl              { tok TOfType }
+    <0>@nl":: "@nl              { tok TOfType }
+    <0>@nl"=>*"@nl              { tok TYieldStar }
+    <0>@nl"=>"@nl               { tok TYield }
+
     <0>@nl"@@"@nl               { tok TDoubleAt }
 
     -- Program Structure

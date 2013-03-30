@@ -32,6 +32,10 @@ data Token =
     | TEndModule
     | TScope
 
+    | TOfType
+    | TYield
+    | TYieldStar
+
     | TTimed
 
     | TComma
@@ -145,6 +149,10 @@ instance PrettyPrintable Token where
     prettyPrint TExports = text "exports"
     prettyPrint TEndModule = text "endmodule"
     prettyPrint TScope = text "::"
+
+    prettyPrint TOfType = text "::"
+    prettyPrint TYield = text "=>"
+    prettyPrint TYieldStar = text "=>*"
 
     prettyPrint TTimed = text "Timed"
 

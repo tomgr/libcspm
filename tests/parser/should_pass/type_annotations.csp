@@ -1,0 +1,44 @@
+f :: a
+f(x,y) = x
+
+f1 :: (a, b)
+f1(x,y) = x
+
+f2 :: <a>
+f2(x,y) = x
+
+f3 :: {a}
+f3(x,y) = x
+
+f4 :: () -> a
+f4() = x
+
+f5 :: (a) -> a
+f5(x) = x
+
+f6 :: a => b
+f6 = c
+
+f7 :: a =>* b
+f7 = d
+
+f8 :: a.b
+f8 = d
+
+g :: Eq a => (a, b) -> a
+g(x,y) = x
+
+h :: (Eq a, Ord a) => (a, b) -> a
+h(x,y) = x
+
+i :: (Eq a, Ord a) => (a => b, b) -> a
+i(x,y) = x
+
+j1 :: (Eq a, Ord a) => (a => b, a =>* b) -> a
+j1(x,y) = x
+
+j2 :: (Eq a, Ord a) => (<a>, {a}) -> a
+j2(x,y) = x
+
+k :: (Eq a, Ord a) => ((a, b), Event) -> a
+k(x,y) = x
