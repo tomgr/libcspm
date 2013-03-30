@@ -133,8 +133,10 @@ instance Compressable (CSPMFile a) where
     mcompress (CSPMFile ds) = return CSPMFile $$ mcompress ds
 
 instance Compressable (Decl a) where
-    mcompress (FunBind n ms) = return (FunBind n) $$ mcompress ms
-    mcompress (PatBind p e) = return PatBind $$ mcompress p $$ mcompress e
+    mcompress (FunBind n ms ta) =
+        return (FunBind n) $$ mcompress ms $$ mcompress ta
+    mcompress (PatBind p e ta) =
+        return PatBind $$ mcompress p $$ mcompress e $$ mcompress ta
     mcompress (Assert a) = return Assert $$ mcompress a
     mcompress (External ns) = return (External ns)
     mcompress (Transparent ns) = return (Transparent ns)
@@ -196,3 +198,5 @@ instance Compressable Model where
     mcompress l = return l
 instance Compressable Literal where
     mcompress l = return l
+instance Compressable (STypeScheme a) where
+    mcompress x = return x

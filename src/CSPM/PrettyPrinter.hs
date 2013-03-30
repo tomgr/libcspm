@@ -25,11 +25,54 @@ prettyPrintMatch n (An _ _ (Match groups exp)) =
     where
         ppGroup ps = parens (list (map prettyPrint ps))
 
+instance PrettyPrintable id => PrettyPrintable (STypeScheme id) where
+    prettyPrint (STypeScheme _ [] t) = prettyPrint t
+    prettyPrint (STypeScheme _ cs t) =
+        hang (case cs of
+                [c] -> prettyPrint c
+                _ -> parens (list (map prettyPrint cs)))
+            tabWidth
+            (text "=>" <+> prettyPrint t)
+
+instance PrettyPrintable id => PrettyPrintable (STypeConstraint id) where
+    prettyPrint (STypeConstraint c n) = prettyPrint c <+> prettyPrint n
+
+instance PrettyPrintable id => PrettyPrintable (SType id) where
+    prettyPrint (STVar n) = prettyPrint n
+    prettyPrint STProc = text "Proc"
+    prettyPrint STInt = text "Int"
+    prettyPrint STBool = text "Bool"
+    prettyPrint STChar = text "Char"
+    prettyPrint STEvent = text "Event"
+    prettyPrint (STExtendable t n) =
+        ppBinOp (prettyPrint n) (text "=>*") (prettyPrint t)
+    prettyPrint (STSet t) = braces (prettyPrint t)
+    prettyPrint (STSeq t) = angles (prettyPrint t)
+    prettyPrint (STDot t1 t2) = prettyPrint t1 <> char '.' <> prettyPrint t2
+    prettyPrint (STTuple ts) = parens (list (map prettyPrint ts))
+    prettyPrint (STFunction args rt) =
+        ppBinOp (parens (list (map prettyPrint args))) (text "->")
+            (prettyPrint rt)
+    prettyPrint (STDotable t1 t2) =
+        ppBinOp (prettyPrint t1) (text "=>") (prettyPrint t2)
+    prettyPrint (STDatatype n) = prettyPrint n
+    prettyPrint (STParen t) = parens (prettyPrint t)
+
 instance PrettyPrintable id => PrettyPrintable (Decl id) where
-    prettyPrint (FunBind n ms) = vcat (map (prettyPrintMatch n) ms)
-    prettyPrint (PatBind pat exp) =
-        hang (prettyPrint pat <+> equals)
-            tabWidth (prettyPrint exp)
+    prettyPrint (FunBind n ms ts) =
+        (case ts of
+            Nothing -> empty
+            Just ta -> 
+                prettyPrint n <+> text "::" <+> prettyPrint ta
+        )
+        $$ vcat (map (prettyPrintMatch n) ms)
+    prettyPrint (PatBind pat exp ts) =
+        (case ts of
+            Nothing -> empty
+            Just ta -> 
+                prettyPrint pat <+> text "::" <+> prettyPrint ta
+        )
+        $$ hang (prettyPrint pat <+> equals) tabWidth (prettyPrint exp)
     prettyPrint (Channel ns Nothing) =
         text "channel" <+> list (map prettyPrint ns)
     prettyPrint (Channel ns (Just e)) =

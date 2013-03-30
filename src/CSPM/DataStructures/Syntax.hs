@@ -37,17 +37,22 @@ module CSPM.DataStructures.Syntax (
     -- | Interactive statements are intended to be input by an interactive
     -- editor.
     InteractiveStmt(..),
+    -- * Type Annotations
+    STypeScheme(..), STypeConstraint(..), SType(..),
     -- * Type Synonyms
     -- | As the types are parameterised over the type of names it can be
     -- laborious to type the names. Therefore, some shortcuts are provided.
     AnCSPMFile, AnDecl, AnMatch, AnPat, AnExp, AnField,
-    AnStmt, AnDataTypeClause, AnAssertion, AnInteractiveStmt,
+    AnStmt, AnDataTypeClause, AnAssertion, AnInteractiveStmt, AnSTypeScheme,
+    AnSTypeConstraint, AnSType,
     -- ** Pre-Renaming Types
     PCSPMFile, PDecl, PMatch, PPat, PExp, PField,
-    PStmt, PDataTypeClause, PAssertion, PInteractiveStmt,
+    PStmt, PDataTypeClause, PAssertion, PInteractiveStmt, PSTypeScheme,
+    PSTypeConstraint, PSType,
     -- ** Post-Renaming Types
     TCCSPMFile, TCDecl, TCMatch, TCPat, TCExp, TCField,
-    TCStmt, TCDataTypeClause, TCAssertion, TCInteractiveStmt,
+    TCStmt, TCDataTypeClause, TCAssertion, TCInteractiveStmt, TCSTypeScheme,
+    TCSTypeConstraint, TCSType,
     -- * Helpers
     getType, getSymbolTable,
 ) where
@@ -69,6 +74,9 @@ type AnStmt id = Annotated () (Stmt id)
 type AnDataTypeClause id = Annotated () (DataTypeClause id)
 type AnAssertion id = Annotated () (Assertion id)
 type AnInteractiveStmt id = Annotated () (InteractiveStmt id)
+type AnSTypeScheme id = Annotated () (STypeScheme id)
+type AnSTypeConstraint id = Annotated () (STypeConstraint id)
+type AnSType id = Annotated () (SType id)
 
 getType :: Annotated (Maybe Type, PType) a -> Type
 getType an = case fst (annotation an) of
@@ -90,6 +98,9 @@ type PField = AnField UnRenamedName
 type PDataTypeClause = AnDataTypeClause UnRenamedName
 type PAssertion = AnAssertion UnRenamedName
 type PInteractiveStmt = AnInteractiveStmt UnRenamedName
+type PSTypeScheme = AnSTypeScheme UnRenamedName
+type PSTypeConstraint = AnSTypeConstraint UnRenamedName
+type PSType = AnSType UnRenamedName
 
 type TCCSPMFile = AnCSPMFile Name
 type TCDecl = AnDecl Name
@@ -101,6 +112,9 @@ type TCStmt = AnStmt Name
 type TCDataTypeClause = AnDataTypeClause Name
 type TCAssertion = AnAssertion Name
 type TCInteractiveStmt = AnInteractiveStmt Name
+type TCSTypeScheme = AnSTypeScheme Name
+type TCSTypeConstraint = AnSTypeConstraint Name
+type TCSType = AnSType Name
 
 -- *************************************************************************
 -- Files
@@ -501,9 +515,9 @@ data InteractiveStmt id =
 
 data Decl id = 
     -- | A function binding, e.g. @func(x,y)(z) = 0@.
-    FunBind id [AnMatch id]
+    FunBind id [AnMatch id] (Maybe (AnSTypeScheme id))
     -- | The binding of a pattern to an expression, e.g. @(p,q) = e@.
-    | PatBind (AnPat id) (AnExp id)
+    | PatBind (AnPat id) (AnExp id) (Maybe (AnSTypeScheme id))
     -- | An assertion in a file, e.g. @assert P [T= Q@.
     | Assert (AnAssertion id)
     -- | An import of an external function, e.g. @external test@,
@@ -536,6 +550,9 @@ data Decl id =
         timedSectionFunction :: Maybe (AnExp id),
         timedSectionContents :: [AnDecl id]
     }
+    -- | A type annotation for the given names. This is only used inside the
+    -- parser and never appears in outside ASTs.
+    | ParsedTypeAnnotation [id] (AnSTypeScheme id)
     deriving (Eq, Ord, Show)
 
 data Assertion id = 
@@ -686,4 +703,41 @@ data Pat id =
         pDotItems :: [AnPat id],
         pDotOriginalpattern :: Pat id
     }
+    deriving (Eq, Ord, Show)
+
+-- | A syntatic type scheme.
+data STypeScheme id =
+    STypeScheme {
+        stypeSchemeFreeVars :: [id],
+        stypeSchemeTypeConstraints :: [AnSTypeConstraint id],
+        stypeSchemeType :: AnSType id
+    }
+    deriving (Eq, Ord, Show)
+
+-- | A syntatic type constraint.
+data STypeConstraint id =
+    STypeConstraint {
+        stypeConstraintName :: Constraint,
+        stypeConstraintVariable :: id
+    }
+    deriving (Eq, Ord, Show)
+
+-- | A syntatic type.
+data SType id =
+    STVar id
+    | STExtendable (AnSType id) id
+    | STSet (AnSType id)
+    | STSeq (AnSType id)
+    | STDot (AnSType id) (AnSType id)
+    | STTuple [AnSType id]
+    | STFunction [AnSType id] (AnSType id)
+    | STDotable (AnSType id) (AnSType id)
+    | STParen (AnSType id)
+
+    | STDatatype id
+    | STProc
+    | STInt
+    | STBool
+    | STChar
+    | STEvent
     deriving (Eq, Ord, Show)

@@ -76,13 +76,13 @@ instance Desugarable (CSPMFile Name) where
         return t
 
 desugarDecl :: TCDecl -> DesugarMonad [TCDecl]
-desugarDecl (an@(An x y (PatBind p e))) = do
+desugarDecl (an@(An x y (PatBind p e ta))) = do
     p' <- desugar p
     e' <- desugar e
     case getSymbolTable an of
         -- Optimise by removing it
         [] -> return []
-        [_] -> return [An x y (PatBind p' e')]
+        [_] -> return [An x y (PatBind p' e' ta)]
         st -> do
             -- We are binding multiple things and thus need to make an extractor
             nameToBindTo <- mkFreshInternalName
@@ -108,12 +108,13 @@ desugarDecl (an@(An x y (PatBind p e))) = do
                 newPSymTableThunk = panic "new psymbole table evaluated"
                 mkExtractor n = An (loc an)
                     (Just [(n, typeOf n)], newPSymTableThunk) 
-                    (PatBind (mkExtractorPat' n p') expToBindTo)
+                    (PatBind (mkExtractorPat' n p') expToBindTo Nothing)
                 -- TODO: calculate the correct ForAll
                 etype = ForAll (panic "incorrect polymorphism") (getType e')
                 newPat = An (loc an)
                     (Just [(nameToBindTo, etype)], newPSymTableThunk)
-                    (PatBind (An Unknown dummyAnnotation (PVar nameToBindTo)) e')
+                    (PatBind (An Unknown dummyAnnotation (PVar nameToBindTo)) e'
+                        Nothing)
                 extractors = map mkExtractor (freeVars p')
             return $ newPat : extractors
 desugarDecl (An _ _ (Module n [] ds1 ds2)) = do
@@ -124,7 +125,7 @@ desugarDecl (An _ _ (Module n [] ds1 ds2)) = do
     return $ concat $ ds1'++ds2'
 desugarDecl (An x y d) = do
     d' <- case d of
-            FunBind n ms -> return (FunBind n) $$ desugar ms
+            FunBind n ms ta -> return (FunBind n) $$ desugar ms $$ return ta
             Assert a -> return Assert $$ desugar a
             External ns -> return $ External ns
             Transparent ns -> return $ Transparent ns

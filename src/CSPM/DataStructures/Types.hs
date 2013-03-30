@@ -134,6 +134,11 @@ freshTypeVarRef cs = do
 freshTypeVarWithConstraints :: MonadIO m => [Constraint] -> m Type
 freshTypeVarWithConstraints cs = freshTypeVarRef cs >>= return . TVar
 
+freshRigidTypeVarWithConstraints :: MonadIO m => Name -> [Constraint] -> m Type
+freshRigidTypeVarWithConstraints n cs = do
+    tv <- takeTypeVarFromSupply
+    return $ TVar (RigidTypeVarRef tv cs n)
+
 type SymbolTable = PartialFunction Name TypeScheme
 type PType = IORef (Maybe Type)
 type PSymbolTable = IORef SymbolTable

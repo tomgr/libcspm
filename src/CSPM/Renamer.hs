@@ -253,13 +253,13 @@ renameDeclarations topLevel ds prog = do
                         Nothing -> 
                             let err = mkErrorMessage (loc pd) (externalFunctionNotRecognised rn)
                             in addErrors [err]) ns
-            FunBind rn ms -> do
+            FunBind rn ms _ -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
             NameType rn _ -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
-            PatBind p e -> renamePattern nameMaker p >> return ()
+            PatBind p e _ -> renamePattern nameMaker p >> return ()
             Transparent ns -> 
                 mapM_ (\ rn@(UnQual ocn) -> do
                     case transparentFunctionForOccName ocn of
@@ -333,7 +333,7 @@ renameDeclarations topLevel ds prog = do
             External rns -> resetModuleContext $ do
                 ns <- mapM renameVarRHS rns
                 return $ External ns
-            FunBind rn ms -> resetModuleContext $ do
+            FunBind rn ms ta -> resetModuleContext $ do
                 n <- renameVarRHS rn
                 ms' <- mapM rename ms
                 return $ FunBind n ms'
@@ -341,7 +341,7 @@ renameDeclarations topLevel ds prog = do
                 n <- renameVarRHS rn
                 e' <- addScope $ rename e
                 return $ NameType n e'
-            PatBind p e -> resetModuleContext $ do
+            PatBind p e ta -> resetModuleContext $ do
                 p' <- renamePattern ignoringNameMaker p
                 e' <- addScope $ rename e
                 return $ PatBind p' e'

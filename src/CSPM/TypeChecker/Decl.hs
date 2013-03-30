@@ -172,11 +172,11 @@ instance TypeCheckable TCDecl [(Name, Type)] where
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
 
 instance TypeCheckable (Decl Name) [(Name, Type)] where
-    errorContext (FunBind n ms) = Just $ 
+    errorContext (FunBind n ms _) = Just $ 
         -- This will only be helpful if the equations don't match in
         -- type
         text "In the declaration of:" <+> prettyPrint n
-    errorContext (p@(PatBind pat exp)) = Just $
+    errorContext (p@(PatBind pat exp _)) = Just $
         hang (text "In a pattern binding:") tabWidth (prettyPrint p)
     errorContext (DataType n cs) = Just $
         text "In the declaration of:" <+> prettyPrint n
@@ -192,8 +192,8 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
     errorContext (Transparent ns) = Nothing
     errorContext (External ns) = Nothing
     
-    typeCheck' (FunBind n ms) = do
         ts <- mapM (\ m -> addErrorContext (matchCtxt m) $ typeCheck m) ms
+    typeCheck' (FunBind n ms mta) = do
         ForAll [] t <- getType n
         -- This unification also ensures that each equation has the same number
         -- of arguments.
@@ -203,9 +203,9 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
             matchCtxt an = 
                 hang (text "In an equation for" <+> prettyPrint n <> colon) 
                     tabWidth (prettyPrintMatch n an)
-    typeCheck' (PatBind pat exp) = do
         tpat <- typeCheck pat
         texp <- typeCheck exp
+    typeCheck' (p@(PatBind pat exp mta)) = do
         -- We evaluate the dots to implement the 'longest match' rule. For
         -- example, suppose we have the following declaration:
         --   datatype A = B.Integers.Integers
@@ -217,7 +217,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         -- to allow patterns such as:
         --     x.y = B
         disallowSymmetricUnification (unify texp tpat)
-        let ns = boundNames (PatBind pat exp)
+        let ns = boundNames p
         ts <- mapM getType ns
         return $ zip ns [t | ForAll _ t <- ts]
     -- The following two clauses rely on the fact that they have been 
@@ -343,6 +343,7 @@ instance TypeCheckable (DataTypeClause Name) (Name, [Type]) where
 instance TypeCheckable TCMatch Type where
     errorContext an = Nothing
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
+    typeCheckExpect an t = setSrcSpan (loc an) $ typeCheckExpect (inner an) t
 instance TypeCheckable (Match Name) Type where
     -- We create the error context in FunBind as that has access
     -- to the name
