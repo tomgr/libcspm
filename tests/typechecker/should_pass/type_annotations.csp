@@ -1,0 +1,86 @@
+-- f1 :: Int
+-- f1 = 0
+
+-- f2 :: Bool
+-- f2 = true
+
+-- f3 :: Char
+-- f3 = 'C'
+
+-- f4 :: Proc
+-- f4 = STOP
+
+-- datatype A = B
+
+-- f5 :: A
+-- f5 = B
+
+-- channel c_ : Int
+
+-- f6 :: Event
+-- f6 = c_.0
+
+-- f7 :: (Int, Bool)
+-- f7 = (0, true)
+
+-- f8 :: {Int}
+-- f8 = {0, 1}
+
+-- f9 :: <Bool>
+-- f9 = <false>
+
+-- f10 :: Int => Event
+-- f10 = c_
+
+-- f11 :: Int.Bool
+-- f11 = 0.false
+
+-- f12 :: (Int)
+-- f12 = 5
+
+-- f13 :: (Int) -> Int
+-- f13 = \ 0 @ 0
+
+-- f14 :: (Int) -> (Int) -> Int
+-- f14(x)(y) = x + y
+
+-- f15 :: (a) -> a
+-- f15(x) = x
+
+-- f16 = (f15(0), f15(true))
+
+-- f17 :: (Int, Bool)
+-- f17 = (f15(0), f15(true))
+
+-- f18 :: (a, Int) -> b
+-- f18(x, y) = error("Something")
+
+-- f19 :: Eq a1 => (a1, a1) -> Bool
+-- f19(x, y) = x == y
+
+-- f20 :: (Eq a, Ord a) => (a, a) -> Bool
+-- f20(x,y) = x < y
+
+-- f21 :: Set a => (a) -> {a}
+-- f21 (x) =
+--     let
+--         y :: {a}
+--         y = {x}
+--     within y
+
+-- f22 :: (b=>a, c=>b, c) -> a
+-- f22(x,y,z) = x.y.z
+
+-- f23 :: (b=>a, c=>b) -> c=>a
+-- f23(x,y) = x.y
+
+f24 :: (b=>Event, a=>*b) -> a=>*Event
+f24(x,y) = x.y
+
+f25 :: (Set b, Set d, Yieldable d) => (<b=>d>, {a=>*b}) -> {d}
+f25(S, C) =
+    let
+        f :: (<b=>d>, a=>*b) -> {d}
+        f(<>, _) = {}
+        f(s, c) = Union({ productions(x.c) | x <- set(s) })
+    within Union({f(S,c) | c <- C})

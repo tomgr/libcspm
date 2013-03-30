@@ -1,0 +1,2 @@
+f :: (Event =>* b) -> Event =>* b
+f(x) = x 

@@ -192,8 +192,21 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
     errorContext (Transparent ns) = Nothing
     errorContext (External ns) = Nothing
     
-        ts <- mapM (\ m -> addErrorContext (matchCtxt m) $ typeCheck m) ms
     typeCheck' (FunBind n ms mta) = do
+        let boundTypeVars =
+                case mta of
+                    Just (An _ _ (STypeScheme boundNs _ _)) -> boundNs
+                    _ -> []
+        ts <- local boundTypeVars $ do
+            mta <- case mta of
+                    Just ta -> do
+                        ForAll _ t <- typeCheck ta
+                        return $ Just t
+                    Nothing -> return Nothing
+            mapM (\ m -> addErrorContext (matchCtxt m) $ 
+                case mta of
+                    Nothing -> typeCheck m
+                    Just ta -> typeCheckExpect m ta) ms
         ForAll [] t <- getType n
         -- This unification also ensures that each equation has the same number
         -- of arguments.
@@ -203,9 +216,19 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
             matchCtxt an = 
                 hang (text "In an equation for" <+> prettyPrint n <> colon) 
                     tabWidth (prettyPrintMatch n an)
-        tpat <- typeCheck pat
-        texp <- typeCheck exp
     typeCheck' (p@(PatBind pat exp mta)) = do
+        (texp, tpat) <-
+            case mta of
+                Nothing -> do
+                    tpat <- typeCheck pat
+                    texp <- typeCheck exp
+                    return (tpat, texp)
+                Just ta -> do
+                    -- todo: check
+                    ForAll _ typ <- typeCheck ta
+                    tpat <- typeCheckExpect pat typ
+                    texp <- typeCheckExpect exp typ
+                    return (tpat, texp)
         -- We evaluate the dots to implement the 'longest match' rule. For
         -- example, suppose we have the following declaration:
         --   datatype A = B.Integers.Integers
@@ -369,3 +392,72 @@ instance TypeCheckable (Match Name) Type where
                 ) pats) groups
 
             return $ foldr (\ targs tr -> TFunction targs tr) tr tgroups
+    typeCheckExpect (Match groups exp) tsig = do
+        -- Introduce free variables for all the parameters
+        let fvs = boundNames groups
+        local fvs $ do
+            -- Check that the function signature is of a plausible shape
+            rt <- freshTypeVar
+            argts <- mapM (flip replicateM freshTypeVar) (map length groups)
+            unify tsig $ foldr (\ targs tr -> TFunction targs tr) rt argts
+
+            -- The rest of the code is as before (comments before also apply)
+            tgroups <- zipWithM (\ pats argts -> zipWithM (\ pat argt -> 
+                    typeCheckExpect pat argt >>= evaluateDots
+                ) pats argts) groups argts    
+            tr <- typeCheckExpect exp rt >>= evaluateDots
+            tgroups <- mapM (\ pats -> mapM (\ pat -> 
+                    typeCheck pat >>= evaluateDots
+                ) pats) groups
+            return $ foldr (\ targs tr -> TFunction targs tr) tr tgroups
+
+instance TypeCheckable TCSTypeScheme TypeScheme where
+    errorContext an = Nothing
+    typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
+instance TypeCheckable (STypeScheme Name) TypeScheme where
+    errorContext _ = Nothing
+    typeCheck' (STypeScheme boundNs cs t) = do
+        tvs <- mapM (\ n -> do
+            let ncs = map (\ (STypeConstraint c _) -> c) $
+                        filter (\ (STypeConstraint _ n') -> n == n') $
+                        (map unAnnotate cs)
+            t@(TVar tvref) <- freshRigidTypeVarWithConstraints n ncs
+            setType n (ForAll [] t)
+            return (typeVar tvref, constraints tvref)
+            ) boundNs
+        t' <- typeCheck t
+        return $ ForAll tvs t'
+
+instance TypeCheckable TCSType Type where
+    errorContext _ = Nothing
+    typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
+instance TypeCheckable (SType Name) Type where
+    errorContext _ = Nothing
+    typeCheck' (STVar var) = getType var >>= \ (ForAll [] t) -> return t
+    typeCheck' (STExtendable t var) = do
+        t <- typeCheck t
+        TVar tvref <- getType var >>= \ (ForAll [] t) -> return t
+        return $ TExtendable t tvref
+    typeCheck' (STSet t) = typeCheck t >>= return . TSet
+    typeCheck' (STSeq t) = typeCheck t >>= return . TSeq
+    typeCheck' (STDot t1 t2) = do
+        t1' <- typeCheck t1
+        t2' <- typeCheck t2
+        return $ TDot t1' t2'
+    typeCheck' (STTuple ts) = mapM typeCheck ts >>= return . TTuple
+    typeCheck' (STFunction args rt) = do
+        targs <- mapM typeCheck args
+        trt <- typeCheck rt
+        return $ TFunction targs trt
+    typeCheck' (STDotable t1 t2) = do
+        t1' <- typeCheck t1
+        t2' <- typeCheck t2
+        return $ TDotable t1' t2'
+    typeCheck' (STParen t) = typeCheck t
+
+    typeCheck' (STDatatype n) = return $ TDatatype n
+    typeCheck' STProc = return TProc
+    typeCheck' STInt = return TInt
+    typeCheck' STBool = return TBool
+    typeCheck' STChar = return TChar
+    typeCheck' STEvent = return TEvent

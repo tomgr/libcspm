@@ -1,0 +1,2 @@
+f :: Set Event => Int
+f = 0

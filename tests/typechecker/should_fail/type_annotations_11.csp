@@ -1,0 +1,4 @@
+f19 :: Eq a1 => (a1, a1) -> Bool
+f19(x, y) = x == y
+
+g = f19(STOP, STOP)
