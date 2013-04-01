@@ -35,9 +35,14 @@ import Util.PrettyPrint hiding (($$))
 import qualified Util.PrettyPrint as P
 
 type RenameEnvironment = HM.HierarchicalMap UnRenamedName Name
+type TypeRenameEnvironment = HM.HierarchicalMap UnRenamedName (SType Name)
 
 data RenamerState = RenamerState {
+        -- | The current rename map for variables.
         environment :: RenameEnvironment,
+        -- | The current rename map for type-variables.
+        typeEnvironment :: TypeRenameEnvironment,
+        -- | The last source span seen, for error messages.
         srcSpan :: SrcSpan,
         -- | Errors that have occured.
         errors :: [ErrorMessage],
@@ -51,9 +56,17 @@ type RenamerMonad = StateT RenamerState IO
 initRenamer :: IO (RenamerState)
 initRenamer = do
     let bs = map (\b -> (UnQual (OccName (stringName b)), name b)) (builtins False)
+        bts = map (\ (s, t) -> (UnQual (OccName s), t)) [
+                    ("Proc", STProc),
+                    ("Int", STInt),
+                    ("Bool", STBool),
+                    ("Char", STChar),
+                    ("Event", STEvent)
+                ]
     return $ RenamerState {
         -- We insert a new layer to allow builtins to be overridden
         environment = HM.newLayer (HM.updateMulti HM.new bs),
+        typeEnvironment = HM.newLayer (HM.updateMulti HM.new bts),
         srcSpan = Unknown,
         errors = [],
         currentModuleQualificationStack = []
@@ -76,6 +89,25 @@ getBoundNames = do
 
 -- **********************
 -- Monad Operations
+
+addTypeScope :: RenamerMonad a -> RenamerMonad a
+addTypeScope m = do
+    env <- gets typeEnvironment
+    let env' = HM.newLayer env
+    modify (\ st -> st { typeEnvironment = env' })
+    a <- m
+    modify (\ st -> st { typeEnvironment = env })
+    return a
+
+lookupType :: UnRenamedName -> RenamerMonad (Maybe (SType Name))
+lookupType n = do
+    env <- gets typeEnvironment
+    return $! HM.maybeLookup env n
+
+setType :: UnRenamedName -> SType Name -> RenamerMonad ()
+setType rn t = modify (\ st -> st {
+        typeEnvironment = HM.update (typeEnvironment st) rn t
+    })
 
 addScope :: RenamerMonad a -> RenamerMonad a
 addScope m = do
@@ -243,6 +275,7 @@ renameDeclarations topLevel ds prog = do
             DataType rn _ -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
+                setType rn (STDatatype n)
             SubType rn _ -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
@@ -253,13 +286,13 @@ renameDeclarations topLevel ds prog = do
                         Nothing -> 
                             let err = mkErrorMessage (loc pd) (externalFunctionNotRecognised rn)
                             in addErrors [err]) ns
-            FunBind rn ms -> do
+            FunBind rn ms _ -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
             NameType rn _ -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
-            PatBind p e -> renamePattern nameMaker p >> return ()
+            PatBind p e _ -> renamePattern nameMaker p >> return ()
             Transparent ns -> 
                 mapM_ (\ rn@(UnQual ocn) -> do
                     case transparentFunctionForOccName ocn of
@@ -333,18 +366,24 @@ renameDeclarations topLevel ds prog = do
             External rns -> resetModuleContext $ do
                 ns <- mapM renameVarRHS rns
                 return $ External ns
-            FunBind rn ms -> resetModuleContext $ do
+            FunBind rn ms ta -> resetModuleContext $ do
                 n <- renameVarRHS rn
-                ms' <- mapM rename ms
-                return $ FunBind n ms'
+                addTypeScope $ do
+                    -- Must be done here in types are in scope in expressions
+                    ta' <- rename ta
+                    ms' <- mapM rename ms
+                    return $ FunBind n ms' ta'
             NameType rn e -> resetModuleContext $ do
                 n <- renameVarRHS rn
                 e' <- addScope $ rename e
                 return $ NameType n e'
-            PatBind p e -> resetModuleContext $ do
+            PatBind p e ta -> resetModuleContext $ do
                 p' <- renamePattern ignoringNameMaker p
-                e' <- addScope $ rename e
-                return $ PatBind p' e'
+                addTypeScope $ do
+                    -- Must be done here in types are in scope in expressions
+                    ta' <- rename ta
+                    e' <- addScope $ rename e
+                    return $ PatBind p' e' ta'
             Transparent rns -> resetModuleContext $ do
                 ns <- mapM renameVarRHS rns
                 return $ Transparent ns
@@ -444,11 +483,11 @@ checkDuplicates aps = do
 renameVarRHS :: UnRenamedName -> RenamerMonad Name
 renameVarRHS n = do
     mn <- lookupName n
-    loc <- gets srcSpan
     case mn of
         Just x -> return x
         Nothing -> do
             msg <- varNotInScopeMessage n
+            loc <- gets srcSpan
             addErrors [mkErrorMessage loc msg]
             return $ panic "error name evaluated"
 
@@ -689,6 +728,74 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
         (stmts', e2') <- renameStatements stmts (rename e2)
         return $ ReplicatedSynchronisingExternalChoice e1' stmts' e2'
 
+instance Renamable (STypeScheme UnRenamedName) (STypeScheme Name) where
+    rename (STypeScheme [] cs t) = do
+        loc <- gets srcSpan
+        -- Inject the type-variables we need
+        tvars <- freeTypeVars t >>= return
+                . nubBy (\ x y -> fst x == fst y)
+                . sortBy (\ x y -> compare (fst x) (fst y))
+        ns <- mapM (\ (rn, _) -> do
+            n <- internalNameMaker loc rn
+            setType rn $ STVar n
+            return n) tvars
+        return STypeScheme $$ return ns $$ rename cs $$ rename t
+
+instance Renamable (STypeConstraint UnRenamedName) (STypeConstraint Name) where
+    rename (STypeConstraint c n) =
+        return STypeConstraint $$ return c $$ do
+            n' <- renameTypeVar n 
+            case n' of
+                Nothing -> return renameTypeVarThunk
+                Just (STVar n) -> return n
+                Just t -> do
+                    loc <- gets srcSpan
+                    let msg = invalidTypeConstraintVariable t
+                    addErrors [mkErrorMessage loc msg]
+                    return renameTypeVarThunk
+
+instance Renamable (SType UnRenamedName) (SType Name) where
+    rename (STVar n) = renameTypeVar' n
+    rename (STExtendable t n) =
+        return STExtendable $$ rename t $$ do
+            n' <- renameTypeVar n
+            case n' of
+                Nothing -> return renameTypeVarThunk
+                Just (STVar n) -> return n
+                Just t -> do
+                    loc <- gets srcSpan
+                    let msg = invalidExtendableTypeVariable t
+                    addErrors [mkErrorMessage loc msg]
+                    return $ panic "renameSTExtendable: error thunk"
+    rename (STSet t) = return STSet $$ rename t
+    rename (STSeq t) = return STSeq $$ rename t
+    rename (STDot t1 t2) = return STDot $$ rename t1 $$ rename t2
+    rename (STTuple ts) = return STTuple $$ rename ts
+    rename (STFunction args rt) = return STFunction $$ rename args $$ rename rt
+    rename (STDotable t1 t2) = return STDotable $$ rename t1 $$ rename t2
+    rename (STParen t) = return STParen $$ rename t
+
+renameTypeVarThunk :: a
+renameTypeVarThunk = panic "renameTypeVar': error thunk evaluated"
+
+renameTypeVar' :: UnRenamedName -> RenamerMonad (SType Name)
+renameTypeVar' n = do
+    mn <- renameTypeVar n
+    case mn of
+        Just n -> return n
+        Nothing -> return renameTypeVarThunk
+
+renameTypeVar :: UnRenamedName -> RenamerMonad (Maybe (SType Name))
+renameTypeVar n = do
+    mn <- lookupType n
+    case mn of
+        Just x -> return $ Just x
+        Nothing -> do
+            msg <- typeVarNotInScopeMessage n
+            loc <- gets srcSpan
+            addErrors [mkErrorMessage loc msg]
+            return Nothing
+
 class FreeVars a where
     freeVars :: a -> RenamerMonad [UnRenamedName]
 
@@ -739,14 +846,38 @@ instance FreeVars (Decl UnRenamedName) where
     freeVars (DataType n cs) = 
         return $ n:[n' | DataTypeClause n' _ <- map unAnnotate cs]
     freeVars (SubType n _) = return [n]
-    freeVars (FunBind n _) = return [n]
+    freeVars (FunBind n _ _) = return [n]
     freeVars (NameType n _) = return [n]
-    freeVars (PatBind p _) = freeVars p
+    freeVars (PatBind p _ _) = freeVars p
     freeVars (Transparent ns) = return ns
     freeVars (Module (UnQual n) ps _ expDs) = do
         ns <- freeVars expDs
         return $ UnQual n : map (Qual n) ns
     freeVars (TimedSection _ _ ds) = freeVars ds
+
+freeTypeVars :: PSType -> RenamerMonad [(UnRenamedName, SrcSpan)]
+freeTypeVars st =
+    let
+        freeTypeVarsL = concatMapM freeTypeVars
+        freeVars (STVar n) = do
+            mt <- lookupType n
+            return $! case mt of
+                Just _ -> []
+                Nothing -> [(n, loc st)]
+        freeVars (STExtendable t n) = do
+            ns <- freeTypeVars t
+            mt <- lookupType n
+            return $! case mt of
+                Just _ -> ns
+                Nothing -> (n, loc st):ns
+        freeVars (STSet t) = freeTypeVars t
+        freeVars (STSeq t) = freeTypeVars t
+        freeVars (STDot t1 t2) = freeTypeVarsL [t1, t2]
+        freeVars (STTuple ts) = freeTypeVarsL ts
+        freeVars (STFunction args rt) = freeTypeVarsL (rt:args)
+        freeVars (STDotable t1 t2) = freeTypeVarsL [t1, t2]
+        freeVars (STParen t) = freeTypeVars t
+    in freeVars (unAnnotate st)
 
 -- ********************
 -- Error Messages
@@ -807,6 +938,25 @@ varNotInScopeMessage n = do
                             l -> parens (text "defined at" <+> prettyPrint l)
                      ) suggestions)))
 
+typeVarNotInScopeMessage :: UnRenamedName -> RenamerMonad Error
+typeVarNotInScopeMessage n = do
+    env <- gets typeEnvironment
+    let availablePp = [(show $ prettyPrint rn, (rn, n)) | (rn, n) <- HM.flatten env]
+        suggestions = fuzzyLookup (show $ prettyPrint n) availablePp
+    return $ 
+        (text "The type-variable" <+> prettyPrint n <+> text "is not in scope")
+        P.$$ case suggestions of
+            [] -> empty
+            _ -> hang (text "Did you mean:") tabWidth (vcat (
+                    (map (\ (rn, t) -> 
+                        prettyPrint rn <+>
+                        case t of 
+                            STVar n | nameDefinition n /= Unknown ->
+                                parens (text "defined at" <+> prettyPrint
+                                    (nameDefinition n))
+                            _ -> empty
+                     ) suggestions)))
+
 qualifiedVarNotAllowedInPat :: Pat UnRenamedName -> Error
 qualifiedVarNotAllowedInPat p =
     prettyPrint p <+>
@@ -817,3 +967,13 @@ invalidFieldsErrorMessage fs =
     hcat (map prettyPrint fs) <+>
     text "is not a valid field sequence as a $ occurs after a ? or a !."
 
+invalidExtendableTypeVariable :: PrettyPrintable id => SType id -> Error
+invalidExtendableTypeVariable t = 
+    text "The type" <+> prettyPrint t
+    P.$$ text "is not valid as the left hand side of =>*, which must be a type-variable."
+
+invalidTypeConstraintVariable :: PrettyPrintable id => SType id -> Error
+invalidTypeConstraintVariable t =
+    text "The type" <+> prettyPrint t <+>
+        text "cannot be constrainted using a type constraint;"
+    P.$$ text "as only type variables may be constrained."

@@ -275,12 +275,12 @@ tryAndRecover retainErrors prog handler = tryM prog >>= \x ->
 -- Type Operations
 -- *************************************************************************
 readTypeRef :: TypeVarRef -> TypeCheckMonad (Either (TypeVar, [Constraint]) Type)
-readTypeRef (TypeVarRef tv cs ioref) = 
-    do
-        mtyp <- readPType ioref
-        case mtyp of
-            Just t  -> return (Right t)
-            Nothing -> return (Left (tv, cs))
+readTypeRef (TypeVarRef tv cs ioref) = do
+    mtyp <- readPType ioref
+    case mtyp of
+        Just t  -> return (Right t)
+        Nothing -> return (Left (tv, cs))
+readTypeRef (RigidTypeVarRef tv cs _) = return $ Left (tv, cs)
 
 writeTypeRef :: TypeVarRef -> Type -> TypeCheckMonad ()
 writeTypeRef (TypeVarRef tv cs ioref) t = setPType ioref t
@@ -373,8 +373,17 @@ compress (TDot t1 t2) = do
     t2' <- compress t2
     return $ TDot t1' t2'
 compress (tr @ (TExtendable t pt)) = do
-    res <- readTypeRef pt
-    case res of
-        Left tv -> return tr
-        Right t -> compress t
+    t <- compress t
+    let extract (Just pt) (Left tv) = return $! TExtendable t pt
+        extract _ (Right TExtendableEmptyDotList) = return t
+        extract _ (Right (TVar pt')) = extractFromTExtendable pt'
+        extract _ (Right (TDotable argt rt)) = do
+            rt' <- extract Nothing (Right rt)
+            argt' <- compress argt
+            return $ TDotable argt' rt'
+        extract _ (Right t) = panic ("Cannot extract from "++show t)
+
+        extractFromTExtendable pt = readTypeRef pt >>= extract (Just pt)
+
+    extractFromTExtendable pt
 compress t = return t

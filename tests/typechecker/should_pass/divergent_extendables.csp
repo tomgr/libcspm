@@ -1,0 +1,9 @@
+datatype X = Y
+
+f :: (a =>* Event, a =>* X) -> Proc
+f(x, y) = STOP
+
+channel c
+
+g :: Proc
+g = f(c, Y)

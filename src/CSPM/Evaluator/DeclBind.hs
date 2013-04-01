@@ -41,7 +41,7 @@ bindDecls ds = do
     else return nvs
 
 bindDecl :: TCDecl -> EvaluationMonad [(Name, EvaluationMonad Value)]
-bindDecl (an@(An _ _ (FunBind n ms))) = do
+bindDecl (an@(An _ _ (FunBind n ms _))) = do
     parentScope <- getParentScopeIdentifier
     let
         matches = map unAnnotate ms
@@ -75,7 +75,7 @@ bindDecl (an@(An _ _ (FunBind n ms))) = do
             return $ VFunction fid $ \ vs ->
                 modify (\_ -> st) $ collectArgs (number-1) (vs:ass)
     return $ [(n, collectArgs argGroupCount [])]
-bindDecl (an@(An _ _ (PatBind p e))) = do
+bindDecl (an@(An _ _ (PatBind p e _))) = do
     parentScope <- getParentScopeIdentifier
     let [(n, ForAll _ t)] = getSymbolTable an
         scopeName = scopeId n [] parentScope

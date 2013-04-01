@@ -17,8 +17,8 @@ instance BoundNames a => BoundNames (Annotated b a) where
 instance BoundNames a => BoundNames [a] where
     boundNames = concatMap boundNames
 instance BoundNames (Decl Name) where
-    boundNames (FunBind n ms) = [n]
-    boundNames (PatBind p ms) = boundNames p
+    boundNames (FunBind n ms _) = [n]
+    boundNames (PatBind p ms _) = boundNames p
     boundNames (Channel ns es) = ns
     boundNames (SubType n dcs) = [n]
     boundNames (DataType n dcs) = n : boundNames dcs
@@ -229,8 +229,8 @@ instance FreeVars (Field Name) where
     freeVars' (Output e) = freeVars e
 
 instance FreeVars (Decl Name) where
-    freeVars' (FunBind n ms) = freeVars ms
-    freeVars' (PatBind p e) = freeVars p ++ freeVars e
+    freeVars' (FunBind n ms _) = freeVars ms
+    freeVars' (PatBind p e _) = freeVars p ++ freeVars e
     freeVars' (Channel ns es) = freeVars es
     freeVars' (DataType n cs) = freeVars [cs]
     freeVars' (SubType n cs) =

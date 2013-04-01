@@ -192,7 +192,7 @@ evaluatorTest fp = do
     -- patterns of type :: Bool
     mapM_ (\ d ->
         case d of 
-            PatBind p _ ->
+            PatBind p _ _ ->
                 case unAnnotate p of
                     PVar n -> do
                         let s = show n
