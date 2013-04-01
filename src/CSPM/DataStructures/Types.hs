@@ -82,8 +82,30 @@ data Type =
     | TBool
     | TChar
     | TEvent
-    -- Something that can be extended to the given type
-    | TExtendable Type TypeVarRef
+    -- | Something that can be extended via some means to a given type.
+    --
+    -- After type-checking, the TypeVarRef will simply be a variable that
+    -- contains Nothing. This means that it can be converted into an explicit
+    -- TDotable via some unknown means, or directly to the return type.
+    --
+    -- The variable argument here has a slightly special role during
+    -- unification. If it contains Nothing then this is extendable via some
+    -- unknown means to the specified type. If it contains a TDotable argt rt,
+    -- then we know that one of the arguments is argt, and the remaining
+    -- arguments are rt, which must either be a Dotable or a variable. The
+    -- meaning in the former sense is recursive, the meaning in the latter case
+    -- is clear. If it contains  TVar tvref, then this means tvref has replaced
+    -- this argument variable.
+    --
+    -- We need to do the above as we may have multiple things that are
+    -- extendable in the same way, so we need to sync the arguments together.
+    | TExtendable {
+        extendableUltimateType :: Type,
+        extendableArgument :: TypeVarRef
+    }
+    -- | This type is used only during type-checking, and is guaranteed to only
+    -- ever appear at the top-level of the left-hand side of a TExtendable.
+    | TExtendableEmptyDotList
     | TSet Type
     | TSeq Type
     | TDot Type Type
