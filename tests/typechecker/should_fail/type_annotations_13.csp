@@ -1,0 +1,6 @@
+f :: (a) -> a
+f(x) =
+    let 
+        g :: Set a => (a) -> a
+        g(x) = x
+    within g(x)

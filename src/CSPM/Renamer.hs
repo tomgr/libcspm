@@ -739,6 +739,14 @@ instance Renamable (STypeScheme UnRenamedName) (STypeScheme Name) where
             n <- internalNameMaker loc rn
             setType rn $ STVar n
             return n) tvars
+        mapM_ ( \ (An loc _ (c@(STypeConstraint _ n))) -> do
+                n' <- renameTypeVar n
+                case n' of
+                    Just (STVar n') | not (n' `elem` ns) -> 
+                        let msg = invalidTypeConstraintLocation c n'
+                        in addErrors [mkErrorMessage loc msg]
+                    _ -> return ()
+            ) cs
         return STypeScheme $$ return ns $$ rename cs $$ rename t
 
 instance Renamable (STypeConstraint UnRenamedName) (STypeConstraint Name) where
@@ -977,3 +985,12 @@ invalidTypeConstraintVariable t =
     text "The type" <+> prettyPrint t <+>
         text "cannot be constrainted using a type constraint;"
     P.$$ text "as only type variables may be constrained."
+
+invalidTypeConstraintLocation :: PrettyPrintable id => STypeConstraint id ->
+    Name -> Error
+invalidTypeConstraintLocation c typeVar =
+    text "The type constraint" <+> prettyPrint c <+>
+        text "cannot be specified at this location, since"
+    P.$$ text "the type-variable it refers to, i.e." <+> prettyPrint typeVar <>
+        text ", was bound in the type annotation at:"
+    P.$$ tabIndent (prettyPrint (nameDefinition typeVar))
