@@ -4,9 +4,9 @@
 module CSPM.Evaluator.ProcessValues (
     -- * Events
     Event(..),
-    EventSet, eventSetFromList,
+    EventSet, eventSetFromList, EventMap,
     -- * Processes
-    Proc(..), UnCompiledProc, UnCompiledProcOperator,
+    Proc(..), UnCompiledProc, UnCompiledProcOperator, UnCompiledOperator,
     CSPOperator(..),
     ProcOperator(..), 
     ProcName(..),
@@ -32,6 +32,7 @@ data Event =
     | UserEvent Value
     deriving (Eq, Ord)
 
+type EventMap = S.Seq (Event, Event)
 type EventSet = S.Seq Event
 
 eventSetFromList :: [Event] -> EventSet
@@ -132,8 +133,7 @@ trimEvent Tau = Tau
 trimEvent Tick = Tick
 trimEvent (UserEvent v) = UserEvent (trimValueForProcessName v)
 
-trimOperator :: CSPOperator S.Seq Event (S.Seq Event) (S.Seq (Event, Event)) ->
-    CSPOperator S.Seq Event (S.Seq Event) (S.Seq (Event, Event))
+trimOperator :: UnCompiledOperator -> UnCompiledOperator
 trimOperator (PAlphaParallel s) = PAlphaParallel (fmap (fmap trimEvent) s)
 trimOperator (PException s) = PException (fmap trimEvent s)
 trimOperator PExternalChoice = PExternalChoice
@@ -200,6 +200,8 @@ instance (Ord pn, Ord (seq (Proc seq op pn ev evs evm)), Ord (op seq ev evs evm)
 
 type UnCompiledProc = 
     Proc S.Seq CSPOperator ProcName Event (S.Seq Event) (S.Seq (Event, Event))
+type UnCompiledOperator = 
+    CSPOperator S.Seq Event (S.Seq Event) (S.Seq (Event, Event))
 type UnCompiledProcOperator =
     ProcOperator S.Seq (S.Seq Event)
 
