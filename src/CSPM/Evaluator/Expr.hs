@@ -412,18 +412,19 @@ instance Evaluatable (Exp Name) where
             p <- evalProc e2
             return (S.valueSetToEventSet s, p)
         let (as, ps) = unzipSq aps
-        return $ VProc $ POp (PAlphaParallel as) ps
+        maybeTSTOP ps $ return $ VProc $ POp (PAlphaParallel as) ps
     eval (ReplicatedExternalChoice stmts e) = do
         ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
         maybeTimedCSP
             (return $ VProc $ POp PExternalChoice ps)
-            (\ tn _ -> return $ VProc $
+            (\ tn _ -> maybeTSTOP ps $ return $ VProc $
                 POp (PSynchronisingExternalChoice (tockSet tn)) ps)
     eval (ReplicatedInterleave stmts e) = do
         ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
         maybeTimedCSP
             (return $ VProc $ POp PInterleave ps)
-            (\ tn _ -> return $ VProc $ POp (PGenParallel (tockSet tn)) ps)
+            (\ tn _ -> maybeTSTOP ps $
+                return $ VProc $ POp (PGenParallel (tockSet tn)) ps)
     eval (e'@(ReplicatedInternalChoice stmts e)) = do
         ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
         if Sq.null ps then
@@ -445,7 +446,8 @@ instance Evaluatable (Exp Name) where
     eval (ReplicatedParallel e1 stmts e2) = do
         VSet s <- timedCSPSyncSet $ eval e1
         ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e2)
-        return $ VProc $ POp (PGenParallel (S.valueSetToEventSet s)) ps
+        maybeTSTOP ps $ 
+            return $ VProc $ POp (PGenParallel (S.valueSetToEventSet s)) ps
     eval (ReplicatedSequentialComp stmts e) = do
         ps <- evalStmts' (\(VList vs) -> Sq.fromList vs) stmts (evalProc e)
         if Sq.null ps then
@@ -458,7 +460,7 @@ instance Evaluatable (Exp Name) where
     eval (ReplicatedSynchronisingExternalChoice e1 stmts e2) = do
         VSet a <- timedCSPSyncSet $ eval e1
         ps <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e2)
-        return $ VProc $ POp
+        maybeTSTOP ps $ return $ VProc $ POp
             (PSynchronisingExternalChoice (S.valueSetToEventSet a)) ps
     
     eval e = panic ("No clause to eval "++show e)
@@ -549,6 +551,15 @@ timedCSPSyncSet prog = do
     maybeTimedCSP
         (return $ VSet a)
         (\ tn _ -> return $ VSet (S.union (S.fromList [tockValue tn]) a))
+
+tSTOP :: EvaluationMonad Value
+tSTOP = do
+    VFunction _ tstop <- lookupVar (builtInName "TSTOP")
+    tstop []
+
+maybeTSTOP :: Sq.Seq a -> EvaluationMonad Value -> EvaluationMonad Value
+maybeTSTOP sq p1 =
+    maybeTimedCSP p1 (\ _ _ -> if Sq.null sq then tSTOP else p1)
 
 tock :: Name -> Event
 tock tn = UserEvent (tockValue tn)

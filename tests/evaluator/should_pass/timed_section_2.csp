@@ -1,0 +1,19 @@
+channel tock
+
+Timed {
+
+pt1 = [] x : {} @ STOP
+pt2 = [+{}+] x : {} @ STOP
+pt3 = [+{}+] x : {} @ STOP
+pt4 = [| {} |] x : {} @ STOP
+pt5 = ||| x : {} @ STOP
+pt6 = || x : {} @ [{}] STOP
+
+}
+
+procTest1 = pt1
+procTest2 = pt2
+procTest3 = pt3
+procTest4 = pt4
+procTest5 = pt5
+procTest6 = pt6

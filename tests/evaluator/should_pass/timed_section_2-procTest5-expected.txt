@@ -1,0 +1,7 @@
+STOP::tock = tock -> STOP::tock
+
+pt5 = STOP::tock
+
+procTest5 = pt5
+
+procTest5
