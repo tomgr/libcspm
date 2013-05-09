@@ -144,6 +144,7 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
 
             spaceCost :: Value -> Int
             spaceCost (VInt _) = 1
+            spaceCost (VChar _) = 1
             spaceCost (VBool _) = 1
             spaceCost (VTuple arr) = 2 + length vs + sum (map spaceCost vs)
                 where vs = F.toList arr 
