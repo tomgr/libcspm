@@ -184,8 +184,9 @@ builtInFunctions =
 
         csp_wait [VInt tocks] = do
             Just (_, tn) <- gets timedSection
+            VProc tskip <- csp_tskip []
             let
-                mkTocker 0 = csp_skip
+                mkTocker 0 = tskip
                 mkTocker n =
                     PUnaryOp (PPrefix (UserEvent $ VDot [VChannel tn]))
                         (mkTocker (n-1))

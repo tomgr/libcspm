@@ -1,6 +1,8 @@
 SKIP = ✓ -> STOP
 
-WAIT(5)::tock = tock -> tock -> tock -> tock -> tock -> SKIP
+SKIP::tock = tock -> SKIP::tock [] SKIP
+
+WAIT(5)::tock = tock -> tock -> tock -> tock -> tock -> SKIP::tock
 
 waitN = WAIT(5)::tock ; waitN
 
