@@ -418,7 +418,7 @@ instance (Applicative m, Monad m,
         M.MonadicPrettyPrintable m ValueSet) =>
         M.MonadicPrettyPrintable m Value where
     prettyPrint (VInt i) = M.int i
-    prettyPrint (VChar c) = M.char c
+    prettyPrint (VChar c) = M.quotes (M.char c)
     prettyPrint (VBool True) = M.text "true"
     prettyPrint (VBool False) = M.text "false"
     prettyPrint (VTuple vs) = M.parens (M.list $ mapM M.prettyPrint (elems vs))
@@ -426,7 +426,7 @@ instance (Applicative m, Monad m,
     prettyPrint (VChannel n) = M.prettyPrint n
     prettyPrint (VDataType n) = M.prettyPrint n
     prettyPrint (VList (vs@((VChar _) : _))) =
-        M.text (map (\ (VChar c) -> c) vs)
+        M.doubleQuotes (M.text (map (\ (VChar c) -> c) vs))
     prettyPrint (VList vs) = M.angles (M.list $ mapM M.prettyPrint vs)
     prettyPrint (VSet s) = M.prettyPrint s
     prettyPrint (VFunction (FBuiltInFunction n args) _) =
