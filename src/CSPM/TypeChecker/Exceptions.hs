@@ -7,6 +7,7 @@ module CSPM.TypeChecker.Exceptions (
     constraintUnificationErrorMessage,
     deprecatedNameUsed,
     unsafeNameUsed,
+    illegalModuleInstanceCycleErrorMessage,
     ErrorOptions(..), defaultErrorOptions,
 )
 where
@@ -90,6 +91,14 @@ unsafeNameUsed n =
     text "The invocation of" <+> prettyPrint n 
         <+> text "has not been type-checked."
     $$ text "Therefore, a runtime type error may occur."
+
+illegalModuleInstanceCycleErrorMessage :: Name -> Name -> [Name] -> Error
+illegalModuleInstanceCycleErrorMessage mName iName path = 
+    fsep [text "The module" <+> prettyPrint mName,
+        text "uses a definition in an instance" <+> prettyPrint iName,
+        text "of itself, which is not allowed."]
+    $$ text "The path by which the module calls its instance is:"
+    $$ tabIndent (list (map prettyPrint path))
 
 -- | A datatype used to hold which errors and warnings to actually emit.
 data ErrorOptions = ErrorOptions {

@@ -19,6 +19,7 @@ module CSPM.TypeChecker.Monad (
     datatypeIsComparableForEquality,
     unmarkDatatypeAsComparableForEquality,
     modifyErrorOptions,
+    addDefinitionName, getDefinitionStack,
     
     raiseMessageAsError, raiseMessagesAsError, panic,
     manyErrorsIfFalse, errorIfFalseM, errorIfFalse, tryAndRecover, failM,
@@ -58,6 +59,8 @@ data TypeInferenceState = TypeInferenceState {
         -- | Stack of attempted unifications - the current one
         -- is at the front. In the form (expected, actual).
         unificationStack :: [(Type, Type)],
+        -- | The stack of names that we are currently type-checking.
+        definitionStack :: [Name],
         -- | Are we currently in an error state
         inError :: Bool,
         symUnificationAllowed :: Bool,
@@ -75,6 +78,7 @@ newTypeInferenceState = TypeInferenceState {
         errors = [],
         warnings = [],
         unificationStack = [],
+        definitionStack = [],
         inError = False,
         symUnificationAllowed = True,
         comparableForEqualityDataTypes = [],
@@ -186,6 +190,16 @@ addUnificationPair tp p = do
     a <- p
     modify (\ st -> st { unificationStack = stk })
     return a
+
+addDefinitionName :: Name -> TypeCheckMonad a -> TypeCheckMonad a
+addDefinitionName n prog = do
+    modify (\st -> st { definitionStack = n : (definitionStack st) })
+    a <- prog
+    modify (\st -> st { definitionStack = tail (definitionStack st) })
+    return a
+
+getDefinitionStack :: TypeCheckMonad [Name]
+getDefinitionStack = gets definitionStack
 
 symmetricUnificationAllowed :: TypeCheckMonad Bool
 symmetricUnificationAllowed = gets symUnificationAllowed

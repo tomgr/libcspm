@@ -1,6 +1,6 @@
 module CSPM.TypeChecker.Unification (
     generaliseGroup, instantiate, unify, unifyAll, evaluateDots,
-    typeToDotList, dotableToDotList,
+    typeToDotList, dotableToDotList, substituteTypes, instantiate',
 ) where
 
 import Control.Monad
@@ -82,10 +82,15 @@ generaliseGroup names tsm = do
 
 -- | Instantiates the typescheme with some fresh type variables.
 instantiate :: TypeScheme -> TypeCheckMonad Type
-instantiate (ForAll ts t) = do
+instantiate ts = instantiate' ts >>= return . fst
+
+instantiate' :: TypeScheme -> TypeCheckMonad (Type, [(TypeVar, Type)])
+instantiate' (ForAll ts t) = do
     tvs <- mapM (freshTypeVarWithConstraints . snd) ts
-    foldM (\ x y -> substituteType y x) t (zip (map fst ts) tvs)
-        
+    let sub = (zip (map fst ts) tvs)
+    t <- substituteTypes sub t
+    return (t, sub)
+
 -- | Does 'a' occur somewhere in 't'.
 occurs :: TypeVar -> Type -> TypeCheckMonad Bool
 occurs a (TVar tvref) = do
@@ -650,6 +655,9 @@ applySubstitution tvref typ = do
     else do
         safeWriteTypeRef tvref typ
         return typ
+
+substituteTypes :: [(TypeVar, Type)] -> Type -> TypeCheckMonad Type
+substituteTypes sub t = foldM (\ x y -> substituteType y x) t sub
 
 -- | Applies a subtitution directly to the type. This is used in
 -- type instantiation where we create a fresh type for each universal 

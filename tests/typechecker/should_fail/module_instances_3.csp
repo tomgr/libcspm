@@ -1,0 +1,6 @@
+module M(X)
+exports
+    y = M1::y
+endmodule
+
+instance M1 = M({1})

@@ -1,0 +1,15 @@
+P = STOP
+
+module M(X)
+    x = P
+exports
+    channel c
+
+    datatype Y = Z.X
+endmodule
+
+test5 =
+    let
+        instance M2 = M({1})
+        instance M3 = M({1})
+    within (M2::Z.1) == (M3::Z.1)

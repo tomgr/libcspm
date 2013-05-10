@@ -144,8 +144,11 @@ instance Compressable (Decl a) where
     mcompress (DataType n cs) = return (DataType n) $$ mcompress cs
     mcompress (SubType n cs) = return (SubType n) $$ mcompress cs
     mcompress (NameType n e) = return (NameType n) $$ mcompress e
-    mcompress (Module n [] ds1 ds2) =
-        return (Module n []) $$ mcompress ds1 $$ mcompress ds2
+    mcompress (Module n args ds1 ds2) =
+        return (Module n) $$ mcompress args $$ mcompress ds1 $$ mcompress ds2
+    mcompress (ModuleInstance n nt args nm rnm) =
+        return (ModuleInstance n) $$ return nt $$ mcompress args $$ return nm $$
+            mcompress rnm
     mcompress (TimedSection mn f ds) =
         return TimedSection $$ return mn $$ mcompress f $$ mcompress ds
 

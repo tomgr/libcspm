@@ -86,6 +86,7 @@ import Util.Exception (panic)
     "module"            { L _ TModule }
     "exports"           { L _ TExports }
     "endmodule"         { L _ TEndModule }
+    "instance"          { L _ TInstance }
     "::"                { L _ TScope }
     "Timed"             { L _ TTimed }
 
@@ -245,10 +246,10 @@ DeclA :: { PDecl }
     | "assert" "anot" Assertion                 { AN2 (Assert (AN2 (ASNot $3))) }
     | "assert" Assertion                        { AN2 (Assert $2) }
     | "nametype" Name "=" CExp                  { AN2 (NameType (unLoc $2) $4) }
-    | "module" Name newline DeclList
-      "exports" newline DeclList "endmodule"    { AN2 (Module (unLoc $2) [] 
-                                                    (map checkModuleDecl $4)
-                                                    (map checkModuleDecl $7)) }
+    | "module" Name OptPatList newline DeclList
+      "exports" newline DeclList "endmodule"    { AN2 (Module (unLoc $2) $3 
+                                                    (map checkModuleDecl $5)
+                                                    (map checkModuleDecl $8)) }
     | "Timed" "{" DeclList "}"                  { AN2 (TimedSection Nothing
                                                     Nothing
                                                     (map checkTimedDecl $3)) }
@@ -257,6 +258,18 @@ DeclA :: { PDecl }
                                                     (map checkTimedDecl $6)) }
     | NameCommaList1 OfType STypeScheme         { AN2LL (ParsedTypeAnnotation
                                                     (map unLoc $1) $3) }
+    | "instance" Name "=" Name ExpList          { AN2L (ModuleInstance (unLoc $2)
+                                                        (unLoc $4) $5 []
+                                                        Nothing) }
+
+OptPatList :: { [PPat] }
+    :
+                                                { [] }
+    | "(" rPatList ")"                          { reverse $2 }
+
+ExpList :: { [PExp] }
+    :
+    "(" CExpList ")"                            { reverse $2 }
 
 Assertion :: { PAssertion }
     :
@@ -364,6 +377,11 @@ Pat :: { PPat }
     :
     Exp                             { convPat $1 }
 
+rPatList :: { [PPat] }
+    :
+    Pat                             { [$1] }
+    | rPatList "," Pat              { $3:$1 }
+
 BegSeq
     :
     "<"                         {% do
@@ -380,6 +398,16 @@ EndSeq
 CExp :: { PExp }
     :
     Exp                             { checkExp $1 }
+
+CExpList :: { [PExp] }
+    :
+    rCExpList                       { reverse $1 }
+
+rCExpList :: { [PExp] }
+    :
+    CExp                            { [$1] }
+    | rCExpList "," CExp            { $3:$1 }
+
 -- An expression annotated with a pType
 Exp :: { PExp }
     :
@@ -677,6 +705,10 @@ checkLetDecls decls =
                 check (External a) = True
                 check (Transparent a) = True
                 check (TimedSection _ _ ds) = and (map checkDecl ds)
+                -- We can't allow module instances as this would cause channels
+                -- to be declared in let statements, which would lead to Events
+                -- being hard to define
+                -- check (ModuleInstance _ _ _ _ _) = True
                 check _ = throwSourceError [invalidLetDeclarationErrorMessage anDecl]
             in check decl
     

@@ -1,0 +1,17 @@
+P = STOP
+
+module M(X)
+    x = P
+exports
+    Y(x) = X == x
+
+    channel c
+endmodule
+
+instance M1 = M({})
+
+instance M2 = M(\ (_) @ 0)
+
+test1 = M1::Y({0}) == true
+
+test2 = (M1::c) -> STOP

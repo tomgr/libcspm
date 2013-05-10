@@ -1,0 +1,33 @@
+P = STOP
+
+module M(X)
+    x = P
+exports
+    Y(x) = X == x
+
+    channel c
+    datatype Dc = Dx.X
+endmodule
+
+instance M1 = M({0})
+
+test1 = M1::Y({0})
+test2 = not M1::Y({})
+test3 = member(M1::Dx.0, M1::Dc)
+
+module N
+exports
+    instance M2 = M({1})
+
+    test1 = M2::Y({1}) == true
+endmodule
+
+test4 = N::M2::Y({1}) == true
+
+module N2
+    instance M2 = M({1})
+exports
+    test1 = M2::Y({1}) == true
+endmodule
+
+test5 = N2::test1

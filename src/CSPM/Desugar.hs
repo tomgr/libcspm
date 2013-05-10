@@ -2,6 +2,10 @@
 module CSPM.Desugar (Desugarable(..), runDesugar) where
 
 import Control.Monad.Reader
+import Data.List (nub, sort)
+import Data.Maybe (fromJust)
+import Data.Tuple (swap)
+
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
@@ -10,6 +14,7 @@ import CSPM.PrettyPrinter
 import CSPM.Prelude
 import Util.Annotated
 import Util.Exception
+import qualified Util.HierarchicalMap as HM
 import Util.Monad
 import Util.PrettyPrint hiding (($$))
 
@@ -39,18 +44,31 @@ instance FreeVars (Pat Name) where
 
 data DesugarState = DesugarState {
         inTimedSection :: Bool,
-        currentLoc :: SrcSpan
+        currentLoc :: SrcSpan,
+        variableSubstitution :: HM.HierarchicalMap Name Name
     }
 
 type DesugarMonad = ReaderT DesugarState IO
 
 runDesugar :: MonadIO m => DesugarMonad a -> m a
-runDesugar prog = liftIO $ runReaderT prog (DesugarState False Unknown)
+runDesugar prog = liftIO $ runReaderT prog (DesugarState False Unknown HM.new)
 
 maybeTimedSection :: DesugarMonad a -> DesugarMonad a -> DesugarMonad a
 maybeTimedSection nonTimed timed = do
     b <- asks inTimedSection
     if b then timed else nonTimed
+
+bindSubtitution :: [(Name, Name)] -> DesugarMonad a -> DesugarMonad a
+bindSubtitution varMap = local (\ st -> st {
+    variableSubstitution = HM.newLayerAndBind (variableSubstitution st) varMap
+    })
+
+substituteName :: Name -> DesugarMonad Name
+substituteName n = do
+    vm <- asks variableSubstitution
+    case HM.maybeLookup vm n of
+        Nothing -> return $ n
+        Just mn -> return $ mn
 
 class Desugarable a where
     desugar :: a -> DesugarMonad a
@@ -120,27 +138,65 @@ desugarDecl (an@(An x y (PatBind p e ta))) = do
 desugarDecl (An _ _ (Module n [] ds1 ds2)) = do
     -- We flatten here if there are no arguments (the renamer has
     -- already done the work).
-    ds1' <- mapM desugarDecl ds1
-    ds2' <- mapM desugarDecl ds2
-    return $ concat $ ds1'++ds2'
+    desugarDecls (ds1++ds2)
+desugarDecl (d@(An _ _ (Module _ _ _ _))) = return []
+desugarDecl (d@(An _ _ (ModuleInstance n nt args nm (Just mod)))) = do
+    -- We flatten here by creating new names for the arguments, substituting
+    -- these in the bodies of ds1 and ds2, and then binding them using patterns.
+    let An _ _ (Module n pats ds1 ds2) = mod
+        fvs = nub (sort (concatMap freeVars pats))
+    freshVars <- replicateM (length fvs) mkFreshInternalName
+    let sub = zip fvs freshVars ++ map swap nm
+    bindSubtitution sub $ do
+        let extractTypes' (PVar n) t = [(n, t)]
+            extractTypes' (PConcat p1 p2) (TSeq t) =
+                extractTypes p1 t ++ extractTypes p2 t
+            extractTypes' (PDotApp p1 p2) (TDot t1 t2) =
+                extractTypes p1 t1 ++ extractTypes p2 t2
+            extractTypes' (PList ps) (TSeq t) =
+                concatMap (\ p -> extractTypes p t) ps
+            extractTypes' (PWildCard) _ = []
+            extractTypes' (PTuple ps) (TTuple ts) =
+                concat (zipWith extractTypes ps ts)
+            extractTypes' (PSet ps) (TSet t) =
+                concatMap (\ p -> extractTypes p t) ps
+            extractTypes' (PParen p) t = extractTypes p t
+            extractTypes' (PLit l) _ = []
+            extractTypes' (PDoublePattern p1 p2) t =
+                extractTypes p1 t ++ extractTypes p2 t
+            extractTypes = extractTypes' . unAnnotate
+
+            makePatBind :: TCPat -> TCExp -> TCDecl
+            makePatBind p e =
+                let fvs = freeVars p
+                    nts = extractTypes p (getType e)
+                    symTable = [(fromJust (lookup n sub), ForAll [] t)
+                                    | (n, t) <- nts, n `elem` fvs]
+                in An (loc p)
+                    (Just symTable, panic "New symbol table evaluated")
+                    (PatBind p e Nothing)
+            patBinds = zipWith makePatBind pats args
+        desugarDecls $ patBinds ++ ds1 ++ ds2
 desugarDecl (An x y d) = do
     d' <- case d of
-            FunBind n ms ta -> return (FunBind n) $$ desugar ms $$ return ta
+            FunBind n ms ta ->
+                return FunBind $$ substituteName n $$ desugar ms $$ return ta
             Assert a -> return Assert $$ desugar a
-            External ns -> return $ External ns
-            Transparent ns -> return $ Transparent ns
-            Channel ns me -> return (Channel ns) $$ desugar me
-            DataType n cs -> return (DataType n) $$ desugar cs
-            SubType n cs -> return (SubType n) $$ desugar cs
-            NameType n e -> return (NameType n) $$ desugar e
+            External ns -> return External $$ mapM substituteName ns
+            Transparent ns -> return Transparent $$ mapM substituteName ns
+            Channel ns me ->
+                return Channel $$ mapM substituteName ns $$ desugar me
+            DataType n cs -> return DataType $$ substituteName n $$ desugar cs
+            SubType n cs -> return SubType $$ substituteName n $$ desugar cs
+            NameType n e -> return NameType $$ substituteName n $$ desugar e
             TimedSection (Just n) f ds ->
                 return TimedSection $$ return (Just n) $$ desugar f $$
                     local (\st -> st { inTimedSection = True })
-                        (concatMapM desugarDecl ds)
+                        (desugarDecls ds)
     return [An x y d']
 
 desugarDecls :: [TCDecl] -> DesugarMonad [TCDecl]
-desugarDecls = concatMapM desugarDecl
+desugarDecls ds = concatMapM desugarDecl ds
 
 instance Desugarable (Assertion Name) where
     desugar (Refinement e1 m e2 opts) = 
@@ -157,7 +213,8 @@ instance Desugarable (ModelOption Name) where
     desugar (TauPriority e) = return TauPriority $$ desugar e
 
 instance Desugarable (DataTypeClause Name) where
-    desugar (DataTypeClause n me) = return (DataTypeClause n) $$ desugar me
+    desugar (DataTypeClause n me) =
+        return DataTypeClause $$ substituteName n $$ desugar me
 
 instance Desugarable (Match Name) where
     desugar (Match pss e) = return Match $$ desugar pss $$ desugar e
@@ -202,7 +259,7 @@ instance Desugarable (Exp Name) where
         maybeTimedSection (return $ Var n) (mkApplication "TSTOP" [])
     desugar (Var n) | n == builtInName "SKIP" =
         maybeTimedSection (return $ Var n) (mkApplication "TSKIP" [])
-    desugar (Var n) = return $ Var n
+    desugar (Var n) = substituteName n >>= return . Var
 
     desugar (AlphaParallel e1 e2 e3 e4) =
         return AlphaParallel $$ desugar e1 $$ desugar e2 $$ desugar e3 $$ desugar e4
@@ -325,7 +382,7 @@ instance Desugarable (Pat Name) where
         loc <- asks currentLoc
         throwSourceError [invalidSetPatternMessage (PSet ps) loc]
     desugar (PTuple ps) = return PTuple $$ desugar ps
-    desugar (PVar n) = return $ PVar n
+    desugar (PVar n) = substituteName n >>= return . PVar
     desugar (PWildCard) = return PWildCard
 
 instance Desugarable Literal where

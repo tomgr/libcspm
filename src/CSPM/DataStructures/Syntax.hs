@@ -553,6 +553,19 @@ data Decl id =
     -- | A type annotation for the given names. This is only used inside the
     -- parser and never appears in outside ASTs.
     | ParsedTypeAnnotation [id] (AnSTypeScheme id)
+    -- | A module instance declaration, e.g. @instance M1 = M2(E1, ..., EN)
+    | ModuleInstance {
+        -- | The name of the module instance.
+        moduleInstanceName :: id,
+        -- | The name of the module this is an instance of.
+        moduleInstanceOf :: id,
+        -- | The arguments of the module that this is an instance of.
+        moduleInstanceOfArguments :: [AnExp id],
+        -- | Map from name of this module to name of inner module.
+        moduleInstanceNameMap :: [(id, id)],
+        -- | The module that this is an instance of
+        moduleInstanceOfDeclaration :: Maybe (AnDecl id)
+    }
     deriving (Eq, Ord, Show)
 
 data Assertion id = 

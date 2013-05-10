@@ -1,0 +1,6 @@
+module M(X, Y)
+exports
+    channel c : X.Y
+endmodule
+
+instance M1 = M({1},{\ (_) @ 0})

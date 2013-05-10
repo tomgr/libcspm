@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE UndecidableInstances #-}
 -- | Renames all variables to unique Names, in the process converting all
 -- UnRenamedName into Name. This simplifies many subsequent phases as every
@@ -20,6 +22,7 @@ module CSPM.Renamer (
 
 import Control.Monad.State
 import Data.List
+import qualified Data.Map as M
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
@@ -34,7 +37,7 @@ import Util.PartialFunctions
 import Util.PrettyPrint hiding (($$))
 import qualified Util.PrettyPrint as P
 
-type RenameEnvironment = HM.HierarchicalMap UnRenamedName Name
+type RenameEnvironment = HM.HierarchicalMap UnRenamedName (Name, Bool)
 type TypeRenameEnvironment = HM.HierarchicalMap UnRenamedName (SType Name)
 
 data RenamerState = RenamerState {
@@ -47,7 +50,9 @@ data RenamerState = RenamerState {
         -- | Errors that have occured.
         errors :: [ErrorMessage],
         -- | The modules that names should be qualified with.
-        currentModuleQualificationStack :: [OccName]
+        currentModuleQualificationStack :: [OccName],
+        -- | The modules that are in scope. Used for module instances.
+        boundModules :: M.Map Name (PDecl, TCDecl, [Name], [Name])
     }
 
 type RenamerMonad = StateT RenamerState IO
@@ -55,7 +60,8 @@ type RenamerMonad = StateT RenamerState IO
 -- | Initialises the renamer.
 initRenamer :: IO (RenamerState)
 initRenamer = do
-    let bs = map (\b -> (UnQual (OccName (stringName b)), name b)) (builtins False)
+    let bs = map (\b -> (UnQual (OccName (stringName b)), (name b, False)))
+                (builtins False)
         bts = map (\ (s, t) -> (UnQual (OccName s), t)) [
                     ("Proc", STProc),
                     ("Int", STInt),
@@ -65,11 +71,12 @@ initRenamer = do
                 ]
     return $ RenamerState {
         -- We insert a new layer to allow builtins to be overridden
-        environment = HM.newLayer (HM.updateMulti HM.new bs),
+        environment = HM.newLayer (HM.updateMulti HM.new  bs),
         typeEnvironment = HM.newLayer (HM.updateMulti HM.new bts),
         srcSpan = Unknown,
         errors = [],
-        currentModuleQualificationStack = []
+        currentModuleQualificationStack = [],
+        boundModules = M.empty
     }
 
 -- | Runs the renamer starting at the given state and returning the given state.
@@ -85,7 +92,7 @@ getBoundNames :: RenamerMonad [Name]
 getBoundNames = do
     env <- gets environment
     let isInteresting n = nameType n `elem` [ExternalName, WiredInName]
-    return $ filter isInteresting $ map snd (HM.flatten env)
+    return $ filter isInteresting $ map (fst . snd) (HM.flatten env)
 
 -- **********************
 -- Monad Operations
@@ -124,10 +131,14 @@ newScope = do
     let env' = HM.newLayer env
     modify (\ st -> st { environment = env' })
     
-lookupName :: UnRenamedName -> RenamerMonad (Maybe Name)
-lookupName n = do
+lookupName :: UnRenamedName -> Bool -> RenamerMonad (Maybe Name)
+lookupName n isModule = do
     env <- gets environment
-    return $! HM.maybeLookup env n
+    return $! 
+        case HM.maybeLookup env n of
+            Just (n, True) | isModule -> Just n
+            Just (n, False) | not isModule -> Just n
+            _ -> Nothing
 
 qualifyName :: UnRenamedName -> RenamerMonad UnRenamedName
 qualifyName (UnQual on) = do
@@ -144,7 +155,16 @@ qualifyName (Qual on rn) = do
 setName :: UnRenamedName -> Name -> RenamerMonad ()
 setName rn n = do
     rn' <- qualifyName rn
-    modify (\ st -> st { environment = HM.update (environment st) rn' n })
+    modify (\ st -> st {
+        environment = HM.update (environment st) rn' (n, False)
+    })
+
+setModuleName :: UnRenamedName -> Name -> RenamerMonad ()
+setModuleName rn n = do
+    rn' <- qualifyName rn
+    modify (\ st -> st {
+        environment = HM.update (environment st) rn' (n, True)
+    })
 
 setSrcSpan :: SrcSpan -> RenamerMonad ()
 setSrcSpan loc = modify (\ st -> st { srcSpan = loc })
@@ -169,6 +189,44 @@ resetModuleContext prog = do
     a <- prog
     modify (\st -> st { currentModuleQualificationStack = stk })
     return a
+
+addModule :: Name -> PDecl -> RenamerMonad ()
+addModule n d = 
+    modify (\ st -> st {
+        boundModules = M.insert n (d, panic "not renamed", [], [])
+            (boundModules st)
+    })
+
+setRenamedModule :: Name -> [Name] -> [Name] -> TCDecl -> RenamerMonad ()
+setRenamedModule n privNs pubNs tcd = do
+    modify (\ st -> st { boundModules =
+        let (d, _, _, _) =
+                M.findWithDefault (panic "not found") n (boundModules st)
+        in M.insert n (d, tcd, privNs, pubNs) (boundModules st)
+    })
+
+findNamedModule :: SrcSpan -> UnRenamedName ->
+    RenamerMonad (PDecl, TCDecl)
+findNamedModule loc rn = do
+    mn <- lookupName rn True
+    bm <- gets boundModules
+    case mn of
+        Just n -> 
+            case M.lookup n bm of
+                Just (n, n', _, _) -> return (n, n')
+                Nothing -> do
+                    msg <- varNotInScopeMessage rn True
+                    throwSourceError [mkErrorMessage loc msg]
+        Nothing -> do
+            msg <- varNotInScopeMessage rn True
+            throwSourceError [mkErrorMessage loc msg]
+
+
+boundNamesForModule :: Name -> RenamerMonad ([Name], [Name])
+boundNamesForModule n = do
+    bm <- gets boundModules
+    let (_, _, privNs, pubNs) = M.findWithDefault (panic "not found") n bm
+    return (privNs, pubNs)
 
 -- **********************
 -- Renaming Class and basic instances
@@ -219,7 +277,10 @@ timedNames = ["timed_priority", "WAIT"]
 
 -- | Renames the declarations in the current scope.
 renameDeclarations :: Bool -> [PDecl] -> RenamerMonad a -> RenamerMonad ([TCDecl], a)
-renameDeclarations topLevel ds prog = do
+renameDeclarations topLevel ids prog = do
+    -- Insert the modules
+    mapM_ insertModule ds
+
     -- Now, find all the datatype labels and channels and create names for
     -- them in the maps (otherwise renameVarLHS will fail).
     mapM_ insertChannelsAndDataTypes ds
@@ -243,12 +304,34 @@ renameDeclarations topLevel ds prog = do
     return (ds', a)
 
     where
+        reorder [] xs = reverse xs
+        reorder ((d @ (An _ _ (ModuleInstance _ _ _ _ _))):ds) xs =
+            reorder ds (d:xs)
+        reorder (d:ds) xs = d : reorder ds xs
+
+        insertModule :: PDecl -> RenamerMonad ()
+        insertModule ad = case unAnnotate ad of
+            Module (UnQual nm) args _ pubDs -> do
+                n <- nameMaker (loc ad) (UnQual nm)
+                setModuleName (UnQual nm) n
+                when (args /= []) $ addModule n ad
+                when (args == []) $ 
+                    addModuleContext nm $ mapM_ insertModule pubDs
+            TimedSection _ _ ds -> mapM_ insertModule ds
+            _ -> return ()
+
+        ds :: [PDecl]
+        ds = reorder ids []
+
         nameMaker :: NameMaker
         nameMaker = if topLevel then externalNameMaker False else internalNameMaker
 
+        qualifingNameMaker :: NameMaker
+        qualifingNameMaker l n = qualifyName n >>= nameMaker l
+
         ignoringNameMaker :: NameMaker
         ignoringNameMaker _ rn = do
-            Just v <- lookupName rn
+            Just v <- lookupName rn False
             return v
 
         insertChannelsAndDataTypes :: PDecl -> RenamerMonad ()
@@ -265,9 +348,46 @@ renameDeclarations topLevel ds prog = do
                 addModuleContext mn $ mapM_ insertChannelsAndDataTypes pubDs
                 -- We can't do the same for the private names because this would
                 -- break scoping.
+            Module _ _ _ _ ->
+                -- Otherwise, if we have arguments then we shouldn't inject
+                -- anything since they are not available without an instance.
+                return ()
             TimedSection _ _ ds -> mapM_ insertChannelsAndDataTypes ds
+            ModuleInstance (UnQual nm) nt args [] _ -> do
+                Module _ _ _ pubDs <- findNamedModule (loc ad) nt
+                    >>= return . unAnnotate . fst
+                addModuleContext nm $ mapM_ insertChannelsAndDataTypes pubDs
             _ -> return ()
     
+        insertBoundNamesForModule :: SrcSpan -> NameMaker -> UnRenamedName ->
+            [PPat] -> [PDecl] -> [PDecl] -> RenamerMonad ()
+        insertBoundNamesForModule loc nameMaker (UnQual mn) args privDs pubDs = do
+            -- This adds all of our exported names, and prefixes them with
+            -- our module name (i.e. rn), as this is the only name with
+            -- which they are available with in this context.
+
+            -- Add the private names, but in a separate scope so they
+            -- don't leak.
+            rns <- addModuleContext mn $ addScope $ do
+                mapM_ insertModule privDs
+                mapM_ insertChannelsAndDataTypes privDs
+                -- Check that the private and public declarations are
+                -- disjoint (but only after binding the channels).
+                checkDuplicates' $ map FreeVarElement args
+                    ++ map FreeVarElement (pubDs ++ privDs)
+                mapM_ (insertBoundNames nameMaker) pubDs
+                -- Note that when the above addScope is popped we will
+                -- loose all of the public names that we just bound. Hence,
+                -- we get them out and return them below
+                fvs <- freeVars pubDs
+                mapM (\ (rn, b) -> do
+                    rn' <- qualifyName rn
+                    Just n <- lookupName rn' b
+                    return (rn, b, n)) fvs
+            mapM_ (\(rn, isModule, n) -> do
+                if isModule then setModuleName (Qual mn rn) n
+                else setName (Qual mn rn) n) rns
+
         insertBoundNames :: NameMaker -> PDecl -> RenamerMonad ()
         insertBoundNames nameMaker pd = case unAnnotate pd of
             Assert _ -> return ()
@@ -300,44 +420,31 @@ renameDeclarations topLevel ds prog = do
                         Nothing ->
                             let err = mkErrorMessage (loc pd) (transparentFunctionNotRecognised rn)
                             in addErrors [err]) ns
-            Module (UnQual mn) [] privDs pubDs -> do
-                n <- nameMaker (loc pd) (UnQual mn)
-                setName (UnQual mn) n
-                -- This adds all of our exported names, and prefixes them with
-                -- our module name (i.e. rn), as this is the only name with
-                -- which they are available with in this context.
-
-                -- Add the private names, but in a separate scope so they
-                -- don't leak.
-                rns <- addModuleContext mn $ addScope $ do
-                    mapM_ insertChannelsAndDataTypes privDs
-                    -- Check that the private and public declarations are
-                    -- disjoint (but only after binding the channels).
-                    checkDuplicates (pubDs++privDs)
-                    mapM_ (insertBoundNames nameMaker) pubDs
-                    -- Note that when the above addScope is popped we will
-                    -- loose all of the public names that we just bound. Hence,
-                    -- we get them out and return them below
-                    fvs <- freeVars pubDs
-                    mapM (\ rn -> do
-                        rn' <- qualifyName rn
-                        Just n <- lookupName rn'
-                        return (rn, n)) fvs
-                mapM_ (\(rn, n) -> setName (Qual mn rn) n) rns
+            Module mn [] privDs pubDs ->
+                insertBoundNamesForModule (loc pd) nameMaker mn [] privDs pubDs
+            Module mn args pubDs privDs -> return ()
+            ModuleInstance mn nt args nm _ -> do
+                n <- nameMaker (loc pd) mn
+                setModuleName mn n
+                Module _ args privDs pubDs <- findNamedModule (loc pd) nt
+                    >>= return . unAnnotate . fst
+                insertBoundNamesForModule (loc pd) qualifingNameMaker mn args
+                    privDs pubDs
             TimedSection _ _ ds -> do
                 rns <- addScope $ do
                     mapM_ (\ n -> setName (UnQual (OccName n)) (builtInName n))
                         timedNames
                     mapM_ (insertBoundNames nameMaker) ds
                     fvs <- freeVars ds
-                    mapM (\ rn -> do
-                        Just n <- lookupName rn
+                    mapM (\ (rn, isModule) -> do
+                        Just n <- lookupName rn isModule
                         return (rn, n)) fvs
                 mapM_ (\(rn, n) -> setName rn n) rns
             _ -> return ()
 
         -- | resetModuleContext must be called in ALL cases, apart from the
-        -- module context, otherwise names are incorrectly qualified within patterns etc.
+        -- module context, otherwise names are incorrectly qualified within
+        -- patterns etc.
         renameRightHandSide :: PDecl -> RenamerMonad TCDecl
         renameRightHandSide pd = reAnnotate pd $ case unAnnotate pd of
             Assert e -> resetModuleContext $ do
@@ -387,32 +494,89 @@ renameDeclarations topLevel ds prog = do
             Transparent rns -> resetModuleContext $ do
                 ns <- mapM renameVarRHS rns
                 return $ Transparent ns
-            Module (UnQual mn) [] privDs pubDs -> do
-                n' <- renameVarRHS (UnQual mn)
+            Module (UnQual mn) args privDs pubDs -> do
+                n' <- renameModuleVar (UnQual mn)
                 -- Add a scope for the private declarations.
                 -- We now insert bound names in this scope, initially we
                 -- fully qualify the names.
                 addScope $ addModuleContext mn $ do
+                    mapM_ insertModule privDs
                     mapM_ insertChannelsAndDataTypes privDs
                     mapM_ (insertBoundNames nameMaker) privDs
+                    when (args /= []) $ do
+                        mapM_ insertModule pubDs
+                        mapM_ insertChannelsAndDataTypes pubDs
+                        mapM_ (insertBoundNames nameMaker) pubDs
+
                     -- Now, we need to make the names available without
                     -- prefixing, but we NEED to make sure that the Name s that
                     -- we bound above are the same for the two different
                     -- occurences.
-                    fvs <- freeVars (privDs++pubDs)
+                    pubfvs <- freeVars pubDs
                     -- Lookup the fully qualified names
-                    npairs <- mapM (\ rn -> do
+                    pubPairs <- mapM (\ (rn, isModule) -> do
                         rn' <- qualifyName rn
-                        Just n' <- lookupName rn'
-                        return (rn, n')) fvs
+                        Just n' <- lookupName rn' isModule
+                        return (rn, isModule, n')) pubfvs
+                    privfvs <- freeVars privDs
+                    privPairs <- mapM (\ (rn, isModule) -> do
+                        rn' <- qualifyName rn
+                        Just n' <- lookupName rn' isModule
+                        return (rn, isModule, n')) privfvs
+                    let npairs = pubPairs++privPairs
                     -- Insert them (we reset the module context to make sure
                     -- they are not fully qualified).
-                    resetModuleContext $ mapM_ (\(rn, n) -> do
-                        setName rn n) npairs
+                    resetModuleContext $
+                        mapM_ (\(rn, isModule, n) ->
+                            if isModule then setModuleName rn n
+                            else setName rn n) npairs
 
+                    -- We also now insert the arguments (again, we reset the
+                    -- module context)
+                    args' <- resetModuleContext $
+                        mapM (renamePattern internalNameMaker) args
+
+                    -- Insert the arguments are rename the reset
                     privDs' <- mapM renameRightHandSide privDs
                     pubDs' <- mapM renameRightHandSide pubDs
-                    return $ Module n' [] privDs' pubDs'
+                    let m = Module n' args' privDs' pubDs'
+                    m' <- reAnnotate pd (return m)
+                    when (args /= []) $ 
+                        setRenamedModule n'
+                            [x | (_, _, x) <- privPairs]
+                            [x | (_, _, x) <- pubPairs] m'
+                    return m
+            ModuleInstance (UnQual mn) nt args [] _ -> do
+                n' <- renameModuleVar (UnQual mn)
+                nt' <- renameModuleVar nt
+                args' <- resetModuleContext $ mapM (addScope . rename) args
+
+                -- Calculate the (public) names we have assigned for this module
+                (An _ _ (Module _ _ privDs pubDs), rnm) <-
+                    findNamedModule (loc pd) nt
+                ourPubNames <- addModuleContext mn $ do
+                    fvs <- freeVars pubDs
+                    mapM (\ (rn, isModule) -> do
+                        rn' <- qualifyName rn
+                        Just n' <- lookupName rn' isModule
+                        return n') fvs
+                ourPrivNames <- addScope $ addModuleContext mn $ do
+                    -- Create the private names
+                    mapM_ insertChannelsAndDataTypes privDs
+                    mapM_ (insertBoundNames qualifingNameMaker) privDs
+                    fvs <- freeVars privDs
+                    mapM (\ (rn, isModule) -> do
+                        rn' <- qualifyName rn
+                        Just n' <- lookupName rn' isModule
+                        return n') fvs
+                -- Get the renamed versions that were computed for the module
+                -- we are an instance of
+                nt <- renameModuleVar nt
+                (theirPrivNames, theirPubNames) <- boundNamesForModule nt
+                let nm = zip ourPubNames theirPubNames ++
+                            zip ourPrivNames theirPrivNames
+                return $ ModuleInstance n' nt' args' nm (Just rnm)
+                    
             TimedSection Nothing f ds -> do
                 f' <- addScope $ rename f
                 tock <- renameVarRHS (UnQual (OccName "tock"))
@@ -440,7 +604,7 @@ renamePattern nm ap =
                 -- In this case, we should lookup the variable in the map and see if it is
                 -- bound. If it is and is a datatype constructor, then we should return
                 -- return that, otherwise we create a new internal var.
-                mn <- lookupName v
+                mn <- lookupName v False
                 case mn of
                     Just n | isNameDataConstructor n -> do
                         -- Just return the name
@@ -461,19 +625,29 @@ renamePattern nm ap =
         checkDuplicates [ap]
         renamePat ap
 
+data FreeVarElement = forall a b . FreeVars a => FreeVarElement (Annotated b a)
+
+instance FreeVars FreeVarElement where
+    freeVars (FreeVarElement a) = freeVars a
+
 checkDuplicates :: FreeVars a => [Annotated b a] -> RenamerMonad ()
-checkDuplicates aps = do
-    fvss <- mapM freeVars aps
+checkDuplicates aps = checkDuplicates' (map FreeVarElement aps)
+
+checkDuplicates' :: [FreeVarElement] -> RenamerMonad ()
+checkDuplicates' aps = do
+    fvss <- mapM freeVars aps >>= return . map (map fst)
     let 
         fvs = sort (concat fvss)
         gfvs = group fvs
         duped = filter (\l -> length l > 1) gfvs
-        nameLocMap = 
-            concatMap (\(ns, d) -> [(n, loc d) | n <- ns])  (zip fvss aps)
+        nameLocMap =
+            concatMap (\(ns, FreeVarElement d) -> [(n, loc d) | n <- ns]) 
+                (zip fvss aps)
     
     loc <- gets srcSpan
     if duped /= [] then
-        throwSourceError (map (mkErrorMessage loc) (duplicatedDefinitionsMessage nameLocMap))
+        throwSourceError (map (mkErrorMessage loc)
+            (duplicatedDefinitionsMessage nameLocMap))
     else return ()
 
 -- | Rename a variable on the right hand side of a definition.
@@ -482,11 +656,22 @@ checkDuplicates aps = do
 -- that will be raised when the monad is evaluated.
 renameVarRHS :: UnRenamedName -> RenamerMonad Name
 renameVarRHS n = do
-    mn <- lookupName n
+    mn <- lookupName n False
     case mn of
         Just x -> return x
         Nothing -> do
-            msg <- varNotInScopeMessage n
+            msg <- varNotInScopeMessage n False
+            loc <- gets srcSpan
+            addErrors [mkErrorMessage loc msg]
+            return $ panic "error name evaluated"
+
+renameModuleVar :: UnRenamedName -> RenamerMonad Name
+renameModuleVar n = do
+    mn <- lookupName n True
+    case mn of
+        Just x -> return x
+        Nothing -> do
+            msg <- varNotInScopeMessage n True
             loc <- gets srcSpan
             addErrors [mkErrorMessage loc msg]
             return $ panic "error name evaluated"
@@ -805,7 +990,7 @@ renameTypeVar n = do
             return Nothing
 
 class FreeVars a where
-    freeVars :: a -> RenamerMonad [UnRenamedName]
+    freeVars :: a -> RenamerMonad [(UnRenamedName, Bool)]
 
 instance FreeVars a => FreeVars [a] where
     freeVars xs = concatMapM freeVars xs
@@ -830,12 +1015,12 @@ instance FreeVars (Pat UnRenamedName) where
     freeVars (PTuple ps) = freeVars ps
     freeVars (PVar n) = do
         rn <- qualifyName n
-        mn <- lookupName rn
+        mn <- lookupName rn False
         case mn of
             Just n | isNameDataConstructor n -> return []
             _ -> case n of
                     Qual _ _ -> return [] -- we pick the error up in renamePattern
-                    _ -> return [n]
+                    _ -> return [(n, False)]
     freeVars (PWildCard) = return []
 
 instance FreeVars (Stmt UnRenamedName) where
@@ -849,19 +1034,23 @@ instance FreeVars (Field UnRenamedName) where
 
 instance FreeVars (Decl UnRenamedName) where
     freeVars (Assert _) = return []
-    freeVars (External ns) = return ns
-    freeVars (Channel ns _) = return ns
-    freeVars (DataType n cs) = 
-        return $ n:[n' | DataTypeClause n' _ <- map unAnnotate cs]
-    freeVars (SubType n _) = return [n]
-    freeVars (FunBind n _ _) = return [n]
-    freeVars (NameType n _) = return [n]
+    freeVars (External ns) = return (map (\ n -> (n, False)) ns)
+    freeVars (Channel ns _) = return (map (\ n -> (n, False)) ns)
+    freeVars (DataType n cs) = return $ (n, False) :
+        [(n', False) | DataTypeClause n' _ <- map unAnnotate cs]
+    freeVars (SubType n _) = return [(n, False)]
+    freeVars (FunBind n _ _) = return [(n, False)]
+    freeVars (NameType n _) = return [(n, False)]
     freeVars (PatBind p _ _) = freeVars p
-    freeVars (Transparent ns) = return ns
+    freeVars (Transparent ns) = return (map (\ n -> (n, False)) ns)
     freeVars (Module (UnQual n) ps _ expDs) = do
         ns <- freeVars expDs
-        return $ UnQual n : map (Qual n) ns
+        return $ (UnQual n, True) : map (\ (n', b) -> (Qual n n', b)) ns
     freeVars (TimedSection _ _ ds) = freeVars ds
+    freeVars (ModuleInstance (UnQual n) nt _ _ _) = do
+        (An _ _ (Module _ _ privDs pubDs), _) <- findNamedModule Unknown nt
+        fvs <- freeVars pubDs
+        return $! (UnQual n, True) : map (\ (n', b) -> (Qual n n', b)) fvs
 
 freeTypeVars :: PSType -> RenamerMonad [(UnRenamedName, SrcSpan)]
 freeTypeVars st =
@@ -916,16 +1105,20 @@ externalFunctionNotRecognised n =
     text "The external function" <+> prettyPrint n <+> 
     text "is not recognised."
 
-varNotInScopeMessage :: UnRenamedName -> RenamerMonad Error
-varNotInScopeMessage n = do
+varNotInScopeMessage :: UnRenamedName -> Bool -> RenamerMonad Error
+varNotInScopeMessage n isModule = do
     env <- gets environment
-    let availablePp = [(show $ prettyPrint rn, (rn, n)) | (rn, n) <- HM.flatten env]
+    let availablePp =
+            [(show $ prettyPrint rn, (rn, n))
+                | (rn, (n, b)) <- HM.flatten env, b == isModule]
         suggestions = fuzzyLookup (show $ prettyPrint n) availablePp
 
-        availableTransExtern =
-            [(stringName b, b) | b <- builtins True, isTransparent b || isExternal b]
+        availableTransExtern = if isModule then [] else
+            [(stringName b, b) | b <- builtins True,
+                isTransparent b || isExternal b]
         builtinSuggestions = fuzzyLookup (show $ prettyPrint n) availableTransExtern
-    return $ 
+    return $
+        (if isModule then text "The module " else empty) <>
         (prettyPrint n <+> text "is not in scope")
         P.$$ case suggestions of
             [] -> case builtinSuggestions of

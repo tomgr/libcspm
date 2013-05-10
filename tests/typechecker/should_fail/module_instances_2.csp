@@ -1,0 +1,13 @@
+P = STOP
+
+module M(X)
+    x = P
+exports
+    datatype Y = Z.X
+endmodule
+
+instance M1 = M({1})
+
+instance M2 = M({0})
+
+test1 = (M1::Z.0) == (M2::Z.1)

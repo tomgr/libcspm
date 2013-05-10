@@ -1,0 +1,8 @@
+module M(X, Y)
+exports
+    channel c : X.Y
+endmodule
+
+instance M1 = M({1},{2})
+
+P = M1::c.1.2 -> STOP

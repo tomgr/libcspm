@@ -13,6 +13,7 @@ import CSPM.DataStructures.Syntax hiding (getType)
 import CSPM.DataStructures.Types
 import CSPM.PrettyPrinter
 import CSPM.TypeChecker.Common
+import CSPM.TypeChecker.Exceptions
 import CSPM.TypeChecker.Expr()
 import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Pat()
@@ -29,8 +30,12 @@ typeCheckDecls decls = do
     -- Flatten the decls so that definitions in modules are also type-checked
     -- in the correct order.
     let flattenDecl :: TCDecl -> [TCDecl]
-        flattenDecl (An _ _ (Module _ _ ds1 ds2)) =
+        flattenDecl (An _ _ (Module _ [] ds1 ds2)) =
             concatMap flattenDecl ds1++concatMap flattenDecl ds2
+        flattenDecl (An a b (Module mn args ds1 ds2)) =
+            [An a b (Module mn args
+                        (concatMap flattenDecl ds1)
+                        (concatMap flattenDecl ds2))]
         flattenDecl (d@(An _ _ (TimedSection _ _ ds))) =
             -- We need to type-check the function in the timed section, but we
             -- flatten the decls so that dependencies work out ok.
@@ -38,10 +43,15 @@ typeCheckDecls decls = do
         flattenDecl x = [x]
         flatDecls = concatMap flattenDecl decls
 
+        isInstance (An _ _ (ModuleInstance _ _ _ _ _)) = True
+        isInstance _ = False
+
+        instanceDecls = filter isInstance flatDecls
+
         -- | Map from declarations to integer identifiers
         declMap = zip flatDecls [0..]
         invDeclMap = invert declMap
-
+    
     let
         namesBoundByDecls = concatMap (\ (decl, declId) ->
             case decl of
@@ -81,13 +91,56 @@ typeCheckDecls decls = do
         -- | Get the declarations corresponding to certain ids
         typeInferenceGroup = mapPF invDeclMap
 
+        -- | Checks that this SCC does not contain both a module and an
+        -- instance of the module.
+        checkSCCForModuleCycles :: [TCDecl] -> TypeCheckMonad ()
+        checkSCCForModuleCycles decls =
+            let 
+                instances = [i | An _ _ (i@(ModuleInstance _ _ _ _ _)) <- decls]
+                mods = [m | An _ _ (m@(Module _ args _ _)) <- decls, args /= []]
+
+                instancesOfMod n =
+                    [i | i@(ModuleInstance _ nt _ _ _) <- instances, nt == n]
+
+                checkMod (Module nm _ _ _) = 
+                    case instancesOfMod nm of
+                        [] -> return ()
+                        (ModuleInstance n _ _ instanceMap _ : is) -> do
+                            -- Find the cycle
+                            mapM_ (\ n -> do
+                                raiseMessageAsError $
+                                    illegalModuleInstanceCycleErrorMessage nm n 
+                                        (mapPF (invert varToDeclIdMap)
+                                            (pathBetweenVerticies declGraph
+                                                (apply varToDeclIdMap nm)
+                                                (apply varToDeclIdMap n)))
+                                ) (map fst instanceMap)
+                pathBetweenVerticies :: Ord i => Graph i v -> i -> i -> [i]
+                pathBetweenVerticies g i i' =
+                    let
+                        -- Do a DFS
+                        findPath visited i =
+                            let scs = successors g i
+                            in if i' `elem` scs then ([i'], [])
+                                else check visited scs
+                        check visited [] = ([], visited)
+                        check visited (x:xs) =
+                            let (path, visited') = findPath visited x
+                            in case path of
+                                [] -> check visited' xs
+                                _ -> (x : path, visited')
+                    in i : fst (findPath [] i)
+            in mapM_ checkMod mods
+
         -- When an error occurs continue type checking, but only
         -- type check groups that do not depend on the failed group.
         -- failM is called at the end if any error has occured.
         typeCheckGroups [] b = if b then failM else return ()
         typeCheckGroups (g:gs) b = do
             err <- tryAndRecover True (do
-                typeCheckMutualyRecursiveGroup (typeInferenceGroup (S.toList g))
+                let ds = typeInferenceGroup $ S.toList g
+                checkSCCForModuleCycles ds
+                typeCheckMutualyRecursiveGroup ds
                 return False
                 ) (return True)
             if not err then typeCheckGroups gs b
@@ -96,7 +149,7 @@ typeCheckDecls decls = do
             -- True to indicate that an error has occured so that failM is 
             -- called at the end.
             else typeCheckGroups (gs \\ (reachableVertices sccgraph g)) True
-    
+
     -- Start type checking the groups
     typeCheckGroups sccs False
 
@@ -138,7 +191,10 @@ typeCheckMutualyRecursiveGroup ds' = do
     zipWithM setType fvs (map (ForAll []) ftvs)
 
     -- Type check each declaration then generalise the types
-    nts <- generaliseGroup fvs (map typeCheck ds)
+    nts <- generaliseGroup fvs $ map (\ d -> 
+        case boundNames d of
+            [] -> typeCheck d
+            (n:_) -> addDefinitionName n (typeCheck d)) ds
 
     -- Compress all the types we have inferred here (they should never be 
     -- touched again)
@@ -191,6 +247,9 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
     errorContext (TimedSection _ _ _) = Nothing
     errorContext (Transparent ns) = Nothing
     errorContext (External ns) = Nothing
+    errorContext (ModuleInstance n _ _ _ _) = Just $
+        text "In the declaration of the module instance:" <+> prettyPrint n
+    errorContext (Module _ _ _ _) = Nothing
     
     typeCheck' (FunBind n ms mta) = do
         let boundTypeVars =
@@ -324,6 +383,89 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
             Just f -> typeCheckExpect f (TFunction [TEvent] TInt) >> return ()
             Nothing -> return ()
         return []
+    typeCheck' (Module n args pubDs privDs) | args /= [] = do
+        let fvs = boundNames args
+        local fvs $ do
+            tpats <- mapM (\ pat -> typeCheck pat >>= evaluateDots) args
+            typeCheckDecls (pubDs ++ privDs)
+            tpats <- mapM (\ pat -> typeCheck pat >>= evaluateDots) args
+            return [(n, TTuple tpats)]
+
+    typeCheck' (ModuleInstance n nt args nm (Just mod)) = do
+        -- Check instance
+        stk <- getDefinitionStack
+        when (nt `elem` stk) $ raiseMessageAsError $
+            illegalModuleInstanceCycleErrorMessage nt n $ nt :
+                reverse (takeWhile (\n -> not (n == nt)) stk)
+
+        ts <- getType nt
+        (TTuple ts, sub) <- instantiate' ts
+        targs <- zipWithM typeCheckExpect args ts
+        let subName = apply (invert nm)
+        -- Set the types of each of our arguments
+        nts <- mapM (\ (ourName, theirName) -> do
+                ForAll xs t <- getType theirName
+                t' <- substituteTypes sub t
+                -- We also need to change any datatype according to name map
+                let sub (TVar tvref) = do
+                        res <- readTypeRef tvref
+                        case res of 
+                            Left _ -> return $ TVar tvref
+                            Right t -> sub t
+                    sub (TSet t) = sub t >>= return . TSet
+                    sub (TSeq t) = sub t >>= return . TSeq
+                    sub (TDot t1 t2) = do
+                        t1 <- sub t1
+                        t2 <- sub t2
+                        return $! TDot t1 t2
+                    sub (TTuple ts) = mapM sub ts >>= return . TTuple
+                    sub (TFunction ts t) = do
+                        ts <- mapM sub ts
+                        t <- sub t
+                        return  $! TFunction ts t
+                    sub (TDatatype n) = return $ TDatatype $! subName n
+                    sub (TDotable t1 t2) = do
+                        t1 <- sub t1
+                        t2 <- sub t2
+                        return $! TDotable t1 t2
+                    sub (TExtendable t tvref) = do
+                        t' <- sub t
+                        res <- readTypeRef tvref
+                        case res of
+                            Left _ -> return $ TExtendable t tvref
+                            Right t -> do
+                                tsub' <- sub t
+                                writeTypeRef tvref tsub'
+                                return $ TExtendable t' tvref
+                    sub TInt = return TInt
+                    sub TBool = return TBool
+                    sub TProc = return TProc
+                    sub TEvent = return TEvent
+                    sub TChar = return TChar
+                    sub TExtendableEmptyDotList = return TExtendableEmptyDotList
+
+                t' <- sub t'
+                setType ourName $ ForAll xs t'
+                return (ourName, t')
+            ) nm
+
+        let An _ _ (Module _ _ privDs pubDs) = mod
+
+        -- Mark datatypes as comparable as appropriate
+        mapM_ (\ d -> case unAnnotate d of
+            DataType n clauses -> do
+                let n' = subName n
+                tclauses <- mapM (\ (An _ _ (DataTypeClause n _)) -> do
+                    ForAll _ t <- getType (subName n)
+                    return t) clauses
+                markDatatypeAsComparableForEquality n'
+                b <- tryAndRecover False 
+                        (mapM_ (ensureHasConstraint CEq) tclauses >> return True)
+                        (return False)
+                when (not b) $ unmarkDatatypeAsComparableForEquality n'
+            _ -> return ()
+            ) (privDs ++ pubDs)
+        return nts
 
 instance TypeCheckable TCAssertion () where
     errorContext an = Nothing

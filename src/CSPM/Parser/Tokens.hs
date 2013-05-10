@@ -31,6 +31,7 @@ data Token =
     | TExports
     | TEndModule
     | TScope
+    | TInstance
 
     | TOfType
     | TYield
@@ -149,6 +150,7 @@ instance PrettyPrintable Token where
     prettyPrint TExports = text "exports"
     prettyPrint TEndModule = text "endmodule"
     prettyPrint TScope = text "::"
+    prettyPrint TInstance = text "instance"
 
     prettyPrint TOfType = text "::"
     prettyPrint TYield = text "=>"

@@ -201,6 +201,7 @@ tokens :-
     <0>"endmodule"$alphanum+$prime* { stok (\ s -> TIdent s) }
     <0>"endmodule"$alphanum*$prime+ { stok (\ s -> TIdent s) }
     <0>"endmodule"              { tok TEndModule }
+    <0>"instance"               { tok TInstance }
     <0>@nl"\"@nl                { tok TBackSlash }
     <0>@nl"@"@nl                { tok TLambdaDot }
     <0>"Timed"/$notid           { soakTok TTimed }

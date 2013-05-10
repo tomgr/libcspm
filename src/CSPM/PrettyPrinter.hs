@@ -106,7 +106,10 @@ instance PrettyPrintable id => PrettyPrintable (Decl id) where
         <+> char '{'
         $$ tabIndent (vcat (punctuate (char '\n') (map prettyPrint ds)))
         $$ char '}'
-        
+    prettyPrint (ModuleInstance n nm args _ _) =
+        text "instance" <+> prettyPrint n <+> char '=' <+>
+            parens (list (map prettyPrint args))
+
 instance PrettyPrintable id => PrettyPrintable (Assertion id) where
     prettyPrint (Refinement e1 m e2 opts) =
         hang (hang (prettyPrint e1) tabWidth

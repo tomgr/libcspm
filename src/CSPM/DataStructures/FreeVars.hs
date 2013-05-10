@@ -26,8 +26,11 @@ instance BoundNames (Decl Name) where
     boundNames (External ns) = []
     boundNames (Transparent ns) = []
     boundNames (Assert _) = []
-    boundNames (Module _ _ ds1 ds2) = boundNames (ds1 ++ ds2)
+    boundNames (Module _ [] ds1 ds2) = boundNames (ds1 ++ ds2)
+    boundNames (Module n _ _ _) = [n]
     boundNames (TimedSection _ _ ds) = boundNames ds
+    boundNames (ModuleInstance _ _ _ nm _) = map fst nm
+
 instance BoundNames (DataTypeClause Name) where
     boundNames (DataTypeClause n _) = [n]
 
@@ -242,6 +245,7 @@ instance FreeVars (Decl Name) where
     freeVars' (Module _ _ ds1 ds2) = freeVars' ds1 ++ freeVars' ds2
     freeVars' (TimedSection (Just n) f ds) =
         n : freeVars' f ++ concatMap freeVars' ds
+    freeVars' (ModuleInstance _ n _ _ _) = [n]
 
 instance FreeVars (Assertion Name) where
     freeVars' (Refinement e1 m e2 opts) = freeVars [e1, e2] ++ freeVars opts
