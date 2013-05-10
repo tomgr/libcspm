@@ -682,6 +682,7 @@ substituteType sub TBool = return TBool
 substituteType sub TProc = return TProc
 substituteType sub TEvent = return TEvent
 substituteType sub TChar = return TChar
+substituteType sub TExtendableEmptyDotList = return TExtendableEmptyDotList
 substituteType (sub@(tv, TVar spt)) (TExtendable t tvref) = do
     t' <- substituteType sub t
     res <- readTypeRef tvref
