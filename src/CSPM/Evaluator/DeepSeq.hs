@@ -2,8 +2,6 @@
 module CSPM.Evaluator.DeepSeq () where
 
 import Control.DeepSeq
-import qualified Data.Foldable as F
-import qualified Data.Sequence as S
 
 import CSPM.Evaluator.ProcessValues
 import CSPM.Evaluator.ValueSet
@@ -90,6 +88,3 @@ instance NFData Event where
     rnf Tau = ()
     rnf Tick = ()
     rnf (UserEvent vs) = rnf vs
-
-instance NFData a => NFData (S.Seq a) where
-    rnf xs = rnf (F.toList xs)
