@@ -78,10 +78,19 @@ instance Desugarable a => Desugarable [a] where
 instance Desugarable a => Desugarable (Maybe a) where
     desugar Nothing = return Nothing
     desugar (Just a) = desugar a >>= return . Just
-instance Desugarable a => Desugarable (Annotated b a) where
+
+instance Desugarable a => Desugarable (Annotated (Maybe Type, PType) a) where
+    desugar (An l (t, pt) i) =
+        local (\ st -> st { currentLoc = l }) $ do
+            x <- desugar i
+            y <- desugar t
+            return (An l (y, pt) x)
+
+instance Desugarable a => Desugarable (Annotated () a) where
     desugar (An l b i) =
         local (\ st -> st { currentLoc = l }) $
             desugar i >>= \ x -> return (An l b x)
+
 instance (Desugarable a, Desugarable b) => Desugarable (a,b) where
     desugar (a,b) = do
         a' <- desugar a
@@ -395,6 +404,24 @@ instance Desugarable (Pat Name) where
 
 instance Desugarable Literal where
     desugar l = return l
+
+instance Desugarable Type where
+    desugar (TVar tvref) = return $ TVar tvref
+    desugar (TSet t) = return TSet $$ desugar t
+    desugar (TSeq t) = return TSeq $$ desugar t
+    desugar (TDot t1 t2) = return TDot $$ desugar t1 $$ desugar t2
+    desugar (TTuple ts) = return TTuple $$ desugar ts
+    desugar (TFunction ts t) = return TFunction $$ desugar ts $$ desugar t
+    desugar (TDatatype n) = return TDatatype $$ substituteName n
+    desugar (TDotable t1 t2) = return TDotable $$ desugar t1 $$ desugar t2
+    desugar (TExtendable t tvref) =
+        return TExtendable $$ desugar t $$ return tvref
+    desugar TInt = return TInt
+    desugar TBool = return TBool
+    desugar TProc = return TProc
+    desugar TEvent = return TEvent
+    desugar TChar = return TChar
+    desugar TExtendableEmptyDotList = return TExtendableEmptyDotList
 
 invalidSetPatternMessage :: Pat Name -> SrcSpan -> ErrorMessage
 invalidSetPatternMessage pat loc = mkErrorMessage loc $
