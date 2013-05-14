@@ -31,3 +31,12 @@ exports
 endmodule
 
 test5 = N2::test1
+
+module Z(X)
+exports
+    P = STOP
+endmodule
+
+instance Z2 = Z({})
+
+procTest1 = Z2::P

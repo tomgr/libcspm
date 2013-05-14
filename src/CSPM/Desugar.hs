@@ -100,7 +100,7 @@ desugarDecl (an@(An x y (PatBind p e ta))) = do
     case getSymbolTable an of
         -- Optimise by removing it
         [] -> return []
-        [_] -> return [An x y (PatBind p' e' ta)]
+        [_] -> return [An x y (PatBind p' e' Nothing)]
         st -> do
             -- We are binding multiple things and thus need to make an extractor
             nameToBindTo <- mkFreshInternalName
@@ -140,10 +140,10 @@ desugarDecl (An _ _ (Module n [] ds1 ds2)) = do
     -- already done the work).
     desugarDecls (ds1++ds2)
 desugarDecl (d@(An _ _ (Module _ _ _ _))) = return []
-desugarDecl (d@(An _ _ (ModuleInstance n nt args nm (Just mod)))) = do
+desugarDecl (d@(An _ _ (ModuleInstance _ _ args nm (Just mod)))) = do
     -- We flatten here by creating new names for the arguments, substituting
     -- these in the bodies of ds1 and ds2, and then binding them using patterns.
-    let An _ _ (Module n pats ds1 ds2) = mod
+    let An _ _ (Module _ pats ds1 ds2) = mod
         fvs = nub (sort (concatMap freeVars pats))
     freshVars <- replicateM (length fvs) mkFreshInternalName
     let sub = zip fvs freshVars ++ map swap nm
@@ -190,13 +190,21 @@ desugarDecl (An x y d) = do
             SubType n cs -> return SubType $$ substituteName n $$ desugar cs
             NameType n e -> return NameType $$ substituteName n $$ desugar e
             TimedSection (Just n) f ds ->
-                return TimedSection $$ return (Just n) $$ desugar f $$
-                    local (\st -> st { inTimedSection = True })
+                return TimedSection $$ (substituteName n >>= return . Just) $$
+                    desugar f $$ local (\st -> st { inTimedSection = True })
                         (desugarDecls ds)
     return [An x y d']
 
 desugarDecls :: [TCDecl] -> DesugarMonad [TCDecl]
-desugarDecls ds = concatMapM desugarDecl ds
+desugarDecls ds = do
+    ds <- concatMapM desugarDecl ds
+    let substituteSymbolTable (d@(An _ (Nothing, _) _)) = return d
+        substituteSymbolTable (An x (Just st, y) d) = do
+            st <- mapM (\ (n, t) -> do
+                n <- substituteName n
+                return $! (n, t)) st
+            return $ An x (Just st, y) d
+    mapM substituteSymbolTable ds
 
 instance Desugarable (Assertion Name) where
     desugar (Refinement e1 m e2 opts) = 
