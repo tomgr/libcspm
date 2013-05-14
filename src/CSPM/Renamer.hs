@@ -327,7 +327,9 @@ renameDeclarations topLevel ids prog = do
         nameMaker = if topLevel then externalNameMaker False else internalNameMaker
 
         qualifingNameMaker :: NameMaker
-        qualifingNameMaker l n = qualifyName n >>= nameMaker l
+        qualifingNameMaker l n =
+            if topLevel then externalNameMaker False l n
+            else qualifyName n >>= nameMaker l
 
         ignoringNameMaker :: NameMaker
         ignoringNameMaker _ rn = do
