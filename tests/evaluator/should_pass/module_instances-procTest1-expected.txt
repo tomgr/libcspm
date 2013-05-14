@@ -1,0 +1,5 @@
+Z2::P = STOP
+
+procTest1 = Z2::P
+
+procTest1

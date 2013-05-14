@@ -1,0 +1,11 @@
+datatype X = Y.{1..3}
+
+module M(this)
+
+exports
+
+channel c : X
+
+endmodule
+
+instance M1 = M({})

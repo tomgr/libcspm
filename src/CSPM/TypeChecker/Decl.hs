@@ -401,7 +401,9 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         ts <- getType nt
         (TTuple ts, sub) <- instantiate' ts
         targs <- zipWithM typeCheckExpect args ts
-        let subName = apply (invert nm)
+        let subName n = case safeApply (invert nm) n of
+                            Just n' -> n'
+                            Nothing -> n
         -- Set the types of each of our arguments
         nts <- mapM (\ (ourName, theirName) -> do
                 ForAll xs t <- getType theirName
