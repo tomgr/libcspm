@@ -20,6 +20,7 @@ import CSPM.Evaluator.Monad
 import CSPM.Evaluator.ProcessValues
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
+import qualified Data.Foldable as F
 import Util.Annotated
 
 runFromStateToState :: EvaluationState -> EvaluationMonad a -> 
@@ -55,6 +56,19 @@ maybeProcessNameToProcess :: ProcName -> EvaluationMonad (Maybe UProc)
 maybeProcessNameToProcess (pn@(ProcName (SFunctionBind fn [args] Nothing))) = do
     -- Evaluate the function again
     VFunction _ func <- lookupVar fn
-    v <- func args
-    return $ Just $ PProcCall pn (let VProc p = v in p)
+    let checkArgument (VInt i) = True
+        checkArgument (VChar c) = True
+        checkArgument (VBool b) = True
+        checkArgument (VTuple vs) = F.and $ fmap checkArgument vs
+        checkArgument (VList vs) = F.and $ fmap checkArgument vs
+        checkArgument (VSet s) = F.and $ fmap checkArgument (toList s)
+        checkArgument (VDot vs) = F.and $ fmap checkArgument vs
+        checkArgument (VChannel n) = True
+        checkArgument (VDataType n) = True
+        checkArgument (VFunction id _) = False
+        checkArgument (VProc p) = False
+    if and (map checkArgument args) then do
+        v <- func args
+        return $ Just $ PProcCall pn (let VProc p = v in p)
+    else return Nothing
 maybeProcessNameToProcess _ = return Nothing
