@@ -587,6 +587,7 @@ renameDeclarations topLevel ids prog = do
                         timedNames
                     ds' <- mapM renameRightHandSide ds
                     return $ TimedSection (Just tock) f' ds'
+            PrintStatement s -> return $ PrintStatement s
 
 renamePattern :: NameMaker -> PPat -> RenamerMonad TCPat
 renamePattern nm ap =
@@ -1053,6 +1054,7 @@ instance FreeVars (Decl UnRenamedName) where
         (An _ _ (Module _ _ privDs pubDs), _) <- findNamedModule Unknown nt
         fvs <- freeVars pubDs
         return $! (UnQual n, True) : map (\ (n', b) -> (Qual n n', b)) fvs
+    freeVars (PrintStatement _) = return []
 
 freeTypeVars :: PSType -> RenamerMonad [(UnRenamedName, SrcSpan)]
 freeTypeVars st =

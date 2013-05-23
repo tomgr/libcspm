@@ -170,6 +170,7 @@ bindDecl (an@(An _ _ (TimedSection (Just tn) f ds))) = do
                 Nothing -> return $ \ (UserEvent _) -> 1
             return $! runEvaluator st $ setTimedCSP tn func value
     return $! map (\ (n,d) -> (n, packageDecl d)) nds
+bindDecl (an@(An _ _ (PrintStatement _))) = return []
 
 evalTypeExpr :: Value -> ValueSet
 evalTypeExpr (VSet s) = s

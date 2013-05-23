@@ -1,0 +1,4 @@
+P = let 
+        f = 1
+        print 0
+    within 0

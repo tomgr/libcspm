@@ -104,6 +104,9 @@ tokens :-
     <assert>""/@notnot          { begin 0 }
     <assert>@nl"{-"             { nestedComment }
 
+    <0>"print ".*$              { stok (\ s ->
+                                    TPrint (drop (length "print ") s))}
+
     <0>@white_no_nl             { skip }
 
     <0>@nl"{-"                  { nestedComment }

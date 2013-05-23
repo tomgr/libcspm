@@ -1,0 +1,3 @@
+print 1+1+3
+print head(<x | x <- <0..>, 100000000 < x>)
+print 10

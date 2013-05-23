@@ -1,0 +1,4 @@
+module X
+exports
+print 0
+endmodule

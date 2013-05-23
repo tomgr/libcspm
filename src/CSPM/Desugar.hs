@@ -202,6 +202,7 @@ desugarDecl (An x y d) = do
                 return TimedSection $$ (substituteName n >>= return . Just) $$
                     desugar f $$ local (\st -> st { inTimedSection = True })
                         (desugarDecls ds)
+            PrintStatement s -> return $ PrintStatement s
     return [An x y d']
 
 desugarDecls :: [TCDecl] -> DesugarMonad [TCDecl]

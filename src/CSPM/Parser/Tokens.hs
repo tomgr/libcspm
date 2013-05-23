@@ -16,6 +16,8 @@ data Token =
     | TTrue
     | TIdent String
 
+    | TPrint String
+
     | TRefines Model
     | TModel Model
     | TTauPriority
@@ -134,6 +136,8 @@ instance PrettyPrintable Token where
     prettyPrint TFalse = text "false"
     prettyPrint TTrue = text "true"
     prettyPrint (TIdent s) = text s
+
+    prettyPrint (TPrint s) = text "print" <+> text s
 
     prettyPrint (TRefines m) = char '[' <> prettyPrint m <> char '='
     prettyPrint (TModel m) = char '[' <> prettyPrint m <> char ']'

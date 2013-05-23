@@ -30,6 +30,7 @@ instance BoundNames (Decl Name) where
     boundNames (Module n _ _ _) = [n]
     boundNames (TimedSection _ _ ds) = boundNames ds
     boundNames (ModuleInstance _ _ _ nm _) = map fst nm
+    boundNames (PrintStatement _) = []
 
 instance BoundNames (DataTypeClause Name) where
     boundNames (DataTypeClause n _) = [n]
@@ -246,6 +247,7 @@ instance FreeVars (Decl Name) where
     freeVars' (TimedSection (Just n) f ds) =
         n : freeVars' f ++ concatMap freeVars' ds
     freeVars' (ModuleInstance _ n _ _ _) = [n]
+    freeVars' (PrintStatement _) = []
 
 instance FreeVars (Assertion Name) where
     freeVars' (Refinement e1 m e2 opts) = freeVars [e1, e2] ++ freeVars opts

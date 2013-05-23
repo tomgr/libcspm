@@ -151,6 +151,7 @@ instance Compressable (Decl a) where
             mcompress rnm
     mcompress (TimedSection mn f ds) =
         return TimedSection $$ return mn $$ mcompress f $$ mcompress ds
+    mcompress (PrintStatement s) = return $ PrintStatement s
 
 instance Compressable (Assertion a) where
     mcompress (Refinement e1 m e2 opts) = return 

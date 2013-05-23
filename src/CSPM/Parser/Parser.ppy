@@ -50,6 +50,7 @@ import Util.Exception (panic)
     string_literal      { L _ (TString _) }
     ident               { L _ (TIdent _) }
     newline             { L _ TNewLine }
+    print_literal       { L _ (TPrint _) }
 
     "false"             { L _ TFalse }
     "true"              { L _ TTrue }
@@ -261,6 +262,8 @@ DeclA :: { PDecl }
     | "instance" Name "=" Name ExpList          { AN2L (ModuleInstance (unLoc $2)
                                                         (unLoc $4) $5 []
                                                         Nothing) }
+    | print_literal                             { LL (PrintStatement
+                                                    (getPrintString $1)) }
 
 OptPatList :: { [PPat] }
     :
@@ -715,11 +718,15 @@ checkLetDecls decls =
 checkModuleDecl :: PDecl -> PDecl
 checkModuleDecl (anDecl@(An _ _ (Assert _))) =
     throwSourceError [invalidModuleDeclarationErrorMessage anDecl]
+checkModuleDecl (anDecl@(An _ _ (PrintStatement _))) =
+    throwSourceError [invalidModuleDeclarationErrorMessage anDecl]
 checkModuleDecl (anDecl@(An x y (TimedSection a b ds))) =
     An x y (TimedSection a b (map checkModuleDecl ds))
 checkModuleDecl d = d
 
 checkTimedDecl :: PDecl -> PDecl
+checkTimedDecl (anDecl@(An _ _ (PrintStatement _))) =
+    throwSourceError [invalidTimedSectionDeclarationErrorMessage anDecl]
 checkTimedDecl d = d
 
 checkExp :: PExp -> PExp
@@ -844,6 +851,7 @@ getString (L _ (TString s)) = s
 getName (L _ (TIdent x)) = x
 getRefinesModel (L _ (TRefines x)) = x
 getPropModel (L _ (TModel x)) = x
+getPrintString (L _ (TPrint x)) = x
 
 class Locatable a where
     getLoc :: a b -> SrcSpan

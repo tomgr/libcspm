@@ -250,6 +250,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
     errorContext (ModuleInstance n _ _ _ _) = Just $
         text "In the declaration of the module instance:" <+> prettyPrint n
     errorContext (Module _ _ _ _) = Nothing
+    errorContext (PrintStatement _) = Nothing
     
     typeCheck' (FunBind n ms mta) = do
         let boundTypeVars =
@@ -468,6 +469,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
             _ -> return ()
             ) (privDs ++ pubDs)
         return nts
+    typeCheck' (PrintStatement _) = return []
 
 instance TypeCheckable TCAssertion () where
     errorContext an = Nothing

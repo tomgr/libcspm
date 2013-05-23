@@ -8,7 +8,7 @@
 -- using the 'Annotated' datatype.
 module CSPM.DataStructures.Syntax (
     -- * Files
-    CSPMFile(..), allAssertionsInFile,
+    CSPMFile(..), allAssertionsInFile, allPrintStatementsInFile,
     -- * Declarations
     Decl(..), Match(..),
     -- ** Assertions
@@ -134,6 +134,13 @@ allAssertionsInFile (An _ _ (CSPMFile ds)) =
             concatMap assertionsInDecl' ds
         assertionsInDecl _ = []
     in concatMap assertionsInDecl' ds
+
+allPrintStatementsInFile :: AnCSPMFile a -> [Located String]
+allPrintStatementsInFile (An _ _ (CSPMFile ds)) =
+    let
+        printStatementsInDecl (An loc _ (PrintStatement s)) = [L loc s]
+        printStatementsInDecl _ = []
+    in concatMap printStatementsInDecl ds
 
 -- *************************************************************************
 -- Expressions
@@ -565,6 +572,10 @@ data Decl id =
         moduleInstanceNameMap :: [(id, id)],
         -- | The module that this is an instance of
         moduleInstanceOfDeclaration :: Maybe (AnDecl id)
+    }
+    -- | A print statement, e.g. @print x@.
+    | PrintStatement {
+        printStatement :: String
     }
     deriving (Eq, Ord, Show)
 
