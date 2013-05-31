@@ -1,0 +1,11 @@
+module P
+
+fdrbugfix = 1
+fdr294bugfix=1
+exports
+
+include "file-starting-with-comment.csp"
+
+y = 2
+
+endmodule

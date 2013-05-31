@@ -1,0 +1,1 @@
+include "test-module-exports-then-include-of-file-starting-with-comment.csp"

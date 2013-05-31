@@ -247,8 +247,8 @@ DeclA :: { PDecl }
     | "assert" "anot" Assertion                 { AN2 (Assert (AN2 (ASNot $3))) }
     | "assert" Assertion                        { AN2 (Assert $2) }
     | "nametype" Name "=" CExp                  { AN2 (NameType (unLoc $2) $4) }
-    | "module" Name OptPatList newline DeclList
-      "exports" newline DeclList "endmodule"    { AN2 (Module (unLoc $2) $3 
+    | "module" Name OptPatList Newlines DeclList
+      "exports" Newlines DeclList "endmodule"    { AN2 (Module (unLoc $2) $3 
                                                     (map checkModuleDecl $5)
                                                     (map checkModuleDecl $8)) }
     | "Timed" "{" DeclList "}"                  { AN2 (TimedSection Nothing
