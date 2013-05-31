@@ -207,8 +207,8 @@ instance PrettyPrintable id => PrettyPrintable (Exp id) where
         sep [hang (text "if" <+> prettyPrint e1 <+> text "then") 
                 tabWidth (prettyPrint e2),
             text "else" <+> prettyPrint e3]
-    prettyPrint (Lambda pat exp) = 
-        text "\\" <> prettyPrint pat
+    prettyPrint (Lambda ps exp) = 
+        text "\\" <> list (map prettyPrint ps)
         <+> text "@"
         <+> prettyPrint exp
     prettyPrint (Let decls exp) = 

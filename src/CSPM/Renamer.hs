@@ -799,12 +799,12 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
     rename (Concat e1 e2) = return Concat $$ rename e1 $$ rename e2
     rename (DotApp e1 e2) = return DotApp $$ rename e1 $$ rename e2
     rename (If e1 e2 e3) = return If $$ rename e1 $$ rename e2 $$ rename e3
-    rename (Lambda p e) = do
-        (p', e') <- addScope (do
-                p' <- renamePattern internalNameMaker p
+    rename (Lambda ps e) = do
+        (ps', e') <- addScope (do
+                ps' <- mapM (renamePattern internalNameMaker) ps
                 e' <- rename e
-                return (p', e'))
-        return $ Lambda p' e'
+                return (ps', e'))
+        return $ Lambda ps' e'
     rename (Let ds e) = do
         (ds', e') <- addScope $ renameDeclarations False ds (rename e)
         return $ Let ds' e'

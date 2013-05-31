@@ -270,6 +270,10 @@ OptPatList :: { [PPat] }
                                                 { [] }
     | "(" rPatList ")"                          { reverse $2 }
 
+PatList :: { [PPat] }
+    :
+    rPatList                                    { reverse $1 }
+
 ExpList :: { [PExp] }
     :
     "(" CExpList ")"                            { reverse $2 }
@@ -433,7 +437,7 @@ ExpA :: { PExp }
     | "if" Exp "then" Exp "else" Exp { AN2 (If $2 $4 $6) }
     | "(" Exp ")"                   { AN2 (Paren $2) }
     | Exp "(" ExpCommaList ")"      { AN2 (App $1 $3) }
-    | "\\" Pat "@" Exp              { AN2 (Lambda $2 $4) }
+    | "\\" PatList "@" Exp          { AN2 (Lambda $2 $4) }
 
     -- Boolean ExpPatressions
     | Exp "==" Exp                  { AN2 (BooleanBinaryOp Equals $1 $3) }

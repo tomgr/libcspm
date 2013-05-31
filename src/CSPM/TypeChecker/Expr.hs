@@ -105,11 +105,11 @@ instance TypeCheckable (Exp Name) Type where
         ensureIsBool e1
         t2 <- typeCheck e2
         typeCheckExpect e3 t2
-    typeCheck' (Lambda p exp) = do
-        local (boundNames p) $ do
+    typeCheck' (Lambda ps exp) = do
+        local (boundNames ps) $ do
             tr <- typeCheck exp
-            targ <- typeCheck p
-            return $ TFunction [targ] tr
+            targs <- mapM typeCheck ps
+            return $ TFunction targs tr
     typeCheck' (Let decls exp) = do
         -- Add a new scope: typeCheckDecl will add vars into it 
         local (boundNames decls) $ do

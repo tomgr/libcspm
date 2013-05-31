@@ -85,18 +85,19 @@ instance Evaluatable (Exp Name) where
     eval (If e1 e2 e3) = do
         VBool b <- eval e1
         if b then eval e2 else eval e3
-    eval (Lambda p e) = do
+    eval (Lambda ps e) = do
         st <- getState
-        ps <- getParentScopeIdentifier
-        let fid = FLambda (Lambda p e) ps
-        return $ VFunction fid $ \ [v] -> return $ runEvaluator st $ do
-            let (matches, binds) = bind p v
+        psid <- getParentScopeIdentifier
+        let fid = FLambda (Lambda ps e) psid
+        return $ VFunction fid $ \ vs -> return $ runEvaluator st $ do
+            let (matches, binds) = bindAll ps vs
             if matches then do
                 p <- getParentScopeIdentifier
-                updateParentScopeIdentifier (annonymousScopeId [v] p) $ 
+                updateParentScopeIdentifier (annonymousScopeId vs psid) $ 
                     addScopeAndBind binds (eval e)
-            else
-                throwError $ patternMatchFailureMessage (loc p) p v
+            else do
+                loc <- getCurrentExpressionLocation
+                throwError $ patternMatchesFailureMessage loc ps vs
     eval (Let decls e) = do
         nvs <- bindDecls decls
         addScopeAndBindM nvs (eval e)

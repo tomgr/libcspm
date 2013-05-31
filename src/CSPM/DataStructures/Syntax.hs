@@ -209,7 +209,7 @@ data Exp id =
     }
     -- | Lambda functions, e.g. @\(x,y) \@ e(x,y)@.
     | Lambda {
-        lambdaBindingPattern :: AnPat id,
+        lambdaBindingPatterns :: [AnPat id],
         lambdaRightHandSide :: AnExp id
     }
     -- | Let declarations, e.g. @let func = e1 within e2@.

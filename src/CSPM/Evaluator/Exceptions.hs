@@ -33,6 +33,14 @@ patternMatchFailureMessage l pat v =
                 (prettyPrint v))
             tabWidth (text "does not match the pattern" <+> prettyPrint pat)
 
+patternMatchesFailureMessage :: SrcSpan -> [TCPat] -> [Value] -> ErrorMessage
+patternMatchesFailureMessage l pat v =
+    mkErrorMessage l $ 
+        hang (hang (text "Pattern match failure: ") tabWidth
+                (list (map prettyPrint v)))
+            tabWidth (text "do not match the patterns" <+>
+                list (map prettyPrint pat))
+
 headEmptyListMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
 headEmptyListMessage loc scope = mkErrorMessage loc $ 
     text "Attempt to take head of empty list."
