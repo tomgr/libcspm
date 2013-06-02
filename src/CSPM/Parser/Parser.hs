@@ -606,7 +606,7 @@ happyReduction_3 happy_x_2
 	happy_x_1
 	 =  case happyOut10 happy_x_2 of { happy_var_2 -> 
 	happyIn6
-		 (annotateList happy_var_2 (CSPMFile happy_var_2)
+		 (mkLoc Unknown (CSPMFile happy_var_2)
 	)}
 
 happyReduce_4 = happyMonadReduce 4# 1# happyReduction_4
@@ -2682,7 +2682,8 @@ happySeq = happyDontSeq
 combineDecls :: [PDecl] -> [PDecl]
 combineDecls [] = []
 combineDecls ((An loc1 b (FunBind n ms Nothing)):
-        (An loc2 c (FunBind n' ms' Nothing)):ds) | n == n' = 
+            (An loc2 c (FunBind n' ms' Nothing)):ds)
+        | n == n' && srcSpanFile loc1 == srcSpanFile loc2 =
     combineDecls $
         (An (combineSpans loc1 loc2) b (FunBind n (ms++ms') Nothing)):ds
 combineDecls (d:ds) = d:combineDecls ds
@@ -2756,6 +2757,8 @@ attachTypeAnnotations ds =
         else concatMap annotateDecl ds
 
 convDecl :: PExp -> PExp -> ParseMonad PDecl
+convDecl lhs rhs | srcSpanFile (loc lhs) /= srcSpanFile (loc rhs) =
+    throwSourceError [definitionSpanFileError lhs rhs (loc lhs)]
 convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) = 
     let
         span = combineSpans loc1 loc2
@@ -2959,10 +2962,6 @@ instance Locatable (Annotated a) where
 
 annotate :: (Locatable t1, Locatable t2) => t1 a -> b -> t2 b
 annotate t1 b = mkLoc (getLoc t1) b
-
-annotateList :: (Locatable t1, Locatable t2) => [t1 a] -> b -> t2 b
-annotateList [] b = mkLoc Unknown b
-annotateList ts b = mkLoc (combineSpans (getLoc (head ts)) (getLoc (last ts))) b
 
 annotate2 :: 
     (Locatable t1, Locatable t2, Locatable t3) => t1 a -> t2 b -> c -> t3 c
