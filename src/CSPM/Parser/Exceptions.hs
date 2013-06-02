@@ -12,6 +12,7 @@ module CSPM.Parser.Exceptions (
     ambiguousTypeAnnotationsError,
     unusedTypeAnnotationsError,
     unknownConstraintError,
+    definitionSpanFileError,
     
     throwSourceError
 )
@@ -78,3 +79,11 @@ unusedTypeAnnotationsError n span = mkErrorMessage span $
 unknownConstraintError :: String -> SrcSpan -> ErrorMessage
 unknownConstraintError s loc = mkErrorMessage loc $
     text "The constraint" <+> text s <+> text "is unknown."
+
+definitionSpanFileError :: PExp -> PExp -> SrcSpan -> ErrorMessage
+definitionSpanFileError left right errLoc = mkErrorMessage errLoc $
+    text "The definition:"
+    $$ tabIndent (prettyPrint left <+> char '=' <+> prettyPrint right)
+    $$ text "starts in the file" <+> text (srcSpanFile (loc left))
+    $$ text "but ends in the file" <+> text (srcSpanFile (loc right))
+        <> char '.'
