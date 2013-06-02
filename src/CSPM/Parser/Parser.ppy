@@ -597,7 +597,8 @@ rStmtCommaList :: { [PStmt] }
 combineDecls :: [PDecl] -> [PDecl]
 combineDecls [] = []
 combineDecls ((An loc1 b (FunBind n ms Nothing)):
-        (An loc2 c (FunBind n' ms' Nothing)):ds) | n == n' = 
+            (An loc2 c (FunBind n' ms' Nothing)):ds)
+        | n == n' && srcSpanFile loc1 == srcSpanFile loc2 =
     combineDecls $
         (An (combineSpans loc1 loc2) b (FunBind n (ms++ms') Nothing)):ds
 combineDecls (d:ds) = d:combineDecls ds
