@@ -356,7 +356,10 @@ switchInput st len = do
 
     if not (hasStartQuote quotedFname) || not (hasEndQuote (tail quotedFname)) then
         throwSourceError [invalidIncludeErrorMessage (filePositionToSrcLoc fname pos)]
-    else pushFile file getNextToken
+    -- We push a newline token here to make sure that any expression that
+    -- crosses the include boundary will be a hard parse error
+    else pushFile file $ return $!
+            L ((filePositionToSrcLoc fname pos)) TNewLine
 
 type AlexInput = ParserState
 
