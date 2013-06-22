@@ -1,0 +1,3 @@
+include "module_with_one_argument.csp"
+instance im = m1(1)
+print im::y

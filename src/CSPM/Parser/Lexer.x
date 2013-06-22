@@ -390,11 +390,17 @@ alexGetChar (st @ (ParserState { fileStack = fps:fpss })) = gc fps
 getNextToken :: ParseMonad LToken
 getNextToken = do
     FileParserState { 
+        input = input,
         fileName = fname, 
         tokenizerPos = pos, 
         currentStartCode = sc } <- getTopFileParserState
     st <- getParserState
-    case alexScan st sc of
+    if length (fileStack st) > 1 && input == [] then do
+        -- Switch input back
+        setParserState (st { fileStack = tail (fileStack st) })
+        -- Insert a newline to stop expressions spanning files
+        return $! L ((filePositionToSrcLoc fname pos)) TNewLine
+    else case alexScan st sc of
         AlexEOF -> return $ L Unknown TEOF
         AlexError _ -> 
             throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
