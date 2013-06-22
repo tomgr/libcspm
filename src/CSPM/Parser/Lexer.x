@@ -203,7 +203,7 @@ tokens :-
 
     -- Arithmetic
     <0>@nl"+"@nl                { tok TPlus }
-    <0>"-"/[^\->]               { soakTok TMinus }
+    <0>"-"/[[^\->]\n]           { soakTok TMinus }
     <0>@nl"*"@nl                { tok TTimes }
     <0>@nl"/"@nl                { tok TDivide }
     <0>@nl"%"@nl                { tok TMod }
