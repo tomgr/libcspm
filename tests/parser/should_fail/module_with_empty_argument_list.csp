@@ -1,0 +1,7 @@
+module m()
+x=0
+exports
+y=1
+endmodule
+--instance im = m()
+--print im::y
