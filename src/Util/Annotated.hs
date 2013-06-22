@@ -86,8 +86,9 @@ instance PrettyPrintable SrcSpan where
     prettyPrint BuiltIn = text "<built-in>"
     
 combineSpans :: SrcSpan -> SrcSpan -> SrcSpan
-combineSpans s1 s2 | srcSpanFile s1 /= srcSpanFile s2 = 
-    panic "Cannot combine spans as they span files"
+combineSpans s1 s2 | srcSpanFile s1 /= srcSpanFile s2 = panic $ show $
+    text "Cannot combine spans as they span files"
+    $$ tabIndent (prettyPrint s1 $$ prettyPrint s2)
 combineSpans (SrcSpanOneLine f1 line1 scol1 _) 
         (SrcSpanOneLine _ line2 _ ecol2) = 
     if line1 == line2 then SrcSpanOneLine f1 line1 scol1 ecol2
@@ -101,7 +102,9 @@ combineSpans (SrcSpanMultiLine f1 sline1 scol1 _ _)
 combineSpans (SrcSpanMultiLine f1 sline1 scol1 _ _) 
         (SrcSpanMultiLine _ _ _ eline2 ecol2) =
     SrcSpanMultiLine f1 sline1 scol1 eline2 ecol2
-combineSpans _ _ = panic $ "combineSpans: invalid spans combined"
+combineSpans s1 s2 = panic $ show $
+    text "combineSpans: invalid spans combined"
+    $$ tabIndent (prettyPrint s1 $$ prettyPrint s2)
 
 data Located a = 
     L {
