@@ -76,7 +76,13 @@ data LibCSPMException =
     deriving Typeable
 
 instance Show LibCSPMException where
-    show (Panic str) = "Internal inconsitancy error: "++str
+    show (Panic str) =
+        "panic: the program has detected an inconsistent internal state.\n"++
+        "    This means that there is a bug in libcspm, not a bug in your input script.\n\n"++
+        "    Please report this bug using the contact link at https://www.cs.ox.ac.uk/projects/fdr/.\n"++
+        "    In particular, please include the input script that caused this error and a brief\n"++
+        "    description of how to reproduce the problem. Please also include the following message:\n\n"++
+        unlines (map (\ s -> "        "++s) (lines str))
     show (SourceError ms) = show (prettyPrint ms)
     show (UserError) = "An unknown error occured."
 
