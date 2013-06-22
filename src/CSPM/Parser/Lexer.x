@@ -195,15 +195,7 @@ tokens :-
     <0>"nametype"/$notid        { soakTok TNameType }
     <0>"module"/$notid          { soakTok TModule }
     <0>"exports"/$notid         { tok TExports }
-    -- The following is to allow endmodule to occur at the end of a file
-    -- with no newline following it. It is more contrived than the other
-    -- keywords as it is the only one that MIGHT have EOF immediately following
-    -- it, which is, of course, not matched by /$notid. Thus we explicitly
-    -- parse any non-empty extension of endmodule (that fits the spec of a
-    -- variable) as a variable, not an endmodule token.
-    <0>"endmodule"$alphanum+$prime* { stok (\ s -> TIdent s) }
-    <0>"endmodule"$alphanum*$prime+ { stok (\ s -> TIdent s) }
-    <0>"endmodule"              { tok TEndModule }
+    <0>"endmodule"/$notid       { tok TEndModule }
     <0>"instance"               { tok TInstance }
     <0>@nl"\"@nl                { tok TBackSlash }
     <0>@nl"@"@nl                { tok TLambdaDot }

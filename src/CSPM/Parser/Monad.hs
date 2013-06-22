@@ -109,7 +109,10 @@ pushFile fname prog = do
 pushFileContents :: String -> String -> ParseMonad ()
 pushFileContents filename input = 
     modify (\ st -> let
-            fs = FileParserState startPos filename input '\n' 0 [0]
+            -- We add an extra space on the end of the file contents to allow
+            -- the right contexts used in the lexer to still work even at the
+            -- end of the file.
+            fs = FileParserState startPos filename (input++" ") '\n' 0 [0]
         in
             st { fileStack = fs:(fileStack st) })
 
