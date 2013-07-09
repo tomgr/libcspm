@@ -259,7 +259,7 @@ DeclA :: { PDecl }
                                                     (map checkTimedDecl $6)) }
     | NameCommaList1 OfType STypeScheme         { AN2LL (ParsedTypeAnnotation
                                                     (map unLoc $1) $3) }
-    | "instance" Name "=" Name ExpList          { AN2L (ModuleInstance (unLoc $2)
+    | "instance" Name "=" MaybeQualName ExpList { AN2L (ModuleInstance (unLoc $2)
                                                         (unLoc $4) $5 []
                                                         Nothing) }
     | print_literal                             { LL (PrintStatement
