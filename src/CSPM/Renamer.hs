@@ -1097,7 +1097,7 @@ duplicatedDefinitionsMessage' nlocs =
     map (\ (n, spans) ->
         hang (text "The variable" <+> prettyPrint n 
                 <+> text "has multiple definitions at" <> colon) tabWidth
-            (vcat (map prettyPrint spans))) nlocs
+            (vcat (map prettyPrint (sort spans)))) nlocs
 
 transparentFunctionNotRecognised :: UnRenamedName -> Error
 transparentFunctionNotRecognised n =
