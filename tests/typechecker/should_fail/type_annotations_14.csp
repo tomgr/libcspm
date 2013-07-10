@@ -1,0 +1,2 @@
+f :: (M::x) -> a
+f(x) = error("Whatever")

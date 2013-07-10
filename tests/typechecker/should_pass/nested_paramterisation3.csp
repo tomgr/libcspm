@@ -1,0 +1,28 @@
+module M(x)
+
+exports
+
+    module N(y)
+
+    exports
+
+        module O(z)
+
+        exports
+
+            datatype T = T1
+
+            g :: T
+            g = T1
+        endmodule
+
+    endmodule
+
+endmodule
+
+instance X1 = M(0)
+instance X2 = X1::N(0)
+instance X3 = X2::O(0)
+
+g :: X3::T
+g = X3::T1

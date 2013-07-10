@@ -1,0 +1,2 @@
+f :: (M::x =>* Event) -> a
+f(x) = error("Whatever")

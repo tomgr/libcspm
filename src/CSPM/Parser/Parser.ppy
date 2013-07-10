@@ -341,11 +341,11 @@ rSTypeConstraintList1 :: { [PSTypeConstraint] }
 
 SType :: { PSType }
     :
-    Name                            { LL (STVar (unLoc $1)) }
+    MaybeQualName                   { LL (STVar (unLoc $1)) }
     | "{" SType "}"                 { AN2 (STSet $2) }
     | "<" SType ">"                 { AN2 (STSeq $2) }
     | "(" SType ")"                 { AN2 (STParen $2) }
-    | Name "=>*" SType              { AN2 (STExtendable $3 (unLoc $1)) }
+    | MaybeQualName "=>*" SType     { AN2 (STExtendable $3 (unLoc $1)) }
     | SType "=>" SType              { AN2 (STDotable $1 $3) }
     | SType "." SType               { AN2 (STDot $1 $3)}
     | "(" STypeCommaList2 ")"       { AN2 (STTuple $2) }

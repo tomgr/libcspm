@@ -52,8 +52,14 @@ data RenamedName = RenamedName {
     }
     deriving Show
 
+data RenamedType = RenamedType {
+        renamedType :: SType Name,
+        renamedTypeVisibility :: Visibility
+    }
+    deriving Show
+
 type RenameEnvironment = HM.HierarchicalMap UnRenamedName RenamedName
-type TypeRenameEnvironment = HM.HierarchicalMap UnRenamedName (SType Name)
+type TypeRenameEnvironment = HM.HierarchicalMap UnRenamedName RenamedType
 
 data ModuleInformation =
     ModuleInformation {
@@ -61,12 +67,15 @@ data ModuleInformation =
         renamedDeclaration :: Maybe TCDecl,
         -- | The visibility of the names in the module.
         nameVisibility :: M.Map UnRenamedName Visibility,
+        typeNameVisibility :: M.Map UnRenamedName Visibility,
         publicBoundModules :: [UnRenamedName],
         privateBoundModules :: [UnRenamedName],
         publicBoundLabels :: [UnRenamedName],
         privateBoundLabels :: [UnRenamedName],
         publicBoundNames :: [UnRenamedName],
-        privateBoundNames :: [UnRenamedName]
+        privateBoundNames :: [UnRenamedName],
+        publicTypeNames :: [UnRenamedName],
+        privateTypeNames :: [UnRenamedName]
     }
     | ModuleInstanceInformation {
         resolvedTarget :: Name
@@ -99,7 +108,10 @@ initRenamer = do
                         renamedNameVisibility = Public
                     }))
                 (builtins False)
-        bts = map (\ (s, t) -> (UnQual (OccName s), t)) [
+        bts = map (\ (s, t) -> (UnQual (OccName s), RenamedType {
+                    renamedType = t,
+                    renamedTypeVisibility = Public
+                })) [
                     ("Proc", STProc),
                     ("Int", STInt),
                     ("Bool", STBool),
@@ -146,14 +158,18 @@ addTypeScope m = do
     modify (\ st -> st { typeEnvironment = env })
     return a
 
-lookupType :: UnRenamedName -> RenamerMonad (Maybe (SType Name))
+lookupType :: UnRenamedName -> RenamerMonad (Maybe RenamedType)
 lookupType n = do
     env <- gets typeEnvironment
     return $! HM.maybeLookup env n
 
 setType :: UnRenamedName -> SType Name -> RenamerMonad ()
-setType rn t = modify (\ st -> st {
-        typeEnvironment = HM.update (typeEnvironment st) rn t
+setType rn t = setTypeWithVisibility rn t Public
+
+setTypeWithVisibility :: UnRenamedName -> SType Name -> Visibility ->
+    RenamerMonad ()
+setTypeWithVisibility rn t vis = modify (\ st -> st {
+        typeEnvironment = HM.update (typeEnvironment st) rn (RenamedType t vis)
     })
 
 addScope :: RenamerMonad a -> RenamerMonad a
@@ -270,7 +286,7 @@ addModule :: Name -> PDecl -> RenamerMonad ()
 addModule n d =
     modify (\ st -> st {
         foundModules = M.insert n
-            (ModuleInformation d Nothing M.empty [] [] [] [] [] [])
+            (ModuleInformation d Nothing M.empty M.empty [] [] [] [] [] [] [] [])
             (foundModules st)
     })
 
@@ -298,12 +314,17 @@ addBoundModuleBoundNames :: Name -> [UnRenamedName] -> [UnRenamedName] -> Rename
 addBoundModuleBoundNames mn privNs pubNs = updateModuleInformation mn $
     \ st -> st { privateBoundNames = privNs, publicBoundNames = pubNs }
 
+addBoundModuleTypeNames :: Name -> [UnRenamedName] -> [UnRenamedName] -> RenamerMonad ()
+addBoundModuleTypeNames mn privNs pubNs = updateModuleInformation mn $
+    \ st -> st { privateTypeNames = privNs, publicTypeNames = pubNs }
+
 addBoundModuleRenamedVersion :: Name -> TCDecl -> RenamerMonad ()
 addBoundModuleRenamedVersion mn td = updateModuleInformation mn $
     \ st -> st { renamedDeclaration = Just td }
 
-setNameVisibilityInModule :: Name -> [UnRenamedName] -> RenamerMonad ()
-setNameVisibilityInModule mn ns = do
+setNameVisibilityInModule :: Name -> [UnRenamedName] -> [UnRenamedName] ->
+    RenamerMonad ()
+setNameVisibilityInModule mn ns tns = do
     env <- gets environment
     mapM_ (\ n -> case HM.maybeLookup env n of
         Nothing -> panic "Cannot find name for visibility"
@@ -313,6 +334,15 @@ setNameVisibilityInModule mn ns = do
                         (nameVisibility st)
             }
         ) ns
+    tenv <- gets typeEnvironment
+    mapM_ (\ n -> case HM.maybeLookup tenv n of
+        Nothing -> panic "Cannot find name for visibility"
+        Just renamed ->
+            updateModuleInformation mn $ \ st -> st {
+                typeNameVisibility = M.insert n (renamedTypeVisibility renamed)
+                        (typeNameVisibility st)
+            }
+        ) tns
 
 nameVisibilityInModule :: UnRenamedName -> UnRenamedName -> RenamerMonad Visibility
 nameVisibilityInModule umrn n = do
@@ -323,54 +353,87 @@ nameVisibilityInModule umrn n = do
         Just v -> return v
         Nothing -> panic "Name does not have a visibility in module"
 
-hideBoundNames :: RenamerMonad [UnRenamedName] -> RenamerMonad [UnRenamedName]
-hideBoundNames prog = do
-    ns <- prog
+typeNameVisibilityInModule :: UnRenamedName -> UnRenamedName -> RenamerMonad Visibility
+typeNameVisibilityInModule umrn n = do
+    env <- gets environment
+    Just mn <- lookupMaybeHiddenName umrn True
+    minfo <- informationForModuleName mn
+    case M.lookup n (typeNameVisibility minfo) of
+        Just v -> return v
+        Nothing -> panic "Type name does not have a visibility in module"
+
+hideBoundNames :: [UnRenamedName] -> [UnRenamedName] ->
+    RenamerMonad [UnRenamedName]
+hideBoundNames ns tns = do
     let nameSet = S.fromList ns
         change rn x | S.member rn nameSet =
             x { renamedNameVisibility = Private }
         change rn x = x
     modify (\ st -> st { environment = HM.map change (environment st) })
+    let nameSet = S.fromList tns
+        change rn x | S.member rn nameSet =
+            x { renamedTypeVisibility = Private }
+        change rn x = x
+    modify (\ st -> st { typeEnvironment = HM.map change (typeEnvironment st) })
     return ns
 
 unhideModuleNames :: OccName -> RenamerMonad a -> RenamerMonad a
 unhideModuleNames prefix prog = addScope $ do
     minfo <- informationForModule Unknown (UnQual prefix)
-    let visFor n =
-            case M.lookup n (nameVisibility minfo) of
+    let unhide rn (RenamedName x y _) = RenamedName x y $!
+            case M.lookup rn (nameVisibility minfo) of
                 Just v -> v
-                Nothing -> panic $ "Cannot find visibility of "++show n
+                Nothing -> panic $ "Cannot find visibility of "++show x
                     ++" in "++show (prettyPrint prefix)
-        unhide rn (RenamedName x y _) = RenamedName x y $! visFor rn
+        unhideType rn (RenamedType x _) = RenamedType x $!
+            case M.lookup rn (typeNameVisibility minfo) of
+                Just v -> v
+                Nothing -> panic "Cannot find type vis"
     let ns = publicBoundModules minfo ++ privateBoundModules minfo ++
                 publicBoundLabels minfo ++ privateBoundLabels minfo ++
                 publicBoundNames minfo ++ privateBoundNames minfo
     -- Unhide the names
-    modify (\ st -> st { environment = HM.updateMulti (environment st)
+    modify (\ st -> st {
+        environment = HM.updateMulti (environment st)
             [(rn, unhide rn (HM.lookup (environment st) (Qual prefix rn)))
-                | rn <- ns]
+                | rn <- ns],
+        typeEnvironment = HM.updateMulti (typeEnvironment st)
+            [(rn, unhideType rn (HM.lookup (typeEnvironment st) (Qual prefix rn)))
+                | rn <- privateTypeNames minfo ++ publicTypeNames minfo]
         })
     prog
 
 -- | Given a module name, runs the provided program in a new scope in which
 -- all variables that were bound with the given module name as a prefix in
 -- scope.
-prefixNamesFromScope :: Bool -> OccName -> RenamerMonad [UnRenamedName] ->
-    RenamerMonad [UnRenamedName]
+prefixNamesFromScope :: Bool -> OccName ->
+    RenamerMonad ([UnRenamedName], [UnRenamedName]) ->
+    RenamerMonad ([UnRenamedName], [UnRenamedName])
 prefixNamesFromScope isParamterised prefix prog = do
-    rns <- unhideModuleNames prefix $ do
-        ns <- prog
+    (rns, rnts) <- unhideModuleNames prefix $ do
+        (ns, tns) <- prog
         env <- gets environment
-        return $! map (\ rn -> (rn,
-            case HM.maybeLookup env rn of
-                Just r -> r
-                Nothing -> panic "Cannot find name that should be prefixed")) ns
-    mapM (\ (rn, renamed) -> do
+        tenv <- gets typeEnvironment
+        let rns = map (\ rn -> (rn,
+                case HM.maybeLookup env rn of
+                    Just r -> r
+                    Nothing -> panic "Cannot find name to prefix")) ns
+            rnts = map (\ rn -> (rn,
+                case HM.maybeLookup tenv rn of
+                    Just r -> r
+                    Nothing -> panic "Cannot find type name to prefix")) tns
+        return (rns, rnts)
+    ns <- mapM (\ (rn, renamed) -> do
         let rn' = Qual prefix rn
         setRenamedName rn' $!
             if isParamterised then renamed { renamedNameVisibility = Instance }
             else renamed
         return rn') rns
+    tns <- mapM (\ (rn, RenamedType t vis) -> do
+        let rn' = Qual prefix rn
+        setTypeWithVisibility rn' t (if isParamterised then Instance else vis)
+        return rn') rnts
+    return (ns, tns)
 
 -- **********************
 -- Renaming Class and basic instances
@@ -423,20 +486,26 @@ joinName :: UnRenamedName -> UnRenamedName -> UnRenamedName
 joinName (UnQual mn) x = Qual mn x
 joinName (Qual x y) z = Qual x (joinName y z)
 
+concatMapM' :: Monad m => (a -> m ([b], [c])) -> [a] -> m ([b], [c])
+concatMapM' f xs = do
+    bscs <- mapM f xs
+    let (bs, cs) = unzip bscs
+    return (concat bs, concat cs)
+
 -- | Renames the declarations in the current scope.
 renameDeclarations :: Bool -> [PDecl] -> RenamerMonad a -> RenamerMonad ([TCDecl], a)
 renameDeclarations topLevel ds prog = do
     -- Insert the modules
-    concatMapM insertModule ds
+    mapM_ insertModule ds
     -- Now, find all the datatype labels and channels and create names for
     -- them in the maps (otherwise renameVarLHS will fail).
-    concatMapM insertLabels ds
+    mapM_ insertLabels ds
     -- Firstly, check for duplicates amongst the definitions (this can only
     -- be done AFTER insertChannelsAndDatatTypes).
     checkDuplicates ds
     -- Secondly, insert all other names into the environment. We need to have
     -- inserted the channels by here to detect where names are pattern matched.
-    concatMapM (insertBoundNames nameMaker) ds
+    mapM_ (insertBoundNames nameMaker) ds
     -- Finally, as all the declarations have been inserted into the map we
     -- can rename the right hand sides (as every variable *should* be in
     -- scope).
@@ -461,14 +530,14 @@ renameDeclarations topLevel ds prog = do
                 setModuleName (UnQual nm) n Public
                 addModule n ad
                 -- Add submodules recursively
-                ns <- prefixNamesFromScope (args /= []) nm $ addModuleContext nm $ do
+                (ns, []) <- prefixNamesFromScope (args /= []) nm $ addModuleContext nm $ do
                     ns1 <- concatMapM insertModule privDs
                     ns2 <- concatMapM insertModule pubDs
                     addBoundModuleModules n ns1 ns2
                     let ns = ns1 ++ ns2
-                    setNameVisibilityInModule n ns
-                    hideBoundNames (return ns1)
-                    return $ ns
+                    setNameVisibilityInModule n ns []
+                    hideBoundNames ns1 []
+                    return $ (ns, [])
                 return $ (UnQual nm):ns
             ModuleInstance (UnQual nm) nt args [] _ -> do
                 mntarget <- lookupName nt True
@@ -483,7 +552,7 @@ renameDeclarations topLevel ds prog = do
                 setModuleName (UnQual nm) n Public
                 addModuleInstance n mtarget
                 -- Add any submodules
-                ns <- prefixNamesFromScope False nm $ addModuleContext nm $ do
+                (ns, []) <- prefixNamesFromScope False nm $ addModuleContext nm $ do
                     let makeModule rn = do
                             n <- nameMaker (loc ad) rn
                             vis <- nameVisibilityInModule nt rn
@@ -491,10 +560,10 @@ renameDeclarations topLevel ds prog = do
                             Just nt <- lookupMaybeHiddenName (joinName nt rn) True
                             addModuleInstance n nt
                             return rn
-                    ns1 <- hideBoundNames $
-                        mapM makeModule (privateBoundModules minfo)
+                    ns1 <- mapM makeModule (privateBoundModules minfo)
                     ns2 <- mapM makeModule (publicBoundModules minfo)
-                    return $ ns1++ns2
+                    hideBoundNames ns1 []
+                    return $ (ns1++ns2, [])
                 return $ (UnQual nm):ns
             _ -> return []
 
@@ -522,84 +591,92 @@ renameDeclarations topLevel ds prog = do
                 ) cs
             Module (UnQual mn) args privDs pubDs -> do
                 Just n <- lookupName (UnQual mn) True
-                prefixNamesFromScope (args /= []) mn $ addModuleContext mn $ do
+                (ns, []) <- prefixNamesFromScope (args /= []) mn $ addModuleContext mn $ do
                     privLabels <- concatMapM insertLabels privDs
                     pubLabels <- concatMapM insertLabels pubDs
                     addBoundModuleLabels n privLabels pubLabels
                     let ns = privLabels ++ pubLabels
-                    setNameVisibilityInModule n ns
-                    hideBoundNames (return privLabels)
-                    return ns
+                    setNameVisibilityInModule n ns []
+                    hideBoundNames privLabels []
+                    return (ns, [])
+                return ns
             TimedSection _ _ ds -> concatMapM insertLabels ds
             ModuleInstance (UnQual mn) nt args [] _ -> do
                 Just n <- lookupName (UnQual mn) True
                 minfo <- informationForModule (loc ad) nt
-                prefixNamesFromScope False mn $ addModuleContext mn $ do
+                (ns, []) <- prefixNamesFromScope False mn $ addModuleContext mn $ do
                     let makeLabel rn = do
                             n' <- externalNameMaker True (loc ad) rn
                             vis <- nameVisibilityInModule nt rn
                             setNameWithVisibility rn n' vis
                             return rn
-                    privLabels <- hideBoundNames $
-                        mapM makeLabel (privateBoundLabels minfo)
+                    privLabels <- mapM makeLabel (privateBoundLabels minfo)
                     pubLabels <- mapM makeLabel (publicBoundLabels minfo)
-                    return $! privLabels ++ pubLabels
+                    hideBoundNames privLabels []
+                    return $! (privLabels ++ pubLabels, [])
+                return ns
             _ -> return []
 
-        insertBoundNames :: NameMaker -> PDecl -> RenamerMonad [UnRenamedName]
+        insertBoundNames :: NameMaker -> PDecl ->
+            RenamerMonad ([UnRenamedName], [UnRenamedName])
         insertBoundNames nameMaker pd = case unAnnotate pd of
-            Assert _ -> return []
-            Channel _ _ -> return []
+            Assert _ -> return ([], [])
+            Channel _ _ -> return ([], [])
             DataType rn _ -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
                 setType rn (STDatatype n)
-                return [rn]
+                return ([rn], [rn])
             SubType rn _ -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
-                return [rn]
-            External ns -> concatMapM (\ rn@(UnQual ocn) -> do
+                return ([rn], [])
+            External ns -> concatMapM' (\ rn@(UnQual ocn) -> do
                 case externalFunctionForOccName ocn of
                     Just b -> do
                         setName rn (name b)
-                        return [rn]
+                        return ([rn], [])
                     Nothing -> do
                         addErrors [mkErrorMessage (loc pd) (externalFunctionNotRecognised rn)]
-                        return []) ns
+                        return ([], [])) ns
             FunBind rn ms _ -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
-                return [rn]
+                return ([rn], [])
             NameType rn _ -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
-                return [rn]
+                return ([rn], [])
             PatBind p e _ -> do
                 renamePattern nameMaker p
-                freeVars p
+                vs <- freeVars p
+                return (vs, [])
             Transparent ns ->
-                concatMapM (\ rn@(UnQual ocn) -> do
+                concatMapM' (\ rn@(UnQual ocn) -> do
                     case transparentFunctionForOccName ocn of
                         Just b -> do
                             setName rn (name b)
-                            return [rn]
+                            return ([rn], [])
                         Nothing -> do
                             addErrors [mkErrorMessage (loc pd) (transparentFunctionNotRecognised rn)]
-                            return []) ns
+                            return ([], [])) ns
             Module (UnQual mn) args privDs pubDs -> do
                 Just n <- lookupName (UnQual mn) True
                 prefixNamesFromScope (args /= []) mn $ addModuleContext mn $ do
                     env <- gets environment
                     checkDuplicates' $ map FreeVarElement args
                         ++ map FreeVarElement (pubDs ++ privDs)
-                    privNames <- concatMapM (insertBoundNames nameMaker) privDs
-                    pubNames <- concatMapM (insertBoundNames nameMaker) pubDs
+                    (privNames, privTypes) <-
+                        concatMapM' (insertBoundNames nameMaker) privDs
+                    (pubNames, pubTypes) <-
+                        concatMapM' (insertBoundNames nameMaker) pubDs
                     addBoundModuleBoundNames n privNames pubNames
+                    addBoundModuleTypeNames n privTypes pubTypes
                     let ns = privNames ++ pubNames
-                    setNameVisibilityInModule n ns
-                    hideBoundNames (return privNames)
-                    return ns
+                        tns = privTypes ++ pubTypes
+                    setNameVisibilityInModule n ns tns
+                    hideBoundNames privNames privTypes
+                    return (ns, tns)
             ModuleInstance (UnQual mn) nt args nm _ -> do
                 Just n <- lookupName (UnQual mn) True
                 minfo <- informationForModule (loc pd) nt
@@ -608,22 +685,35 @@ renameDeclarations topLevel ds prog = do
                             n' <- nameMaker (loc pd) rn
                             vis <- nameVisibilityInModule nt rn
                             setNameWithVisibility rn n' vis
+                            Just oldN <- lookupMaybeHiddenName (joinName nt rn)
+                                False
+                            return (rn, (oldN, n'))
+                    privNameMap <- mapM makeName (privateBoundNames minfo)
+                    pubNameMap <- mapM makeName (publicBoundNames minfo)
+                    let privNames = map fst privNameMap
+                        pubNames = map fst pubNameMap
+                        nameMap = map snd $ privNameMap ++ pubNameMap
+                        makeType rn = do
+                            vis <- typeNameVisibilityInModule nt rn
+                            Just (RenamedType rnt _) <-
+                                lookupType (joinName nt rn)
+                            setTypeWithVisibility rn (substituteType nameMap rnt) vis
                             return rn
-                    privNames <- hideBoundNames $
-                        mapM makeName (privateBoundNames minfo)
-                    pubNames <- mapM makeName (publicBoundNames minfo)
-                    return $! privNames ++ pubNames
+                    privTypes <- mapM makeType (privateTypeNames minfo)
+                    pubTypes <- mapM makeType (publicTypeNames minfo)
+                    hideBoundNames privNames privTypes
+                    return $! (privNames ++ pubNames, privTypes ++ pubTypes)
             TimedSection _ _ ds -> do
-                rns <- addScope $ do
+                (rns, rnts) <- addScope $ do
                     mapM_ (\ n -> setName (UnQual (OccName n)) (builtInName n))
                         timedNames
-                    unrns <- concatMapM (insertBoundNames nameMaker) ds
+                    (rns, trns) <- concatMapM' (insertBoundNames nameMaker) ds
                     env <- gets environment
-                    return $! map (\ rn ->
-                        (rn, fromJust (HM.maybeLookup env rn))) unrns
+                    let ns = map (\ rn -> (rn, fromJust (HM.maybeLookup env rn))) rns
+                    return $! (ns, trns)
                 mapM_ (\(rn, n) -> setRenamedName rn n) rns
-                return $! map fst rns
-            _ -> return []
+                return (map fst rns, rnts)
+            _ -> return ([], [])
 
         -- | resetModuleContext must be called in ALL cases, apart from the
         -- module context, otherwise names are incorrectly qualified within
@@ -1101,6 +1191,25 @@ instance Renamable (SType UnRenamedName) (SType Name) where
     rename (STDotable t1 t2) = return STDotable $$ rename t1 $$ rename t2
     rename (STParen t) = return STParen $$ rename t
 
+substituteType :: [(Name, Name)] -> SType Name -> SType Name
+substituteType nm t =
+    let
+        m = M.fromList nm
+        sub :: TCSType -> TCSType
+        sub ad = reAnnotatePure ad (sub' (unAnnotate ad))
+        sub' :: SType Name -> SType Name
+        sub' (STVar n) = STVar (M.findWithDefault n n m)
+        sub' (STExtendable t n) = STExtendable (sub t) (M.findWithDefault n n m)
+        sub' (STSet t) = STSet (sub t)
+        sub' (STSeq t) = STSeq (sub t)
+        sub' (STDot t1 t2) = STDot (sub t1) (sub t2)
+        sub' (STTuple ts) = STTuple (map sub ts)
+        sub' (STFunction args rt) = STFunction (map sub args) (sub rt)
+        sub' (STDotable t1 t2) = STDotable (sub t1) (sub t2)
+        sub' (STParen t) = STParen (sub t)
+        sub' (STDatatype n) = STDatatype (M.findWithDefault n n m)
+    in sub' t
+
 renameTypeVarThunk :: a
 renameTypeVarThunk = panic "renameTypeVar': error thunk evaluated"
 
@@ -1115,8 +1224,8 @@ renameTypeVar :: UnRenamedName -> RenamerMonad (Maybe (SType Name))
 renameTypeVar n = do
     mn <- lookupType n
     case mn of
-        Just x -> return $ Just x
-        Nothing -> do
+        Just x | renamedTypeVisibility x == Public -> return $ Just $ renamedType x
+        _ -> do
             msg <- typeVarNotInScopeMessage n
             loc <- gets srcSpan
             addErrors [mkErrorMessage loc msg]
@@ -1187,16 +1296,18 @@ freeTypeVars :: PSType -> RenamerMonad [(UnRenamedName, SrcSpan)]
 freeTypeVars st =
     let
         freeTypeVarsL = concatMapM freeTypeVars
+        freeVars (STVar (Qual _ _)) = return []
         freeVars (STVar n) = do
             mt <- lookupType n
             return $! case mt of
-                Just _ -> []
+                Just x | renamedTypeVisibility x == Public -> []
                 Nothing -> [(n, loc st)]
+        freeVars (STExtendable t (Qual _ _)) = freeTypeVars t
         freeVars (STExtendable t n) = do
             ns <- freeTypeVars t
             mt <- lookupType n
             return $! case mt of
-                Just _ -> ns
+                Just x | renamedTypeVisibility x == Public -> ns
                 Nothing -> (n, loc st):ns
         freeVars (STSet t) = freeTypeVars t
         freeVars (STSeq t) = freeTypeVars t
@@ -1294,7 +1405,31 @@ varNotInScopeMessage n isModule = do
 typeVarNotInScopeMessage :: UnRenamedName -> RenamerMonad Error
 typeVarNotInScopeMessage n = do
     env <- gets typeEnvironment
-    let availablePp = [(show $ prettyPrint rn, (rn, n)) | (rn, n) <- HM.flatten env]
+    let mv = HM.maybeLookup env n
+    if isJust mv then do
+        let Just rnt = mv
+            vis = renamedTypeVisibility rnt
+            t = renamedType rnt
+        return $
+            (text "The type-variable" <+> prettyPrint n
+                <+> text "is not in scope")
+            P.$$ tabIndent (
+                text "Defined"
+                <+> case vis of
+                        Public -> panic "Cannot not be in scope"
+                        Private -> text "privately"
+                        Instance -> text "inside a parameterised module"
+                <+> case t of
+                        STVar n | nameDefinition n /= Unknown ->
+                            parens (text "at" <+> prettyPrint (nameDefinition n))
+                        _ -> empty
+                P.$$ case vis of
+                        Public -> panic "Cannot not be in scope"
+                        Private -> text "Hint: move to the exports section"
+                        Instance -> text "Hint: create a module instance")
+    else do
+    let availablePp = [(show $ prettyPrint rn, (rn, n)) |
+                        (rn, RenamedType n Public) <- HM.flatten env]
         suggestions = fuzzyLookup (show $ prettyPrint n) availablePp
     return $ 
         (text "The type-variable" <+> prettyPrint n <+> text "is not in scope")
@@ -1328,7 +1463,7 @@ invalidExtendableTypeVariable t =
 invalidTypeConstraintVariable :: PrettyPrintable id => SType id -> Error
 invalidTypeConstraintVariable t =
     text "The type" <+> prettyPrint t <+>
-        text "cannot be constrainted using a type constraint;"
+        text "cannot be constrainted using a type constraint"
     P.$$ text "as only type variables may be constrained."
 
 invalidTypeConstraintLocation :: PrettyPrintable id => STypeConstraint id ->
