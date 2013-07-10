@@ -1,0 +1,7 @@
+module m3(z,w,v)
+x=0
+exports
+y=1
+endmodule
+--instance im = m3(1,2,3)
+--print im::y

@@ -1,0 +1,39 @@
+module M(x)
+
+module N2(x)
+
+channel f
+
+exports
+
+z = 1
+channel d
+
+endmodule
+
+
+
+channel e
+
+exports
+
+f = 1
+channel c
+
+module N(x)
+
+channel f
+
+exports
+
+z = 1
+channel d
+
+endmodule
+
+endmodule
+
+instance X1 = M(0)
+instance X2 = X1::N(0)
+
+A = X2::f

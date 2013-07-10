@@ -1,0 +1,12 @@
+module M1(x)
+
+exports
+instance M1P = M2(1)
+endmodule
+
+
+module M2(x)
+
+exports
+instance M2P = M1(1)
+endmodule

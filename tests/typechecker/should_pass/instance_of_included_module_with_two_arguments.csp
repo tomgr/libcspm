@@ -1,0 +1,4 @@
+include "module_with_two_arguments.csp"
+
+instance im = m2(1,2)
+print im::y

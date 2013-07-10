@@ -1,0 +1,14 @@
+module M(x)
+exports
+endmodule
+
+module M(y)
+exports
+    module N(y)
+    exports
+    endmodule
+endmodule
+
+instance X = M(0)
+instance Z = M::N(0)
+instance Y = M(0)

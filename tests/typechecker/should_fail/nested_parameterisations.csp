@@ -1,0 +1,21 @@
+module M(x)
+exports
+
+    datatype TD = T
+
+    module N(x)
+    exports
+
+        f(x) = x == T
+
+    endmodule
+endmodule
+
+instance X1 = M(0)
+instance X2 = X1::N(0)
+
+instance Y1 = M(0)
+instance Y2 = Y1::N(0)
+
+-- Should fail
+test = X2::f(Y1::T)

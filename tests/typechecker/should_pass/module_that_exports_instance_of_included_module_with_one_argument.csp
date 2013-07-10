@@ -1,0 +1,6 @@
+module m(z)
+x=0
+exports
+include "module_with_one_argument.csp"
+instance im = m1(1)
+endmodule

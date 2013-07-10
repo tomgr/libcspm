@@ -54,7 +54,7 @@ flatten (HierarchicalMap ms) = h ms []
         h (m:ms) ks = l++(h ms ks')
             where
                 l = [(k, v) | (k, v) <- M.toList m, not (k `elem` ks)]
-                ks' = map fst l++ks
+                ks' = Prelude.map fst l++ks
 
 newLayer :: Ord a => HierarchicalMap a b -> HierarchicalMap a b
 newLayer (HierarchicalMap ms) = HierarchicalMap (M.empty : ms)
@@ -73,3 +73,7 @@ newRecursiveLayerAndBind map bs = newMap
 -- | Creates a new map
 new :: Ord a => HierarchicalMap a b
 new = HierarchicalMap [M.empty]
+
+map :: Ord k => (k -> a -> b) -> HierarchicalMap k a -> HierarchicalMap k b
+map func (HierarchicalMap ms) =
+    HierarchicalMap $ Prelude.map (M.mapWithKey func) ms

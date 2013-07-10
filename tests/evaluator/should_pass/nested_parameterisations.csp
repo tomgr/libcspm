@@ -1,0 +1,46 @@
+module M(x)
+
+    module N2(x)
+
+        channel f
+
+    exports
+
+        z = 1
+        channel d
+
+    endmodule
+
+
+
+    channel e
+
+exports
+
+    f = 1
+    channel c
+
+    module N(y)
+
+        channel f
+
+    exports
+
+        z = 1
+        channel d
+
+        g = x + y
+
+    endmodule
+
+endmodule
+
+instance X1 = M(5)
+
+sentinal = 4
+
+instance X2 = X1::N(7)
+
+test1 = X1::f == 1
+test2 = X2::z == 1
+test3 = X2::g == 12

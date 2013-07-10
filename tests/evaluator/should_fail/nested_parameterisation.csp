@@ -1,0 +1,27 @@
+module M(x)
+
+exports
+
+    module N(y)
+
+    exports
+
+        module O(z)
+
+        exports
+
+            channel f : {z}
+
+            g(x) = f.x
+
+        endmodule
+
+    endmodule
+
+endmodule
+
+instance X1 = M(0)
+instance X2 = X1::N(0)
+instance X3 = X2::O(0)
+
+test2 = X3::g(1) == (X3::f.1)
