@@ -1256,7 +1256,7 @@ varNotInScopeMessage n isModule = do
                         l -> parens (text "at" <+> prettyPrint l)
                 P.$$ case vis of
                         Public -> panic "Cannot not be in scope"
-                        Private -> text "Hint: move the variable to the exports section"
+                        Private -> text "Hint: move to the exports section"
                         Instance -> text "Hint: create a module instance")
     else do
     env <- gets environment

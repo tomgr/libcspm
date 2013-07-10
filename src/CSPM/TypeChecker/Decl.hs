@@ -30,8 +30,6 @@ typeCheckDecls decls = do
     -- Flatten the decls so that definitions in modules are also type-checked
     -- in the correct order.
     let flattenDecl :: TCDecl -> [TCDecl]
-        flattenDecl (An _ _ (Module _ [] ds1 ds2)) =
-            concatMap flattenDecl ds1++concatMap flattenDecl ds2
         flattenDecl (An a b (Module mn args ds1 ds2)) =
             [An a b (Module mn args
                         (concatMap flattenDecl ds1)
@@ -97,7 +95,7 @@ typeCheckDecls decls = do
         checkSCCForModuleCycles decls =
             let 
                 instances = [i | An _ _ (i@(ModuleInstance _ _ _ _ _)) <- decls]
-                mods = [m | An _ _ (m@(Module _ args _ _)) <- decls, args /= []]
+                mods = [m | An _ _ (m@(Module _ _ _ _)) <- decls]
 
                 instancesOfMod n =
                     [i | i@(ModuleInstance _ nt _ _ _) <- instances, nt == n]
@@ -384,7 +382,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
             Just f -> typeCheckExpect f (TFunction [TEvent] TInt) >> return ()
             Nothing -> return ()
         return []
-    typeCheck' (Module n args pubDs privDs) | args /= [] = do
+    typeCheck' (Module n args pubDs privDs) = do
         let fvs = boundNames args
         local fvs $ do
             tpats <- mapM (\ pat -> typeCheck pat >>= evaluateDots) args

@@ -1,0 +1,11 @@
+module M
+
+exports
+
+f = 1
+
+endmodule
+
+instance N = M
+
+test1 = N::f == 1

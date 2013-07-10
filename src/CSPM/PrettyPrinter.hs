@@ -109,7 +109,6 @@ instance PrettyPrintable id => PrettyPrintable (Decl id) where
     prettyPrint (ModuleInstance n nm args mp _) =
         text "instance" <+> prettyPrint n <+> char '=' <+> prettyPrint nm <>
             parens (list (map prettyPrint args))
-            $$ tabIndent (list (map (\(new, old) -> prettyPrint old <+> text "->" <+> prettyPrint new) mp))
     prettyPrint (PrintStatement s) = text "print" <+> text s
 
 instance PrettyPrintable id => PrettyPrintable (Assertion id) where

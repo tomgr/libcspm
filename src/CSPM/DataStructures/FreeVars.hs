@@ -26,8 +26,10 @@ instance BoundNames (Decl Name) where
     boundNames (External ns) = []
     boundNames (Transparent ns) = []
     boundNames (Assert _) = []
-    boundNames (Module _ [] ds1 ds2) = boundNames (ds1 ++ ds2)
-    boundNames (Module n _ _ _) = [n]
+    boundNames (Module n args ds1 ds2) =
+        [n] ++ case args of
+                    [] -> boundNames (ds1 ++ ds2)
+                    _ -> []
     boundNames (TimedSection _ _ ds) = boundNames ds
     boundNames (ModuleInstance _ _ _ nm _) = map fst nm
     boundNames (PrintStatement _) = []
