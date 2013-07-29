@@ -1,0 +1,6 @@
+module M(x)
+exports
+channel c
+endmodule
+
+instance M = M(0)

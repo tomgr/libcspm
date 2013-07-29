@@ -495,6 +495,10 @@ concatMapM' f xs = do
 -- | Renames the declarations in the current scope.
 renameDeclarations :: Bool -> [PDecl] -> RenamerMonad a -> RenamerMonad ([TCDecl], a)
 renameDeclarations topLevel ds prog = do
+    -- Check to see if any modules are multi-defined (although we check for
+    -- duplicates below, because of the preprocessing that modules require this
+    -- comes too late and would result in various odd errors being emitted).
+    checkModuleNameDuplicates ds
     -- Insert the modules
     mapM_ insertModule ds
     -- Now, find all the datatype labels and channels and create names for
@@ -852,6 +856,25 @@ data FreeVarElement = forall a b . FreeVars a => FreeVarElement (Annotated b a)
 
 instance FreeVars FreeVarElement where
     freeVars (FreeVarElement a) = freeVars a
+
+newtype ModuleNameCheck = ModuleNameCheck UnRenamedName
+
+instance FreeVars ModuleNameCheck where
+    freeVars (ModuleNameCheck n) = return [n]
+
+checkModuleNameDuplicates :: [PDecl] -> RenamerMonad ()
+checkModuleNameDuplicates ds =
+    let
+        extractModuleNames :: PDecl -> [Annotated () ModuleNameCheck]
+        extractModuleNames (An loc _ (Module n _ privDs pubDs)) =
+            An loc () (ModuleNameCheck n)
+            : concatMap extractModuleNames (privDs ++ pubDs)
+        extractModuleNames (An loc _ (ModuleInstance n _ _ _ _ )) =
+            [An loc () (ModuleNameCheck n)]
+        extractModuleNames (An _ _ (TimedSection _ _ ds)) =
+            concatMap extractModuleNames ds
+        extractModuleNames _ = []
+    in checkDuplicates $ concatMap extractModuleNames ds
 
 checkDuplicates :: FreeVars a => [Annotated b a] -> RenamerMonad ()
 checkDuplicates aps = checkDuplicates' (map FreeVarElement aps)
