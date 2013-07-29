@@ -48,7 +48,7 @@ getFilesFromDir path = do
 doFile :: Options -> FilePath -> Checker Bool
 doFile opts fp = do
     liftIO $ putStr $ "Checking "++fp++"....."
-    res <- tryM $ do
+    res <- tryM $ convertExceptionsToPanics $ do
         CSPM.setOptions (cspmOptions opts)
         ms <- parseFile fp
         rms <- CSPM.renameFile ms
