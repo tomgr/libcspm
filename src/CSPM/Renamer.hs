@@ -866,9 +866,11 @@ checkModuleNameDuplicates :: [PDecl] -> RenamerMonad ()
 checkModuleNameDuplicates ds =
     let
         extractModuleNames :: PDecl -> [Annotated () ModuleNameCheck]
-        extractModuleNames (An loc _ (Module n _ privDs pubDs)) =
-            An loc () (ModuleNameCheck n)
-            : concatMap extractModuleNames (privDs ++ pubDs)
+        extractModuleNames (An loc _ (Module (UnQual mn) _ privDs pubDs)) =
+            An loc () (ModuleNameCheck (UnQual mn))
+            : map (\ (An a b (ModuleNameCheck n)) ->
+                        An a b (ModuleNameCheck (Qual mn n)))
+                (concatMap extractModuleNames (privDs ++ pubDs))
         extractModuleNames (An loc _ (ModuleInstance n _ _ _ _ )) =
             [An loc () (ModuleNameCheck n)]
         extractModuleNames (An _ _ (TimedSection _ _ ds)) =
