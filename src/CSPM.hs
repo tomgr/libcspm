@@ -42,7 +42,7 @@
 --
 -- >    main :: IO ()
 -- >    main = do
--- >        session <- newCSPMSession
+-- >        session <- newCSPMSession False
 -- >        (value, resultingSession) <- unCSPM session $ do
 -- >            -- Parse the file, returning something of type PCSPMFile.
 -- >            parsedFile <- parseFile "test.csp"
@@ -97,7 +97,7 @@ module CSPM (
     desugarFile, desugarInteractiveStmt, desugarExpression,
     -- * Evaluator API
     bindFile, bindDeclaration,
-    evaluateExpression, maybeProcessNameToProcess,
+    evaluateExpression, maybeProcessNameToProcess, profilingData,
     -- * Shortcuts
     stringToValue,
     -- * Low-Level API
@@ -147,13 +147,13 @@ data CSPMSession = CSPMSession {
     }
 
 -- | Create a new 'CSPMSession'.
-newCSPMSession :: MonadIO m => m CSPMSession
-newCSPMSession = do
+newCSPMSession :: MonadIO m => Bool -> m CSPMSession
+newCSPMSession useProfiling = do
     -- Get the type checker environment with the built in functions already
     -- injected
     rnState <- liftIO $ RN.initRenamer
     tcState <- liftIO $ TC.initTypeChecker
-    let evState = EV.initEvaluator
+    evState <- liftIO $ EV.initEvaluator useProfiling
     return $ CSPMSession rnState tcState evState
 
 -- | The CSPMMonad is the main monad in which all functions must be called.
@@ -370,6 +370,10 @@ bindFile m = do
 -- to be desugared.
 evaluateExpression :: CSPMMonad m => TCExp -> m Value
 evaluateExpression e = runEvaluatorInCurrentState (EV.evaluateExp e)
+
+-- | Obtains the profiling data that the evaluator has produced so far.
+profilingData :: CSPMMonad m => m EV.ProfilingData
+profilingData = runEvaluatorInCurrentState EV.profilingData
 
 -- | Given a process name, attempts to convert the name into a process. This
 -- is only possible for top-level function applications.

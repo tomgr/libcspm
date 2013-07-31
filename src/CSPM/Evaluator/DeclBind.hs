@@ -14,6 +14,7 @@ import CSPM.Evaluator.Exceptions
 import {-# SOURCE #-} CSPM.Evaluator.Expr
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.PatBind
+import CSPM.Evaluator.Profiler
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import Util.Annotated
@@ -24,10 +25,11 @@ import Util.Monad
 -- the current scope.
 bindDecls :: [TCDecl] -> EvaluationMonad [(Name, EvaluationMonad Value)]
 bindDecls ds = do
+    registerCall <- maybeRegisterCall
     nvs <- concatMapM bindDecl ds 
     let eventsName = builtInName "Events"
         (eventNvs, normalNvs) = partition (\x -> fst x == eventsName) nvs
-        computeEvents vs = do
+        computeEvents vs = registerCall eventsName $ do
             vss <- sequence (map snd eventNvs)
             return $ VSet $ infiniteUnions $ vs : map (\ (VSet s) -> s) vss
 
@@ -43,6 +45,7 @@ bindDecls ds = do
 bindDecl :: TCDecl -> EvaluationMonad [(Name, EvaluationMonad Value)]
 bindDecl (an@(An _ _ (FunBind n ms _))) = do
     parentScope <- getParentScopeIdentifier
+    registerCall <- maybeRegisterCall
     let
         matches = map unAnnotate ms
         argGroupCount = head (map (\ (Match pss e) -> length pss) matches)
@@ -62,7 +65,7 @@ bindDecl (an@(An _ _ (FunBind n ms _))) = do
                         if not (and bindResults) then tryMatches ms
                         else
                             addScopeAndBind binds $ updateParentScopeIdentifier scopeName $ do
-                                v <- eval e
+                                v <- registerCall n $ eval e
                                 case v of
                                     VProc p -> return $ VProc $ PProcCall (procName scopeName) p
                                     _ -> return $ v
@@ -77,10 +80,11 @@ bindDecl (an@(An _ _ (FunBind n ms _))) = do
     return $ [(n, collectArgs argGroupCount [])]
 bindDecl (an@(An _ _ (PatBind p e _))) = do
     parentScope <- getParentScopeIdentifier
+    registerCall <- maybeRegisterCall
     let [(n, ForAll _ t)] = getSymbolTable an
         scopeName = scopeId n [] parentScope
         ev = maybeSave t $ updateParentScopeIdentifier scopeName $ do
-            v <- eval e
+            v <- registerCall n $ eval e
             case bind p v of
                 (True, [(n', val)]) | n == n' -> return $!
                     case val of
@@ -89,10 +93,11 @@ bindDecl (an@(An _ _ (PatBind p e _))) = do
                 (False, _) -> throwError $ 
                     patternMatchFailureMessage (loc an) p v
     return $ [(n, ev)]
-bindDecl (an@(An _ _ (Channel ns me))) =
+bindDecl (an@(An _ _ (Channel ns me))) = do
+    registerCall <- maybeRegisterCall
     let
         mkChan :: Name -> EvaluationMonad Value
-        mkChan n = do
+        mkChan n = registerCall n $ do
             fields <- case me of
                 Just e -> eval e >>= evalTypeExprToList n
                 Nothing -> return []
@@ -106,8 +111,9 @@ bindDecl (an@(An _ _ (Channel ns me))) =
                 return $ cartesianProduct CartDot fs) ns
             return $ VSet (infiniteUnions ss)
     -- We bind to events here, and this is picked up in bindDecls
-    in return $ (builtInName "Events", eventSetValue) : [(n, mkChan n) | n <- ns]
-bindDecl (an@(An _ _ (DataType n cs))) =
+    return $ (builtInName "Events", eventSetValue) : [(n, mkChan n) | n <- ns]
+bindDecl (an@(An _ _ (DataType n cs))) = do
+    registerCall <- maybeRegisterCall
     let
         mkDataTypeClause :: DataTypeClause Name -> (Name, EvaluationMonad Value)
         mkDataTypeClause (DataTypeClause nc me) = (nc, do
@@ -117,17 +123,18 @@ bindDecl (an@(An _ _ (DataType n cs))) =
             let arity = fromIntegral (length vss)
             return $ tupleFromList [VDot [VDataType nc], VInt arity, tupleFromList (map VSet vss)])
         computeSetOfValues :: EvaluationMonad Value
-        computeSetOfValues =
+        computeSetOfValues = 
             let 
                 mkSet nc = do
                     (_, _, fields) <- dataTypeInfo nc
                     let fs = fromList [VDataType nc] : elems fields
                     return $ cartesianProduct CartDot fs
-            in do
+            in registerCall n $ do
                 vs <- mapM mkSet [nc | DataTypeClause nc _ <- map unAnnotate cs]
                 return $ VSet (infiniteUnions vs)
-    in return $ (n, computeSetOfValues):(map mkDataTypeClause (map unAnnotate cs))
-bindDecl (an@(An _ _ (SubType n cs))) =
+    return $ (n, computeSetOfValues):(map mkDataTypeClause (map unAnnotate cs))
+bindDecl (an@(An _ _ (SubType n cs))) = do
+    registerCall <- maybeRegisterCall
     let
         computeSetOfValues =
             let 
@@ -139,12 +146,13 @@ bindDecl (an@(An _ _ (SubType n cs))) =
                     let s = cartesianProduct CartDot (fromList [VDataType nc] : fs)
                     vs <- mapM productionsSet (toList s)
                     return (infiniteUnions vs)
-            in do
+            in registerCall n $ do
                 vs <- mapM (mkSet . unAnnotate) cs
                 return $ VSet (infiniteUnions vs)
-    in return $ [(n, computeSetOfValues)]
-bindDecl (an@(An _ _ (NameType n e))) = return $
-    [(n, do
+    return $ [(n, computeSetOfValues)]
+bindDecl (an@(An _ _ (NameType n e))) = do
+    registerCall <- maybeRegisterCall
+    return $ [(n, registerCall n $ do
         v <- eval e
         sets <- evalTypeExprToList n v
         -- If we only have one set then this is not a cartesian product, this is

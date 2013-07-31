@@ -6,6 +6,7 @@ import Prelude hiding (lookup)
 import CSPM.DataStructures.Names
 import CSPM.Evaluator.Environment
 import CSPM.Evaluator.ProcessValues
+import {-# SOURCE #-} CSPM.Evaluator.Profiler
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.Annotated
 import Util.Exception
@@ -15,7 +16,8 @@ data EvaluationState =
         environment :: Environment,
         parentScopeIdentifier :: Maybe ScopeIdentifier,
         currentExpressionLocation :: SrcSpan,
-        timedSection :: Maybe (Event -> Int, Name)
+        timedSection :: Maybe (Event -> Int, Name),
+        profilerState :: ProfilerState
     }
   
 type EvaluationMonad = Reader EvaluationState

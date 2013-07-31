@@ -7,6 +7,8 @@ module CSPM.Evaluator (
     module CSPM.Evaluator.ProcessValues,
     module CSPM.Evaluator.Values,
     module CSPM.Evaluator.ValueSet,
+
+    ProfilingData(..), profilingData,
 ) where
 
 import CSPM.DataStructures.Names
@@ -18,6 +20,7 @@ import CSPM.Evaluator.Expr
 import CSPM.Evaluator.File
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.ProcessValues
+import CSPM.Evaluator.Profiler
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import qualified Data.Foldable as F
@@ -32,9 +35,17 @@ runFromStateToState st prog = runEvaluator st $ do
 
 -- | The environment to use initially. This uses the IO monad as 
 -- the EvaluationMonad cannot be used without a valid environment.
-initEvaluator :: EvaluationState
-initEvaluator = runEvaluator (EvaluationState new Nothing Unknown Nothing) $
-    injectBuiltInFunctions getState
+initEvaluator :: Bool -> IO EvaluationState
+initEvaluator useProfiler = do
+    profilerState <- initialProfilerState useProfiler
+    let initialState = EvaluationState {
+                environment = new,
+                CSPM.Evaluator.Monad.parentScopeIdentifier = Nothing,
+                currentExpressionLocation = Unknown,
+                timedSection = Nothing,
+                profilerState = profilerState
+            }
+    return $! runEvaluator initialState (injectBuiltInFunctions getState)
 
 evaluateExp :: TCExp -> EvaluationMonad Value
 evaluateExp e = eval e
@@ -72,3 +83,6 @@ maybeProcessNameToProcess (pn@(ProcName (SFunctionBind fn [args] Nothing))) = do
         return $ Just $ PProcCall pn (let VProc p = v in p)
     else return Nothing
 maybeProcessNameToProcess _ = return Nothing
+
+profilingData :: EvaluationMonad ProfilingData
+profilingData = getProfilingData

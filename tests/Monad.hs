@@ -14,12 +14,12 @@ data TestState = TestState {
 
 initTestState :: IO TestState
 initTestState = do
-    sess <- newCSPMSession
+    sess <- newCSPMSession False
     return $ TestState sess []
 
 resetCSPM :: TestM ()
 resetCSPM = do
-    sess <- liftIO $ newCSPMSession
+    sess <- liftIO $ newCSPMSession False
     modify (\st -> st { cspmSession = sess, lastWarnings = [] })
 
 type TestM = StateT TestState IO

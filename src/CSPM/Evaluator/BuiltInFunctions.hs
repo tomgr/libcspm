@@ -14,6 +14,7 @@ import CSPM.DataStructures.Names
 import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
+import CSPM.Evaluator.Profiler
 import CSPM.Evaluator.Values
 import qualified CSPM.Evaluator.ValueSet as S
 import CSPM.Prelude
@@ -22,8 +23,9 @@ import Util.Exception
 import Util.Prelude
 import Util.PrettyPrint
 
-builtInFunctions :: [(Name, Value)]
-builtInFunctions = 
+builtInFunctions :: EvaluationMonad [(Name, Value)]
+builtInFunctions = do
+    registerCall <- maybeRegisterCall
     let
         cspm_union [VSet s1, VSet s2] = S.union s1 s2
         cspm_inter [VSet s1, VSet s2] = S.intersection s1 s2
@@ -149,9 +151,10 @@ builtInFunctions =
             ]
         
         mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)
-        mkMonadicFunc (s, f) =
+        mkMonadicFunc (s, f) = do
             let n = builtInName s
-            in (n, VFunction (FBuiltInFunction n []) f)
+                f' vs = registerCall n (f vs)
+            return $! (n, VFunction (FBuiltInFunction n []) f')
 
         procs = [
             ("STOP", csp_stop),
@@ -194,7 +197,7 @@ builtInFunctions =
                 pid = procName (scopeId tn [] (Just waitId))
             return $ VProc $ PProcCall pid $ mkTocker tocks
 
-        mkProc (s, p) = (builtInName s, VProc p)
+        mkProc (s, p) = return (builtInName s, VProc p)
         
         cspm_true = ("true", VBool True)
         cspm_false = ("false", VBool False)
@@ -212,7 +215,7 @@ builtInFunctions =
             cspm_Bool, cspm_Int, cspm_Proc, cspm_Events, cspm_Char
             ]
         
-        mkConstant (s, v) = (builtInName s, v)
+        mkConstant (s, v) = return (builtInName s, v)
 
         evaluateProcOperator pop [p] = VProc $ 
             -- We defer matching of the arguments here to allow definitions like
@@ -220,18 +223,21 @@ builtInFunctions =
             -- produce a more sensible error message.
             case p of
                 VProc p -> PUnaryOp (POperator pop) p
-    in
-        map mkFunc (
+
+    fs1 <- mapM mkFunc (
             map (\ (n, f) -> (n, VSet . f)) set_funcs
             ++ map (\ (n, f) -> (n, VList . f)) seq_funcs
             ++ map (\ (n, po) -> (n, evaluateProcOperator po)) proc_operators
             ++ other_funcs)
-        ++ map mkMonadicFunc monadic_funcs
-        ++ map mkProc procs
-        ++ map mkConstant constants
+    fs2 <- mapM mkMonadicFunc monadic_funcs
+    fs3 <- mapM mkProc procs
+    fs4 <- mapM mkConstant constants
+    return $! fs1++fs2++fs3++fs4
 
 injectBuiltInFunctions :: EvaluationMonad a -> EvaluationMonad a
-injectBuiltInFunctions = addScopeAndBind builtInFunctions
+injectBuiltInFunctions prog = do
+    fs <- builtInFunctions
+    addScopeAndBind fs prog
 
 -- | Takes a set and returns a function from value to set of values that are
 -- mapped to.
