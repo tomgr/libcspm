@@ -76,7 +76,12 @@ bindDecl (an@(An _ _ (FunBind n ms _))) = do
             st <- gets id
             let fid = FMatchBind n (reverse ass) parentScope
             return $ VFunction fid $ \ vs ->
-                modify (\_ -> st) $ collectArgs (number-1) (vs:ass)
+                (if profilerActive st then
+                    modify (\ st' -> st {
+                        -- Don't reset the profiler state
+                        profilerState = profilerState st'
+                    }) 
+                else modify (\ _ -> st)) $ collectArgs (number-1) (vs:ass)
     return $ [(n, collectArgs argGroupCount [])]
 bindDecl (an@(An _ _ (PatBind p e _))) = do
     parentScope <- getParentScopeIdentifier

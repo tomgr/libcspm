@@ -3,6 +3,7 @@ module CSPM.Evaluator.Profiler (
     ProfilerState, initialProfilerState,
     maybeRegisterCall, registerCall,
     ProfilingData, getProfilingData,
+    profilerActive,
 ) where
 
 import Control.Concurrent.MVar
@@ -23,6 +24,9 @@ data ProfilerState = ProfilerState {
         hiearchicalCallCounts :: H.BasicHashTable [Name] CallCountTable,
         profilingStack :: [Name]
     }
+
+profilerActive :: EvaluationState -> Bool
+profilerActive st = isActive (profilerState st)
 
 initialProfilerState :: Bool -> IO ProfilerState
 initialProfilerState isActive = do
