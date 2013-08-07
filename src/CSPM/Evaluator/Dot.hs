@@ -90,6 +90,8 @@ combineDots v1 v2 =
         checkIsValidForField :: ValueSet -> Value -> Int ->
             Value -> EvaluationMonad a -> EvaluationMonad a
         checkIsValidForField allowedSet overallValue field v result = do
+            b <- gets doRuntimeRangeChecks
+            if not b then result else do
             b <- isCompleteField v
             if not b then result else do
             if member v allowedSet then result

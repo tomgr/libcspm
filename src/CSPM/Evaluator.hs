@@ -3,6 +3,7 @@ module CSPM.Evaluator (
     addToEnvironment, maybeProcessNameToProcess,
     
     initEvaluator, runFromStateToState,
+    EvaluatorOptions(..), defaultEvaluatorOptions,
     ProfilerOptions(..), defaultProfilerOptions,
     EvaluationMonad, runEvaluator, EvaluationState,
     module CSPM.Evaluator.ProcessValues,
@@ -27,6 +28,17 @@ import CSPM.Evaluator.ValueSet
 import qualified Data.Foldable as F
 import Util.Annotated
 
+data EvaluatorOptions = EvaluatorOptions {
+        runtimeRangeChecks :: Bool,
+        profilerOptions :: ProfilerOptions
+    }
+
+defaultEvaluatorOptions :: EvaluatorOptions
+defaultEvaluatorOptions = EvaluatorOptions {
+        runtimeRangeChecks = True,
+        profilerOptions = defaultProfilerOptions
+    }
+
 runFromStateToState :: EvaluationState -> EvaluationMonad a -> 
     (a, EvaluationState)
 runFromStateToState st prog = runEvaluator st $ do
@@ -36,15 +48,16 @@ runFromStateToState st prog = runEvaluator st $ do
 
 -- | The environment to use initially. This uses the IO monad as 
 -- the EvaluationMonad cannot be used without a valid environment.
-initEvaluator :: ProfilerOptions -> IO EvaluationState
-initEvaluator profilerOptions = do
-    profilerState <- initialProfilerState profilerOptions
+initEvaluator :: EvaluatorOptions -> IO EvaluationState
+initEvaluator options = do
+    profilerState <- initialProfilerState (profilerOptions options)
     let initialState = EvaluationState {
                 environment = new,
                 CSPM.Evaluator.Monad.parentScopeIdentifier = Nothing,
                 currentExpressionLocation = Unknown,
                 timedSection = Nothing,
-                profilerState = profilerState
+                profilerState = profilerState,
+                doRuntimeRangeChecks = runtimeRangeChecks options
             }
     return $! runEvaluator initialState (injectBuiltInFunctions getState)
 

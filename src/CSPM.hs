@@ -73,6 +73,7 @@ module CSPM (
     -- * CSPM Monad
     CSPMSession, newCSPMSession,
     EV.ProfilerOptions(..), EV.defaultProfilerOptions,
+    EV.EvaluatorOptions(..), EV.defaultEvaluatorOptions,
     CSPMMonad(..),
     withSession,
     -- ** A basic implementation of the monad
@@ -148,7 +149,7 @@ data CSPMSession = CSPMSession {
     }
 
 -- | Create a new 'CSPMSession'.
-newCSPMSession :: MonadIO m => EV.ProfilerOptions -> m CSPMSession
+newCSPMSession :: MonadIO m => EV.EvaluatorOptions -> m CSPMSession
 newCSPMSession profilerOptions = do
     -- Get the type checker environment with the built in functions already
     -- injected

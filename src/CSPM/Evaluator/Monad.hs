@@ -17,7 +17,8 @@ data EvaluationState =
         parentScopeIdentifier :: Maybe ScopeIdentifier,
         currentExpressionLocation :: SrcSpan,
         timedSection :: Maybe (Event -> Int, Name),
-        profilerState :: ProfilerState
+        profilerState :: ProfilerState,
+        doRuntimeRangeChecks :: Bool
     }
   
 type EvaluationMonad = Reader EvaluationState
