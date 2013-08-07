@@ -3,6 +3,7 @@ module CSPM.Evaluator (
     addToEnvironment, maybeProcessNameToProcess,
     
     initEvaluator, runFromStateToState,
+    ProfilerOptions(..), defaultProfilerOptions,
     EvaluationMonad, runEvaluator, EvaluationState,
     module CSPM.Evaluator.ProcessValues,
     module CSPM.Evaluator.Values,
@@ -35,9 +36,9 @@ runFromStateToState st prog = runEvaluator st $ do
 
 -- | The environment to use initially. This uses the IO monad as 
 -- the EvaluationMonad cannot be used without a valid environment.
-initEvaluator :: Bool -> IO EvaluationState
-initEvaluator useProfiler = do
-    profilerState <- initialProfilerState useProfiler
+initEvaluator :: ProfilerOptions -> IO EvaluationState
+initEvaluator profilerOptions = do
+    profilerState <- initialProfilerState profilerOptions
     let initialState = EvaluationState {
                 environment = new,
                 CSPM.Evaluator.Monad.parentScopeIdentifier = Nothing,

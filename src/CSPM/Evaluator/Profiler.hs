@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 module CSPM.Evaluator.Profiler (
+    ProfilerOptions(..), defaultProfilerOptions,
     ProfilerState, initialProfilerState,
     maybeRegisterCall, registerCall,
     ProfilingData, getProfilingData,
@@ -16,9 +17,20 @@ import CSPM.DataStructures.Names
 import CSPM.Evaluator.Monad
 import Util.PrettyPrint
 
+data ProfilerOptions = ProfilerOptions {
+        isActive :: Bool,
+        flattenRecursiveCalls :: Bool
+    }
+
+defaultProfilerOptions :: ProfilerOptions
+defaultProfilerOptions = ProfilerOptions {
+        isActive = False,
+        flattenRecursiveCalls = True
+    }
+
 type CallCountTable = H.BasicHashTable Name Int
 data ProfilerState = ProfilerState {
-        isActive :: Bool,
+        options :: ProfilerOptions,
         tableLock :: MVar (),
         callCounts :: CallCountTable,
         hiearchicalCallCounts :: H.BasicHashTable [Name] CallCountTable,
@@ -26,15 +38,15 @@ data ProfilerState = ProfilerState {
     }
 
 profilerActive :: EvaluationState -> Bool
-profilerActive st = isActive (profilerState st)
+profilerActive st = isActive (options (profilerState st))
 
-initialProfilerState :: Bool -> IO ProfilerState
-initialProfilerState isActive = do
+initialProfilerState :: ProfilerOptions -> IO ProfilerState
+initialProfilerState options = do
     callCounts <- H.new
     hiearchicalCallCounts <- H.new
     tableLock <- newMVar ()
     return $! ProfilerState {
-        isActive = isActive,
+        options = options,
         tableLock = tableLock,
         callCounts = callCounts,
         hiearchicalCallCounts = hiearchicalCallCounts,
@@ -45,7 +57,9 @@ maybeRegisterCall ::
     EvaluationMonad (Name -> EvaluationMonad a -> EvaluationMonad a)
 maybeRegisterCall = do
     profilerState <- gets profilerState
-    return $! if isActive profilerState then registerCall else \ _ prog -> prog
+    return $!
+        if isActive (options profilerState) then registerCall
+        else \ _ prog -> prog
 
 registerCall :: Name -> EvaluationMonad a -> EvaluationMonad a
 registerCall n prog = do
@@ -53,7 +67,13 @@ registerCall n prog = do
     unsafePerformIO (incrementCounter profilerState n) `seq`
         modify (\ st -> st {
             profilerState = profilerState {
-                profilingStack = n : profilingStack profilerState
+                profilingStack = 
+                    let stk = profilingStack profilerState
+                    in if flattenRecursiveCalls (options profilerState) then
+                        case stk of
+                            n':_ | n == n' -> stk
+                            _ -> n : stk
+                    else n : stk
             }
         }) prog
 {-# NOINLINE registerCall #-}

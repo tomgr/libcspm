@@ -14,12 +14,12 @@ data CheckerState = CheckerState {
 
 initCheckerState :: IO CheckerState
 initCheckerState = do
-    sess <- newCSPMSession False
+    sess <- newCSPMSession defaultProfilerOptions
     return $ CheckerState sess []
 
 resetCSPM :: Checker ()
 resetCSPM = do
-    sess <- liftIO $ newCSPMSession False
+    sess <- liftIO $ newCSPMSession defaultProfilerOptions
     modify (\st -> st { cspmSession = sess, lastWarnings = [] })
 
 type Checker = StateT CheckerState IO

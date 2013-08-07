@@ -20,12 +20,12 @@ initICheckerState :: IO ICheckerState
 initICheckerState = do
     settingsDirectory <- getAppUserDataDirectory "cspmchecker"
     createDirectoryIfMissing True $ joinPath [settingsDirectory, "interactive"]
-    sess <- newCSPMSession False
+    sess <- newCSPMSession defaultProfilerOptions
     return $ ICheckerState settingsDirectory sess Nothing
 
 resetCSPM :: IChecker ()
 resetCSPM = do
-    sess <- liftIO $ newCSPMSession False
+    sess <- liftIO $ newCSPMSession defaultProfilerOptions
     modify (\st -> st { cspmSession = sess })
 
 type IChecker = StateT ICheckerState IO
