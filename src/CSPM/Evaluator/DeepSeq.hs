@@ -30,6 +30,7 @@ instance NFData Value where
     rnf (VDataType n) = n `seq` ()
     rnf (VList xs) = rnf xs
     rnf (VSet xs) = rnf xs
+    rnf (VMap m) = rnf m
     rnf (VFunction fid _) = rnf fid
     rnf (VProc p) = rnf p
 

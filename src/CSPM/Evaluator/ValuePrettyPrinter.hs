@@ -17,6 +17,7 @@ import CSPM.Evaluator.ValueSet
 import CSPM.PrettyPrinter
 import CSPM.Prelude
 import qualified Data.Foldable as F
+import qualified Data.Map as Mp
 import qualified Data.Sequence as S
 import Data.List (partition)
 import Util.Precedence
@@ -154,6 +155,9 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
             spaceCost (VList vs) = 2 + length vs + sum (map spaceCost vs)
             spaceCost (VSet s) = 2 + length vs + sum (map spaceCost vs)
                 where vs = toList s
+            spaceCost (VMap m) =
+                    2 + sum (map spaceCost (map fst vs ++ map snd vs))
+                where vs = Mp.toList m
             spaceCost (VFunction _ _) = spaceThreashold
             spaceCost (VProc _) = spaceThreashold
             spaceCost (VThunk _) = spaceThreashold
@@ -429,6 +433,11 @@ instance (Applicative m, Monad m,
         M.doubleQuotes (M.text (map (\ (VChar c) -> c) vs))
     prettyPrint (VList vs) = M.angles (M.list $ mapM M.prettyPrint vs)
     prettyPrint (VSet s) = M.prettyPrint s
+    prettyPrint (VMap m) =
+        M.text "(|" M.<+> M.list (mapM
+            (\ (k,v) -> M.prettyPrint k M.<+> M.text "=>" M.<+> M.prettyPrint v)
+            (Mp.toList m))
+        M.<+> M.text "|)"
     prettyPrint (VFunction (FBuiltInFunction n args) _) =
         M.prettyPrint n M.<> case args of
                             [] -> M.empty
@@ -448,6 +457,7 @@ instance (Applicative m, Monad m,
     prettyPrint (VThunk th) = M.text "<thunk>"
 
     prettyPrintBrief (VSet s) = M.braces M.ellipsis
+    prettyPrintBrief (VMap m) = M.text "(|" M.<+> M.ellipsis M.<+> M.text "|)"
     prettyPrintBrief (VList s) = M.angles M.ellipsis
     prettyPrintBrief (VTuple vs) =
         M.parens (M.list $ mapM M.prettyPrintBrief (elems vs))

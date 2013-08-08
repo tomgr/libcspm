@@ -15,7 +15,7 @@ module CSPM.Evaluator.ValueSet (
     intersection, intersections,
     difference,
     -- * Derived functions
-    CartProductType(..), cartesianProduct, powerset, allSequences,
+    CartProductType(..), cartesianProduct, powerset, allSequences, allMaps,
     fastUnDotCartProduct,
     -- * Specialised Functions
     singletonValue,
@@ -28,6 +28,7 @@ import Control.Monad
 import qualified Data.Foldable as F
 import Data.Hashable
 import Data.List (sort)
+import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.Sequence as Sq
 import qualified Data.Traversable as T
@@ -58,6 +59,8 @@ data ValueSet =
     | CartesianProduct [ValueSet] CartProductType
     -- | The powerset of the given set
     | Powerset ValueSet
+    -- | The set of all maps from the given domain to the given image.
+    | AllMaps ValueSet ValueSet
 
 instance Hashable ValueSet where
     hash Integers = 1
@@ -91,6 +94,8 @@ instance Ord ValueSet where
     compare (AllSequences s1) (AllSequences s2) = compare s1 s2
     compare (ExplicitSet s1) (ExplicitSet s2) = compare s1 s2
     compare (Powerset s1) (Powerset s2) = compare s1 s2
+    compare (AllMaps k1 v1) (AllMaps k2 v2) =
+        compare k1 k2 `thenCmp` compare v1 v2
     -- Fallback to comparing the lists
     compare s1 s2 = compare (sort $ toList s1) (sort $ toList s2)
 
@@ -163,6 +168,10 @@ compareValueSets (Powerset vs1) (Powerset vs2) = compareValueSets vs1 vs2
 compareValueSets s1 (Powerset s2) =
     compareValueSets s1 (fromList (toList (Powerset s2)))
 compareValueSets (Powerset s1) s2 = flipOrder (compareValueSets s2 (Powerset s1))
+compareValueSets s1 (AllMaps ks vs) =
+    compareValueSets s1 (fromList (toList (AllMaps ks vs)))
+compareValueSets (AllMaps ks vs) s2 = 
+    flipOrder (compareValueSets s2 (AllMaps ks vs))
 -- Anything else is incomparable
 compareValueSets _ _ = Nothing
 
@@ -178,6 +187,9 @@ powerset = Powerset
 -- so we use a CompositeSet.
 allSequences :: ValueSet -> ValueSet
 allSequences s = AllSequences s
+
+allMaps :: ValueSet -> ValueSet -> ValueSet
+allMaps ks vs = AllMaps ks vs
 
 -- | The empty set
 emptySet :: ValueSet
@@ -218,6 +230,16 @@ toList (CartesianProduct vss ct) =
             CartDot -> map VDot cp
 toList (Powerset vs) =
     (map (VSet . fromList) . filterM (\x -> [True, False]) . toList) vs
+toList (AllMaps ks' vs') =
+    let ks = toList (Powerset ks')
+        vs = toList vs'
+        -- | Creates all maps that have the given set as its domain
+        makeMaps :: [Value] -> [Value]
+        makeMaps [] = [VMap $ M.empty]
+        makeMaps (k:ks) =
+            map (\ [VMap m, v] -> VMap $ M.insert k v m)
+                (UL.cartesianProduct [makeMaps ks, vs])
+    in concatMap (\ (VSet s) -> makeMaps (toList s)) ks
 
 toSeq :: ValueSet -> Sq.Seq Value
 toSeq (ExplicitSet s) = F.foldMap Sq.singleton s
@@ -226,6 +248,7 @@ toSeq (CompositeSet ss) = F.msum (fmap toSeq ss)
 toSeq (AllSequences vs) = Sq.fromList (toList (AllSequences vs))
 toSeq (CartesianProduct vss ct) = Sq.fromList (toList (CartesianProduct vss ct))
 toSeq (Powerset vs) = Sq.fromList (toList (Powerset vs))
+toSeq (AllMaps ks vs) = Sq.fromList (toList (AllMaps ks vs))
 toSeq Integers = throwSourceError [cannotConvertIntegersToListMessage]
 toSeq Processes = throwSourceError [cannotConvertProcessesToListMessage]
 
@@ -248,6 +271,9 @@ member (VDot vs) (CartesianProduct vss CartDot) = and (zipWith member vs vss)
 member (VTuple vs) (CartesianProduct vss CartTuple) =
     and (zipWith member (elems vs) vss)
 member (VSet s) (Powerset vs) = and (map (\v -> member v vs) (toList s))
+member (VMap m) (AllMaps ks vs) =
+    and (map (flip member ks) (map fst (M.toList m)))
+    && and (map (flip member vs) (map snd (M.toList m)))
 member v s1 = throwSourceError [cannotCheckSetMembershipError v s1]
 
 -- | The cardinality of the set. Throws an error if the set is infinite.
@@ -256,6 +282,10 @@ card (ExplicitSet s) = toInteger (S.size s)
 card (CompositeSet ss) = F.sum (fmap card ss)
 card (CartesianProduct vss _) = product (map card vss)
 card (Powerset s) = 2^(card s)
+card (AllMaps ks vs) =
+    -- For each key, we can either not map it to anything, or map it to one
+    -- of the values
+    (card vs + 1) ^ (card ks)
 card s = throwSourceError [cardOfInfiniteSetMessage s]
 
 -- | Is the specified set empty?
@@ -268,6 +298,7 @@ empty (CartesianProduct vss _) = or (map empty vss)
 empty Processes = False
 empty Integers = False
 empty (Powerset s) = False
+empty (AllMaps ks vs) = False
 
 -- | Replicated union.
 unions :: [ValueSet] -> ValueSet
@@ -305,6 +336,8 @@ union (IntSetFrom lb) s = CompositeSet (Sq.fromList [IntSetFrom lb, s])
 union s (IntSetFrom lb) = CompositeSet (Sq.fromList [IntSetFrom lb, s])
 union (AllSequences s1) s2 = CompositeSet (Sq.fromList [AllSequences s1, s2])
 union s2 (AllSequences s1) = CompositeSet (Sq.fromList [AllSequences s1, s2])
+union (AllMaps k v) s2 = CompositeSet (Sq.fromList [AllMaps k v, s2])
+union s2 (AllMaps k v) = CompositeSet (Sq.fromList [AllMaps k v, s2])
 -- Otherwise, we force to an explicit set (this has better performance than
 -- always forming an explicit set)
 union s1 s2 = ExplicitSet $ S.union (S.fromList (toList s1)) (S.fromList (toList s2))
@@ -348,6 +381,10 @@ intersection (AllSequences vs) s =
     intersection (fromList (toList (AllSequences vs))) s
 intersection s (AllSequences vs) =
     intersection (fromList (toList (AllSequences vs))) s
+intersection (AllMaps ks vs) s =
+    intersection (fromList (toList (AllMaps ks vs))) s
+intersection s (AllMaps ks vs) =
+    intersection (fromList (toList (AllMaps ks vs))) s
 intersection (Powerset s1) (Powerset s2) = Powerset (intersection s1 s2)
 intersection (Powerset s1) s2 = intersection (fromList (toList (Powerset s1))) s2
 intersection s2 (Powerset s1) = intersection (fromList (toList (Powerset s1))) s2
@@ -394,6 +431,7 @@ unDotProduct (CartesianProduct (s1:ss) CartDot) =
         Just (VChannel _) -> return [CartesianProduct (s1:ss) CartDot]
         _ -> return (s1:ss)
 unDotProduct (AllSequences vs) = return [AllSequences vs]
+unDotProduct (AllMaps ks vs) = return [AllMaps ks vs]
 unDotProduct (IntSetFrom i1) = return [IntSetFrom i1]
 unDotProduct (Powerset s) = return [Powerset s]
 unDotProduct Integers = return [Integers]

@@ -1,0 +1,3 @@
+procTest1 = c.(| 0 => 1, 1 => 0 |) -> STOP
+
+procTest1

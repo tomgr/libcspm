@@ -1,0 +1,15 @@
+test1 = mapFromList(<(1, {0})>) == mapUpdate(emptyMap, 1, {0})
+test2 = mapFromList(<(1, {0})>) != mapUpdate(emptyMap, 1, {1})
+test3 = mapToList(mapFromList(<(1, 0)>)) == <(1, 0)>
+test4 = mapToList(mapUpdate(mapFromList(<(1, 0)>), 1, 2)) == <(1, 2)>
+test5 = mapToList(mapUpdateMultiple(mapFromList(<(1, 0)>), <(1, 2)>)) == <(1, 2)>
+test6 = Map({}, {})
+m1 = (| 0 => 1 |)
+m2 = (| 0 => 1, 1 => 2 |)
+m3 = (| |)
+
+m4 :: Set k => (| k => v |)
+m4 = (| |)
+
+singleton :: Set k => (k, v) -> (| k => v |)
+singleton(k, v) = (| k => v |)

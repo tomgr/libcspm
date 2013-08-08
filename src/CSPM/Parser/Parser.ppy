@@ -130,6 +130,8 @@ import Util.Exception (panic)
     ")"                 { L _ TRParen }
     "{"                 { L _ TLBrace }
     "}"                 { L _ TRBrace }
+    "(|"                { L _ TLMap }
+    "|)"                { L _ TRMap }
     "{|"                { L _ TLPipeBrace }
     "|}"                { L _ TRPipeBrace }
     "[["                { L _ TLDoubleSqBracket }
@@ -347,7 +349,8 @@ SType :: { PSType }
     | "(" SType ")"                 { AN2 (STParen $2) }
     | MaybeQualName "=>*" SType     { AN2 (STExtendable $3 (unLoc $1)) }
     | SType "=>" SType              { AN2 (STDotable $1 $3) }
-    | SType "." SType               { AN2 (STDot $1 $3)}
+    | "(|" SType "=>" SType "|)"    { AN2 (STMap $2 $4) }
+    | SType "." SType               { AN2 (STDot $1 $3) }
     | "(" STypeCommaList2 ")"       { AN2 (STTuple $2) }
     | "(" ")" "->" SType            { AN2 (STFunction [] $4) }
     | SType "->" SType              { AN2 (STFunction
@@ -472,6 +475,7 @@ ExpA :: { PExp }
 
     -- Sets
     | "{" ExpCommaList "}"          { AN2 (Set $2) }
+    | "(|" ExpMapCommaList "|)"     { AN2 (Map $2) }
     | "{" ExpCommaList "|" StmtCommaList "}" { AN2 (SetComp $2 $4) }
     | "{" Exp ".." "}"              { AN2 (SetEnumFrom $2) }
     | "{" Exp ".." Exp "}"          { AN2 (SetEnumFromTo $2 $4) }
@@ -574,6 +578,15 @@ rExpCommaList :: { [PExp] }
     :
     rExpCommaList "," Exp           { $3:$1 }
     | Exp                           { [$1] }
+
+ExpMapCommaList :: { [(PExp, PExp)] }
+    :
+                                    { [] }
+    | rExpMapCommaList              { reverse $1 }
+rExpMapCommaList :: { [(PExp, PExp)] }
+    :
+    rExpMapCommaList "," Exp "=>" Exp   { ($3, $5):$1 }
+    | Exp "=>" Exp                      { [($1, $3)] }
 
 -- ****************************************
 -- Statements
@@ -758,6 +771,7 @@ checkExp (anExp@(An a b exp)) =
         check (ListEnumFromToComp e1 e2 stmts) =
             ListEnumFromToComp (checkExp e1) (checkExp e2) stmts
         check (ListLength e) = ListLength (checkExp e)
+        check (Map kvs) = Map (map (\ (k, v) -> (checkExp k, checkExp v)) kvs)
         check (MathsBinaryOp op e1 e2) = MathsBinaryOp op (checkExp e1) (checkExp e2)
         check (MathsUnaryOp op e) = MathsUnaryOp op (checkExp e)
         check (Paren e) = Paren (checkExp e)

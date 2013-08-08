@@ -66,6 +66,7 @@ instance Compressable (Exp a) where
     mcompress (ListEnumFromToComp e1 e2 stmts) =
         return ListEnumFromToComp $$ mcompress e1 $$ mcompress e2 $$ mcompress stmts
     mcompress (ListLength e) = return ListLength $$ mcompress e
+    mcompress (Map kvs) = return Map $$ mcompress kvs
     mcompress (MathsBinaryOp op e1 e2) = return 
         (MathsBinaryOp op) $$ mcompress e1 $$ mcompress e2
     mcompress (MathsUnaryOp op e) = return (MathsUnaryOp op) $$ mcompress e

@@ -1,0 +1,9 @@
+procTest2::P((| 0 => 1, 1 => 0 |)) =
+    c.(| 0 => 1, 1 => 0 |) -> procTest2::P((| 0 => 1, 1 => 0 |))
+
+procTest2::P((| 0 => 1 |)) =
+    c.(| 0 => 1 |) -> procTest2::P((| 0 => 1, 1 => 0 |))
+
+procTest2 = procTest2::P((| 0 => 1 |))
+
+procTest2

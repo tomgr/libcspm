@@ -32,6 +32,7 @@ freeTypeVars' (TSet t) = freeTypeVars' t
 freeTypeVars' (TTuple ts) = liftM concat (mapM freeTypeVars' ts)
 freeTypeVars' (TDotable t1 t2) = liftM concat (mapM freeTypeVars' [t1,t2])
 freeTypeVars' (TDot t1 t2) = liftM concat (mapM freeTypeVars' [t1,t2])
+freeTypeVars' (TMap t1 t2) = liftM concat (mapM freeTypeVars' [t1,t2])
 freeTypeVars' (TDatatype n1) = return []
 freeTypeVars' TInt = return []
 freeTypeVars' TBool = return []
@@ -101,6 +102,7 @@ occurs a (TVar tvref) = do
 occurs a (TSet t) = occurs a t
 occurs a (TSeq t) = occurs a t
 occurs a (TDot t1 t2) = liftM or (mapM (occurs a) [t1,t2])
+occurs a (TMap t1 t2) = liftM or (mapM (occurs a) [t1,t2])
 occurs a (TTuple ts) = liftM or (mapM (occurs a) ts)
 occurs a (TFunction ts t) = liftM or (mapM (occurs a) (t:ts))
 occurs a (TDatatype n) = return False
@@ -207,6 +209,8 @@ unifyConstraint CEq (TSet t) = unifyConstraint CEq t
 -- comparable for equality (as set ordering means subset testing, which requires
 -- only equality)
 unifyConstraint COrd (TSet t) = unifyConstraint CEq t
+unifyConstraint CInputable (TMap _ _) = return ()
+unifyConstraint c (TMap k v) = unifyConstraint c k >> unifyConstraint c v
 unifyConstraint c t = 
     raiseMessageAsError $ constraintUnificationErrorMessage c t
 
@@ -451,6 +455,10 @@ unifyNoStk (TSeq t1) (TSeq t2) = do
 unifyNoStk (TSet t1) (TSet t2) = do
     t <- unify t1 t2
     return $ TSet t
+unifyNoStk (TMap k1 v1) (TMap k2 v2) = do
+    k <- unify k1 k2
+    v <- unify v1 v2
+    return $ TMap k v
 unifyNoStk (TTuple ts1) (TTuple ts2) | length ts1 == length ts2 = do
     ts <- zipWithM unify ts1 ts2
     return $ TTuple ts
@@ -678,6 +686,8 @@ substituteType sub (TDot t1 t2) = do
     t2' <- substituteType sub t2
     return $ TDot t1' t2'
 substituteType sub (TSet t) = substituteType sub t >>= return . TSet
+substituteType sub (TMap t1 t2) =
+    return TMap $$ substituteType sub t1 $$ substituteType sub t2
 substituteType sub (TDotable t1 t2) = do
     t1' <- substituteType sub t1
     t2' <- substituteType sub t2
@@ -711,6 +721,7 @@ evaluateDots (TVar t) = do
         Left (tv, cs) -> return $ TVar t
         Right t       -> evaluateDots t
 evaluateDots (TSet t) = evaluateDots t >>= return . TSet
+evaluateDots (TMap t1 t2) = return TMap $$ evaluateDots t1 $$ evaluateDots t2
 evaluateDots (TSeq t) = evaluateDots t >>= return . TSeq
 evaluateDots (TTuple ts) = mapM evaluateDots ts >>= return . TTuple
 evaluateDots (TExtendable t pt) = compress (TExtendable t pt) >>= \ t -> do

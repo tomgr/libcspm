@@ -1,0 +1,1 @@
+test1 = mapFromList(<(\ _ @ STOP, 1)>)

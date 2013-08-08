@@ -256,6 +256,10 @@ data Exp id =
     | ListLength {
         listLengthExpression :: AnExp id
     }
+    -- | A literal map, e.g. @(| 1 => 2 |)@.
+    | Map {
+        mapKeyValuePairs :: [(AnExp id, AnExp id)]
+    }
     -- | Application of binary maths operator, e.g. @x+y@.
     | MathsBinaryOp {
         mathsBinaryOpOperator :: BinaryMathsOp,
@@ -757,6 +761,7 @@ data SType id =
     | STFunction [AnSType id] (AnSType id)
     | STDotable (AnSType id) (AnSType id)
     | STParen (AnSType id)
+    | STMap (AnSType id) (AnSType id)
 
     | STDatatype id
     | STProc

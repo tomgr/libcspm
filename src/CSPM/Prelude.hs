@@ -115,6 +115,25 @@ makeBuiltins = do
         typeConstructors = [cspm_Int, cspm_Bool, cspm_Proc, cspm_Events, 
             cspm_Char, cspm_true, cspm_false, cspm_True, cspm_False]
 
+        cspm_emptyMap k v = ("emptyMap", TMap k v)
+        cspm_mapFromList k v =
+            ("mapFromList", TFunction [TSeq (TTuple [k, v])] (TMap k v))
+        cspm_mapLookup k v = ("mapLookup", TFunction [TMap k v, k] v)
+        cspm_mapMember k v = ("mapMember", TFunction [TMap k v, k] TBool)
+        cspm_mapToList k v =
+            ("mapToList", TFunction [TMap k v] (TSeq (TTuple [k, v])))
+        cspm_mapUpdate k v =
+            ("mapUpdate", TFunction [TMap k v, k, v] (TMap k v))
+        cspm_mapUpdateMultiple k v =
+            ("mapUpdateMultiple",
+                TFunction [TMap k v, TSeq (TTuple [k, v])] (TMap k v))
+        cspm_Map k v = ("Map", TFunction [TSet k, TSet v] (TSet (TMap k v)))
+
+        mapFunctions :: [Type -> Type -> (String, Type)]
+        mapFunctions = [cspm_emptyMap, cspm_mapFromList, cspm_mapLookup,
+            cspm_mapMember, cspm_mapToList, cspm_mapUpdate,
+            cspm_mapUpdateMultiple]
+
         externalAndTransparentFunctions :: [(String, Type)]
         externalAndTransparentFunctions = [
             ("chase", TFunction [TProc] TProc),
@@ -203,6 +222,18 @@ makeBuiltins = do
             let (n, t) = func
             return (n, ForAll [] t)
 
+        mkMapFunction f = do
+            fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CSet]
+            fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints []
+            let (n, t) = f fv1 fv2
+            return (n, ForAll [(tv1, [CSet]), (tv2, [])] t)
+
+        mkMapFunction' f = do
+            fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CSet]
+            fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints [CSet]
+            let (n, t) = f fv1 fv2
+            return (n, ForAll [(tv1, [CSet]), (tv2, [CSet])] t)
+
         unsafeFunctionNames :: [String]
         unsafeFunctionNames = []
 
@@ -263,8 +294,11 @@ makeBuiltins = do
     bs7 <- mapM mkPatternType transparentFunctions
     bs8 <- mapM mkPatternType externalAndTransparentFunctions
     bs9 <- mapM (mkFuncType []) fdr3Extensions
+    bs10 <- mapM mkMapFunction mapFunctions
+    bs11 <- mapM mkMapFunction' [cspm_Map]
 
     let bs = bs1++bs2++bs2'++bs3++bs4++bs5++bs6++bs7++complexExternals++bs8++bs9
+                ++bs10++bs11
 
     bs' <- mapM makeBuiltIn bs
     bs'' <- mapM (makeReplacements bs') bs'

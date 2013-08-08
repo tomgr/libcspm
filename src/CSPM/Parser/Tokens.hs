@@ -121,6 +121,9 @@ data Token =
     | TLSyncExtChoice
     | TRSyncExtChoice
 
+    | TLMap
+    | TRMap
+
     | TEOF
     deriving Eq
     
@@ -241,5 +244,8 @@ instance PrettyPrintable Token where
     prettyPrint TRSyncInterrupt = text "+\\"
     prettyPrint TLSyncExtChoice = text "[+"
     prettyPrint TRSyncExtChoice = text "+]"
+
+    prettyPrint TLMap = text "(|"
+    prettyPrint TRMap = text "|)"
 
     prettyPrint TEOF = text "EOF"

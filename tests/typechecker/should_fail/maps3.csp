@@ -1,0 +1,1 @@
+test1 = mapFromList(<(STOP, 1)>) < mapFromList(<(STOP, 1)>)

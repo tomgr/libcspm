@@ -61,6 +61,11 @@ divideByZeroMessage loc scope = mkErrorMessage loc $
     text "Attempt to divide by zero"
     $$ printCallStack scope
 
+keyNotInDomainOfMapMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
+keyNotInDomainOfMapMessage loc scope = mkErrorMessage loc $
+    text "Lookup called on a key that is not in the domain of the map."
+    $$ printCallStack scope
+
 funBindPatternMatchFailureMessage :: SrcSpan -> Name -> [[Value]] -> ErrorMessage
 funBindPatternMatchFailureMessage l n vss = mkErrorMessage l $
     hang (text "Pattern match failure whilst attempting to evaluate:") tabWidth

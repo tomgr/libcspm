@@ -152,6 +152,8 @@ tokens :-
     <0>@nl"|}"                  { closeseq TRPipeBrace }
     <0>"{"@nl                   { openseq TLBrace }
     <0>@nl"}"                   { closeseq TRBrace }
+    <0>"(| "@nl                 { openseq TLMap }
+    <0>@nl"|)"                  { closeseq TRMap }
     <0>@nl"[["@nl               { openseq TLDoubleSqBracket }
     <0>@nl"]]"                  { closeseq TRDoubleSqBracket }
     <0>@nl"[|"@nl               { openseq TLPipeSqBracket }

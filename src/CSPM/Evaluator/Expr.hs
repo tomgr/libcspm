@@ -5,6 +5,7 @@ module CSPM.Evaluator.Expr (
 
 import qualified Data.Foldable as F
 import Data.List (nub)
+import qualified Data.Map as M
 import Data.Maybe
 import Data.Sequence ((<|))
 import qualified Data.Sequence as Sq
@@ -132,6 +133,12 @@ instance Evaluatable (Exp Name) where
     eval (ListLength e) = do
         VList xs <- eval e 
         return $ VInt (length xs)
+    eval (Map kvs) = do
+        xs <- mapM (\ (k, v) -> do
+            k <- eval k
+            v <- eval v
+            return (k, v)) kvs
+        return $ VMap $ M.fromList xs
     eval (MathsBinaryOp op e1 e2) = do
         VInt i1 <- eval e1
         VInt i2 <- eval e2

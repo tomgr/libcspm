@@ -20,6 +20,7 @@ import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
 import Data.Array
 import qualified Data.Foldable as F
 import Data.Hashable
+import qualified Data.Map as M
 import Prelude hiding (lookup)
 import Util.Exception
 import Util.Prelude
@@ -41,6 +42,7 @@ data Value =
     | VChannel Name
     | VDataType Name
     | VList [Value]
+    | VMap (M.Map Value Value)
     | VSet S.ValueSet
     | VFunction FunctionIdentifier ([Value] -> EvaluationMonad Value)
     | VProc UProc
@@ -167,6 +169,7 @@ instance Hashable Value where
     -- We identify all functions (for process names) - see comment below in Eq.
     hash (VFunction id _) = combine 11 (hash id)
     hash (VProc p) = combine 12 (hash p)
+    hash (VMap m) = combine 13 (hash (M.toList m))
 
 instance Eq Value where
     VInt i1 == VInt i2 = i1 == i2
@@ -180,6 +183,7 @@ instance Eq Value where
     VSet s1 == VSet s2 = s1 == s2
     VProc p1 == VProc p2 = p1 == p2
     VFunction id1 _ == VFunction id2 _ = id1 == id2
+    VMap m1 == VMap m2 = m1 == m2
     
     v1 == v2 = False
     
@@ -209,6 +213,16 @@ compareValues (VList vs1) (VList vs2) =
             Nothing
     in cmp vs1 vs2
 compareValues (VSet s1) (VSet s2) = S.compareValueSets s1 s2
+compareValues (VMap m1) (VMap m2) =
+    let cmp v1 v2 =
+            case compareValues v1 v2 of
+                Just LT -> True
+                Just EQ -> True
+                _ -> False
+    in if m1 == m2 then Just EQ
+    else if M.isSubmapOfBy cmp m1 m2 then Just LT
+    else if M.isSubmapOfBy cmp m2 m1 then Just GT
+    else Nothing
 
 -- The following can only be compared for equality, hence if they are not
 -- equal we return Nothing.
@@ -230,7 +244,8 @@ instance Ord Value where
     compare (VBool b1) (VBool b2) = compare b1 b2
     compare (VTuple vs1) (VTuple vs2) = compare vs1 vs2
     compare (VList vs1) (VList vs2) = compare vs1 vs2
-    compare (VSet s1) (VSet s2) = compare s1 s2    
+    compare (VSet s1) (VSet s2) = compare s1 s2
+    compare (VMap m1) (VMap m2) = compare m1 m2
     -- These are only ever used for the internal set implementation
     compare (VDot vs1) (VDot vs2) = compare vs1 vs2
     compare (VChannel n) (VChannel n') = compare n n'
@@ -273,6 +288,9 @@ trimValueForProcessName (VTuple vs) = VTuple (fmap trimValueForProcessName vs)
 trimValueForProcessName (VList vs) = VList (map trimValueForProcessName vs)
 trimValueForProcessName (VSet s) =
     VSet $ S.fromList $ map trimValueForProcessName $ S.toList s
+trimValueForProcessName (VMap m) = VMap $ M.fromList $
+    map (\ (v1, v2) -> (trimValueForProcessName v1, trimValueForProcessName v2))
+        (M.toList m)
 trimValueForProcessName (VDot vs) = VDot $ map trimValueForProcessName vs
 trimValueForProcessName (VChannel n) = VChannel n
 trimValueForProcessName (VDataType n) = VDataType n

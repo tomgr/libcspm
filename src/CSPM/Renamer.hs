@@ -1070,6 +1070,7 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
             return (e1', e2')
         return $ ListEnumFromToComp e1' e2' stmts'
     rename (ListLength e) = return ListLength $$ rename e
+    rename (Map kvs) = return Map $$ rename kvs
     rename (MathsBinaryOp op e1 e2) = return 
         (MathsBinaryOp op) $$ rename e1 $$ rename e2
     rename (MathsUnaryOp op e) = return (MathsUnaryOp op) $$ rename e
@@ -1211,6 +1212,7 @@ instance Renamable (SType UnRenamedName) (SType Name) where
     rename (STSet t) = return STSet $$ rename t
     rename (STSeq t) = return STSeq $$ rename t
     rename (STDot t1 t2) = return STDot $$ rename t1 $$ rename t2
+    rename (STMap t1 t2) = return STMap $$ rename t1 $$ rename t2
     rename (STTuple ts) = return STTuple $$ rename ts
     rename (STFunction args rt) = return STFunction $$ rename args $$ rename rt
     rename (STDotable t1 t2) = return STDotable $$ rename t1 $$ rename t2
@@ -1228,6 +1230,7 @@ substituteType nm t =
         sub' (STSet t) = STSet (sub t)
         sub' (STSeq t) = STSeq (sub t)
         sub' (STDot t1 t2) = STDot (sub t1) (sub t2)
+        sub' (STMap t1 t2) = STMap (sub t1) (sub t2)
         sub' (STTuple ts) = STTuple (map sub ts)
         sub' (STFunction args rt) = STFunction (map sub args) (sub rt)
         sub' (STDotable t1 t2) = STDotable (sub t1) (sub t2)
@@ -1337,6 +1340,7 @@ freeTypeVars st =
         freeVars (STSet t) = freeTypeVars t
         freeVars (STSeq t) = freeTypeVars t
         freeVars (STDot t1 t2) = freeTypeVarsL [t1, t2]
+        freeVars (STMap t1 t2) = freeTypeVarsL [t1, t2]
         freeVars (STTuple ts) = freeTypeVarsL ts
         freeVars (STFunction args rt) = freeTypeVarsL (rt:args)
         freeVars (STDotable t1 t2) = freeTypeVarsL [t1, t2]

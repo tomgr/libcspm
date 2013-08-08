@@ -588,6 +588,10 @@ instance TypeCheckable (SType Name) Type where
         t1' <- typeCheck t1
         t2' <- typeCheck t2
         return $ TDot t1' t2'
+    typeCheck' (STMap t1 t2) = do
+        t1' <- typeCheck t1
+        t2' <- typeCheck t2
+        return $ TMap t1' t2'
     typeCheck' (STTuple ts) = mapM typeCheck ts >>= return . TTuple
     typeCheck' (STFunction args rt) = do
         targs <- mapM typeCheck args

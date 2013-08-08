@@ -129,6 +129,7 @@ instance FreeVars (Exp Name) where
     freeVars' (ListEnumFromComp e1 stmts) = freeVarsStmts stmts [e1]
     freeVars' (ListEnumFromToComp e1 e2 stmts) = freeVarsStmts stmts [e1, e2]
     freeVars' (ListLength e) = freeVars' e
+    freeVars' (Map kvs) = freeVars' (map fst kvs) ++ freeVars' (map snd kvs)
     freeVars' (MathsBinaryOp _ e1 e2) = freeVars' [e1,e2]
     freeVars' (MathsUnaryOp _ e1) = freeVars' e1
     freeVars' (Paren e) = freeVars' e

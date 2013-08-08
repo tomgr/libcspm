@@ -36,6 +36,7 @@ import qualified CSPM.TypeChecker.Environment as Env
 import CSPM.TypeChecker.Exceptions
 import Util.Annotated
 import Util.Exception
+import qualified Util.Monad as M
 import Util.PrettyPrint
 
 -- *************************************************************************
@@ -376,6 +377,7 @@ compress (TFunction targs tr) = do
     return $ TFunction targs' tr'
 compress (TSeq t) = compress t >>= return . TSeq
 compress (TSet t) = compress t >>= return . TSet
+compress (TMap t1 t2) = return TMap M.$$ compress t1 M.$$ compress t2
 compress (TTuple ts) = mapM compress ts >>= return . TTuple
 compress (TDotable t1 t2)= do
     t1' <- compress t1

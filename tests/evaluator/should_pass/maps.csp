@@ -1,0 +1,52 @@
+test0 = mapMember(mapFromList(<(1, 0)>), 1)
+test1 = not mapMember(mapFromList(<(1, 0)>), 2)
+test2 = not mapMember(emptyMap, 2)
+test3 = mapLookup(mapFromList(<(1, 0)>), 1) == 0
+test4 = mapLookup(mapFromList(<(1, 2)>), 1) == 2
+test5 = mapLookup(mapFromList(<(1, 2), (2, 4)>), 2) == 4
+
+test6 = mapFromList(<(1, {0})>) == mapUpdate(emptyMap, 1, {0})
+test7 = mapFromList(<(1, {0})>) != mapUpdate(emptyMap, 1, {1})
+test8 = mapToList(mapFromList(<(1, 0)>)) == <(1, 0)>
+test9 = mapToList(mapUpdate(mapFromList(<(1, 0)>), 1, 2)) == <(1, 2)>
+test10 = mapToList(mapUpdateMultiple(mapFromList(<(1, 0)>), <(1, 2)>)) == <(1, 2)>
+test11 = mapFromList(<(1, 0)>) <= mapFromList(<(1, 0)>)
+test12 = mapFromList(<(1, 0)>) < mapFromList(<(1, 1)>)
+test13 = not mapFromList(<(1, 1)>) < mapFromList(<(1, 1)>)
+test14 = not mapFromList(<(1, 1)>) > mapFromList(<(1, 1)>)
+test15 = mapFromList(<(1, 1)>) >= mapFromList(<(1, 1)>)
+test16 = Map({}, {}) == {emptyMap}
+test17 = Map({0}, {0}) == {emptyMap, mapFromList(<(0, 0)>)}
+test18 = Map({0, 1}, {0}) ==
+    {emptyMap, mapFromList(<(0, 0)>), mapFromList(<(1, 0)>),
+     mapFromList(<(0,0), (1, 0)>)}
+test19 = Map({0, 1}, {0}) ==
+    {emptyMap, mapFromList(<(0, 0)>), mapFromList(<(1, 0)>),
+     mapFromList(<(0,0), (1, 0)>), emptyMap}
+test20 = not empty(Map({}, {}))
+test21 = card(Map({}, {})) == 1
+test22 = card(Map({0}, {0})) == 2
+test23 = card(Map({0}, {0, 1})) == 3
+test24 = card(Map({0}, {0, 1, 2})) == 4
+test25 = card(Map({0, 1}, {0})) == 4
+test26 = card(Map({0, 1}, {0, 1})) == 9
+test27 = card(Map({}, {})) == #seq(Map({}, {}))
+test28 = card(Map({0}, {0})) == #seq(Map({0}, {0}))
+test29 = card(Map({0}, {0, 1})) == #seq(Map({0}, {0, 1}))
+test30 = card(Map({0}, {0, 1, 2})) == #seq(Map({0}, {0, 1, 2}))
+test31 = card(Map({0, 1}, {0})) == #seq(Map({0, 1}, {0}))
+test32 = card(Map({0, 1}, {0, 1})) == #seq(Map({0, 1}, {0, 1}))
+test33 = (| 0 => 1 |) == mapFromList(<(0, 1)>)
+test34 = (| 0 => 1, 1 => 2 |) == mapFromList(<(0, 1), (1, 2)>)
+test35 = (| |) == emptyMap
+test36 = member((| |), Map({}, {}))
+test37 = member((| |), Map({0}, {0}))
+test38 = member((| 0 => 0 |), Map({0}, {0}))
+
+channel c : Map({0, 1}, {0, 1})
+
+procTest1 = c.(| 0 => 1, 1 => 0 |) -> STOP
+procTest2 =
+    let
+        P(m) = c.m -> P(mapUpdate(m, 1, 0))
+    within P((| 0 => 1 |))

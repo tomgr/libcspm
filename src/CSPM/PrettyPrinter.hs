@@ -49,6 +49,9 @@ instance PrettyPrintable id => PrettyPrintable (SType id) where
     prettyPrint (STSet t) = braces (prettyPrint t)
     prettyPrint (STSeq t) = angles (prettyPrint t)
     prettyPrint (STDot t1 t2) = prettyPrint t1 <> char '.' <> prettyPrint t2
+    prettyPrint (STMap t1 t2) =
+        text "(|" <+> prettyPrint t1 <+> text "=>" <+> prettyPrint t2
+            <+> text "|)"
     prettyPrint (STTuple ts) = parens (list (map prettyPrint ts))
     prettyPrint (STFunction args rt) =
         ppBinOp (parens (list (map prettyPrint args))) (text "->")
@@ -225,6 +228,9 @@ instance PrettyPrintable id => PrettyPrintable (Exp id) where
     prettyPrint (ListEnumFromToComp lb ub stmts) = 
         angles (ppComp' [prettyPrint lb <> text ".." <> prettyPrint ub] stmts)
     prettyPrint (Lit lit) = prettyPrint lit
+    prettyPrint (Map kvs) = text "(|" <+>
+        list (map (\ (k, v) -> prettyPrint k <+> text "=>" <+> prettyPrint v) kvs)
+        <+> text "|)"
     prettyPrint (MathsUnaryOp op e1) = prettyPrint op <> prettyPrint e1
     prettyPrint (MathsBinaryOp op e1 e2) =
         ppBinOp' (prettyPrint e1) (prettyPrint op) (prettyPrint e2)

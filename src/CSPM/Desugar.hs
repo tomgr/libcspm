@@ -299,6 +299,7 @@ instance Desugarable (Exp Name) where
     desugar (ListEnumFromToComp e1 e2 stmts) =
         return ListEnumFromToComp $$ desugar e1 $$ desugar e2 $$ desugar stmts
     desugar (ListLength e) = return ListLength $$ desugar e
+    desugar (Map kvs) = return Map $$ desugar kvs
     desugar (MathsBinaryOp op e1 e2) = 
         return (MathsBinaryOp op) $$ desugar e1 $$ desugar e2
     desugar (MathsUnaryOp op e) = return (MathsUnaryOp op) $$ desugar e
@@ -452,6 +453,7 @@ instance Desugarable Type where
     desugar (TSet t) = return TSet $$ desugar t
     desugar (TSeq t) = return TSeq $$ desugar t
     desugar (TDot t1 t2) = return TDot $$ desugar t1 $$ desugar t2
+    desugar (TMap t1 t2) = return TMap $$ desugar t1 $$ desugar t2
     desugar (TTuple ts) = return TTuple $$ desugar ts
     desugar (TFunction ts t) = return TFunction $$ desugar ts $$ desugar t
     desugar (TDatatype n) = return TDatatype $$ substituteName n

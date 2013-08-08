@@ -109,6 +109,10 @@ data Type =
     | TSet Type
     | TSeq Type
     | TDot Type Type
+    | TMap {
+        mapKeyType :: Type,
+        mapValueType :: Type
+    }
     | TTuple [Type]
     -- Arguments to result type
     | TFunction [Type] Type
@@ -239,6 +243,7 @@ instance Precedence Type where
     precedence (TDotable _ _) = 2
     precedence (TExtendable _ _) = 2
     precedence (TDot _ _) = 1
+    precedence (TMap _ _) = 1
 
     precedence (TVar _) = 0
     precedence (TFunction _ _) = 0
@@ -260,6 +265,7 @@ instance Precedence Type where
     sameOperator (TDotable _ _) (TDotable _ _) = True
     sameOperator (TExtendable _ _) (TExtendable _ _) = True
     sameOperator (TDot _ _) (TDot _ _) = True
+    sameOperator (TMap _ _) (TMap _ _) = True
     sameOperator (TVar _) (TVar _) = True
     sameOperator (TFunction _ _) (TFunction _ _) = True
     sameOperator (TSeq _) (TSeq _) = True
@@ -288,6 +294,8 @@ instance M.MonadicPrettyPrintable (Reader VarMap) Type where
         M.braces (M.prettyPrint t)
     prettyPrint (TTuple ts) =
         M.parens (M.list (mapM M.prettyPrint ts))
+    prettyPrint (TMap k v) =
+        M.text "Map" M.<+> M.prettyPrint k M.<+> M.prettyPrint v
     prettyPrint (op@(TDot t1 t2)) =
         M.ppBinaryOp' op (M.char '.') t1 t2
     prettyPrint (op@(TDotable t1 t2)) = M.ppBinaryOp' op (M.text "=>") t1 t2
@@ -342,6 +350,7 @@ collectConstraints = combine . collect
         collect (TTuple ts) = concatMap collect ts
         collect (TDot t1 t2) = collect t1 ++ collect t2
         collect (TDotable t1 t2) = collect t1 ++ collect t2
+        collect (TMap k v) = collect k ++ collect v
         collect (TDatatype _) = []
         collect TBool = []
         collect TInt = []

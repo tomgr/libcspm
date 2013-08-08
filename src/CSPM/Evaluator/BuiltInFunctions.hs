@@ -53,6 +53,31 @@ builtInFunctions = do
             VList (map VChar (show (prettyPrint v)))
         cspm_error [err] = throwError' $ \ srcspan _ -> mkErrorMessage srcspan $
             text "Error:" <+> prettyPrint err
+
+        cspm_mapFromList [VList s] = VMap $
+            M.fromList [(arr!0, arr!1) | VTuple arr <- s]
+        cspm_mapLookup [VMap m, k] =
+            case M.lookup k m of
+                Just v -> return v
+                Nothing -> throwError' keyNotInDomainOfMapMessage
+        cspm_mapMember [VMap m, k] =
+            case M.lookup k m of
+                Just v -> VBool True
+                Nothing -> VBool False
+        cspm_mapToList [VMap m] = VList $
+            [VTuple (listArray (0,1) [k, v]) | (k, v) <- M.toList m]
+        cspm_mapUpdate [VMap m, k, v] = VMap $ M.insert k v m
+        cspm_mapUpdateMultiple [VMap m, VList s] = VMap $
+            foldr (uncurry M.insert) m [(arr!0, arr!1) | VTuple arr <- s]
+        cspm_Map [VSet k, VSet v] = S.allMaps k v
+
+        map_funcs = [
+                ("mapFromList", cspm_mapFromList),
+                ("mapMember", cspm_mapMember),
+                ("mapToList", cspm_mapToList),
+                ("mapUpdate", cspm_mapUpdate),
+                ("mapUpdateMultiple", cspm_mapUpdateMultiple)
+            ]
         
         cspm_length [VList xs] = VInt $ length xs
         cspm_null [VList xs] = VBool $ null xs
@@ -104,7 +129,7 @@ builtInFunctions = do
             ("diff", cspm_diff), ("Union", cspm_Union), 
             ("Inter", cspm_Inter), ("set", cspm_set), 
             ("Set", cspm_Set), ("Seq", cspm_Seq),
-            ("mtransclose", cspm_mtransclose)
+            ("Map", cspm_Map), ("mtransclose", cspm_mtransclose)
             ]
         
         -- | Functions that return sequences
@@ -147,9 +172,9 @@ builtInFunctions = do
             ("timed_priority", csp_timed_priority),
             ("prioritise", csp_prioritise True),
             ("prioritise_nocache", csp_prioritise False),
-            ("WAIT", csp_wait)
+            ("WAIT", csp_wait), ("mapLookup", cspm_mapLookup)
             ]
-        
+
         mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)
         mkMonadicFunc (s, f) = do
             let n = builtInName s
@@ -209,10 +234,13 @@ builtInFunctions = do
         cspm_Char = ("Char", VSet (S.fromList (map VChar [minBound :: Char ..])))
         cspm_Proc = ("Proc", VSet S.Processes)
         cspm_Events = ("Events", VSet (S.fromList []))
+        
+        cspm_emptyMap = ("emptyMap", VMap M.empty)
 
         constants = [
             cspm_true, cspm_false, cspm_True, cspm_False,
-            cspm_Bool, cspm_Int, cspm_Proc, cspm_Events, cspm_Char
+            cspm_Bool, cspm_Int, cspm_Proc, cspm_Events, cspm_Char,
+            cspm_emptyMap
             ]
         
         mkConstant (s, v) = return (builtInName s, v)
@@ -228,7 +256,7 @@ builtInFunctions = do
             map (\ (n, f) -> (n, VSet . f)) set_funcs
             ++ map (\ (n, f) -> (n, VList . f)) seq_funcs
             ++ map (\ (n, po) -> (n, evaluateProcOperator po)) proc_operators
-            ++ other_funcs)
+            ++ other_funcs ++ map_funcs)
     fs2 <- mapM mkMonadicFunc monadic_funcs
     fs3 <- mapM mkProc procs
     fs4 <- mapM mkConstant constants

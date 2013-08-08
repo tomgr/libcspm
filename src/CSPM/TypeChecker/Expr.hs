@@ -142,6 +142,10 @@ instance TypeCheckable (Exp Name) Type where
     typeCheck' (ListLength e) = do
         ensureIsList e
         return $ TInt
+    typeCheck' (Map kvs) = do
+        k <- ensureAreEqual (map fst kvs)
+        v <- ensureAreEqual (map snd kvs)
+        return $ TMap k v
     typeCheck' (MathsBinaryOp op e1 e2) = do
         ensureIsInt e1
         ensureIsInt e2
