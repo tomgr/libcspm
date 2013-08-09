@@ -875,6 +875,10 @@ checkModuleNameDuplicates ds =
             [An loc () (ModuleNameCheck n)]
         extractModuleNames (An _ _ (TimedSection _ _ ds)) =
             concatMap extractModuleNames ds
+        extractModuleNames (An loc _ (Channel ns _)) =
+            [An loc () (ModuleNameCheck n) | n <- ns]
+        extractModuleNames (An loc _ (DataType n cs)) =
+            [An loc () (ModuleNameCheck n') | An loc _ (DataTypeClause n' _) <- cs]
         extractModuleNames _ = []
     in checkDuplicates $ concatMap extractModuleNames ds
 

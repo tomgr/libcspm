@@ -1,0 +1,11 @@
+module M(X)
+
+exports
+channel c
+endmodule
+
+datatype Z = M
+
+instance X = M({})
+
+
