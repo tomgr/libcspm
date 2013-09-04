@@ -1,0 +1,3 @@
+procTest9 = (STOP \ {c}) /+ {} +\ STOP
+
+procTest9

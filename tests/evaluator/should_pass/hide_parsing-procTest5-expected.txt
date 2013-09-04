@@ -1,0 +1,3 @@
+procTest5 = (STOP \ {c}) |~| STOP
+
+procTest5

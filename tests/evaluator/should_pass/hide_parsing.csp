@@ -1,0 +1,12 @@
+channel c
+procTest1 = STOP \ {c} ||| STOP
+procTest2 = STOP \ {c} [| {} |] STOP
+procTest3 = STOP \ {c} [{}||{}] STOP
+procTest4 = STOP \ {c} [| {} |> STOP
+procTest5 = STOP \ {c} |~| STOP
+procTest6 = STOP \ {c} [] STOP
+procTest7 = STOP \ {c} [+{}+] STOP
+procTest8 = STOP \ {c} /\ STOP
+procTest9 = STOP \ {c} /+{}+\ STOP
+procTest10 = STOP \ {c} [> STOP
+procTest11 = STOP \ {c} ; STOP

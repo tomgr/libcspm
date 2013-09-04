@@ -1,0 +1,3 @@
+procTest8 = (STOP \ {c}) /\ STOP
+
+procTest8

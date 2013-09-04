@@ -1,0 +1,3 @@
+procTest7 = (STOP \ {c}) [+{}+] STOP
+
+procTest7

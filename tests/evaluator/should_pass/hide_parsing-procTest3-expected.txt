@@ -1,0 +1,3 @@
+procTest3 = (STOP \ {c}) [{} || {}] STOP
+
+procTest3
