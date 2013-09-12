@@ -15,10 +15,12 @@ where
 
 import Control.Exception
 import Control.Monad.State
+import GHC.IO.Encoding
 #if __GLASGOW_HASKELL__ < 705
 import Prelude hiding (catch)
 #endif
 import System.FilePath
+import System.IO
 
 import CSPM.Parser.Exceptions
 import Util.Annotated
@@ -100,8 +102,14 @@ pushFile fname prog = do
     let 
         filename = combine dirname fname
         handle :: IOException -> a
-        handle _ = throwSourceError [fileAccessErrorMessage filename]
-    str <- liftIO $ catch (readFile filename) handle
+        handle e = throwSourceError [fileAccessErrorMessage filename]
+    str <- liftIO $ catch (do
+        handle <- openFile filename ReadMode
+        -- Decode the file using an ASCII codec (except in comments, all CSPM
+        -- characters should be ASCII - clearly in comments we can just ignore
+        -- anything non-ASCII).
+        hSetEncoding handle char8
+        hGetContents handle) handle
     pushFileContents filename str
     x <- prog
     return x
