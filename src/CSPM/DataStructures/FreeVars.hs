@@ -231,8 +231,8 @@ instance FreeVars (Stmt Name) where
     freeVars' (Qualifier e) = freeVars e
 
 instance FreeVars (Field Name) where
-    freeVars' (Input p e) = freeVars e
-    freeVars' (NonDetInput p e) = freeVars e
+    freeVars' (Input p e) = freeVars p ++ freeVars e
+    freeVars' (NonDetInput p e) = freeVars p ++ freeVars e
     freeVars' (Output e) = freeVars e
 
 instance FreeVars (Decl Name) where
