@@ -1,6 +1,8 @@
-1.0.0 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> TODO
+1.0.0 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> 2013-10-11
     This is a major release that delivers a fully functional evaluator that
-    is both reasonably efficient and compatible with FDR2.
+    is both efficient and compatible with FDR2. This is the library used by FDR3
+    (available from https://www.cs.ox.ac.uk/projects/fdr) for parsing and
+    manipulating CSPm.
 
     * Changes to the evaluator included:
         * Major efficiency and memory improvements. In particular, when a
@@ -19,8 +21,11 @@
     * The pretty printing structure has been overhauled to make it possible to
       have side effects. This permits more attractive pretty printing of values.
     * Added Hashable instances for many of the built in datatypes.
-    * Allow negated assertions.
+    * Fixed many small incompatibilites in the parser.
     * Fixed a bug that prevented multiple assertions from being included.
+    * Enhanced the renamer to produce better errors.
+    * Add full support for modules, including parameterised modules.
+    * Fixed many small bugs in the evaluator.
     
 0.2.1 Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com> 2012-01-18
     * Fixed a bug in the typechecker that prevented certain (uncommon)
