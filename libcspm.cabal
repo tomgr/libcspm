@@ -26,7 +26,7 @@ Description:
     The main module of interest will be the "CSPM" module. This packages up 
     most of the functionality of the library in an easy to use, relatively
     high level format. See "CSPM" for an example of how to use this module.
-Version: 0.3.0
+Version: 1.0.0
 Extra-source-files: 
     README.md,
     CHANGELOG.txt
@@ -38,7 +38,7 @@ Source-Repository head
 Source-repository this
     type:     git
     location: https://github.com/tomgr/libcspm
-    tag: release-0.2.1
+    tag: release-1.0.0
 
 Library
     Build-Depends:
@@ -124,7 +124,6 @@ Library
     
     GHC-Options:
         -O3
-        -Werror
         -fwarn-missing-fields
         -fwarn-dodgy-imports
         -fwarn-missing-methods

@@ -32,18 +32,13 @@ sed -i".old" -e "s/tag:.*/tag: $GITTAG/g" cspmchecker/cspmchecker.cabal
 sed -i".old" -e "s/libcspm >= .*,/libcspm >= $VERSION,/g" cspmchecker/cspmchecker.cabal 
 rm cspmchecker/cspmchecker.cabal.old
 
-cabal clean
-cabal configure
-cabal build
-runhaskell Setup.hs sdist
+rm -rf dist
+cabal sdist
 cabal upload --check dist/libcspm-$VERSION.tar.gz
-cabal install
 
 pushd cspmchecker >/dev/null
-    cabal clean
-    cabal configure
-    cabal build
-    runhaskell Setup.hs sdist
+    rm -rf dist
+    cabal sdist
     cabal upload --check dist/cspmchecker-$VERSION.tar.gz
 popd >/dev/null
 
