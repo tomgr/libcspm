@@ -18,7 +18,7 @@ git status
 echo "Did git status contain pending changes? Nb. this script will commit make_release.sh (with the new version number)."
 read version_response
 
-if [ "$version_response" != "yes" ]; then
+if [ "$version_response" != "no" ]; then
     echo "Commit them"
     exit 1
 fi
