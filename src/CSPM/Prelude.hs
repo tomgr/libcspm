@@ -186,7 +186,8 @@ makeBuiltins = do
             ("sbisim", TFunction [TProc] TProc),
             ("tau_loop_factor", TFunction [TProc] TProc),
             ("model_compress", TFunction [TProc] TProc),
-            ("wbisim", TFunction [TProc] TProc)
+            ("wbisim", TFunction [TProc] TProc),
+            ("dbisim", TFunction [TProc] TProc)
             ]
 
         csp_timed_priority = ("timed_priority", TFunction [TProc] TProc)

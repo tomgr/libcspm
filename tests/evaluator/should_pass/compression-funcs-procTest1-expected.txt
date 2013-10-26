@@ -3,6 +3,7 @@ procTest1 =
     [] chase_no_cache(STOP)
     [] normal(STOP)
     [] sbisim(STOP)
+    [] dbisim(STOP)
     [] wbisim(STOP)
     [] diamond(STOP)
     [] explicate(STOP)

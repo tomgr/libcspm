@@ -141,6 +141,7 @@ builtInFunctions = do
         proc_operators = [
             ("chase", Chase True),
             ("chase_nocache", Chase False),
+            ("dbisim", DelayBisim),
             ("deter", Determinise),
             ("diamond", Diamond),
             ("explicate", Explicate False),

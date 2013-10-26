@@ -1,11 +1,12 @@
 external chase, chase_nocache
-transparent normal, sbisim, wbisim, diamond, explicate, model_compress, tau_loop_factor
+transparent normal, sbisim, dbisim, wbisim, diamond, explicate, model_compress, tau_loop_factor
 
 procTest1 = 
     chase(STOP)
     [] chase_nocache(STOP)
     [] normal(STOP)
     [] sbisim(STOP)
+    [] dbisim(STOP)
     [] wbisim(STOP)
     [] diamond(STOP)
     [] explicate(STOP)

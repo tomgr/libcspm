@@ -72,6 +72,7 @@ instance NFData UnCompiledOperator where
 
 instance NFData UnCompiledProcOperator where
     rnf (Chase b) = rnf b
+    rnf DelayBisim = ()
     rnf Determinise = ()
     rnf Diamond = ()
     rnf (Explicate b) = rnf b
