@@ -35,7 +35,7 @@ import Util.Exception (panic)
 #define AN annotate $1
 #define AN2 annotate2 $1 $>
 #define AN2L annotate2List $1 $>
-#define AN2LL annotate2List' $1 $>
+#define AN2LL annotate2Lista $1 $>
 
 %name parseFile_ CSPMFile
 %name parseInteractiveStmt_ InteractiveStmt
@@ -611,10 +611,10 @@ rStmtCommaList :: { [PStmt] }
 combineDecls :: [PDecl] -> [PDecl]
 combineDecls [] = []
 combineDecls ((An loc1 b (FunBind n ms Nothing)):
-            (An loc2 c (FunBind n' ms' Nothing)):ds)
-        | n == n' && srcSpanFile loc1 == srcSpanFile loc2 =
+            (An loc2 c (FunBind n1 ms1 Nothing)):ds)
+        | n == n1 && srcSpanFile loc1 == srcSpanFile loc2 =
     combineDecls $
-        (An (combineSpans loc1 loc2) b (FunBind n (ms++ms') Nothing)):ds
+        (An (combineSpans loc1 loc2) b (FunBind n (ms++ms1) Nothing)):ds
 combineDecls (d:ds) = d:combineDecls ds
 
 constraintForName :: SrcSpan -> String -> Constraint
@@ -729,7 +729,7 @@ checkLetDecls decls =
                 check (External a) = True
                 check (Transparent a) = True
                 check (TimedSection _ _ ds) = and (map checkDecl ds)
-                -- We can't allow module instances as this would cause channels
+                -- We cant allow module instances as this would cause channels
                 -- to be declared in let statements, which would lead to Events
                 -- being hard to define
                 -- check (ModuleInstance _ _ _ _ _) = True
@@ -755,112 +755,112 @@ checkExp :: PExp -> PExp
 -- (X \ Y) ||| Z (and ditto for other parallel operators). Note that we cannot
 -- do this using precedences, since we do want X ||| Y \ Z to bracket \ Z around
 -- the whole of X ||| Y. Thus, we really need a context dependent precedence,
--- which happy doesn't have.
+-- which happy doesnt have.
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (Interleave e2 e3)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (Interleave (An lhide an2 (Hiding e1' e2')) e3')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (Interleave (An lhide an2 (Hiding e1a e2a)) e3a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (GenParallel e2 e3 e4)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        e4' = checkExp e4
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        e4a = checkExp e4
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (GenParallel (An lhide an2 (Hiding e1' e2')) e3' e4')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (GenParallel (An lhide an2 (Hiding e1a e2a)) e3a e4a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (AlphaParallel e2 e3 e4 e5)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        e4' = checkExp e4
-        e5' = checkExp e5
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        e4a = checkExp e4
+        e5a = checkExp e5
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (AlphaParallel (An lhide an2 (Hiding e1' e2')) e3' e4' e5')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (AlphaParallel (An lhide an2 (Hiding e1a e2a)) e3a e4a e5a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (Exception e2 e3 e4)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        e4' = checkExp e4
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        e4a = checkExp e4
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (Exception (An lhide an2 (Hiding e1' e2')) e3' e4')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (Exception (An lhide an2 (Hiding e1a e2a)) e3a e4a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (InternalChoice e2 e3)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (InternalChoice (An lhide an2 (Hiding e1' e2')) e3')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (InternalChoice (An lhide an2 (Hiding e1a e2a)) e3a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (ExternalChoice e2 e3)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (ExternalChoice (An lhide an2 (Hiding e1' e2')) e3')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (ExternalChoice (An lhide an2 (Hiding e1a e2a)) e3a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (Interrupt e2 e3)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (Interrupt (An lhide an2 (Hiding e1' e2')) e3')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (Interrupt (An lhide an2 (Hiding e1a e2a)) e3a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (SlidingChoice e2 e3)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (SlidingChoice (An lhide an2 (Hiding e1' e2')) e3')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (SlidingChoice (An lhide an2 (Hiding e1a e2a)) e3a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (SequentialComp e2 e3)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (SequentialComp (An lhide an2 (Hiding e1' e2')) e3')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (SequentialComp (An lhide an2 (Hiding e1a e2a)) e3a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (SynchronisingExternalChoice e2 e3 e4)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        e4' = checkExp e4
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        e4a = checkExp e4
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (SynchronisingExternalChoice (An lhide an2 (Hiding e1' e2')) e3' e4')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (SynchronisingExternalChoice (An lhide an2 (Hiding e1a e2a)) e3a e4a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (SynchronisingInterrupt e2 e3 e4)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        e4' = checkExp e4
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        e4a = checkExp e4
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (SynchronisingInterrupt (An lhide an2 (Hiding e1' e2')) e3' e4')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (SynchronisingInterrupt (An lhide an2 (Hiding e1a e2a)) e3a e4a)
 checkExp (anExp@(An a b exp)) =
     let 
         check :: Exp UnRenamedName -> Exp UnRenamedName
@@ -893,7 +893,7 @@ checkExp (anExp@(An a b exp)) =
         check (SetEnumFromToComp e1 e2 stmts) =
             SetEnumFromToComp (checkExp e1) (checkExp e2) stmts
         check (SetEnum es) = SetEnum (map checkExp es)
-        -- We don't need to check inside stmts as they will have been checked
+        -- We dont need to check inside stmts as they will have been checked
         -- upon creation
         check (SetEnumComp es stmts) = SetEnumComp (map checkExp es) stmts
         check (Tuple es) = Tuple (map checkExp es)
@@ -1009,9 +1009,9 @@ annotate2 t1 t2 b = mkLoc (combineSpans (getLoc t1) (getLoc t2)) b
 annotate2List :: 
     (Locatable t1, Locatable t2, Locatable t3) => t1 a -> [t2 b] -> c -> t3 c
 annotate2List t1 t2 b = annotate2 t1 (last t2) b
-annotate2List' :: 
+annotate2Lista :: 
     (Locatable t1, Locatable t2, Locatable t3) => [t1 a] -> t2 b -> c -> t3 c
-annotate2List' t1 t2 b = annotate2 (last t1) t2 b
+annotate2Lista t1 t2 b = annotate2 (last t1) t2 b
 
 annotateWithSymbolTable 
     :: Annotated (Maybe SymbolTable, PSymbolTable) a -> ParseMonad (Annotated (Maybe SymbolTable, PSymbolTable) a)
