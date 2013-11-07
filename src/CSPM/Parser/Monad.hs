@@ -15,6 +15,7 @@ where
 
 import Control.Exception
 import Control.Monad.State
+import Data.List (stripPrefix)
 import GHC.IO.Encoding
 #if __GLASGOW_HASKELL__ < 705
 import Prelude hiding (catch)
@@ -110,6 +111,8 @@ pushFile fname prog = do
         -- anything non-ASCII).
         hSetEncoding handle char8
         hGetContents handle) handle
+    when (stripPrefix "{\\rtf1" str /= Nothing) $
+        throwSourceError [looksLikeRTFErrorMessage filename]
     pushFileContents filename str
     x <- prog
     return x

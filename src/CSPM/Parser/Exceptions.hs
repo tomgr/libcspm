@@ -13,6 +13,7 @@ module CSPM.Parser.Exceptions (
     unusedTypeAnnotationsError,
     unknownConstraintError,
     definitionSpanFileError,
+    looksLikeRTFErrorMessage,
     
     throwSourceError
 )
@@ -87,3 +88,8 @@ definitionSpanFileError left right errLoc = mkErrorMessage errLoc $
     $$ text "starts in the file" <+> text (srcSpanFile (loc left))
     $$ text "but ends in the file" <+> text (srcSpanFile (loc right))
         <> char '.'
+
+looksLikeRTFErrorMessage :: FilePath -> ErrorMessage
+looksLikeRTFErrorMessage fp = mkErrorMessage Unknown $
+    text "The file" <+> quotes (text fp)
+    $$ text "looks like a file in rich-text format (RTF). Only plain-text files are accepted."
