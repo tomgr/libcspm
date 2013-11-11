@@ -478,6 +478,7 @@ instance M.MonadicPrettyPrintable EvaluationMonad ValueSet where
         M.parens (M.list (mapM M.prettyPrint vss))
     prettyPrint (CompositeSet ss) =
         M.text "Union" M.<> M.parens (M.braces (M.list (mapM M.prettyPrint (F.toList ss))))
+    prettyPrint (Powerset vs) = M.text "Set" M.<> M.parens (M.prettyPrint vs)
     prettyPrint s = do
         -- Try and compress
         mvs <- compressIntoEnumeratedSet s
@@ -489,7 +490,7 @@ instance M.MonadicPrettyPrintable EvaluationMonad ValueSet where
                 case s of
                     CartesianProduct vss CartDot ->
                         M.hcat (M.punctuate (M.text ".") (mapM M.prettyPrint vss))
-                    ExplicitSet _ ->
+                    _ ->
                         M.braces (M.list (mapM M.prettyPrint (toList s)))
 
 instance M.MonadicPrettyPrintable Identity ValueSet where
@@ -504,6 +505,9 @@ instance M.MonadicPrettyPrintable Identity ValueSet where
     prettyPrint (CartesianProduct vss CartDot) =
         M.hcat (M.punctuate (M.text ".") (mapM M.prettyPrint vss))
     prettyPrint (s@(ExplicitSet _)) =
+        M.braces (M.list (mapM M.prettyPrint (toList s)))
+    prettyPrint (Powerset vs) = M.text "Set" M.<> M.parens (M.prettyPrint vs)
+    prettyPrint (s@(AllMaps ks vs)) =
         M.braces (M.list (mapM M.prettyPrint (toList s)))
 
 -- | Pretty prints the given process and all processes that it depends upon.
