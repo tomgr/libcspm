@@ -225,23 +225,22 @@ extensionsSets _ _ = return []
 -- | Given a set of dotted values, and a dotted value, scans the set of dotted
 -- values and calls the specified function for each value that matches.
 slowMatchDotPrefix :: (Int -> [Value] -> Value) -> ValueSet -> Value -> ValueSet
-slowMatchDotPrefix f set (VDot vs) =
+slowMatchDotPrefix f set v1 =
     let
-        matches (VDot vs') | vs' `isProductionOf` vs = [f (length vs) vs']
+        matches v2 | v2 `isProductionOf` v1 = 
+            let VDot vs' = v2
+                VDot vs = v1
+            in [f (length vs) vs']
         matches _ = []
     in
         fromList (concatMap matches (toList set))
 
 -- | Given two dot lists, the second of which may be an incomplete dot-list,
 -- returns True if the first is a production of the second.
-isProductionOf :: [Value] -> [Value] -> Bool
-isProductionOf [] _ = False
-isProductionOf _ [] = True
-isProductionOf (VDot h1 : vs1) [VDot h2] = 
-    -- If we are in the last field and have a dot then the dot might also be
-    -- incomplete, so we recursively check if this is a prefix
-    h1 `isProductionOf` h2
-isProductionOf (h1 : vs1) (h2 : vs2) = h1 == h2 && vs1 `isProductionOf` vs2
+isProductionOf :: Value -> Value -> Bool
+isProductionOf (VDot (n1:fs1)) (VDot (n2:fs2)) =
+    n1 == n2 && length fs1 >= length fs2 && and (zipWith isProductionOf fs1 fs2)
+isProductionOf v1 v2 = v1 == v2
 
 -- | Takes a datatype or a channel value and computes v.x for all x that
 -- complete the value.

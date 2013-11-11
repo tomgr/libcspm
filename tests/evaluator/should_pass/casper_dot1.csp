@@ -1,0 +1,11 @@
+datatype Encryption = Alice | Na
+
+datatype Signal = 
+  Running1
+  | Claim_Secret.{Alice}.{Na}
+
+channel signal : Signal
+
+procTest1 = signal!Claim_Secret!Alice!Na -> STOP
+
+assert procTest1 :[deadlock free [F]]
