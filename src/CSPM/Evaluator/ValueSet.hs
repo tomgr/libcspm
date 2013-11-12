@@ -449,6 +449,17 @@ unDotProduct (ExplicitSet s) =
         VDot _ -> Nothing
         _ -> Just [ExplicitSet s]
 
-fastUnDotCartProduct :: ValueSet -> Maybe [ValueSet]
-fastUnDotCartProduct (CartesianProduct s CartDot) = Just s
-fastUnDotCartProduct _ = Nothing
+fastUnDotCartProduct :: ValueSet -> Value -> Maybe [ValueSet]
+fastUnDotCartProduct (CartesianProduct s CartDot) _ = Just s
+fastUnDotCartProduct (CompositeSet ss) (VDot (h:vs)) =
+    let sq = Sq.filter isInteresting ss
+        isInteresting (CartesianProduct (hset:_) CartDot) =
+            case singletonValue hset of
+                Just h' | h == h' -> True
+                _ -> False
+        isInteresting _ = False
+    in if Sq.null sq then Nothing
+        else case Sq.index sq 0 of
+                CartesianProduct s CartDot -> Just s
+                _ -> Nothing
+fastUnDotCartProduct _ _ = Nothing

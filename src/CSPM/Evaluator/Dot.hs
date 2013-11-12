@@ -100,7 +100,7 @@ combineDots v1 v2 =
 
         splitFieldSet :: Int -> Value -> ValueSet -> ValueSet
         splitFieldSet ix v fieldSet =
-            case fastUnDotCartProduct fieldSet of
+            case fastUnDotCartProduct fieldSet v of
                 Just restrictByField ->restrictByField!!(ix+1)
                 Nothing -> slowMatchDotPrefix (\ _ vs -> vs!!(ix+1)) fieldSet v
 
@@ -158,7 +158,7 @@ oneFieldExtensions v =
                         else toList (fieldSets!!fieldCount)
                     else do
                         let field = fieldSets!!(fieldCount-1)
-                        case fastUnDotCartProduct field of
+                        case fastUnDotCartProduct field (last vs) of
                             Just restrictByField ->
                                 exts (tail restrictByField) (last vs)
                             Nothing -> return $! toList $ slowMatchDotPrefix
@@ -212,7 +212,7 @@ extensionsSets fieldSets (VDot vs) = do
             if b then return []
             else do
                 let field = fieldSets!!(fieldCount-1)
-                case fastUnDotCartProduct field of
+                case fastUnDotCartProduct field (last vs) of
                     Just restrictByField ->
                         extensionsSets (tail restrictByField) (last vs)
                     Nothing -> -- Need to do a slow scan
@@ -267,7 +267,7 @@ productionsSets fieldSets (VDot vs) = do
             if b then return []
             else do
                 let field = fieldSets!!(fieldCount-1)
-                case fastUnDotCartProduct field of
+                case fastUnDotCartProduct field (last vs) of
                     Just restrictByField -> do
                         sets <- productionsSets (tail restrictByField) (last vs)
                         return [S.cartesianProduct CartDot sets]
