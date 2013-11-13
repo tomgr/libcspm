@@ -239,7 +239,13 @@ slowMatchDotPrefix f set v1 =
 -- returns True if the first is a production of the second.
 isProductionOf :: Value -> Value -> Bool
 isProductionOf (VDot (n1:fs1)) (VDot (n2:fs2)) =
-    n1 == n2 && length fs1 >= length fs2 && and (zipWith isProductionOf fs1 fs2)
+        n1 == n2 && length fs1 >= length fs2 && listIsProductionOf fs1 fs2
+    where
+        listIsProductionOf _ [] = True
+        listIsProductionOf [] _ = False
+        listIsProductionOf (f1:fs1) [f2] = f1 `isProductionOf` f2
+        listIsProductionOf (f1:fs1) (f2:fs2) =
+            f1 == f2 && listIsProductionOf fs1 fs2
 isProductionOf v1 v2 = v1 == v2
 
 -- | Takes a datatype or a channel value and computes v.x for all x that
