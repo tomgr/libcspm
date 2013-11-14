@@ -187,6 +187,8 @@ extensionsSet v = do
     case maybeNamedDot v of
         Nothing -> return S.emptySet
         Just n -> do
+            b <- isCompleteField v
+            if b then return $! S.fromList [VDot []] else do
             (_, _, fieldSets) <- dataTypeInfo n
             sets <- extensionsSets (elems fieldSets) v
             return $
@@ -258,6 +260,8 @@ productionsSet v = do
     case maybeNamedDot v of
         Nothing -> return S.emptySet
         Just n -> do
+            b <- isCompleteField v
+            if b then return $! S.fromList [v] else do
             (_, _, fieldSets) <- dataTypeInfo n
             sets <- productionsSets (elems fieldSets) v
             return $! S.cartesianProduct CartDot sets
