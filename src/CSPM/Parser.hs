@@ -47,6 +47,7 @@
 -- and its obvious inefficiency.
 module CSPM.Parser (
     parseFile, parseInteractiveStmt, parseExpression, parseStringAsFile,
+    filesLoaded,
     
     ParseMonad, runParser,
 ) 
@@ -74,3 +75,9 @@ parseFile fname = pushFile fname parseFile_
 -- 'PModule's.
 parseStringAsFile :: String -> ParseMonad PCSPMFile
 parseStringAsFile str = pushFileContents "<interactive>" str >> parseFile_
+
+-- | Returns the list of files that have been loaded so far.
+filesLoaded :: ParseMonad [String]
+filesLoaded = do
+    st <- getParserState
+    return $! loadedFiles st

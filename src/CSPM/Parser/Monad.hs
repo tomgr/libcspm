@@ -59,7 +59,9 @@ movePos (FilePosition a l c) _    = FilePosition (a+1)  l     (c+1)
 -- *************************************************************************
 data ParserState = ParserState {
         rootDir :: !String,
-        fileStack :: ![FileParserState]
+        fileStack :: ![FileParserState],
+        -- | The list of files that have been loaded so far
+        loadedFiles :: [String]
     }
     deriving Show
 
@@ -80,7 +82,7 @@ type ParseMonad = StateT ParserState IO
 
 runParser :: ParseMonad a -> String -> IO a
 runParser prog dirname =
-    runStateT prog (ParserState dirname [])
+    runStateT prog (ParserState dirname [] [])
     >>= return . fst
 
 getTopFileParserState :: ParseMonad FileParserState
@@ -113,6 +115,7 @@ pushFile fname prog = do
         hGetContents handle) handle
     when (stripPrefix "{\\rtf1" str /= Nothing) $
         throwSourceError [looksLikeRTFErrorMessage filename]
+    modify (\st -> st { loadedFiles = filename:loadedFiles st })
     pushFileContents filename str
     x <- prog
     return x

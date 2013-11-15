@@ -89,6 +89,7 @@ module CSPM (
     module CSPM.Evaluator.Values,
     -- * Parser API
     parseStringAsFile, parseFile, parseInteractiveStmt, parseExpression,
+    loadedFiles,
     -- * Renamer API
     renameFile, renameInteractiveStmt, renameExpression, getBoundNames,
     -- * Type Checker API
@@ -223,6 +224,10 @@ parseInteractiveStmt str =
 -- | Parses an 'Exp'. Throws a 'SourceError' on any parse error.
 parseExpression :: CSPMMonad m => String -> m PExp
 parseExpression str = runParserInCurrentState "" (P.parseExpression str)
+
+-- | Returns the list of files that have been loaded so far.
+loadedFiles :: CSPMMonad m => m [String]
+loadedFiles = runParserInCurrentState "" P.filesLoaded
 
 -- Renamer API
 
