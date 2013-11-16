@@ -88,8 +88,8 @@ module CSPM (
     -- | Defines the values produced by the evaluator.
     module CSPM.Evaluator.Values,
     -- * Parser API
-    parseStringAsFile, parseFile, parseInteractiveStmt, parseExpression,
-    loadedFiles,
+    parseStringAsFile, parseStringsAsFile, parseFile, parseInteractiveStmt,
+    parseExpression, filesRequiredByFile,
     -- * Renamer API
     renameFile, renameInteractiveStmt, renameExpression, getBoundNames,
     -- * Type Checker API
@@ -209,12 +209,20 @@ runParserInCurrentState dir p = liftIO $ P.runParser p dir
 parseFile :: CSPMMonad m => FilePath -> m PCSPMFile
 parseFile fp =
     let (dir, fname) = splitFileName fp
-    in runParserInCurrentState dir (P.parseFile fname)
+        dir' = if dir == "./" then "" else dir
+    in runParserInCurrentState dir' (P.parseFile fname)
 
 -- | Parses a string, treating it as though it were a file. Throws a 
 -- 'SourceError' on any parse error.
 parseStringAsFile :: CSPMMonad m => String -> m PCSPMFile
 parseStringAsFile str = runParserInCurrentState "" (P.parseStringAsFile str)
+
+-- | Parses the file, with the file contents according to the given map.
+parseStringsAsFile :: CSPMMonad m => String -> [(String, String)] -> m PCSPMFile
+parseStringsAsFile rootFile fileContents =
+    let (dir, fname) = splitFileName rootFile
+        dir' = if dir == "./" then "" else dir
+    in runParserInCurrentState dir' (P.parseStringsAsFile fname fileContents)
 
 -- | Parses a 'PInteractiveStmt'. Throws a 'SourceError' on any parse error.
 parseInteractiveStmt :: CSPMMonad m => String -> m PInteractiveStmt
@@ -225,9 +233,9 @@ parseInteractiveStmt str =
 parseExpression :: CSPMMonad m => String -> m PExp
 parseExpression str = runParserInCurrentState "" (P.parseExpression str)
 
--- | Returns the list of files that have been loaded so far.
-loadedFiles :: CSPMMonad m => m [String]
-loadedFiles = runParserInCurrentState "" P.filesLoaded
+-- | Returns the list of files that are loaded by the specified file.
+filesRequiredByFile :: MonadIO m => String -> m [String]
+filesRequiredByFile = liftIO . P.filesRequiredByFile
 
 -- Renamer API
 

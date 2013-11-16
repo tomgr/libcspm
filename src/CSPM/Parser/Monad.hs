@@ -5,6 +5,7 @@ module CSPM.Parser.Monad (
     setParserState, getParserState, 
     FilePosition(..), filePositionToSrcLoc,
     modifyTopFileParserState, getTopFileParserState,
+    addFileContents,
     
     runParser, pushFile, pushFileContents,
     getTokenizerPos, getFileName, getInput, 
@@ -16,6 +17,7 @@ where
 import Control.Exception
 import Control.Monad.State
 import Data.List (stripPrefix)
+import qualified Data.Map as M
 import GHC.IO.Encoding
 #if __GLASGOW_HASKELL__ < 705
 import Prelude hiding (catch)
@@ -61,7 +63,8 @@ data ParserState = ParserState {
         rootDir :: !String,
         fileStack :: ![FileParserState],
         -- | The list of files that have been loaded so far
-        loadedFiles :: [String]
+        loadedFiles :: [String],
+        fileContents :: M.Map String String
     }
     deriving Show
 
@@ -82,7 +85,7 @@ type ParseMonad = StateT ParserState IO
 
 runParser :: ParseMonad a -> String -> IO a
 runParser prog dirname =
-    runStateT prog (ParserState dirname [] [])
+    runStateT prog (ParserState dirname [] [] M.empty)
     >>= return . fst
 
 getTopFileParserState :: ParseMonad FileParserState
@@ -93,6 +96,11 @@ getParserState = gets id
 
 setParserState :: ParserState -> ParseMonad ()
 setParserState st = modify (\ _ -> st)
+
+addFileContents :: String -> String -> ParseMonad ()
+addFileContents fname contents = modify (\ st -> st {
+        fileContents = M.insert fname contents (fileContents st)
+    })
 
 modifyTopFileParserState :: (FileParserState -> FileParserState) -> ParseMonad ()
 modifyTopFileParserState stf =
@@ -106,13 +114,16 @@ pushFile fname prog = do
         filename = combine dirname fname
         handle :: IOException -> a
         handle e = throwSourceError [fileAccessErrorMessage filename]
-    str <- liftIO $ catch (do
-        handle <- openFile filename ReadMode
-        -- Decode the file using an ASCII codec (except in comments, all CSPM
-        -- characters should be ASCII - clearly in comments we can just ignore
-        -- anything non-ASCII).
-        hSetEncoding handle char8
-        hGetContents handle) handle
+    fileContentsMap <- gets fileContents
+    str <- case M.lookup filename fileContentsMap of
+            Just contents -> return contents
+            Nothing -> liftIO $ catch (do
+                handle <- openFile filename ReadMode
+                -- Decode the file using an ASCII codec (except in comments,
+                -- all CSPM characters should be ASCII - clearly in comments
+                -- we can just ignore anything non-ASCII).
+                hSetEncoding handle char8
+                hGetContents handle) handle
     when (stripPrefix "{\\rtf1" str /= Nothing) $
         throwSourceError [looksLikeRTFErrorMessage filename]
     modify (\st -> st { loadedFiles = filename:loadedFiles st })

@@ -47,11 +47,13 @@
 -- and its obvious inefficiency.
 module CSPM.Parser (
     parseFile, parseInteractiveStmt, parseExpression, parseStringAsFile,
-    filesLoaded,
+    parseStringsAsFile, filesRequiredByFile,
     
     ParseMonad, runParser,
 ) 
 where
+
+import System.FilePath
 
 import CSPM.DataStructures.Syntax
 import CSPM.Parser.Monad
@@ -76,8 +78,16 @@ parseFile fname = pushFile fname parseFile_
 parseStringAsFile :: String -> ParseMonad PCSPMFile
 parseStringAsFile str = pushFileContents "<interactive>" str >> parseFile_
 
+parseStringsAsFile :: String -> [(String, String)] -> ParseMonad PCSPMFile
+parseStringsAsFile rootFile files = do
+    mapM_ (\ (f, c) -> addFileContents f c) files
+    parseFile rootFile
+
 -- | Returns the list of files that have been loaded so far.
-filesLoaded :: ParseMonad [String]
-filesLoaded = do
-    st <- getParserState
-    return $! loadedFiles st
+filesRequiredByFile :: String -> IO [String]
+filesRequiredByFile fp = 
+    let (dir, fname) = splitFileName fp
+    in runParser (do
+        parseFile fname
+        st <- getParserState
+        return $! loadedFiles st) dir
