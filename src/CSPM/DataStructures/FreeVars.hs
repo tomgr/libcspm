@@ -236,8 +236,8 @@ instance FreeVars (Field Name) where
     freeVars' (Output e) = freeVars e
 
 instance FreeVars (Decl Name) where
-    freeVars' (FunBind n ms _) = freeVars ms
-    freeVars' (PatBind p e _) = freeVars p ++ freeVars e
+    freeVars' (FunBind n ms ta) = freeVars ms ++ freeVars ta
+    freeVars' (PatBind p e ta) = freeVars p ++ freeVars e ++ freeVars ta
     freeVars' (Channel ns es) = freeVars es
     freeVars' (DataType n cs) = freeVars [cs]
     freeVars' (SubType n cs) =
@@ -271,3 +271,24 @@ instance FreeVars (Match Name) where
 instance FreeVars (DataTypeClause Name) where
     freeVars' (DataTypeClause n Nothing) = []
     freeVars' (DataTypeClause n (Just e)) = freeVars' e
+
+instance FreeVars (STypeScheme Name) where
+    freeVars' (STypeScheme ns _ t) = sort (nub (freeVars' t)) \\ ns
+
+instance FreeVars (SType Name) where
+    freeVars' (STVar n) = [n]
+    freeVars' (STExtendable t n) = n : freeVars' t
+    freeVars' (STSet t) = freeVars' t
+    freeVars' (STSeq t) = freeVars' t
+    freeVars' (STDot t1 t2) = freeVars' t1 ++ freeVars' t2
+    freeVars' (STTuple ts) = freeVars ts
+    freeVars' (STFunction ts t) = freeVars t ++ freeVars ts
+    freeVars' (STDotable t1 t2) = freeVars' [t1, t2]
+    freeVars' (STParen t) = freeVars t
+    freeVars' (STMap t1 t2) = freeVars [t1, t2]
+    freeVars' (STDatatype n) = [n]
+    freeVars' STProc = []
+    freeVars' STInt = []
+    freeVars' STBool = []
+    freeVars' STChar = []
+    freeVars' STEvent = []

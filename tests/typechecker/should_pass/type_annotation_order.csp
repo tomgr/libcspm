@@ -1,0 +1,4 @@
+datatype X = Y
+
+f :: (X, X) -> Bool
+f(x, y) = x == y
