@@ -127,7 +127,8 @@ pushFile fname prog = do
     when (stripPrefix "{\\rtf1" str /= Nothing) $
         throwSourceError [looksLikeRTFErrorMessage filename]
     modify (\st -> st { loadedFiles = filename:loadedFiles st })
-    pushFileContents filename str
+    -- We add an extra newline since all files should be newline terminated
+    pushFileContents filename (str++"\n")
     x <- prog
     return x
 

@@ -1,0 +1,3 @@
+include "file-without-trailing-line.csp"
+P = 2
+P :: Int
