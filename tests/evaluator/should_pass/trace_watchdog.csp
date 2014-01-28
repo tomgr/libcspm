@@ -1,0 +1,7 @@
+channel a 
+
+external trace_watchdog
+
+channel x
+
+procTest1 = trace_watchdog(STOP, {a}, x)

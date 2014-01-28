@@ -123,6 +123,11 @@ builtInFunctions = do
                         [Sq.empty, Sq.singleton tock]
             return $ VProc $ PUnaryOp (POperator pop) p
 
+        csp_trace_watchdog [VProc p, VSet implementationEvents, ev] =
+            VProc $ PUnaryOp (POperator (TraceWatchdog
+                (S.valueSetToEventSet implementationEvents)
+                (UserEvent ev))) p
+
         -- | Functions that return sets
         set_funcs = [
             ("union", cspm_union), ("inter", cspm_inter), 
@@ -162,7 +167,8 @@ builtInFunctions = do
             ("empty", cspm_empty), ("CHAOS", csp_chaos),
             ("loop", csp_loop), ("relational_image", cspm_relational_image),
             ("relational_inverse_image", cspm_relational_inverse_image),
-            ("transpose", cspm_transpose), ("show", cspm_show)
+            ("transpose", cspm_transpose), ("show", cspm_show),
+            ("trace_watchdog", csp_trace_watchdog)
             ]
 
         -- | Functions that require a monadic context.

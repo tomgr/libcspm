@@ -47,7 +47,7 @@ instance Hashable Event where
 newtype ProcName = ProcName (ScopeIdentifier) deriving (Eq, Hashable, Ord)
 
 -- | An operator that can be applied to processes.
-data ProcOperator seq evs =
+data ProcOperator seq ev evs =
     Chase Bool
     | DelayBisim
     | Determinise
@@ -58,10 +58,12 @@ data ProcOperator seq evs =
     | Prioritise Bool (seq evs)
     | StrongBisim
     | TauLoopFactor
+    | TraceWatchdog evs ev
     | WeakBisim
     deriving (Eq, Ord)
 
-instance Hashable (seq evs) => Hashable (ProcOperator seq evs) where
+instance (Hashable ev, Hashable evs, Hashable (seq evs)) =>
+        Hashable (ProcOperator seq ev evs) where
     hash (Chase True) = 1
     hash (Chase False) = 2
     hash Diamond = 3
@@ -77,6 +79,7 @@ instance Hashable (seq evs) => Hashable (ProcOperator seq evs) where
     hash WeakBisim = 13
     hash Determinise = 14
     hash DelayBisim = 15
+    hash (TraceWatchdog evs ev) = combine 16 (combine (hash evs) (hash ev))
 
 data CSPOperator seq ev evs evm =
     PAlphaParallel (seq evs)
@@ -90,7 +93,7 @@ data CSPOperator seq ev evs evm =
     -- Map from event of left process, to event of right that it synchronises
     -- with. (Left being p1, Right being p2 ps ps).
     | PLinkParallel evm
-    | POperator (ProcOperator seq evs)
+    | POperator (ProcOperator seq ev evs)
     | PPrefix ev
     -- Map from Old -> New event
     | PRename evm
@@ -205,7 +208,7 @@ type UnCompiledProc =
 type UnCompiledOperator = 
     CSPOperator S.Seq Event (S.Seq Event) (S.Seq (Event, Event))
 type UnCompiledProcOperator =
-    ProcOperator S.Seq (S.Seq Event)
+    ProcOperator S.Seq Event (S.Seq Event)
 
 instance Hashable a => Hashable (S.Seq a) where
     hash a = foldr combine 0 (F.toList (fmap hash a))

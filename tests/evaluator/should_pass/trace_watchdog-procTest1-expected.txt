@@ -1,0 +1,3 @@
+procTest1 = trace_watchdog(STOP, {a}, x)
+
+procTest1

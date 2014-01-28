@@ -145,7 +145,8 @@ makeBuiltins = do
             ("deter", TFunction [TProc] TProc),
             ("loop", TFunction [TProc] TProc),
             ("prioritise", TFunction [TProc, TSeq (TSet TEvent)] TProc),
-            ("prioritise_nocache", TFunction [TProc, TSeq (TSet TEvent)] TProc)
+            ("prioritise_nocache", TFunction [TProc, TSeq (TSet TEvent)] TProc),
+            ("trace_watchdog", TFunction [TProc, TSet TEvent, TEvent] TProc)
             ]
 
         complexExternalFunctions :: IO [(String, TypeScheme)]

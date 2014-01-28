@@ -81,6 +81,7 @@ instance NFData UnCompiledProcOperator where
     rnf (Prioritise b evs) = rnf b `seq` rnf evs
     rnf StrongBisim = ()
     rnf TauLoopFactor = ()
+    rnf (TraceWatchdog evs ev) = rnf evs `seq` rnf ev
     rnf WeakBisim = ()
 
 instance NFData ProcName where

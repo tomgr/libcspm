@@ -48,8 +48,9 @@ instance PrettyPrintable ValueSet where
 instance PrettyPrintable UnCompiledProc where
     prettyPrint = runIdentity . M.prettyPrint
 
-instance (F.Foldable seq, M.MonadicPrettyPrintable Identity evs) =>
-        PrettyPrintable (ProcOperator seq evs) where
+instance (F.Foldable seq, M.MonadicPrettyPrintable Identity ev,
+            M.MonadicPrettyPrintable Identity evs) =>
+        PrettyPrintable (ProcOperator seq ev evs) where
     prettyPrint = runIdentity . M.prettyPrint
 
 instance PrettyPrintable ScopeIdentifier where
@@ -65,8 +66,9 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
     prettyPrintBrief Tick = M.char '✓'
     prettyPrintBrief (UserEvent v) = M.prettyPrintBrief v
 
-instance (Applicative m, F.Foldable seq, Monad m, M.MonadicPrettyPrintable m evs) =>
-        M.MonadicPrettyPrintable m (ProcOperator seq evs) where
+instance (Applicative m, F.Foldable seq, Monad m, M.MonadicPrettyPrintable m ev,
+            M.MonadicPrettyPrintable m evs) =>
+        M.MonadicPrettyPrintable m (ProcOperator seq ev evs) where
     prettyPrint (Chase True) = M.text "chase"
     prettyPrint (Chase False) = M.text "chase_no_cache"
     prettyPrint DelayBisim = M.text "dbisim"
@@ -80,23 +82,31 @@ instance (Applicative m, F.Foldable seq, Monad m, M.MonadicPrettyPrintable m evs
     prettyPrint (Prioritise cache as) =
         (if cache then M.text "prioritise" else M.text "prioritise_nocache")
         M.<> M.parens (M.angles (M.list (mapM M.prettyPrint (F.toList as))))
+    prettyPrint (TraceWatchdog evs ev) = M.text "trace_watchdog"
     prettyPrint StrongBisim = M.text "sbisim"
     prettyPrint TauLoopFactor = M.text "tau_loop_factor"
     prettyPrint WeakBisim = M.text "wbisim"
 
     prettyPrintBrief (Prioritise True as) = M.text "prioritise"
     prettyPrintBrief (Prioritise False as) = M.text "prioritise_nocache"
+    prettyPrintBrief (TraceWatchdog _ _) = M.text "trace_watchdog"
     prettyPrintBrief op = M.prettyPrint op
 
 ppOperatorWithArg (Prioritise cache as) proc = do
     (if cache then M.text "prioritise" else M.text "prioritise_nocache")
     M.<> M.parens (proc M.<> M.comma M.<+>
         M.angles (M.list (mapM M.prettyPrint (F.toList as))))
+ppOperatorWithArg (TraceWatchdog evs ev) proc =
+    M.text "trace_watchdog" M.<> M.parens (proc M.<> M.comma M.<+>
+        M.prettyPrint evs M.<> M.comma M.<+> M.prettyPrint ev)
 ppOperatorWithArg op proc = M.prettyPrint op M.<> M.parens proc
 
 ppBriefOperatorWithArg (Prioritise cache as) proc = do
     (if cache then M.text "prioritise" else M.text "prioritise_nocache")
     M.<> M.parens (proc M.<> M.comma M.<+> M.ellipsis)
+ppBriefOperatorWithArg (TraceWatchdog evs ev) proc =
+    M.text "trace_watchdog" M.<> M.parens (
+        proc M.<> M.comma M.<+> M.ellipsis M.<> M.comma M.<+> M.ellipsis)
 ppBriefOperatorWithArg op proc =
     M.prettyPrint op M.<> M.parens proc
     
