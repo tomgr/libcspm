@@ -183,7 +183,12 @@ typeCheckMutualyRecursiveGroup ds' = do
             (_, DataType _ _) -> GT
             (_, _) -> EQ
         ds = sortBy cmp ds'
-        fvs = boundNames ds
+        isTimedSection (An _ _ (TimedSection _ _ _)) = True
+        isTimedSection _ = False
+        -- All the free variables that we are going to type-check in this
+        -- group. This excludes time section free variables becuase these are
+        -- type-checked independently (see flattenDecls above).
+        fvs = boundNames $ filter (not . isTimedSection) ds
 
     ftvs <- replicateM (length fvs) freshTypeVar
     zipWithM setType fvs (map (ForAll []) ftvs)
