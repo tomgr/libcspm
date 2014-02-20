@@ -1,0 +1,13 @@
+Agent = Int
+
+channel tock
+
+Timed(\ _ @ 1){
+
+channel trans_print: Agent.{0}
+
+H = {| trans_print.a |a<-{0} |}
+
+}
+
+P = [] x : {trans_print.0} @ x -> STOP
