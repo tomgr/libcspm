@@ -147,18 +147,16 @@ desugarDecl (an@(An x y (PatBind p e ta))) = do
         st -> do
             -- We are binding multiple things and thus need to make an extractor
             nameToBindTo <- mkFreshInternalName
-            let typeOf n = case [ts | (n', ts) <- st, n' == n] of
-                                [ts] -> ts
-                                [] -> panic $! "Could not find the type of "++show n
-                expToBindTo = An Unknown dummyAnnotation (Var nameToBindTo)
+            let typeOf n = head [ts | (n', ts) <- st, n' == n]
+                expToBindTo = An Unknown (annotation e') (Var nameToBindTo)
                 mkExtractorPat' n (An a b p) = An a b (mkExtractorPat n p) 
                 mkExtractorPat n (PCompList p1 p2 pold) =
                     PCompList (map (mkExtractorPat' n) p1) (
                         case p2 of
                             Just (p, ps) -> Just (mkExtractorPat' n p, map (mkExtractorPat' n) ps)
                             Nothing -> Nothing) pold
-                mkExtractorPat n (PCompDot ps pold) =
-                    PCompDot (map (mkExtractorPat' n) ps) pold
+                mkExtractorPat n (PDotApp p1 p2) =
+                    PDotApp (mkExtractorPat' n p1) (mkExtractorPat' n p2)
                 mkExtractorPat n (PDoublePattern p1 p2) =
                     PDoublePattern (mkExtractorPat' n p1) (mkExtractorPat' n p2)
                 mkExtractorPat n (PLit l) = PLit l
@@ -174,11 +172,10 @@ desugarDecl (an@(An x y (PatBind p e ta))) = do
                     (Just [(n, typeOf n)], newPSymTableThunk) 
                     (PatBind (mkExtractorPat' n p') expToBindTo Nothing)
                 -- TODO: calculate the correct ForAll
-                etype = ForAll (panic "incorrect polymorphism") (getType e')
+                etype = ForAll (nub (sort (concat [ts | (_, ForAll ts _) <- st]))) (getType e')
                 newPat = An (loc an)
                     (Just [(nameToBindTo, etype)], newPSymTableThunk)
-                    (PatBind (An Unknown dummyAnnotation (PVar nameToBindTo)) e'
-                        Nothing)
+                    (PatBind (An Unknown (annotation e') (PVar nameToBindTo)) e' Nothing)
                 extractors = map mkExtractor (freeVars p')
             return $ newPat : extractors
 desugarDecl (An _ _ (Module n [] ds1 ds2)) = do
@@ -456,7 +453,7 @@ instance Desugarable (Pat Name) where
     desugar (PDoublePattern p1 p2) =
         return PDoublePattern $$ desugar p1 $$ desugar p2
     desugar (PLit (String s)) = return $
-        PCompList (map (\ c -> An Unknown () (PLit (Char c))) s)
+        PCompList (map (\ c -> An Unknown (Just $ TSeq TChar, dummyAnnotation) (PLit (Char c))) s)
             Nothing (PLit (String s))
     desugar (PLit l) = return PLit $$ desugar l
     -- We don't remove the Paren as people may pretty print a desugared
