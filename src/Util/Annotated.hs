@@ -1,9 +1,11 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses #-}
 module Util.Annotated where
 
+import Control.Applicative
 import Data.Hashable
 import Prelude
 import Util.Exception
+import qualified Util.MonadicPrettyPrint as M
 import Util.Prelude
 import Util.PrettyPrint
 
@@ -84,7 +86,10 @@ instance PrettyPrintable SrcSpan where
         text f <> colon <> int sline <> colon <> int scol
     prettyPrint Unknown = text "<unknown location>"
     prettyPrint BuiltIn = text "<built-in>"
-    
+
+instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m SrcSpan where
+    prettyPrint location = return $ prettyPrint location
+
 combineSpans :: SrcSpan -> SrcSpan -> SrcSpan
 combineSpans s1 s2 | srcSpanFile s1 /= srcSpanFile s2 = panic $ show $
     text "Cannot combine spans as they span files"
