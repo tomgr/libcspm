@@ -27,7 +27,7 @@ instance (Compressable a) => Compressable (Annotated (Maybe SymbolTable, PSymbol
 instance (Compressable a) => Compressable (Annotated (Maybe Type, PType) a) where
     mcompress (An l (_, pt) v) = do
         Just t <- readPType pt
-        t' <- compress t
+        t' <- compress t >>= return . evaluateYields
         v' <- mcompress v
         return $ An l (Just t', pt) v'
 instance (Compressable a) => Compressable (Annotated () a) where
