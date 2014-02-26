@@ -103,7 +103,7 @@ instance (CSPM_Show a, CSPM_Show b) => CSPM_Show (CSPM_ExplicitDot a b) where
 
 -- | Indicates that a.b == c.
 class CSPM_Dot a b c | a b -> c where
-    cspm_dotOn :: a -> b -> c
+    cspm_dotOn :: Doc -> a -> b -> c
 
 -- | Given a set of b's such that b = a.c, returns the set of c.
 class (CSPM_Set b, CSPM_Set c) => CSPM_DropPrefix a b c | a b -> c where
@@ -138,7 +138,7 @@ cspm_extensions :: (CSPM_DropPrefix a b c, CSPM_Productions a b, CSPM_Set c) =>
 cspm_extensions a = cspm_dropPrefix a $ cspm_productions a
 
 instance CSPM_Dot (CSPM_Yield b c d e) b c where
-    cspm_dotOn (CSPM_Yield a) b = cspm_dotOn a b
+    cspm_dotOn loc (CSPM_Yield a) b = cspm_dotOn loc a b
 instance (CSPM_Set c, CSPM_Set d) => CSPM_DropPrefix (CSPM_Yield a b c d) d c where
     cspm_dropPrefix (CSPM_Yield x) = cspm_dropPrefix x
 instance CSPM_Set e => CSPM_Productions (CSPM_Yield b c d e) e where
@@ -162,31 +162,31 @@ instance Ord (CSPM_Yield b c d e) where
 
 -- Trivial dot instances
 instance CSPM_Dot Int a (CSPM_ExplicitDot Int a) where
-    cspm_dotOn x y = CSPM_ExplicitDot x y
+    cspm_dotOn _ x y = CSPM_ExplicitDot x y
 instance CSPM_Dot Bool a (CSPM_ExplicitDot Bool a) where
-    cspm_dotOn x y = CSPM_ExplicitDot x y
+    cspm_dotOn _ x y = CSPM_ExplicitDot x y
 instance CSPM_Dot Char a (CSPM_ExplicitDot Char a) where
-    cspm_dotOn x y = CSPM_ExplicitDot x y
+    cspm_dotOn _ x y = CSPM_ExplicitDot x y
 instance CSPM_Dot [a] b (CSPM_ExplicitDot [a] b) where
-    cspm_dotOn x y = CSPM_ExplicitDot x y
+    cspm_dotOn _ x y = CSPM_ExplicitDot x y
 instance CSPM_Set a => CSPM_Dot (CSPM_SetType a) b (CSPM_ExplicitDot (CSPM_SetType a) b) where
-    cspm_dotOn x y = CSPM_ExplicitDot x y
+    cspm_dotOn _ x y = CSPM_ExplicitDot x y
 instance CSPM_Dot (M.Map k v) a (CSPM_ExplicitDot (M.Map k v) a) where
-    cspm_dotOn x y = (CSPM_ExplicitDot x y)
+    cspm_dotOn _ x y = (CSPM_ExplicitDot x y)
 instance (CSPM_Dot b c d, CSPM_Dot a d e) => CSPM_Dot (CSPM_ExplicitDot a b) c e where
-    cspm_dotOn (CSPM_ExplicitDot a b) c = cspm_dotOn a (cspm_dotOn b c)
+    cspm_dotOn loc (CSPM_ExplicitDot a b) c = cspm_dotOn loc a (cspm_dotOn loc b c)
 instance CSPM_Dot c f g => CSPM_Dot (CSPM_Yield b c d e) (CSPM_ExplicitDot b f) g where
-    cspm_dotOn y (CSPM_ExplicitDot b f) = cspm_dotOn (cspm_dotOn y b) f
+    cspm_dotOn loc y (CSPM_ExplicitDot b f) = cspm_dotOn loc (cspm_dotOn loc y b) f
 
 instance (
         CSPM_Dot (CSPM_Yield a b c d) y h,
-        CSPM_DropPrefix (CSPM_Yield x y z a) c z,
+        CSPM_DropPrefix (CSPM_Yield x y z a) c o,
         CSPM_Set a, CSPM_Set c, CSPM_Set d, CSPM_Set x,
         Typeable a, Typeable b, Typeable c, Typeable d, Typeable x, Typeable y,
         Typeable z
     ) =>
-        CSPM_Dot (CSPM_Yield a b c d) (CSPM_Yield x y z a) (CSPM_Yield x h z d) where
-    cspm_dotOn x y = CSPM_Yield $ CSPM_ExplicitDot x y
+        CSPM_Dot (CSPM_Yield a b c d) (CSPM_Yield x y z a) (CSPM_Yield x h o d) where
+    cspm_dotOn _ x y = CSPM_Yield $ CSPM_ExplicitDot x y
 instance (CSPM_RestrictedProductions a c e, CSPM_RestrictedProductions b d c)
         => CSPM_RestrictedProductions (CSPM_ExplicitDot a b) d e where
     cspm_restricted_productions (CSPM_ExplicitDot a b) xs =
@@ -196,6 +196,16 @@ instance (CSPM_Productions b c, CSPM_RestrictedProductions a c d) =>
     cspm_productions (CSPM_ExplicitDot a b) =
         cspm_restricted_productions a $ cspm_productions b
 
+instance (CSPM_DropPrefix a b c, CSPM_Set d, CSPM_Show d) =>
+        CSPM_DropPrefix a (CSPM_ExplicitDot b d) (CSPM_ExplicitDot c d) where
+    cspm_dropPrefix a (CSPM_ExplicitDotProduct b d) =
+        CSPM_ExplicitDotProduct (cspm_dropPrefix a b) d
+    cspm_dropPrefix a s =
+        CSPM_ExplicitDotProduct
+            (cspm_dropPrefix a $ cspm_set_fromList $
+                map (\ (CSPM_ExplicitDot b _) -> b) bds)
+            (cspm_set_fromList $ map (\ (CSPM_ExplicitDot _ d) -> d) bds)
+        where bds = cspm_set_toList s
 instance (CSPM_DropPrefix a b c, CSPM_DropPrefix x c z) =>
         CSPM_DropPrefix (CSPM_ExplicitDot a x) b z where
     cspm_dropPrefix (CSPM_ExplicitDot a b) xs = cspm_dropPrefix b $ cspm_dropPrefix a xs
@@ -888,7 +898,7 @@ generateTupleInstances i =
         <+> text "CSPM_Dot" <+> typeTuple <+> text "a" <+>
             parens (text "CSPM_ExplicitDot" <+> typeTuple <+> text "a")
         <+> text "where"
-    $$ tabIndent (text "cspm_dotOn x y = (CSPM_ExplicitDot x y)")
+    $$ tabIndent (text "cspm_dotOn _ x y = (CSPM_ExplicitDot x y)")
 
     -- CSPM_Set
     $$ text "instance"

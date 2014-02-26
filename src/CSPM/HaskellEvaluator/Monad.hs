@@ -1,8 +1,8 @@
 module CSPM.HaskellEvaluator.Monad (
     TranslationState(..),
-    TranslationMonad(..), gets, modify, withYieldTypes, withDataTypes,
+    TranslationMonad(..), gets, modify, addDataTypes,
     PatternSideCondition(..),
-    typeForYieldType, dataTypeForName,
+    dataTypeForName,
     DataTypePrefix(..), DataTypeConstructor(..), DataTypeInformation(..),
     FieldSet(..),
     initialTranslationState,
@@ -90,13 +90,6 @@ initialTranslationState = TranslationState {
 
 type TranslationMonad = StateT TranslationState IO
 
-typeForYieldType :: Type -> TranslationMonad Type
-typeForYieldType typ = do
-    yields <- gets registeredYieldTypes
-    case M.lookup typ yields of
-        Just typ -> return typ
-        Nothing -> panic "Could not find yield type"
-
 dataTypeForName :: Name -> TranslationMonad DataTypeInformation
 dataTypeForName name = do
     dataTypes <- gets registeredDataTypes
@@ -104,20 +97,9 @@ dataTypeForName name = do
         Just typ -> return typ
         Nothing -> panic $ "Could not find registerd datatype "++show name
 
-withYieldTypes :: [(Type, Type)] -> TranslationMonad a -> TranslationMonad a
-withYieldTypes newYields program = do
-    modify (\ st -> st { registeredYieldTypes =
-            foldr (uncurry M.insert) (registeredYieldTypes st) newYields
-        })
-    program
-
-withDataTypes :: [DataTypeInformation] -> TranslationMonad a -> TranslationMonad a
-withDataTypes newDataTypes program = do
+addDataTypes :: [DataTypeInformation] -> TranslationMonad ()
+addDataTypes newDataTypes = do
     oldDataTypes <- gets registeredDataTypes
     modify (\ st -> st { registeredDataTypes =
             foldr (\ c -> M.insert (dataTypeName c) c) oldDataTypes newDataTypes
         })
-    a <- program
-
-    --modify (\ st -> st { registeredDataTypes = oldDataTypes })
-    return a

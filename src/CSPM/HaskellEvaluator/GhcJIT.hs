@@ -24,7 +24,7 @@ import Util.MonadicPrettyPrint
 
 evaluateExpr :: String -> TranslationMonad G.HValue
 evaluateExpr code = do
-    liftIO $ putStrLn code
+    --liftIO $ putStrLn code
     runGHCAndBindPendingCode $ G.compileExpr code
 
 bindAndLoadModule :: TranslationMonad Doc -> TranslationMonad ()
@@ -39,7 +39,7 @@ ghcLogHandler dflags severity srcSpan style msg =
         G.SevError -> panic ("GHC error:\n"++printDoc)
         G.SevFatal -> panic ("GHC error:\n"++printDoc)
 -- TODO: remove me when we're done debugging
-        G.SevWarning -> putStrLn printDoc
+        --G.SevWarning -> putStrLn printDoc
         _ -> return ()
     where
         cntx = G.initSDocContext dflags style
@@ -141,7 +141,7 @@ loadModule moduleSource = do
             $$ vcat (mapM (\ m -> text "import" <+> text m) loadedModules)
             $$ return moduleSource
 
-        liftIO $ putStrLn generatedCode
+        --liftIO $ putStrLn generatedCode
         liftIO $ writeFile "Test.hs" generatedCode
         liftIO $ hPutStr generatedHandle generatedCode
         liftIO $ hClose generatedHandle

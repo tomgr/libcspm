@@ -10,5 +10,5 @@ test5 = extensions(D) == {0,1,2}
 test6 = extensions(E) == {true, false}
 test7 = extensions(D) == {0,1,2}
 
--- test11 = extensions(F) == {}
--- test12 = productions(Y.F) == {}
+test11 = extensions(F) == {D.0, D.1, E.false, K.0.false}
+test12 = productions(Y.F) == {Y.F.D.0, Y.F.D.1, Y.F.E.false, Y.F.K.0.false}

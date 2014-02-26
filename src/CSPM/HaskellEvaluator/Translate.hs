@@ -1,9 +1,11 @@
 module CSPM.HaskellEvaluator.Translate (
     translateFile,
     translateExpression,
+    translateTypeExpression,
     translatePattern,
     translateType,
-    translateError,
+    translateLocation,
+    translateError, translateError',
     PatternSideCondition(..),
 ) where
 
@@ -27,15 +29,22 @@ import Util.MonadicPrettyPrint
 import qualified Util.PartialFunctions as PF
 import qualified Util.PrettyPrint as PP
 
+translateLocation :: (Applicative m, Monad m) => SrcSpan -> m Doc
+translateLocation location =
+    parens (text "text" <+> doubleQuotes (prettyPrint location))
+
 translateError :: (Applicative m, Monad m) => SrcSpan -> m Doc -> m Doc
 translateError location message =
-    text "cspm_panic" <+> parens (text "text" <+> doubleQuotes (prettyPrint location))
-    <+> parens message
+    text "cspm_panic" <+> translateLocation location <+> parens message
+
+translateError' :: (Applicative m, Monad m) => String -> m Doc -> m Doc
+translateError' location message =
+    text "cspm_panic" <+> text location <+> parens message
 
 translateFile :: TCCSPMFile -> TranslationMonad Doc
-translateFile (An _ _ (CSPMFile ds)) =
-    registerDataTypes ds $
-        vcat (mapM translateDecl ds)
+translateFile (An _ _ (CSPMFile ds)) = do
+    registerDataTypes ds
+    vcat (mapM translateDecl ds)
         $$ translateDataType (builtInName "Events")
 
 translateFunctionPatternMatchError :: SrcSpan -> [Int] -> Name ->
@@ -107,12 +116,29 @@ translateDecl (An location (Just symbolTable, _) (PatBind pattern rightHandSide 
         where
             [(name, boundVarType)] = symbolTable
 translateDecl (dataType@(An _ _ (DataType n cs))) = translateDataType n
+translateDecl (An _ (Just [(_, boundVarType)], _) (SubType name cs)) =
+    translateName name <+> text "::" <+> translateTypeScheme boundVarType
+    $+$ translateName name <+> text "=" <+> text "cspm_set_unions $ concat" <+>
+        brackets (list (
+            mapM (\ (An _ _ (DataTypeClause n mexp)) ->
+                case mexp of
+                    Just exp ->
+                        text "map cspm_productions $"
+                        <+> brackets (text "cspm_dotOn" <+> translateName n
+                        <+> text "x" <+> text "| x <- cspm_set_toList" <+> translateTypeExpression exp)
+                    Nothing -> brackets (text "cspm_productions" <+> translateName n)
+                ) cs)
+        )
+    where ForAll _ (TSet (TDatatype dataTypeName)) = boundVarType
+translateDecl (An _ (Just [(_, boundVarType)], _) (NameType name e)) =
+    translateName name <+> text "::" <+> translateTypeScheme boundVarType
+    $+$ translateName name <+> text "=" <+> translateTypeExpression e
+translateDecl (An _ _ (TimedSection _ _ _)) = panic "timed sections are not supported"
 translateDecl (An _ _ (Channel _ _)) = empty
 translateDecl (An _ _ (External _)) = empty
 translateDecl (An _ _ (Transparent _)) = empty
 translateDecl (An _ _ (Assert _)) = empty
 translateDecl (An _ _ (PrintStatement _)) = empty
-translateDecl _ = panic "decl not supported"
 
 translateTypeScheme :: TypeScheme -> TranslationMonad Doc
 translateTypeScheme (ForAll constraints t) =
@@ -283,6 +309,16 @@ translatePattern (An _ _ (PVar name)) | isNameDataConstructor name = return
 translatePattern (An _ _ (PVar name)) = return (translateName name, [])
 translatePattern (An _ _ PWildCard) = return (char '_', [])
 translatePattern x = panic $ "translatePattern: not supported: " ++ show x
+
+translateTypeExpression :: TCExp -> TranslationMonad Doc
+translateTypeExpression (An _ _ (Tuple es)) =
+    let size = length es
+    in parens (text "CSPM_Tuple" <> int size <> text "Product"
+        <+> hsep (mapM (\ exp -> translateTypeExpression exp) es))
+translateTypeExpression (An _ _ (DotApp e1 e2)) =
+    parens (text "CSPM_ExplicitDotProduct" <+> parens (translateTypeExpression e1)
+        <+> translateTypeExpression e2)
+translateTypeExpression x = translateExpression x
 
 translateExpression :: TCExp -> TranslationMonad Doc
 translateExpression exp =
@@ -458,17 +494,6 @@ translateLiteral :: Literal -> TranslationMonad Doc
 translateLiteral (Bool True) = text "True"
 translateLiteral (Bool False) = text "False"
 translateLiteral (Char c) = quotes (char c)
+translateLiteral (Int i) | i < 0 = parens (int i)
 translateLiteral (Int i) = int i
 translateLiteral (String s) = doubleQuotes (text s)
-
-{-
-
-We use:
-
-productions: {| |}, productions (prelude call), subtype computation
-
-oneFieldExtensions: prefix process
-
-extensions: prelude call, prefix process
-
--}

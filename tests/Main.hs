@@ -160,7 +160,7 @@ desugarTest fp = do
         rms <- CSPM.renameFile ms
         typeCheckFile rms
     dsms <- desugarFile tms
-    return ()
+    (length (show dsms)) `seq` (return ())
 
 disallowErrors :: TestM a -> TestM a
 disallowErrors a = do

@@ -151,24 +151,23 @@ computeEventsDataType declarations = do
     
     computeDataTypeInformation dataType
 
-registerDataTypes :: [TCDecl] -> TranslationMonad a -> TranslationMonad a
-registerDataTypes declarations program = do
+registerDataTypes :: [TCDecl] -> TranslationMonad ()
+registerDataTypes declarations = do
     datatypes <- concatMapM computeDataTypeInformation declarations
     eventsDataType <- computeEventsDataType declarations
     let allDatatypes = eventsDataType ++ datatypes
-    liftIO $ putStrLn $ show allDatatypes
-    withDataTypes allDatatypes $ withYieldTypes (computeYieldTypes allDatatypes) $
-        program
+    addDataTypes allDatatypes
 
 isCompoundFieldSet (CompoundFieldSet _ _) = True
 isCompoundFieldSet _ = False
 
+complexFieldSets :: DataTypeConstructor -> [TCExp]
+complexFieldSets clause = nub $ sort $ map compoundFieldSetExpression $
+    filter isCompoundFieldSet $ constructorDecomposedFieldSets clause
+
 translateDataType :: Name -> TranslationMonad Doc
 translateDataType n = dataTypeForName n >>= \ dataType ->
-    let clauses = map snd $ M.toList $ dataTypeConstructors dataType
-        complexFieldSets clause = nub $ sort $ map compoundFieldSetExpression $
-            filter isCompoundFieldSet $ constructorDecomposedFieldSets clause
-    in
+    let clauses = map snd $ M.toList $ dataTypeConstructors dataType in
     -- Set definition
     -- Set of all values definition.
 
@@ -177,58 +176,13 @@ translateDataType n = dataTypeForName n >>= \ dataType ->
         (map snd $ M.toList $ dataTypePrefixes dataType))
 
     -- Field Set definitions
-    $$ vcat (mapM (\ clause -> do
-        fieldSetNames <- mapM (\ fieldExp -> do
-                nameToBind <- liftIO $ mkFreshInternalName
-                return (fieldExp, nameToBind)
-            ) (complexFieldSets clause)
-        let fieldSetMap = M.fromList fieldSetNames
-        
-        vcat (zipWithM (translateFieldSet fieldSetMap clause) [0..]
-                (constructorDecomposedFieldSets clause))
-            $$ vcat (mapM (\ (exp, n) -> do
-                let 
-                    convertType (TSet t) = TTuple $ map TSet $ convertType' t
-                    convertType' (TDot t1 t2) = t1 : convertType' t2
-                    convertType' t = [t]
-                    arguments = map (\i -> char 'a' <> int i) [0..constructorFieldCount clause-1]
-                
-                translateName n <+> text "::" <+> translateType (convertType (getType exp))
-                    $$ translateName n <+> equals
-                    <+> text "if set =="
-                    <+> foldr1 (\ i d -> parens (text "CSPM_ExplicitDotProduct" <+> i <+> d))
-                            (map (\i -> char 's' <> int i) [0..constructorFieldCount clause-1])
-                    <+> text "then"
-                    <+> parens (list (mapM (\i -> char 's' <> int i) [0..constructorFieldCount clause-1]))
-                    <+> text "else" <+> translateError Unknown (text "text \"Not rectangular\"")
-                    $$ tabIndent (text "where"
-                    $$ tabIndent (
-                        text "tuple_list" <+> equals <+> text "map (\\ "
-                            <+> foldr1 (\ a b -> parens (text "CSPM_ExplicitDot" <+> a <+> b)) arguments
-                            <+> text "->"
-                            <+> parens (list (sequence arguments))
-                            <+> text ") $ cspm_set_toList set"
-                        $$ text "set" <+> equals <+> translateTypeExpression exp
-                        $$ vcat (
-                                mapM (\ i ->
-                                    char 's' <> int i <+> equals
-                                    <+> text "cspm_set_fromList $ map (\\"
-                                    <+> parens (list (mapM (\i -> char 'a' <> int i)
-                                            [0..constructorFieldCount clause-1]))
-                                    <+> text "->" <+> char 'a' <> int i
-                                    <> text ") tuple_list"
-                                    )
-                                    [0..constructorFieldCount clause-1]
-                            )
-                        )
-                    )
-                ) fieldSetNames)
-        ) clauses)
+    $$ vcat (mapM (translateDataTypeClauseFieldSet dataType) clauses)
 
     -- Set of all things of this type
     $$ translateName n <+> text "::" <+> translateType (TSet (dataTypeType dataType))
-    $$ translateName n <+> equals <+> text "cspm_set_unions" <+>
-        brackets (list (mapM (\ clause ->
+    $$ translateName n <+> equals <+> text "CSPM_"
+            <> translateDataTypeName (dataTypeName dataType) <> text "SetUnion"
+        <+> brackets (list (mapM (\ clause ->
             case constructorDecomposedFieldSets clause of
                 [] -> text "cspm_set_fromList" <+> brackets (
                         translateDataTypeClauseName 0 (constructorName clause)
@@ -244,7 +198,7 @@ translateDataType n = dataTypeForName n >>= \ dataType ->
     -- CSPM_Dot instance for the main datatype
     $$ classInstance "CSPM_Dot" [translateDataTypeName n, text "a",
             text "CSPM_ExplicitDot" <+> translateDataTypeName n <+> char 'a'] []
-        [text "cspm_dotOn x y = CSPM_ExplicitDot x y"]
+        [text "cspm_dotOn _ x y = CSPM_ExplicitDot x y"]
 
     -- Default constructor definitions
     $$ vcat (mapM (\ clause ->
@@ -256,6 +210,62 @@ translateDataType n = dataTypeForName n >>= \ dataType ->
         <+> translateDataTypeClauseName (constructorFieldCount clause)
                 (constructorName clause)
         ) clauses)
+
+translateDataTypeClauseFieldSet :: DataTypeInformation -> DataTypeConstructor ->
+    TranslationMonad Doc
+translateDataTypeClauseFieldSet dataType clause = do
+    fieldSetNames <- mapM (\ fieldExp -> do
+            nameToBind <- liftIO $ mkFreshInternalName
+            return (fieldExp, nameToBind)
+        ) (complexFieldSets clause)
+    let fieldSetMap = M.fromList fieldSetNames
+
+    vcat (zipWithM (translateFieldSet fieldSetMap clause) [0..]
+            (constructorDecomposedFieldSets clause))
+        $$ vcat (mapM (\ (exp, n) -> do
+            let 
+                convertType (TSet t) = TTuple $ map TSet $ convertType' t
+                convertType' (TDot t1 t2) = t1 : convertType' t2
+                convertType' t = [t]
+                arguments = map (\i -> char 'a' <> int i) [0..constructorFieldCount clause-1]
+            
+            translateName n <+> text "::" <+> translateType (convertType (getType exp))
+                $$ translateName n <+> equals
+                <+> text "if set == reconstructedSet then"
+                <+> parens (list (mapM (\i -> char 's' <> int i) [0..constructorFieldCount clause-1]))
+                <+> text "else" <+> translateError (loc exp) (
+                        text "hang (text \"The set:\") 4 (cspm_show set)"
+                        <+> text "$$ text \"cannot be decomposed into a cartesian product (i.e. it is not rectangular).\""
+                        <+> text "$$ hang (text \"The cartesian product is equal to:\") 4"
+                            <+> text "(cspm_show (cspm_set_fromList (cspm_set_toList reconstructedSet)))"
+                        <+> text "$$ hang (text \"and thus the following values are missing:\") 4"
+                            <+> text "(cspm_show (cspm_set_diff reconstructedSet set))"
+                    )
+                $$ tabIndent (text "where"
+                $$ tabIndent (
+                    text "tuple_list" <+> equals <+> text "map (\\ "
+                        <+> foldr1 (\ a b -> parens (text "CSPM_ExplicitDot" <+> a <+> b)) arguments
+                        <+> text "->"
+                        <+> parens (list (sequence arguments))
+                        <+> text ") $ cspm_set_toList set"
+                    $$ text "set" <+> equals <+> translateTypeExpression exp
+                    $$ text "reconstructedSet" <+> equals <+>
+                        foldr1 (\ i d -> parens (text "CSPM_ExplicitDotProduct" <+> i <+> d))
+                            (map (\i -> char 's' <> int i) [0..constructorFieldCount clause-1])
+                    $$ vcat (
+                            mapM (\ i ->
+                                char 's' <> int i <+> equals
+                                <+> text "cspm_set_fromList $ map (\\"
+                                <+> parens (list (mapM (\i -> char 'a' <> int i)
+                                        [0..constructorFieldCount clause-1]))
+                                <+> text "->" <+> char 'a' <> int i
+                                <> text ") tuple_list"
+                                )
+                                [0..constructorFieldCount clause-1]
+                        )
+                    )
+                )
+            ) fieldSetNames)
 
 translateFieldSetName :: DataTypeConstructor -> Int -> TranslationMonad Doc
 translateFieldSetName clause fieldNumber =
@@ -316,32 +326,34 @@ translateDataTypePrefix dataType prefix =
                 )
         <+> text "deriving (Eq, Ord, Typeable)"
 
+    -- Deriving Eq and Ord is fine because, in particular, functions cannot be
+    -- in datatypes. Further, all types we define are guaranteed to have such
+    -- instances.
+
     -- Show instanace
     $$ classInstance "CSPM_Show" [translateDataTypeName (prefixTypeName prefix)] []
         (map (makeDataTypeClauseShowDefinition (prefixRemainingFieldCount prefix))
             matchingConstructors)
 
--- TODO: can functions be in datatypes? If so Eq won't work?
-
     -- Set instance
     $$ generateDatatypeSetInstances dataType prefix
 
     -- Dot instance
-    $$ (if prefixRemainingFieldCount prefix == 0 then empty
-        else
-        text "instance CSPM_Dot"
-            <+> translateDataTypeName (prefixTypeName prefix)
-            <+> parens (translateType nextType)
-            <+> translateType remainingDotableType
-            <+> text "where"
-        $$ tabIndent (vcat $ mapM (\ clause ->
+    $$ (if prefixRemainingFieldCount prefix == 0 then empty else
+        classInstance "CSPM_Dot" [
+                translateDataTypeName (prefixTypeName prefix),
+                parens (translateType nextType),
+                translateType remainingDotableType
+            ]
+            []
+            (map (\ clause ->
                 let usedFieldCount = constructorFieldCount clause - prefixRemainingFieldCount prefix
                     fieldIsTrivial = constructorFieldSetIsTrivial clause !! usedFieldCount
                     newDatatype = (if prefixRemainingFieldCount prefix > 1 then text "CSPM_Yield $" else empty)
                         <+> translateDataTypeClauseName (prefixRemainingFieldCount prefix-1) (constructorName clause)
                         <+> hsep (mapM (\ i -> char 'a' <> int i) [1..usedFieldCount])
                         <+> char 'b'
-                in text "cspm_dotOn" <+> text "a@" <> parens (
+                in text "cspm_dotOn loc" <+> text "a@" <> parens (
                     translateDataTypeClauseName (prefixRemainingFieldCount prefix) (constructorName clause)
                     <+> hsep (mapM (\ i -> char 'a' <> int i)
                         [1..usedFieldCount])
@@ -349,33 +361,25 @@ translateDataTypePrefix dataType prefix =
                 <+> if fieldIsTrivial then newDatatype else
                 text "if" <+> translateFieldIsValidName clause usedFieldCount <+> char 'b' <+> text "then"
                 <+> newDatatype
-                <+> text "else" <+> translateError Unknown (
--- TODO: improve
-                            text "hang (text \"The value:\") 4 (cspm_show b)"
-                            <+> text "$$ text \"is invalid as it is not valid on the right of\" <+> cspm_show a"
-{-
-                            $$ text "is invalid as it is not within the set of values defined for" <+>
-                                case dataTypeTypeName (dataTypeType dataType) of
-                                    TEvent -> text "the channel" <+> prettyPrint n <> char '.'
-                                    TDatatype n -> text "the data constructor" <+> prettyPrint n <> char '.'
-                            $$ hang (text "In particular the" <+> speakNth (field+1) <+> text "field:") tabWidth (prettyPrint fieldValue)
-                            $$ hang (text "is not a member of the set") tabWidth (prettyPrint fieldOptions)
-                            $$ printCallStack scope
-    -}
-                        )
+                <+> text "else" <+> translateError' "loc" (
+                        text "hang (text \"The value:\") 4 (cspm_show b)"
+                        <+> text "$$ text \"is not allowed on the right of\" <+> cspm_show a"
+                        <+> text "$$ hang (text \"because it is not a member of the set:\") 4 (cspm_show $"
+                            <+> translateFieldSetName clause usedFieldCount <+> text ")"
+                    )
             ) matchingConstructors)
         )
 
     -- CSPM_Productions instance
-    $$ text "instance CSPM_Productions"
-        <+> translateDataTypeName (prefixTypeName prefix)
-        <+> translateDataTypeName (dataTypeName dataType)
-        <+> text "where"
-    $$ tabIndent (
-        if prefixRemainingFieldCount prefix == 0 then
-            text "cspm_productions x = cspm_set_fromList [x]"
+    $$ classInstance "CSPM_Productions" [
+            translateDataTypeName (prefixTypeName prefix),
+            translateDataTypeName (dataTypeName dataType)
+        ]
+        []
+        (if prefixRemainingFieldCount prefix == 0 then
+            [text "cspm_productions x = cspm_set_fromList [x]"]
         else
-            vcat $ mapM (\ clause ->
+            map (\ clause ->
                 let usedFieldCount = constructorFieldCount clause - prefixRemainingFieldCount prefix
                 in text "cspm_productions" <+> parens (
                     translateDataTypeClauseName (prefixRemainingFieldCount prefix) (constructorName clause)
@@ -498,15 +502,6 @@ makeDataTypeClauseShowDefinition remainingFields clause =
                     [1..constructorFieldCount clause - remainingFields]
             ))
 
-translateTypeExpression :: TCExp -> TranslationMonad Doc
-translateTypeExpression (An _ _ (Tuple es)) =
-    let size = length es
-    in text "CSPM_Tuple" <> int size <> text "Product"
-        <+> hsep (mapM (\ exp -> parens (translateTypeExpression exp)) es)
-translateTypeExpression (An _ _ (DotApp _ _)) =
-    panic "Dot type expressions not supported yet"
-translateTypeExpression x = translateExpression x
-
 decomposeDataTypeTypeExpression :: TCExp -> [FieldSet]
 decomposeDataTypeTypeExpression (An _ _ (DotApp e1 e2)) =
     concatMap decomposeDataTypeTypeExpression [e1, e2]
@@ -554,7 +549,7 @@ builtinCompleteConstructors = map builtInName [
 -- each compiled field. This is conservative, but covers a large percentage of
 -- the likely to occur optimisable cases.
 translateDotApplication :: TCExp -> TranslationMonad Doc
-translateDotApplication (exp@(An _ _ (DotApp left right))) =
+translateDotApplication (exp@(An loc _ (DotApp left right))) =
     let
         leftMostDot (An _ _ (DotApp l r)) = (leftMost, args ++ [r])
             where (leftMost, args) = leftMostDot l
@@ -575,7 +570,9 @@ translateDotApplication (exp@(An _ _ (DotApp left right))) =
         findFields  _ _ = Nothing
 
         fallback =
-            text "cspm_dotOn" <+> translateExpression left
+            text "cspm_dotOn"
+            <+> translateLocation loc
+            <+> translateExpression left
             <+> translateExpression right
     in if isDataTypeOrEvent (getType exp) then
             case leftMostConstructor of
@@ -789,8 +786,6 @@ generateDatatypeSetInstances dataType prefix =
             <+> text "S.toList a"
         $$ text "cspm_set_toList" <+> prefixSetUnionArgumentA <+> equals
             <+> text "concatMap cspm_set_toList a"
--- TODO: do we need to do checks here on field contents? I think not thanks to
--- rectangularity, but it's worth thinking about.
         $$ vcat (mapM (\ clause -> 
             text "cspm_set_toList" <+> prefixConstructorArgumentB clause <+> equals
             <+> brackets (
