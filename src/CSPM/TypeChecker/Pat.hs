@@ -12,9 +12,14 @@ import Util.PrettyPrint
     
 instance TypeCheckable TCPat Type where
     errorContext an = Nothing
-    typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
-    typeCheckExpect an typ =
-        setSrcSpan (loc an) (typeCheckExpect (inner an) typ)
+    typeCheck' an = do
+        t <- setSrcSpan (loc an) $ typeCheck (inner an)
+        setPType (snd (annotation an)) t
+        return t
+    typeCheckExpect an typ = do
+        t <- setSrcSpan (loc an) $ typeCheckExpect (inner an) typ
+        setPType (snd (annotation an)) t
+        return t
 instance TypeCheckable (Pat Name) Type where
     typeCheckExpect obj texp =
         case errorContext obj of
