@@ -8,6 +8,7 @@ testLazyList4 = head(tail(tail(<x | x <- <0..>, x%2 == 1>))) == 5
 
 testListComp1 = <(x,y) | x <- <1>, y <- <2>> == <(1,2)>
 testListComp2 = <(x2,y) | x <- <1>, x2 <- <2>, y <- <3>> == <(2,3)>
+testListComp3 = < x,x | x <- <1>> == <1,1>
 
 testTailOfShort = tail(<2>) == <>
 testHeadOfShort = head(<2>) == 2

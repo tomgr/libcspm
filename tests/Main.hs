@@ -6,8 +6,6 @@ import Control.Monad
 import Control.Monad.Trans
 import Data.List
 import CSPM
-import CSPM.Evaluator.ProcessValues
-import CSPM.Evaluator.ValuePrettyPrinter
 import Monad
 import Prelude hiding (catch)
 import System.Directory
@@ -116,7 +114,11 @@ makeTest fp test expectedResult =
                     test fp
                     getState lastWarnings
         return $! case res of 
-                    Left (SourceError e) -> LibCSPMTestResult expectedResult ErrorOccured e []
+                    Left (PreFormattedSourceError e) ->
+                        LibCSPMTestResult expectedResult ErrorOccured
+                            [mkErrorMessage Unknown (text e)] []
+                    Left (SourceError e) ->
+                        LibCSPMTestResult expectedResult ErrorOccured e []
                     Right [] -> LibCSPMTestResult expectedResult PassedNoWarnings [] []
                     Right ws -> LibCSPMTestResult expectedResult WarningsEmitted [] ws
     ) (\ (e :: SomeException) -> return $ LibCSPMTestPanic (show e))
@@ -171,7 +173,7 @@ disallowErrors a = do
 evaluatorTest :: FilePath -> TestM ()
 evaluatorTest fp = do
     let 
-        evalExpr :: String -> Type -> TestM Value
+        evalExpr :: String -> Type -> TestM (Either String LibCSPMException)
         evalExpr s t = do
             tce <- disallowErrors $ do
                 e <- parseExpression s
@@ -197,25 +199,28 @@ evaluatorTest fp = do
                     PVar n -> do
                         let s = show n
                         when ("test" `isPrefixOf` s) $ do
-                            VBool b <- evalExpr s TBool
-                            when (not b) $
-                                throwSourceError [mkErrorMessage (loc p) 
+                            value <- evalExpr s TBool
+                            case value of
+                                Left "true" -> return ()
+                                Left "false" ->
+                                    throwSourceError [mkErrorMessage (loc p) 
                                             (prettyPrint n <+> text "was false")
                                         ]
-                        when ("procTest" `isPrefixOf` s) $ do
-                            VProc proc <- evalExpr s TProc
-                            let expectedOutputFile = 
-                                    (dropExtension fp)++"-"++s++"-expected.txt"
-                            expectedOutput <- liftIO $ readFile expectedOutputFile
-                            let output = prettyPrintAllRequiredProcesses proc
-                            when (not (compareOutputs (show output) expectedOutput)) $
-                                throwSourceError [mkErrorMessage (loc p) $
-                                        text "The output of" 
-                                        <+> prettyPrint n 
-                                        <+> text "did not match the expected output."
-                                        <+> text "The actual output was:"
-                                        $$ tabIndent output
-                                    ]
+                                Right error -> throwException error
+                        --when ("procTest" `isPrefixOf` s) $ do
+                        --    VProc proc <- evalExpr s TProc
+                        --    let expectedOutputFile = 
+                        --            (dropExtension fp)++"-"++s++"-expected.txt"
+                        --    expectedOutput <- liftIO $ readFile expectedOutputFile
+                        --    let output = prettyPrintAllRequiredProcesses proc
+                        --    when (not (compareOutputs (show output) expectedOutput)) $
+                        --        throwSourceError [mkErrorMessage (loc p) $
+                        --                text "The output of" 
+                        --                <+> prettyPrint n 
+                        --                <+> text "did not match the expected output."
+                        --                <+> text "The actual output was:"
+                        --                $$ tabIndent output
+                        --            ]
                     _ -> return ()
             _ -> return ()
         ) (map unAnnotate ds)

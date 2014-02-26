@@ -1,4 +1,0 @@
-datatype C = D.{0..2} | E.Bool
-datatype G = F.{D.0, D.1, E.false}
-
-test11 = extensions(F) == {}
