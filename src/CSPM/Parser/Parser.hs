@@ -30,7 +30,7 @@ import Util.Exception (panic)
 import qualified Data.Array as Happy_Data_Array
 import qualified GHC.Exts as Happy_GHC_Exts
 
--- parser produced by Happy Version 1.18.10
+-- parser produced by Happy Version 1.19.0
 
 newtype HappyAbsSyn t8 t9 t39 t40 = HappyAbsSyn HappyAny
 #if __GLASGOW_HASKELL__ >= 607
@@ -948,7 +948,7 @@ happyReduction_35 happy_x_3
 	 =  case happyOut27 happy_x_1 of { happy_var_1 -> 
 	case happyOut29 happy_x_3 of { happy_var_3 -> 
 	happyIn15
-		 (annotate2List' happy_var_1 happy_var_3 (ParsedTypeAnnotation
+		 (annotate2Lista happy_var_1 happy_var_3 (ParsedTypeAnnotation
                                                     (map unLoc happy_var_1) happy_var_3)
 	)}}
 
@@ -2778,10 +2778,10 @@ happySeq = happyDontSeq
 combineDecls :: [PDecl] -> [PDecl]
 combineDecls [] = []
 combineDecls ((An loc1 b (FunBind n ms Nothing)):
-            (An loc2 c (FunBind n' ms' Nothing)):ds)
-        | n == n' && srcSpanFile loc1 == srcSpanFile loc2 =
+            (An loc2 c (FunBind n1 ms1 Nothing)):ds)
+        | n == n1 && srcSpanFile loc1 == srcSpanFile loc2 =
     combineDecls $
-        (An (combineSpans loc1 loc2) b (FunBind n (ms++ms') Nothing)):ds
+        (An (combineSpans loc1 loc2) b (FunBind n (ms++ms1) Nothing)):ds
 combineDecls (d:ds) = d:combineDecls ds
 
 constraintForName :: SrcSpan -> String -> Constraint
@@ -2896,7 +2896,7 @@ checkLetDecls decls =
                 check (External a) = True
                 check (Transparent a) = True
                 check (TimedSection _ _ ds) = and (map checkDecl ds)
-                -- We can't allow module instances as this would cause channels
+                -- We cant allow module instances as this would cause channels
                 -- to be declared in let statements, which would lead to Events
                 -- being hard to define
                 -- check (ModuleInstance _ _ _ _ _) = True
@@ -2922,112 +2922,112 @@ checkExp :: PExp -> PExp
 -- (X \ Y) ||| Z (and ditto for other parallel operators). Note that we cannot
 -- do this using precedences, since we do want X ||| Y \ Z to bracket \ Z around
 -- the whole of X ||| Y. Thus, we really need a context dependent precedence,
--- which happy doesn't have.
+-- which happy doesnt have.
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (Interleave e2 e3)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (Interleave (An lhide an2 (Hiding e1' e2')) e3')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (Interleave (An lhide an2 (Hiding e1a e2a)) e3a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (GenParallel e2 e3 e4)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        e4' = checkExp e4
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        e4a = checkExp e4
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (GenParallel (An lhide an2 (Hiding e1' e2')) e3' e4')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (GenParallel (An lhide an2 (Hiding e1a e2a)) e3a e4a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (AlphaParallel e2 e3 e4 e5)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        e4' = checkExp e4
-        e5' = checkExp e5
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        e4a = checkExp e4
+        e5a = checkExp e5
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (AlphaParallel (An lhide an2 (Hiding e1' e2')) e3' e4' e5')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (AlphaParallel (An lhide an2 (Hiding e1a e2a)) e3a e4a e5a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (Exception e2 e3 e4)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        e4' = checkExp e4
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        e4a = checkExp e4
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (Exception (An lhide an2 (Hiding e1' e2')) e3' e4')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (Exception (An lhide an2 (Hiding e1a e2a)) e3a e4a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (InternalChoice e2 e3)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (InternalChoice (An lhide an2 (Hiding e1' e2')) e3')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (InternalChoice (An lhide an2 (Hiding e1a e2a)) e3a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (ExternalChoice e2 e3)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (ExternalChoice (An lhide an2 (Hiding e1' e2')) e3')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (ExternalChoice (An lhide an2 (Hiding e1a e2a)) e3a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (Interrupt e2 e3)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (Interrupt (An lhide an2 (Hiding e1' e2')) e3')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (Interrupt (An lhide an2 (Hiding e1a e2a)) e3a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (SlidingChoice e2 e3)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (SlidingChoice (An lhide an2 (Hiding e1' e2')) e3')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (SlidingChoice (An lhide an2 (Hiding e1a e2a)) e3a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (SequentialComp e2 e3)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (SequentialComp (An lhide an2 (Hiding e1' e2')) e3')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (SequentialComp (An lhide an2 (Hiding e1a e2a)) e3a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (SynchronisingExternalChoice e2 e3 e4)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        e4' = checkExp e4
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        e4a = checkExp e4
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (SynchronisingExternalChoice (An lhide an2 (Hiding e1' e2')) e3' e4')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (SynchronisingExternalChoice (An lhide an2 (Hiding e1a e2a)) e3a e4a)
 checkExp (An l1 an1 (Hiding e1 (An l2 an2 (SynchronisingInterrupt e2 e3 e4)))) =
     let
-        e1' = checkExp e1
-        e2' = checkExp e2
-        e3' = checkExp e3
-        e4' = checkExp e4
-        -- The parallel's location is simply the whole expression
+        e1a = checkExp e1
+        e2a = checkExp e2
+        e3a = checkExp e3
+        e4a = checkExp e4
+        -- The parallel location is simply the whole expression
         lpar = l1
-        lhide = combineSpans (loc e1') (loc e2')
-    in An lpar an1 (SynchronisingInterrupt (An lhide an2 (Hiding e1' e2')) e3' e4')
+        lhide = combineSpans (loc e1a) (loc e2a)
+    in An lpar an1 (SynchronisingInterrupt (An lhide an2 (Hiding e1a e2a)) e3a e4a)
 checkExp (anExp@(An a b exp)) =
     let 
         check :: Exp UnRenamedName -> Exp UnRenamedName
@@ -3060,7 +3060,7 @@ checkExp (anExp@(An a b exp)) =
         check (SetEnumFromToComp e1 e2 stmts) =
             SetEnumFromToComp (checkExp e1) (checkExp e2) stmts
         check (SetEnum es) = SetEnum (map checkExp es)
-        -- We don't need to check inside stmts as they will have been checked
+        -- We dont need to check inside stmts as they will have been checked
         -- upon creation
         check (SetEnumComp es stmts) = SetEnumComp (map checkExp es) stmts
         check (Tuple es) = Tuple (map checkExp es)
@@ -3141,7 +3141,7 @@ convPat (anExp@ (An a b exp)) =
             PDoublePattern (convPat e1) (convPat e2)
         trans x = throwSourceError [invalidPatternErrorMessage anExp]
     in
-        An a () (trans exp)
+        An a b (trans exp)
 
 -- Helper function to get the contents of tokens
 getInt (L _ (TInteger x)) = x
@@ -3176,9 +3176,9 @@ annotate2 t1 t2 b = mkLoc (combineSpans (getLoc t1) (getLoc t2)) b
 annotate2List :: 
     (Locatable t1, Locatable t2, Locatable t3) => t1 a -> [t2 b] -> c -> t3 c
 annotate2List t1 t2 b = annotate2 t1 (last t2) b
-annotate2List' :: 
+annotate2Lista :: 
     (Locatable t1, Locatable t2, Locatable t3) => [t1 a] -> t2 b -> c -> t3 c
-annotate2List' t1 t2 b = annotate2 (last t1) t2 b
+annotate2Lista t1 t2 b = annotate2 (last t1) t2 b
 
 annotateWithSymbolTable 
     :: Annotated (Maybe SymbolTable, PSymbolTable) a -> ParseMonad (Annotated (Maybe SymbolTable, PSymbolTable) a)
@@ -3198,7 +3198,22 @@ parseError tok = throwSourceError [parseErrorMessage tok]
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 -- Id: GenericTemplate.hs,v 1.26 2005/01/14 14:47:22 simonmar Exp 
 
-{-# LINE 30 "templates/GenericTemplate.hs" #-}
+{-# LINE 13 "templates/GenericTemplate.hs" #-}
+
+
+
+
+
+#if __GLASGOW_HASKELL__ > 706
+#define LT(n,m) ((Happy_GHC_Exts.tagToEnum# (n Happy_GHC_Exts.<# m)) :: Bool)
+#define GTE(n,m) ((Happy_GHC_Exts.tagToEnum# (n Happy_GHC_Exts.>=# m)) :: Bool)
+#define EQ(n,m) ((Happy_GHC_Exts.tagToEnum# (n Happy_GHC_Exts.==# m)) :: Bool)
+#else
+#define LT(n,m) (n Happy_GHC_Exts.<# m)
+#define GTE(n,m) (n Happy_GHC_Exts.>=# m)
+#define EQ(n,m) (n Happy_GHC_Exts.==# m)
+#endif
+{-# LINE 45 "templates/GenericTemplate.hs" #-}
 
 
 data Happy_IntList = HappyCons Happy_GHC_Exts.Int# Happy_IntList
@@ -3207,11 +3222,11 @@ data Happy_IntList = HappyCons Happy_GHC_Exts.Int# Happy_IntList
 
 
 
-{-# LINE 51 "templates/GenericTemplate.hs" #-}
+{-# LINE 66 "templates/GenericTemplate.hs" #-}
 
-{-# LINE 61 "templates/GenericTemplate.hs" #-}
+{-# LINE 76 "templates/GenericTemplate.hs" #-}
 
-{-# LINE 70 "templates/GenericTemplate.hs" #-}
+{-# LINE 85 "templates/GenericTemplate.hs" #-}
 
 infixr 9 `HappyStk`
 data HappyStk a = HappyStk a (HappyStk a)
@@ -3246,7 +3261,7 @@ happyDoAction i tk st
 				     happyFail i tk st
 		-1# 	  -> {- nothing -}
 				     happyAccept i tk st
-		n | (n Happy_GHC_Exts.<# (0# :: Happy_GHC_Exts.Int#)) -> {- nothing -}
+		n | LT(n,(0# :: Happy_GHC_Exts.Int#)) -> {- nothing -}
 
 				     (happyReduceArr Happy_Data_Array.! rule) i tk st
 				     where rule = (Happy_GHC_Exts.I# ((Happy_GHC_Exts.negateInt# ((n Happy_GHC_Exts.+# (1# :: Happy_GHC_Exts.Int#))))))
@@ -3254,17 +3269,15 @@ happyDoAction i tk st
 
 
 				     happyShift new_state i tk st
-				     where (new_state) = (n Happy_GHC_Exts.-# (1# :: Happy_GHC_Exts.Int#))
-   where (off)    = indexShortOffAddr happyActOffsets st
-         (off_i)  = (off Happy_GHC_Exts.+# i)
-	 check  = if (off_i Happy_GHC_Exts.>=# (0# :: Happy_GHC_Exts.Int#))
-			then (indexShortOffAddr happyCheck off_i Happy_GHC_Exts.==#  i)
-			else False
-         (action)
+                                     where new_state = (n Happy_GHC_Exts.-# (1# :: Happy_GHC_Exts.Int#))
+   where off    = indexShortOffAddr happyActOffsets st
+         off_i  = (off Happy_GHC_Exts.+# i)
+	 check  = if GTE(off_i,(0# :: Happy_GHC_Exts.Int#))
+                  then EQ(indexShortOffAddr happyCheck off_i, i)
+		  else False
+         action
           | check     = indexShortOffAddr happyTable off_i
           | otherwise = indexShortOffAddr happyDefActions st
-
-{-# LINE 130 "templates/GenericTemplate.hs" #-}
 
 
 indexShortOffAddr (HappyA# arr) off =
@@ -3287,13 +3300,13 @@ data HappyAddr = HappyA# Happy_GHC_Exts.Addr#
 -----------------------------------------------------------------------------
 -- HappyState data type (not arrays)
 
-{-# LINE 163 "templates/GenericTemplate.hs" #-}
+{-# LINE 169 "templates/GenericTemplate.hs" #-}
 
 -----------------------------------------------------------------------------
 -- Shifting a token
 
 happyShift new_state 0# tk st sts stk@(x `HappyStk` _) =
-     let (i) = (case Happy_GHC_Exts.unsafeCoerce# x of { (Happy_GHC_Exts.I# (i)) -> i }) in
+     let i = (case Happy_GHC_Exts.unsafeCoerce# x of { (Happy_GHC_Exts.I# (i)) -> i }) in
 --     trace "shifting the error token" $
      happyDoAction i tk new_state (HappyCons (st) (sts)) (stk)
 
@@ -3336,23 +3349,26 @@ happyReduce k nt fn j tk st sts stk
 happyMonadReduce k nt fn 0# tk st sts stk
      = happyFail 0# tk st sts stk
 happyMonadReduce k nt fn j tk st sts stk =
-        happyThen1 (fn stk tk) (\r -> happyGoto nt j tk st1 sts1 (r `HappyStk` drop_stk))
-       where (sts1@((HappyCons (st1@(action)) (_)))) = happyDrop k (HappyCons (st) (sts))
-             drop_stk = happyDropStk k stk
+      case happyDrop k (HappyCons (st) (sts)) of
+        sts1@((HappyCons (st1@(action)) (_))) ->
+          let drop_stk = happyDropStk k stk in
+          happyThen1 (fn stk tk) (\r -> happyGoto nt j tk st1 sts1 (r `HappyStk` drop_stk))
 
 happyMonad2Reduce k nt fn 0# tk st sts stk
      = happyFail 0# tk st sts stk
 happyMonad2Reduce k nt fn j tk st sts stk =
-       happyThen1 (fn stk tk) (\r -> happyNewToken new_state sts1 (r `HappyStk` drop_stk))
-       where (sts1@((HappyCons (st1@(action)) (_)))) = happyDrop k (HappyCons (st) (sts))
-             drop_stk = happyDropStk k stk
+      case happyDrop k (HappyCons (st) (sts)) of
+        sts1@((HappyCons (st1@(action)) (_))) ->
+         let drop_stk = happyDropStk k stk
 
-             (off) = indexShortOffAddr happyGotoOffsets st1
-             (off_i) = (off Happy_GHC_Exts.+# nt)
-             (new_state) = indexShortOffAddr happyTable off_i
+             off = indexShortOffAddr happyGotoOffsets st1
+             off_i = (off Happy_GHC_Exts.+# nt)
+             new_state = indexShortOffAddr happyTable off_i
 
 
 
+          in
+          happyThen1 (fn stk tk) (\r -> happyNewToken new_state sts1 (r `HappyStk` drop_stk))
 
 happyDrop 0# l = l
 happyDrop n (HappyCons (_) (t)) = happyDrop (n Happy_GHC_Exts.-# (1# :: Happy_GHC_Exts.Int#)) t
@@ -3367,9 +3383,9 @@ happyDropStk n (x `HappyStk` xs) = happyDropStk (n Happy_GHC_Exts.-# (1#::Happy_
 happyGoto nt j tk st = 
    {- nothing -}
    happyDoAction j tk new_state
-   where (off) = indexShortOffAddr happyGotoOffsets st
-         (off_i) = (off Happy_GHC_Exts.+# nt)
-         (new_state) = indexShortOffAddr happyTable off_i
+   where off = indexShortOffAddr happyGotoOffsets st
+         off_i = (off Happy_GHC_Exts.+# nt)
+         new_state = indexShortOffAddr happyTable off_i
 
 
 
@@ -3379,7 +3395,7 @@ happyGoto nt j tk st =
 
 -- parse error if we are in recovery and we fail again
 happyFail 0# tk old_st _ stk@(x `HappyStk` _) =
-     let (i) = (case Happy_GHC_Exts.unsafeCoerce# x of { (Happy_GHC_Exts.I# (i)) -> i }) in
+     let i = (case Happy_GHC_Exts.unsafeCoerce# x of { (Happy_GHC_Exts.I# (i)) -> i }) in
 --	trace "failing" $ 
         happyError_ i tk
 
