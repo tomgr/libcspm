@@ -366,7 +366,7 @@ SType :: { PSType }
     | MaybeQualName "=>*" SType     { AN2 (STExtendable $3 (unLoc $1)) }
     | SType "=>" SType              { AN2 (STDotable $1 $3) }
     | "(|" SType "=>" SType "|)"    { AN2 (STMap $2 $4) }
-    | SType "." SType               { AN2 (STDot $1 $3) }
+    | SType "." SType               { makeSTDot $1 $3 }
     | "(" STypeCommaList2 ")"       { AN2 (STTuple $2) }
     | "(" ")" "->" SType            { AN2 (STFunction [] $4) }
     | SType "->" SType              { AN2 (STFunction
@@ -450,7 +450,7 @@ ExpA :: { PExp }
     Literal                         { LL (Lit (unLoc $1)) }
     | MaybeQualName                 { LL (Var (unLoc $1)) }
     | "(" ExpCommaList2 ")"         { AN2 (Tuple $2) }
-    | Exp "." Exp                   { AN2 (DotApp $1 $3) }
+    | Exp "." Exp                   { makeDotApp $1 $3 }
 
     -- Language Structure
     | "let" DeclList1 "within" Exp  { AN2 (Let (checkLetDecls $2) $4) }
@@ -994,6 +994,25 @@ checkModelOptions options =
         case nonTrivialGroups of
             [] -> options
             g:_ -> throwSourceError [duplicateModelOptionsError g]
+
+stripParen :: PExp -> PExp
+stripParen (An _ _ (Paren e)) = stripParen e
+stripParen e = e
+
+makeDotApp :: PExp -> PExp -> PExp
+makeDotApp e1 e3 =
+    case stripParen e1 of
+        An _ typ (DotApp e1 e2) -> annotate2 e1 right $ DotApp e1 right
+            where
+                An loc _ rightP = annotate2 e2 e3 $ DotApp e2 e3
+                right = An loc typ rightP
+        _ -> annotate2 e1 e3 (DotApp e1 e3)
+
+makeSTDot :: PSType -> PSType -> PSType
+makeSTDot (An loc typ (STDot e1 e2)) e3 = annotate2 e1 right $ STDot e1 right
+    where right = annotate2 e2 e3 $ STDot e2 e3
+makeSTDot e1 e2 = annotate2 e1 e2 (STDot e1 e2)
+
 
 -- Helper function to get the contents of tokens
 getInt (L _ (TInteger x)) = x

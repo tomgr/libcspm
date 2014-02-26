@@ -1385,7 +1385,7 @@ happyReduction_81 happy_x_3
 	 =  case happyOut34 happy_x_1 of { happy_var_1 -> 
 	case happyOut34 happy_x_3 of { happy_var_3 -> 
 	happyIn34
-		 (annotate2 happy_var_1 happy_var_3 (STDot happy_var_1 happy_var_3)
+		 (makeSTDot happy_var_1 happy_var_3
 	)}}
 
 happyReduce_82 = happySpecReduce_3  28# happyReduction_82
@@ -1611,7 +1611,7 @@ happyReduction_107 happy_x_3
 	 =  case happyOut46 happy_x_1 of { happy_var_1 -> 
 	case happyOut46 happy_x_3 of { happy_var_3 -> 
 	happyIn47
-		 (annotate2 happy_var_1 happy_var_3 (DotApp happy_var_1 happy_var_3)
+		 (makeDotApp happy_var_1 happy_var_3
 	)}}
 
 happyReduce_108 = happyReduce 4# 41# happyReduction_108
@@ -3195,7 +3195,7 @@ convPat (anExp@ (An a b exp)) =
             PDoublePattern (convPat e1) (convPat e2)
         trans x = throwSourceError [invalidPatternErrorMessage anExp]
     in
-        An a () (trans exp)
+        An a b (trans exp)
 
 checkModelOptions :: [PModelOption] -> [PModelOption]
 checkModelOptions options =
@@ -3215,6 +3215,25 @@ checkModelOptions options =
         case nonTrivialGroups of
             [] -> options
             g:_ -> throwSourceError [duplicateModelOptionsError g]
+
+stripParen :: PExp -> PExp
+stripParen (An _ _ (Paren e)) = stripParen e
+stripParen e = e
+
+makeDotApp :: PExp -> PExp -> PExp
+makeDotApp e1 e3 =
+    case stripParen e1 of
+        An _ typ (DotApp e1 e2) -> annotate2 e1 right $ DotApp e1 right
+            where
+                An loc _ rightP = annotate2 e2 e3 $ DotApp e2 e3
+                right = An loc typ rightP
+        _ -> annotate2 e1 e3 (DotApp e1 e3)
+
+makeSTDot :: PSType -> PSType -> PSType
+makeSTDot (An loc typ (STDot e1 e2)) e3 = annotate2 e1 right $ STDot e1 right
+    where right = annotate2 e2 e3 $ STDot e2 e3
+makeSTDot e1 e2 = annotate2 e1 e2 (STDot e1 e2)
+
 
 -- Helper function to get the contents of tokens
 getInt (L _ (TInteger x)) = x

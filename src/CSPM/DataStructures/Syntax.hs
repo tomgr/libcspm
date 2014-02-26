@@ -196,7 +196,8 @@ data Exp id =
         concatLeftList :: AnExp id,
         concatRightList :: AnExp id
     }
-    -- | Dot operator application, e.g. @c.x@.
+    -- | Dot operator application, e.g. @c.x@. The left argument is NEVER a
+    -- DotApp.
     | DotApp {
         dotAppLeftArgument :: AnExp id,
         dotAppRighArgument :: AnExp id
@@ -681,7 +682,8 @@ data Pat id =
         pConcatLeftPat :: AnPat id,
         pConcatRightPat :: AnPat id
     }
-    -- | The dot of two patterns, e.g. @p1.p2@.
+    -- | The dot of two patterns, e.g. @p1.p2@. The left pattern is NEVER a
+    -- PDotApp.
     | PDotApp {
         pDotLeftPat :: AnPat id,
         pDotRightPat :: AnPat id
