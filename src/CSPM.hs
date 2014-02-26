@@ -72,8 +72,8 @@
 module CSPM (
     -- * CSPM Monad
     CSPMSession, newCSPMSession,
-    EV.ProfilerOptions(..), EV.defaultProfilerOptions,
-    EV.EvaluatorOptions(..), EV.defaultEvaluatorOptions,
+    HEV.ProfilerOptions(..), HEV.defaultProfilerOptions,
+    HEV.EvaluatorOptions(..), HEV.defaultEvaluatorOptions,
     CSPMMonad(..),
     withSession,
     -- ** A basic implementation of the monad
@@ -86,7 +86,7 @@ module CSPM (
     -- | Defines the types used by the typechecker.
     module CSPM.DataStructures.Types,
     -- | Defines the values produced by the evaluator.
-    module CSPM.Evaluator.Values,
+    --module CSPM.Evaluator.Values,
     -- * Parser API
     parseStringAsFile, parseStringsAsFile, parseFile, parseInteractiveStmt,
     parseExpression, filesRequiredByFile,
@@ -127,8 +127,7 @@ import System.FilePath
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
-import qualified CSPM.Evaluator as EV
-import CSPM.Evaluator.Values
+import qualified CSPM.HaskellEvaluator as HEV
 import qualified CSPM.Parser as P
 import qualified CSPM.Renamer as RN
 import qualified CSPM.TypeChecker as TC
@@ -146,17 +145,17 @@ data CSPMSession = CSPMSession {
         -- | The state of the type checker.
         tcState :: TC.TypeInferenceState,
         -- | The state of the evaluator.
-        evState :: EV.EvaluationState
+        evState :: HEV.TranslationState
     }
 
 -- | Create a new 'CSPMSession'.
-newCSPMSession :: MonadIO m => EV.EvaluatorOptions -> m CSPMSession
+newCSPMSession :: MonadIO m => HEV.EvaluatorOptions -> m CSPMSession
 newCSPMSession profilerOptions = do
     -- Get the type checker environment with the built in functions already
     -- injected
     rnState <- liftIO $ RN.initRenamer
     tcState <- liftIO $ TC.initTypeChecker
-    evState <- liftIO $ EV.initEvaluator profilerOptions
+    evState <- liftIO $ HEV.defaultTranslationState
     return $ CSPMSession rnState tcState evState
 
 -- | The CSPMMonad is the main monad in which all functions must be called.
@@ -353,9 +352,9 @@ desugarInteractiveStmt s = DS.runDesugar $ DS.desugar s
 -- Evaluator API
 
 -- | Runs the evaluator in the current state, saving the resulting state.
-runEvaluatorInCurrentState :: CSPMMonad m => EV.EvaluationMonad a -> m a
+runEvaluatorInCurrentState :: CSPMMonad m => HEV.TranslationMonad a -> m a
 runEvaluatorInCurrentState p = withSession $ \s -> do
-    let (a, st) = EV.runFromStateToState (evState s) p
+    (a, st) <- liftIO $ HEV.runFromStateToState (evState s) p
     modifySession (\s -> s { evState = st })
     return a
 
@@ -364,50 +363,45 @@ runEvaluatorInCurrentState p = withSession $ \s -> do
 -- | Takes a declaration and adds it to the current environment. Requires the
 -- declaration to be desugared.
 bindDeclaration :: CSPMMonad m => TCDecl -> m ()
-bindDeclaration d = withSession $ \s -> do
-    evSt <- runEvaluatorInCurrentState (do
-        ds <- EV.evaluateDecl d
-        EV.addToEnvironment ds)
-    modifySession (\s -> s { evState = evSt })
+bindDeclaration d =
+    panic "Not supported"
+
+    --withSession $ \s -> do
+--    evSt <- runEvaluatorInCurrentState (do
+--        ds <- EV.evaluateDecl d
+--        EV.addToEnvironment ds)
+--    modifySession (\s -> s { evState = evSt })
  
 -- | Binds all the declarations that are in a particular file. Requires the
 -- file to be desugared.
 bindFile :: CSPMMonad m => TCCSPMFile -> m ()
-bindFile m = do
-    -- Bind
-    evSt <- runEvaluatorInCurrentState $ do
-        ds <- EV.evaluateFile m
-        EV.addToEnvironment ds
-    modifySession (\s -> s { evState = evSt })
-    return ()
+bindFile m = runEvaluatorInCurrentState $ HEV.bindToEnvironment m
  
 -- | Evaluates the expression in the current context. Requires the expression
 -- to be desugared.
-evaluateExpression :: CSPMMonad m => TCExp -> m Value
-evaluateExpression e = runEvaluatorInCurrentState (EV.evaluateExp e)
+evaluateExpression :: CSPMMonad m => TCExp -> m (Either String LibCSPMException)
+evaluateExpression e = runEvaluatorInCurrentState (HEV.evaluateExpression e)
 
 -- | Obtains the profiling data that the evaluator has produced so far.
-profilingData :: CSPMMonad m => m EV.ProfilingData
-profilingData = runEvaluatorInCurrentState EV.profilingData
+profilingData :: CSPMMonad m => m HEV.ProfilingData
+profilingData = panic "not supported"
+    --runEvaluatorInCurrentState EV.profilingData
 
 -- | Given a process name, attempts to convert the name into a process. This
 -- is only possible for top-level function applications.
-maybeProcessNameToProcess :: CSPMMonad m => EV.ProcName -> m (Maybe EV.UProc)
+maybeProcessNameToProcess :: CSPMMonad m => HEV.ProcName -> m (Maybe HEV.UProc)
 maybeProcessNameToProcess pn =
-    runEvaluatorInCurrentState (EV.maybeProcessNameToProcess pn)
+    panic "not supported"
+    --runEvaluatorInCurrentState (EV.maybeProcessNameToProcess pn)
 
 -- | Takes an expression string and a type and evaluates the expression,
 -- providing the expression is of the correct type.
-stringToValue :: CSPMMonad m => Type -> String -> m Value
+stringToValue :: CSPMMonad m => Type -> String -> m HEV.Value
 stringToValue typ str =
-    parseExpression str >>= renameExpression >>= 
-    ensureExpressionIsOfType typ >>= desugarExpression >>= evaluateExpression
+    panic "not supported"
+    --parseExpression str >>= renameExpression >>= 
+    --ensureExpressionIsOfType typ >>= desugarExpression >>= evaluateExpression
 
 -- | Return the version of libcspm that is being used.
 getLibCSPMVersion :: Version
 getLibCSPMVersion = version
-
-instance (Applicative m, CSPMMonad m,
-            M.MonadicPrettyPrintable EV.EvaluationMonad a) => 
-        M.MonadicPrettyPrintable m a where
-    prettyPrint = runEvaluatorInCurrentState . M.prettyPrint

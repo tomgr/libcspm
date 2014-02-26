@@ -109,11 +109,14 @@ makeBuiltins = do
         cspm_true = ("true", TBool)
         cspm_false = ("false", TBool)
         cspm_True = ("True", TBool)
-        cspm_False = ("False", TBool)        
+        cspm_False = ("False", TBool)
+        cspm_tau = ("tau", TEvent)
+        cspm_tick = ("tick", TEvent)
 
         typeConstructors :: [(String, Type)]
         typeConstructors = [cspm_Int, cspm_Bool, cspm_Proc, cspm_Events, 
-            cspm_Char, cspm_true, cspm_false, cspm_True, cspm_False]
+            cspm_Char, cspm_true, cspm_false, cspm_True, cspm_False,
+            cspm_tau, cspm_tick]
 
         cspm_emptyMap k v = ("emptyMap", TMap k v)
         cspm_mapFromList k v =
@@ -208,7 +211,7 @@ makeBuiltins = do
             map fst transparentFunctions
             ++map fst externalAndTransparentFunctions
 
-        hiddenNames = ["TSKIP", "TSTOP", "timed_priority", "WAIT"]
+        hiddenNames = ["TSKIP", "TSTOP", "timed_priority", "WAIT", "tau", "tick"]
 
         mkFuncType cs func = do
             fv @ (TVar (TypeVarRef tv _ _)) <- freshTypeVarWithConstraints cs
