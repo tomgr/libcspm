@@ -316,7 +316,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         -- (Now getType n for any n in ns will return TEvent)
         return [(n, TEvent) | n <- ns]
     typeCheck' (Channel ns (Just e)) = do
-        t <- typeCheck e
+        t <- typeCheck e >>= evaluateDots
         -- Events must be comparable for equality.
         ensureHasConstraint CEq t
         valueType <- evalTypeExpression t
@@ -507,7 +507,7 @@ instance TypeCheckable (DataTypeClause Name) (Name, [Type]) where
     typeCheck' (DataTypeClause n' Nothing) = do
         return (n', [])
     typeCheck' (DataTypeClause n' (Just e)) = do
-        t <- typeCheck e
+        t <- typeCheck e >>= evaluateDots
         valueType <- evalTypeExpression t
         dotList <- typeToDotList valueType
         return (n', dotList)
