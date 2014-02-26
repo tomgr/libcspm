@@ -170,7 +170,6 @@ instance PrettyPrintable id => PrettyPrintable (Pat id) where
     prettyPrint (PWildCard) = char '_'
     
     prettyPrint (PCompList _ _ p) = prettyPrint p
-    prettyPrint (PCompDot _ p) = prettyPrint p
     
 instance PrettyPrintable BinaryBooleanOp where
     prettyPrint And = text "and"

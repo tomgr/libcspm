@@ -52,7 +52,6 @@ instance BoundNames (Pat Name) where
     boundNames (PCompList ps1 Nothing _) = boundNames ps1
     boundNames (PCompList ps1 (Just (p, ps2)) _) =
         boundNames ps1 ++ boundNames p ++ boundNames ps2
-    boundNames (PCompDot ps _) = boundNames ps
 
 instance BoundNames (Stmt Name) where
     boundNames (Qualifier e) = []
@@ -94,7 +93,6 @@ instance FreeVars (Pat Name) where
     freeVars' (PCompList ps1 Nothing _) = freeVars' ps1
     freeVars' (PCompList ps1 (Just (p, ps2)) _) =
         freeVars' ps1 ++ freeVars' p ++ freeVars' ps2
-    freeVars' (PCompDot ps _) = freeVars' ps
 
 instance FreeVars (Exp Name) where
     freeVars' (App e es) = freeVars' (e:es)

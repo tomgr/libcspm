@@ -30,7 +30,6 @@ instance FreeVars (Pat Name) where
         case p2 of
             Just (p2, ps) -> freeVars p2 ++ concatMap freeVars ps
             Nothing -> []
-    freeVars (PCompDot ps _) = concatMap freeVars ps
     freeVars (PDotApp p1 p2) = freeVars p1++freeVars p2
     freeVars (PDoublePattern p1 p2) = freeVars p1++freeVars p2
     freeVars (PList ps) = concatMap freeVars ps
@@ -418,14 +417,7 @@ instance Desugarable (Pat Name) where
             return $ PCompList start end (PConcat p1 p2)
     desugar (PList ps) =
         return PCompList $$ desugar ps $$ return Nothing $$ return (PList ps)
-    desugar (PDotApp p1 p2) = 
-        let
-            extractDotList (An _ _ (PCompDot ds _)) = ds
-            extractDotList d = [d]
-        in do
-            p1' <- desugar p1
-            p2' <- desugar p2
-            return $ PCompDot (extractDotList p1'++extractDotList p2') (PDotApp p1 p2)
+    desugar (PDotApp p1 p2) = return PDotApp $$ desugar p1 $$ desugar p2
     desugar (PDoublePattern p1 p2) =
         return PDoublePattern $$ desugar p1 $$ desugar p2
     desugar (PLit (String s)) = return $
