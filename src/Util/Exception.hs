@@ -70,6 +70,8 @@ data LibCSPMException =
     Panic String
     -- | An error in the user's input occured
     | SourceError ErrorMessages
+    -- | A pre-formatted SourceError
+    | PreFormattedSourceError String
     -- | An error occured. Normally this is caught by the application and 
     -- then turned into a SourceError.
     | UserError
@@ -84,6 +86,7 @@ instance Show LibCSPMException where
         "    description of how to reproduce the problem. Please also include the following message:\n\n"++
         unlines (map (\ s -> "        "++s) (lines str))
     show (SourceError ms) = show (prettyPrint ms)
+    show (PreFormattedSourceError m) = m
     show (UserError) = "An unknown error occured."
 
 instance Exception LibCSPMException
