@@ -11,8 +11,6 @@ import System.FilePath
 import System.IO
 
 import CSPM
-import CSPM.Evaluator.ProcessValues
-import CSPM.Evaluator.ValuePrettyPrinter
 import Monad
 import Util.Annotated
 import Util.Exception
@@ -188,8 +186,9 @@ evaluate str = do
         Bind ds -> mapM_ bindDeclaration ds
         Evaluate e -> do
             v <- evaluateExpression e
-            d <- M.prettyPrint v
-            outputStrLn $ show $ d 
+            case v of
+                Left string -> outputStrLn string
+                Right exception -> printError (show exception)
 
 printProcCommand :: String -> InputT IChecker ()
 printProcCommand str = do
@@ -197,6 +196,7 @@ printProcCommand str = do
     rnExpr <- renameExpression pExpr
     tcExpr <- ensureExpressionIsOfType TProc rnExpr
     dsExpr <- desugarExpression tcExpr
-    VProc p <- evaluateExpression dsExpr
-    outputStrLn $ show $ prettyPrintAllRequiredProcesses p
+    panic "Not supported"
+    --VProc p <- evaluateExpression dsExpr
+    --outputStrLn $ show $ prettyPrintAllRequiredProcesses p
     return ()
