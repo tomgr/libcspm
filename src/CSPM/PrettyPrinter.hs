@@ -119,12 +119,14 @@ instance PrettyPrintable id => PrettyPrintable (Assertion id) where
         hang (hang (prettyPrint e1) tabWidth
                 (char '[' <> prettyPrint m <> char '=' <+> prettyPrint e2))
             tabWidth (fcat (map prettyPrint opts))
-    prettyPrint (PropertyCheck e1 prop Nothing) =
-        hang (prettyPrint e1) tabWidth
-            (text ":[" <> prettyPrint prop <> text "]")
-    prettyPrint (PropertyCheck e1 prop (Just m)) =
-        hang (prettyPrint e1) tabWidth
-            (colon <> brackets (prettyPrint prop <+> brackets (prettyPrint m)))
+    prettyPrint (PropertyCheck e1 prop Nothing opts) =
+        hang (hang (prettyPrint e1) tabWidth
+            (text ":[" <> prettyPrint prop <> text "]"))
+            tabWidth (fcat (map prettyPrint opts))
+    prettyPrint (PropertyCheck e1 prop (Just m) opts) =
+        hang (hang (prettyPrint e1) tabWidth
+            (colon <> brackets (prettyPrint prop <+> brackets (prettyPrint m))))
+            tabWidth (fcat (map prettyPrint opts))
     prettyPrint (ASNot a) = text "not" <+> prettyPrint a
 
 instance PrettyPrintable Model where
@@ -139,6 +141,9 @@ instance PrettyPrintable Model where
 instance PrettyPrintable id => PrettyPrintable (ModelOption id) where
     prettyPrint (TauPriority e) = 
         text ":[tau priority over]:" <+> prettyPrint e
+    prettyPrint (PartialOrderReduce Nothing) = text ":[partial order reduce]"
+    prettyPrint (PartialOrderReduce (Just m)) =
+        text ":[partial order reduce" <+> text m <+> text "]"
 
 instance PrettyPrintable SemanticProperty where
     prettyPrint DeadlockFreedom = text "deadlock free"

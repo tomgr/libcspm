@@ -77,6 +77,7 @@ tokens :-
     <sem_prop>@spaces"divergence free" { tok TDivergenceFree }
     <sem_prop>@spaces"divergence-free" { tok TDivergenceFree }
     <sem_prop>@spaces"deterministic"   { tok TDeterministic }
+    <sem_prop>@spaces"partial order reduce" { tok TPartialOrderReduce }
     <sem_prop>@nl"[T]"          { tok (TModel Traces) }
     <sem_prop>@nl"[F]"          { tok (TModel Failures) }
     <sem_prop>@nl"[FD]"         { tok (TModel FailuresDivergences) }
@@ -84,6 +85,7 @@ tokens :-
     <sem_prop>@nl"[VD]"         { tok (TModel RevivalsDivergences) }
     <sem_prop>@nl"[R]"          { tok (TModel Refusals) }
     <sem_prop>@nl"[RD]"         { tok (TModel RefusalsDivergences) }
+    <sem_prop>@nl"["$alpha+"]"  { stok (TStringOption . tail . lstrip . init) }
     <sem_prop>@spaces"]:"       { begin 0 }
     <sem_prop>@spaces"]"        { begin 0 }
 

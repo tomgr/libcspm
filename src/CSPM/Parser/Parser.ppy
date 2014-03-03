@@ -101,6 +101,8 @@ import Util.Exception (panic)
     "divergence free"   { L _ TDivergenceFree }
     "deterministic"     { L _ TDeterministic }
     "tau priority"      { L _ TTauPriority }
+    "partial order reduce" { L _ TPartialOrderReduce }
+    string_option_literal { L _ (TStringOption _) }
     refines             { L _ (TRefines _) }
     model               { L _ (TModel _) }
     
@@ -283,10 +285,10 @@ ExpList :: { [PExp] }
 
 Assertion :: { PAssertion }
     :
-    CExp refines CExp                       { AN2 (Refinement $1 (getRefinesModel $2) $3 []) }
-    | CExp refines CExp ModelOption         { AN2 (Refinement $1 (getRefinesModel $2) $3 [unLoc $4]) }
-    | CExp SemanticProperty                 { AN2 (PropertyCheck $1 (unLoc $2) Nothing) }
-    | CExp SemanticProperty model           { AN2 (PropertyCheck $1 (unLoc $2) (Just (getPropModel $3))) }
+    CExp refines CExp OptModelOptionList    { AN2L (Refinement $1 (getRefinesModel $2) $3 $4) }
+    | CExp SemanticProperty OptModelOptionList  { AN2L (PropertyCheck $1 (unLoc $2) Nothing $3) }
+    | CExp SemanticProperty model OptModelOptionList { AN2L (PropertyCheck $1 (unLoc $2) (Just (getPropModel $3)) $4) }
+
 SemanticProperty :: { Located SemanticProperty }
     :
     "deadlock free"                             { LL DeadlockFreedom }
@@ -294,9 +296,21 @@ SemanticProperty :: { Located SemanticProperty }
     | "divergence free"                         { LL LivelockFreedom }
     | "deterministic"                           { LL Deterministic }
 
-ModelOption :: { Located (ModelOption UnRenamedName) }
+OptModelOptionList :: { [PModelOption] }
+    :
+                                                { [] }
+    | rModelOptionList                          { checkModelOptions (reverse $1) }
+
+rModelOptionList :: { [PModelOption] }
+    :
+    ModelOption                                 { [$1] }
+    | rModelOptionList ModelOption              { $2:$1 }
+
+ModelOption :: { PModelOption }
     :
     "tau priority" CExp                         { AN2 (TauPriority $2) }
+    | "partial order reduce" string_option_literal { AN (PartialOrderReduce (Just (getStringOption $2))) }
+    | "partial order reduce"                    { AN (PartialOrderReduce Nothing) }
 
 DataTypeClause :: { PDataTypeClause }
     :
@@ -976,6 +990,25 @@ convPat (anExp@ (An a b exp)) =
     in
         An a () (trans exp)
 
+checkModelOptions :: [PModelOption] -> [PModelOption]
+checkModelOptions options =
+    let
+        cmp (PartialOrderReduce _) (PartialOrderReduce _) = EQ
+        cmp (PartialOrderReduce _) _ = LT
+        cmp _ (PartialOrderReduce _) = GT
+
+        cmp (TauPriority _) (TauPriority _) = EQ
+        cmp (TauPriority _) _ = LT
+        cmp _ (TauPriority _) = GT
+
+        optionGroups = groupBy (\ x y -> cmp (unAnnotate x) (unAnnotate y) == EQ)
+            (sortBy (\ x y -> cmp (unAnnotate x) (unAnnotate y)) options)
+        nonTrivialGroups = filter (\ xs -> length xs /= 1) optionGroups
+    in
+        case nonTrivialGroups of
+            [] -> options
+            g:_ -> throwSourceError [duplicateModelOptionsError g]
+
 -- Helper function to get the contents of tokens
 getInt (L _ (TInteger x)) = x
 getChar (L _ (TChar c)) = c
@@ -984,6 +1017,7 @@ getName (L _ (TIdent x)) = x
 getRefinesModel (L _ (TRefines x)) = x
 getPropModel (L _ (TModel x)) = x
 getPrintString (L _ (TPrint x)) = x
+getStringOption (L _ (TStringOption x)) = x
 
 class Locatable a where
     getLoc :: a b -> SrcSpan
@@ -1008,6 +1042,7 @@ annotate2 ::
 annotate2 t1 t2 b = mkLoc (combineSpans (getLoc t1) (getLoc t2)) b
 annotate2List :: 
     (Locatable t1, Locatable t2, Locatable t3) => t1 a -> [t2 b] -> c -> t3 c
+annotate2List t1 [] b = mkLoc (getLoc t1) b
 annotate2List t1 t2 b = annotate2 t1 (last t2) b
 annotate2Lista :: 
     (Locatable t1, Locatable t2, Locatable t3) => [t1 a] -> t2 b -> c -> t3 c
