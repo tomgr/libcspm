@@ -76,6 +76,7 @@ instance NFData UnCompiledProcOperator where
     rnf Determinise = ()
     rnf Diamond = ()
     rnf (Explicate b) = rnf b
+    rnf (FailureWatchdog evs ev) = rnf evs `seq` rnf ev
     rnf (Normalize b) = rnf b
     rnf ModelCompress = ()
     rnf (Prioritise b evs) = rnf b `seq` rnf evs

@@ -1,0 +1,7 @@
+channel a 
+
+external failure_watchdog
+
+channel x
+
+procTest1 = failure_watchdog(STOP, {a}, x)
