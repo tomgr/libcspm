@@ -123,6 +123,10 @@ builtInFunctions = do
                         [Sq.empty, Sq.singleton tock]
             return $ VProc $ PUnaryOp (POperator pop) p
 
+        csp_failure_watchdog [VProc p, VSet implementationEvents, ev] =
+            VProc $ PUnaryOp (POperator (FailureWatchdog
+                (S.valueSetToEventSet implementationEvents)
+                (UserEvent ev))) p
         csp_trace_watchdog [VProc p, VSet implementationEvents, ev] =
             VProc $ PUnaryOp (POperator (TraceWatchdog
                 (S.valueSetToEventSet implementationEvents)
@@ -168,6 +172,7 @@ builtInFunctions = do
             ("loop", csp_loop), ("relational_image", cspm_relational_image),
             ("relational_inverse_image", cspm_relational_inverse_image),
             ("transpose", cspm_transpose), ("show", cspm_show),
+            ("failure_watchdog", csp_failure_watchdog),
             ("trace_watchdog", csp_trace_watchdog)
             ]
 

@@ -476,20 +476,25 @@ instance TypeCheckable TCAssertion () where
 instance TypeCheckable (Assertion Name) () where
     errorContext a = Just $ 
         hang (text "In the assertion" <> colon) tabWidth (prettyPrint a)
-    typeCheck' (PropertyCheck e1 p m) = do
+    typeCheck' (PropertyCheck e1 p m opts) = do
         ensureIsProc e1
-        return ()
+        mapM_ typeCheck opts
     typeCheck' (Refinement e1 m e2 opts) = do
         ensureIsProc e1
         ensureIsProc e2
         mapM_ typeCheck opts
     typeCheck' (ASNot a) = typeCheck a
 
+instance TypeCheckable TCModelOption () where
+    errorContext an = Nothing
+    typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
+
 instance TypeCheckable (ModelOption Name) () where
     errorContext a = Nothing
     typeCheck' (TauPriority e) = do
         typeCheckExpect e (TSet TEvent)
         return ()
+    typeCheck' (PartialOrderReduce _) = return ()
 
 instance TypeCheckable TCDataTypeClause (Name, [Type]) where
     errorContext an = Nothing

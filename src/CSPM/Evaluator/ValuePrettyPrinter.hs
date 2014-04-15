@@ -76,6 +76,7 @@ instance (Applicative m, F.Foldable seq, Monad m, M.MonadicPrettyPrintable m ev,
     prettyPrint Diamond = M.text "diamond"
     prettyPrint (Explicate False) = M.text "explicate"
     prettyPrint (Explicate True) = M.text "lazyenumerate"
+    prettyPrint (FailureWatchdog evs ev) = M.text "failure_watchdog"
     prettyPrint ModelCompress = M.text "model_compress"
     prettyPrint (Normalize False) = M.text "normal"
     prettyPrint (Normalize True) = M.text "lazynorm"
@@ -87,11 +88,15 @@ instance (Applicative m, F.Foldable seq, Monad m, M.MonadicPrettyPrintable m ev,
     prettyPrint TauLoopFactor = M.text "tau_loop_factor"
     prettyPrint WeakBisim = M.text "wbisim"
 
+    prettyPrintBrief (FailureWatchdog _ _) = M.text "failure_watchdog"
     prettyPrintBrief (Prioritise True as) = M.text "prioritise"
     prettyPrintBrief (Prioritise False as) = M.text "prioritise_nocache"
     prettyPrintBrief (TraceWatchdog _ _) = M.text "trace_watchdog"
     prettyPrintBrief op = M.prettyPrint op
 
+ppOperatorWithArg (FailureWatchdog evs ev) proc =
+    M.text "failure_watchdog" M.<> M.parens (proc M.<> M.comma M.<+>
+        M.prettyPrint evs M.<> M.comma M.<+> M.prettyPrint ev)
 ppOperatorWithArg (Prioritise cache as) proc = do
     (if cache then M.text "prioritise" else M.text "prioritise_nocache")
     M.<> M.parens (proc M.<> M.comma M.<+>
@@ -101,6 +106,9 @@ ppOperatorWithArg (TraceWatchdog evs ev) proc =
         M.prettyPrint evs M.<> M.comma M.<+> M.prettyPrint ev)
 ppOperatorWithArg op proc = M.prettyPrint op M.<> M.parens proc
 
+ppBriefOperatorWithArg (FailureWatchdog evs ev) proc =
+    M.text "failure_watchdog" M.<> M.parens (
+        proc M.<> M.comma M.<+> M.ellipsis M.<> M.comma M.<+> M.ellipsis)
 ppBriefOperatorWithArg (Prioritise cache as) proc = do
     (if cache then M.text "prioritise" else M.text "prioritise_nocache")
     M.<> M.parens (proc M.<> M.comma M.<+> M.ellipsis)

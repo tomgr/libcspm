@@ -254,11 +254,12 @@ instance FreeVars (Decl Name) where
 
 instance FreeVars (Assertion Name) where
     freeVars' (Refinement e1 m e2 opts) = freeVars [e1, e2] ++ freeVars opts
-    freeVars' (PropertyCheck e1 p m) = freeVars [e1]
+    freeVars' (PropertyCheck e1 p m opts) = freeVars [e1] ++ freeVars opts
     freeVars' (ASNot a) = freeVars a
 
 instance FreeVars (ModelOption Name) where
     freeVars' (TauPriority e) = freeVars' e
+    freeVars' (PartialOrderReduce _) = []
     
 instance FreeVars (Match Name) where
     freeVars' (Match ps e) =

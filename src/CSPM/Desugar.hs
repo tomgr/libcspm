@@ -260,8 +260,8 @@ desugarDecls ds = do
 instance Desugarable (Assertion Name) where
     desugar (Refinement e1 m e2 opts) = 
         return Refinement $$ desugar e1 $$ desugar m $$ desugar e2 $$ desugar opts
-    desugar (PropertyCheck e p m) = 
-        return PropertyCheck $$ desugar e $$ desugar p $$ desugar m
+    desugar (PropertyCheck e p m opts) = 
+        return PropertyCheck $$ desugar e $$ desugar p $$ desugar m $$ desugar opts
     desugar (ASNot a) = return ASNot $$ desugar a
 
 instance Desugarable SemanticProperty where
@@ -270,6 +270,7 @@ instance Desugarable Model where
     desugar m = return m
 instance Desugarable (ModelOption Name) where
     desugar (TauPriority e) = return TauPriority $$ desugar e
+    desugar (PartialOrderReduce m) = return $ PartialOrderReduce m
 
 instance Desugarable (DataTypeClause Name) where
     desugar (DataTypeClause n me) =

@@ -143,6 +143,7 @@ makeBuiltins = do
         externalFunctions :: [(String, Type)]
         externalFunctions = [
             ("deter", TFunction [TProc] TProc),
+            ("failure_watchdog", TFunction [TProc, TSet TEvent, TEvent] TProc),
             ("loop", TFunction [TProc] TProc),
             ("prioritise", TFunction [TProc, TSeq (TSet TEvent)] TProc),
             ("prioritise_nocache", TFunction [TProc, TSeq (TSet TEvent)] TProc),

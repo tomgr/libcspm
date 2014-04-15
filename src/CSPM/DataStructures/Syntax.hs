@@ -44,15 +44,15 @@ module CSPM.DataStructures.Syntax (
     -- laborious to type the names. Therefore, some shortcuts are provided.
     AnCSPMFile, AnDecl, AnMatch, AnPat, AnExp, AnField,
     AnStmt, AnDataTypeClause, AnAssertion, AnInteractiveStmt, AnSTypeScheme,
-    AnSTypeConstraint, AnSType,
+    AnSTypeConstraint, AnSType, AnModelOption,
     -- ** Pre-Renaming Types
     PCSPMFile, PDecl, PMatch, PPat, PExp, PField,
     PStmt, PDataTypeClause, PAssertion, PInteractiveStmt, PSTypeScheme,
-    PSTypeConstraint, PSType,
+    PSTypeConstraint, PSType, PModelOption,
     -- ** Post-Renaming Types
     TCCSPMFile, TCDecl, TCMatch, TCPat, TCExp, TCField,
     TCStmt, TCDataTypeClause, TCAssertion, TCInteractiveStmt, TCSTypeScheme,
-    TCSTypeConstraint, TCSType,
+    TCSTypeConstraint, TCSType, TCModelOption,
     -- * Helpers
     getType, getSymbolTable,
 ) where
@@ -77,6 +77,7 @@ type AnInteractiveStmt id = Annotated () (InteractiveStmt id)
 type AnSTypeScheme id = Annotated () (STypeScheme id)
 type AnSTypeConstraint id = Annotated () (STypeConstraint id)
 type AnSType id = Annotated () (SType id)
+type AnModelOption id = Annotated () (ModelOption id)
 
 getType :: Annotated (Maybe Type, PType) a -> Type
 getType an = case fst (annotation an) of
@@ -101,6 +102,7 @@ type PInteractiveStmt = AnInteractiveStmt UnRenamedName
 type PSTypeScheme = AnSTypeScheme UnRenamedName
 type PSTypeConstraint = AnSTypeConstraint UnRenamedName
 type PSType = AnSType UnRenamedName
+type PModelOption = AnModelOption UnRenamedName
 
 type TCCSPMFile = AnCSPMFile Name
 type TCDecl = AnDecl Name
@@ -115,6 +117,7 @@ type TCInteractiveStmt = AnInteractiveStmt Name
 type TCSTypeScheme = AnSTypeScheme Name
 type TCSTypeConstraint = AnSTypeConstraint Name
 type TCSType = AnSType Name
+type TCModelOption = AnModelOption Name
 
 -- *************************************************************************
 -- Files
@@ -589,14 +592,15 @@ data Assertion id =
         refinementSpecification :: AnExp id,
         refinementModel :: Model,
         refinementImplementation :: AnExp id,
-        refinementModelOptions :: [ModelOption id]
+        refinementModelOptions :: [AnModelOption id]
     }
     -- | A check of property, like deadlock freedom, e.g. 
     -- @assert P :[deadlock free [F]]@.
     | PropertyCheck {
         propertyCheckProcess :: AnExp id,
         propertyCheckProperty :: SemanticProperty,
-        propertyCheckModel :: Maybe Model
+        propertyCheckModel :: Maybe Model,
+        propertyCheckModelOptions :: [AnModelOption id]
     }
     -- | The negation of an assertion, not currently supported.
     | ASNot (AnAssertion id)
@@ -613,7 +617,10 @@ data Model =
     deriving (Eq, Ord, Show)
     
 data ModelOption id = 
+    -- | Apply tau-priority over the set of events when deciding this assertion.
     TauPriority (AnExp id)
+    -- | Apply partial order reduction when deciding this assertion
+    | PartialOrderReduce (Maybe String)
     deriving (Eq, Ord, Show)
         
 data SemanticProperty = 

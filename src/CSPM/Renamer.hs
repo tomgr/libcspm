@@ -1033,11 +1033,12 @@ instance Renamable (Assertion UnRenamedName) (Assertion Name) where
         return ASNot $$ rename e
     rename (Refinement e1 m e2 mopts) = 
         return Refinement $$ rename e1 $$ return m $$ rename e2 $$ rename mopts
-    rename (PropertyCheck e1 p m) =
-        return PropertyCheck $$ rename e1 $$ return p $$ return m
+    rename (PropertyCheck e1 p m mopts) =
+        return PropertyCheck $$ rename e1 $$ return p $$ return m $$ rename mopts
 
 instance Renamable (ModelOption UnRenamedName) (ModelOption Name) where
     rename (TauPriority e) = return TauPriority $$ rename e
+    rename (PartialOrderReduce m) = return $ PartialOrderReduce m
 
 instance Renamable (Exp UnRenamedName) (Exp Name) where
     rename (App e es) = return App $$ rename e $$ rename es

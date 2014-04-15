@@ -1,0 +1,10 @@
+assert STOP :[deadlock free] :[partial order reduce]
+assert STOP :[deadlock free] :[tau priority over]: {} :[partial order reduce]
+assert STOP :[deadlock free] :[partial order reduce] :[tau priority over]: {}
+assert STOP [T= STOP :[partial order reduce]
+assert STOP [T= STOP :[partial order reduce] :[tau priority over]: {}
+assert STOP [T= STOP :[tau priority over]: {} :[partial order reduce]
+
+assert STOP [T= STOP :[tau priority over]: {} :[partial order reduce [fast]]
+assert STOP [T= STOP :[tau priority over]: {} :[partial order reduce [precise]]
+assert STOP [T= STOP :[tau priority over]: {} :[partial order reduce [hybrid]]

@@ -14,6 +14,7 @@ module CSPM.Parser.Exceptions (
     unknownConstraintError,
     definitionSpanFileError,
     looksLikeRTFErrorMessage,
+    duplicateModelOptionsError,
     
     throwSourceError
 )
@@ -93,3 +94,12 @@ looksLikeRTFErrorMessage :: FilePath -> ErrorMessage
 looksLikeRTFErrorMessage fp = mkErrorMessage Unknown $
     text "The file" <+> quotes (text fp)
     $$ text "looks like a file in rich-text format (RTF). Only plain-text files are accepted."
+
+duplicateModelOptionsError :: [PModelOption] -> ErrorMessage
+duplicateModelOptionsError opts = mkErrorMessage (loc (head opts)) $
+    text "The option:"
+    <+> case unAnnotate (head opts) of
+            TauPriority _ -> text ":[tau priority over]:"
+            PartialOrderReduce _ -> text ":[partial order reduce]"
+    <+> text "has been specified several times at:"
+    $$ list (map (prettyPrint . loc) opts)

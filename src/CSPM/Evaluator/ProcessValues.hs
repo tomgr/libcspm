@@ -53,6 +53,7 @@ data ProcOperator seq ev evs =
     | Determinise
     | Diamond
     | Explicate Bool
+    | FailureWatchdog evs ev
     | Normalize Bool
     | ModelCompress
     | Prioritise Bool (seq evs)
@@ -80,6 +81,7 @@ instance (Hashable ev, Hashable evs, Hashable (seq evs)) =>
     hash Determinise = 14
     hash DelayBisim = 15
     hash (TraceWatchdog evs ev) = combine 16 (combine (hash evs) (hash ev))
+    hash (FailureWatchdog evs ev) = combine 18 (combine (hash evs) (hash ev))
 
 data CSPOperator seq ev evs evm =
     PAlphaParallel (seq evs)

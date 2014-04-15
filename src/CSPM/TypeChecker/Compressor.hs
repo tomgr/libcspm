@@ -157,12 +157,13 @@ instance Compressable (Decl a) where
 instance Compressable (Assertion a) where
     mcompress (Refinement e1 m e2 opts) = return 
         Refinement $$ mcompress e1 $$ mcompress m $$ mcompress e2 $$ mcompress opts
-    mcompress (PropertyCheck e p m) = return 
-        PropertyCheck $$ mcompress e $$ mcompress p $$ mcompress m
+    mcompress (PropertyCheck e p m opts) = return 
+        PropertyCheck $$ mcompress e $$ mcompress p $$ mcompress m $$ mcompress opts
     mcompress (ASNot a) = return ASNot $$ mcompress a
 
 instance Compressable (ModelOption a) where
     mcompress (TauPriority e) = return TauPriority $$ mcompress e
+    mcompress (PartialOrderReduce m) = return $ PartialOrderReduce m
 
 instance Compressable (DataTypeClause a) where
     mcompress (DataTypeClause n me) = return (DataTypeClause n) $$ mcompress me
