@@ -70,9 +70,10 @@ instance Eq ScopeIdentifier where
         vs1 == vs2 && p1 == p2
 
 instance Hashable ScopeIdentifier where
-    hash (SFunctionBind n1 args1 p1) =
-        combine 1 (combine (hash n1) (combine (hash args1) (hash p1)))
-    hash (SVariableBind vs1 p1) = combine 2 (combine (hash vs1) (hash p1))
+    hashWithSalt s (SFunctionBind n1 args1 p1) =
+        s `hashWithSalt` (1 :: Int) `hashWithSalt` n1 `hashWithSalt` args1 `hashWithSalt` p1
+    hashWithSalt s (SVariableBind vs1 p1) =
+        s `hashWithSalt` (2 :: Int) `hashWithSalt` vs1 `hashWithSalt` p1
 
 instance Ord ScopeIdentifier where
     compare (SFunctionBind n1 vss1 p1) (SFunctionBind n2 vss2 p2) =
@@ -108,11 +109,12 @@ instance Eq FunctionIdentifier where
     _ == _ = False
 
 instance Hashable FunctionIdentifier where
-    hash (FBuiltInFunction n1 vs) = combine 2 (combine (hash n1) (hash vs))
-    hash (FLambda expr parent) =
-        combine 3 (combine (hash (show expr)) (hash parent))
-    hash (FMatchBind n vs parent) =
-        combine 4 (combine (hash n) (combine (hash vs) (hash parent)))
+    hashWithSalt s (FBuiltInFunction n1 vs) =
+        s `hashWithSalt` (2 :: Int) `hashWithSalt` n1 `hashWithSalt` vs
+    hashWithSalt s (FLambda expr parent) =
+        s `hashWithSalt` (3 :: Int) `hashWithSalt` (show expr) `hashWithSalt` parent
+    hashWithSalt s (FMatchBind n vs parent) =
+         s `hashWithSalt` (4 :: Int) `hashWithSalt` n `hashWithSalt` vs `hashWithSalt` parent
 
 instance Ord FunctionIdentifier where
     compare (FBuiltInFunction n1 args1) (FBuiltInFunction n2 args2) =
@@ -154,22 +156,22 @@ lookupVar :: Name -> EvaluationMonad Value
 lookupVar n = lookupVarMaybeThunk n >>= removeThunk
 
 instance (Ix i, Hashable a) => Hashable (Array i a) where
-    hash arr = F.foldr combine 0 (fmap hash arr)
+    hashWithSalt s arr = F.foldr hashWithSalt s (fmap hash arr)
 
 instance Hashable Value where
-    hash (VInt i) = combine 1 (hash i)
-    hash (VBool b) = combine 2 (hash b)
-    hash (VChar c) = combine 3 (hash c)
-    hash (VTuple vs) = combine 5 (hash vs)
-    hash (VDot vs) = combine 6 (hash vs)
-    hash (VChannel n) = combine 7 (hash n)
-    hash (VDataType n) = combine 8 (hash n)
-    hash (VList vs) = combine 9 (hash vs)
-    hash (VSet vset) = combine 10 (hash vset)
+    hashWithSalt s (VInt i) = s `hashWithSalt` (1 :: Int) `hashWithSalt` i
+    hashWithSalt s (VBool b) = s `hashWithSalt` (2 :: Int) `hashWithSalt` b
+    hashWithSalt s (VChar c) = s `hashWithSalt` (3 :: Int) `hashWithSalt` c
+    hashWithSalt s (VTuple vs) = s `hashWithSalt` (5 :: Int) `hashWithSalt` vs
+    hashWithSalt s (VDot vs) = s `hashWithSalt` (6 :: Int) `hashWithSalt` vs
+    hashWithSalt s (VChannel n) = s `hashWithSalt` (7 :: Int) `hashWithSalt` n
+    hashWithSalt s (VDataType n) = s `hashWithSalt` (8 :: Int) `hashWithSalt` n
+    hashWithSalt s (VList vs) = s `hashWithSalt` (9 :: Int) `hashWithSalt` vs
+    hashWithSalt s (VSet vset) = s `hashWithSalt` (10 :: Int) `hashWithSalt` vset
     -- We identify all functions (for process names) - see comment below in Eq.
-    hash (VFunction id _) = combine 11 (hash id)
-    hash (VProc p) = combine 12 (hash p)
-    hash (VMap m) = combine 13 (hash (M.toList m))
+    hashWithSalt s (VFunction id _) = s `hashWithSalt` (11 :: Int) `hashWithSalt` id
+    hashWithSalt s (VProc p) = s `hashWithSalt` (12 :: Int) `hashWithSalt` p
+    hashWithSalt s (VMap m) = s `hashWithSalt` (13 :: Int) `hashWithSalt` (M.toList m)
 
 instance Eq Value where
     VInt i1 == VInt i2 = i1 == i2
