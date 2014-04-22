@@ -151,6 +151,7 @@ typeVarSupply :: IORef (Supply Int)
 typeVarSupply = unsafePerformIO (do
     s <- newNumSupply
     newIORef s)
+{-# NOINLINE typeVarSupply #-}
 
 takeTypeVarFromSupply :: MonadIO m => m TypeVar
 takeTypeVarFromSupply = do
