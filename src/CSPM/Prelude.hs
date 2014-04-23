@@ -53,6 +53,7 @@ externalFunctionForOccName (OccName s) =
 
 allBuiltins :: [BuiltIn]
 allBuiltins = unsafePerformIO makeBuiltins
+{-# NOINLINE allBuiltins #-}
 
 makeBuiltins :: IO [BuiltIn]
 makeBuiltins = do

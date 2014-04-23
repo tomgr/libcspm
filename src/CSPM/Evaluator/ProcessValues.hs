@@ -39,9 +39,9 @@ eventSetFromList :: [Event] -> EventSet
 eventSetFromList = S.fromList
 
 instance Hashable Event where
-    hash Tau = 1
-    hash Tick = 2
-    hash (UserEvent vs) = combine 3 (hash vs)
+    hashWithSalt s Tau = s `hashWithSalt` (1 :: Int)
+    hashWithSalt s Tick = s `hashWithSalt` (2 :: Int)
+    hashWithSalt s (UserEvent vs) = s `hashWithSalt` (3 :: Int) `hashWithSalt` vs
 
 -- | ProcNames uniquely identify processes.
 newtype ProcName = ProcName (ScopeIdentifier) deriving (Eq, Hashable, Ord)
@@ -65,23 +65,26 @@ data ProcOperator seq ev evs =
 
 instance (Hashable ev, Hashable evs, Hashable (seq evs)) =>
         Hashable (ProcOperator seq ev evs) where
-    hash (Chase True) = 1
-    hash (Chase False) = 2
-    hash Diamond = 3
-    hash (Explicate True) = 4
-    hash (Explicate False) = 5
-    hash (Normalize True)= 6
-    hash (Normalize False)= 7
-    hash (Prioritise False evs) = combine 8 (hash evs)
-    hash (Prioritise True evs) = combine 9 (hash evs)
-    hash ModelCompress = 10
-    hash StrongBisim = 11
-    hash TauLoopFactor = 12
-    hash WeakBisim = 13
-    hash Determinise = 14
-    hash DelayBisim = 15
-    hash (TraceWatchdog evs ev) = combine 16 (combine (hash evs) (hash ev))
-    hash (FailureWatchdog evs ev) = combine 18 (combine (hash evs) (hash ev))
+    hashWithSalt s (Chase True) = s `hashWithSalt` (1 :: Int)
+    hashWithSalt s (Chase False) = s `hashWithSalt` (2 :: Int)
+    hashWithSalt s Diamond = s `hashWithSalt` (3 :: Int)
+    hashWithSalt s (Explicate True) = s `hashWithSalt` (4 :: Int)
+    hashWithSalt s (Explicate False) = s `hashWithSalt` (5 :: Int)
+    hashWithSalt s (Normalize True)= s `hashWithSalt` (6 :: Int)
+    hashWithSalt s (Normalize False)= s `hashWithSalt` (7 :: Int)
+    hashWithSalt s (Prioritise False evs) =
+        s `hashWithSalt` (8 :: Int) `hashWithSalt` evs
+    hashWithSalt s (Prioritise True evs) = s `hashWithSalt` (9 :: Int) `hashWithSalt` evs
+    hashWithSalt s ModelCompress = 10
+    hashWithSalt s StrongBisim = 11
+    hashWithSalt s TauLoopFactor = 12
+    hashWithSalt s WeakBisim = 13
+    hashWithSalt s Determinise = 14
+    hashWithSalt s DelayBisim = 15
+    hashWithSalt s (TraceWatchdog evs ev) =
+        s `hashWithSalt` (16 :: Int) `hashWithSalt` evs `hashWithSalt` ev
+    hashWithSalt s (FailureWatchdog evs ev) =
+        s `hashWithSalt` (18 :: Int) `hashWithSalt` evs `hashWithSalt` ev
 
 data CSPOperator seq ev evs evm =
     PAlphaParallel (seq evs)
@@ -107,22 +110,24 @@ data CSPOperator seq ev evs evm =
 
 instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs)) =>
         Hashable (CSPOperator seq ev evs evm) where
-    hash (PAlphaParallel s) = combine 1 (hash s)
-    hash (PException s) = combine 2 (hash s)
-    hash PExternalChoice = 3
-    hash (PGenParallel evs) = combine 4 (hash evs)
-    hash (PHide evs) = combine 5 (hash evs)
-    hash PInternalChoice = 6
-    hash PInterrupt = 7
-    hash PInterleave = 8
-    hash (PLinkParallel s) = combine 9 (hash s)
-    hash (POperator op) = combine 11 (hash op)
-    hash (PPrefix ev) = combine 12 (hash ev)
-    hash (PRename evm) = combine 13 (hash evm)
-    hash PSequentialComp = 14
-    hash PSlidingChoice = 15
-    hash (PSynchronisingExternalChoice evs) = combine 16 (hash evs)
-    hash (PSynchronisingInterrupt evs) = combine 17 (hash evs)
+    hashWithSalt s (PAlphaParallel a) = s `hashWithSalt` (1 :: Int) `hashWithSalt` a
+    hashWithSalt s (PException a) = s `hashWithSalt` (2 :: Int) `hashWithSalt` a
+    hashWithSalt s PExternalChoice = 3
+    hashWithSalt s (PGenParallel evs) = s `hashWithSalt` (4 :: Int) `hashWithSalt` evs
+    hashWithSalt s (PHide evs) = s `hashWithSalt` (5 :: Int) `hashWithSalt` evs
+    hashWithSalt s PInternalChoice = 6
+    hashWithSalt s PInterrupt = 7
+    hashWithSalt s PInterleave = 8
+    hashWithSalt s (PLinkParallel evs) = s `hashWithSalt` (9 :: Int) `hashWithSalt` evs
+    hashWithSalt s (POperator op) = s `hashWithSalt` (11 :: Int) `hashWithSalt` op
+    hashWithSalt s (PPrefix ev) = s `hashWithSalt` (12 :: Int) `hashWithSalt` ev
+    hashWithSalt s (PRename evm) = s `hashWithSalt` (13 :: Int) `hashWithSalt` evm
+    hashWithSalt s PSequentialComp = 14
+    hashWithSalt s PSlidingChoice = 15
+    hashWithSalt s (PSynchronisingExternalChoice evs) =
+        s `hashWithSalt` (16 :: Int) `hashWithSalt` evs
+    hashWithSalt s (PSynchronisingInterrupt evs) =
+        s `hashWithSalt` (17 :: Int) `hashWithSalt` evs
 
 errorThunk = panic "Trimmed process evaluated"
 
@@ -184,10 +189,12 @@ instance (Eq pn, Eq (seq (Proc seq op pn ev evs evm)), Eq (op seq ev evs evm)) =
 
 instance (Hashable pn, Hashable (seq (Proc seq op pn ev evs evm)), Hashable (op seq ev evs evm)) =>
         Hashable (Proc seq op pn ev evs evm) where
-    hash (PProcCall pn1 _) = combine 1 (hash pn1)
-    hash (PUnaryOp op1 p1) = combine 2 (combine (hash op1) (hash p1))
-    hash (PBinaryOp op1 p1 p2) = combine 3 (combine (hash op1) (combine (hash p1) (hash p2)))
-    hash (POp op ps) = combine 4 (combine (hash op) (hash ps))
+    hashWithSalt s (PProcCall pn1 _) = s `hashWithSalt` (1 :: Int) `hashWithSalt` pn1
+    hashWithSalt s (PUnaryOp op1 p1) = s `hashWithSalt` (2 :: Int) `hashWithSalt` op1 `hashWithSalt` p1
+    hashWithSalt s (PBinaryOp op1 p1 p2) =
+        s `hashWithSalt` (3 :: Int) `hashWithSalt` op1 `hashWithSalt` p1 `hashWithSalt` p2
+    hashWithSalt s (POp op ps) =
+        s `hashWithSalt` (4 :: Int) `hashWithSalt` op `hashWithSalt` ps
 
 instance (Ord pn, Ord (seq (Proc seq op pn ev evs evm)), Ord (op seq ev evs evm)) =>
         Ord (Proc seq op pn ev evs evm) where
@@ -213,7 +220,7 @@ type UnCompiledProcOperator =
     ProcOperator S.Seq Event (S.Seq Event)
 
 instance Hashable a => Hashable (S.Seq a) where
-    hash a = foldr combine 0 (F.toList (fmap hash a))
+    hashWithSalt s a = foldr hashWithSalt s (F.toList (fmap hash a))
 
 -- | Gives the operator of a process. If the process is a ProcCall an error is
 -- thrown.

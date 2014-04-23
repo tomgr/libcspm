@@ -148,4 +148,5 @@ instance Ord b => Ord (Located b) where
     compare a b = compare (locatedInner a) (locatedInner b)
 
 instance Hashable b => Hashable (Annotated a b) where
+    hashWithSalt s a = hashWithSalt s (unAnnotate a)
     hash a = hash (unAnnotate a)

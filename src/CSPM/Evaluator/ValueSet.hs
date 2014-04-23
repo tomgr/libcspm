@@ -63,16 +63,16 @@ data ValueSet =
     | AllMaps ValueSet ValueSet
 
 instance Hashable ValueSet where
-    hash Integers = 1
-    hash Processes = 2
-    hash (IntSetFrom lb) = combine 3 lb
-    hash (AllSequences vs) = combine 4 (hash vs)
+    hashWithSalt s Integers = s `hashWithSalt` (1 :: Int)
+    hashWithSalt s Processes = s `hashWithSalt` (2 :: Int)
+    hashWithSalt s (IntSetFrom lb) = s `hashWithSalt` (3 :: Int) `hashWithSalt` lb
+    hashWithSalt s (AllSequences vs) = s `hashWithSalt` (4 :: Int) `hashWithSalt` vs
     -- All the above are the ONLY possible representations of the sets (as the
     -- sets are infinite). However, other sets can be represented in multiple
     -- ways so we have to normalise to an explicit set, essentially. 
     -- This is already guaranteed to be sorted
-    hash (ExplicitSet vs) = combine 5 (hash (S.toList vs))
-    hash s = combine 5 (hash (sort $ toList s))
+    hashWithSalt s (ExplicitSet vs) = s `hashWithSalt` (5 :: Int) `hashWithSalt` (S.toList vs)
+    hashWithSalt s set = s `hashWithSalt` (sort $ toList set)
 
 instance Eq ValueSet where
     s1 == s2 = compare s1 s2 == EQ

@@ -1,10 +1,11 @@
-{-# LANGUAGE MultiParamTypeClasses, ScopedTypeVariables #-}
+{-# LANGUAGE DeriveDataTypeable, MultiParamTypeClasses, ScopedTypeVariables #-}
 module Main (main) where
 
 import Control.Exception
 import Control.Monad
 import Control.Monad.Trans
 import Data.List
+import Data.Typeable
 import CSPM
 import CSPM.Evaluator.ProcessValues
 import CSPM.Evaluator.ValuePrettyPrinter
@@ -48,6 +49,7 @@ getAndFilterDirectoryContents fp = do
             else return []) ns
 
 data LibCSPMTest = IOTestFunction (IO LibCSPMTestResult)
+    deriving Typeable
 data LibCSPMTestRunning = LibCSPMTestRunning
 data LibCSPMTestResult =
     LibCSPMTestResult RunResult RunResult [ErrorMessage] [ErrorMessage]

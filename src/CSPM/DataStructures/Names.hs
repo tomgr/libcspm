@@ -100,6 +100,7 @@ instance Eq Name where
     n1 == n2 = nameUnique n1 == nameUnique n2
 
 instance Hashable Name where
+    hashWithSalt s n = s `hashWithSalt` nameUnique n
     hash n = nameUnique n
 
 instance Ord Name where
