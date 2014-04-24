@@ -22,14 +22,19 @@ import Util.Exception
 import Util.Monad hiding (($$))
 import Util.PrettyPrint
 
+import GHC.IO.Encoding (utf8, setLocaleEncoding)
+import System.Info (os)
+
 data RunResult = 
     ErrorOccured
     | WarningsEmitted
     | PassedNoWarnings
     deriving Eq
-        
+    
 main :: IO ()
 main = do
+    -- Fix printing unicode characters under Windows
+    when (os == "mingw32") $ setLocaleEncoding utf8
     tests <- runSections
     defaultMain tests
 
