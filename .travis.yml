@@ -10,3 +10,5 @@ notifications:
 
 install:
   - cabal install --enable-tests --force-reinstalls --only-dependencies
+
+ghc: 7.8
