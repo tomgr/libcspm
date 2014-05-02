@@ -21,13 +21,12 @@ import Data.Array.ST
 import Data.Bits
 import Data.Word
 import Prelude hiding (map, mapM)
-import qualified Prelude as P
 
 type Bucket = Word64
 type Set s = STUArray s Int Bucket
 
 bucketBitCount :: Int
-bucketBitCount = bitSize (undefined :: Bucket)
+bucketBitCount = finiteBitSize (undefined :: Bucket)
 
 newSized :: Int -> ST s (Set s)
 newSized maxVal = newArray (0, bucketCount-1) 0
