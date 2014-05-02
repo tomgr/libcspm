@@ -1,6 +1,5 @@
 {
-{-# OPTIONS_GHC -fno-warn-lazy-unlifted-bindings -fno-warn-unused-imports 
-    -fno-warn-unused-binds #-}
+{-# OPTIONS_GHC -fno-warn-unused-imports -fno-warn-unused-binds #-}
 module CSPM.Parser.Lexer where
 
 import Data.ByteString.Internal (c2w)
