@@ -1,0 +1,12 @@
+module G
+exports
+
+module X
+exports
+endmodule
+
+J = X.0
+
+endmodule
+
+datatype Y = X.Int

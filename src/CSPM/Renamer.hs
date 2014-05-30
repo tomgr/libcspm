@@ -1409,6 +1409,7 @@ varNotInScopeMessage n isModule = do
                         Private -> text "Hint: move to the exports section"
                         Instance -> text "Hint: create a module instance")
     else do
+    mInverseModuleName <- lookupName' n (not isModule) False
     env <- gets environment
     let availablePp =
             [(show $ prettyPrint rn, (rn, n))
@@ -1422,6 +1423,15 @@ varNotInScopeMessage n isModule = do
     return $
         (if isModule then text "The module " else empty) <>
         (prettyPrint n <+> text "is not in scope")
+        P.$$ (
+            case mInverseModuleName of
+                Just _ ->
+                    if isModule then
+                        text "because the in-scope name is not a module, but a module was requested."
+                    else
+                        text "because the in-scope name is a module, but a normal name was requested."
+                Nothing -> empty
+        )
         P.$$ case suggestions of
             [] -> case builtinSuggestions of
                     [] -> empty
