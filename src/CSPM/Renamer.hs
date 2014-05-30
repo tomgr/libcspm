@@ -266,8 +266,9 @@ addErrors :: [ErrorMessage] -> RenamerMonad ()
 addErrors msgs = do
     modify (\st -> st { errors = msgs ++ errors st })
     errs <- gets errors
-    when (length errs > 20) $
-        throwSourceError errs
+    when (length errs > 20) $ do
+        let lastError = mkErrorMessage Unknown (text "Too many errors generated. Stopping")
+        throwSourceError $! lastError : errs
 
 addModuleContext :: OccName -> RenamerMonad a -> RenamerMonad a
 addModuleContext mName prog = do

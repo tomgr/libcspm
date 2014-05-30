@@ -22,8 +22,8 @@ instance Ord SrcLoc where
         (l1 `compare` l2) `thenCmp` 
         (c1 `compare` c2)
     NoLoc `compare` NoLoc = EQ
-    NoLoc `compare` _ = LT
-    _ `compare` NoLoc = GT
+    NoLoc `compare` _ = GT
+    _ `compare` NoLoc = LT
     
 -- From GHC
 data SrcSpan = 
