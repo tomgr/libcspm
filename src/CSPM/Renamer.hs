@@ -263,7 +263,11 @@ setSrcSpan loc = modify (\ st -> st { srcSpan = loc })
 
 -- | Report a message as an error. This will be raised at the outer monad level.
 addErrors :: [ErrorMessage] -> RenamerMonad ()
-addErrors msgs = modify (\st -> st { errors = msgs ++ errors st })
+addErrors msgs = do
+    modify (\st -> st { errors = msgs ++ errors st })
+    errs <- gets errors
+    when (length errs > 20) $
+        throwSourceError errs
 
 addModuleContext :: OccName -> RenamerMonad a -> RenamerMonad a
 addModuleContext mName prog = do
