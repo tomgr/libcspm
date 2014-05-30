@@ -88,13 +88,13 @@ tokens :-
     <sem_prop>@spaces"]:"       { begin 0 }
     <sem_prop>@spaces"]"        { begin 0 }
 
-    <0>@nl"[T="@nl              { tok (TRefines Traces) }
-    <0>@nl"[F="@nl              { tok (TRefines Failures) }
-    <0>@nl"[FD="@nl             { tok (TRefines FailuresDivergences) }
-    <0>@nl"[V="@nl              { tok (TRefines Revivals) }
-    <0>@nl"[VD="@nl             { tok (TRefines RevivalsDivergences) }
-    <0>@nl"[R="@nl              { tok (TRefines Refusals) }
-    <0>@nl"[RD="@nl             { tok (TRefines RefusalsDivergences) }
+    <0>@nl"[T="@nl              { soakTok (TRefines Traces) }
+    <0>@nl"[F="@nl              { soakTok (TRefines Failures) }
+    <0>@nl"[FD="@nl             { soakTok (TRefines FailuresDivergences) }
+    <0>@nl"[V="@nl              { soakTok (TRefines Revivals) }
+    <0>@nl"[VD="@nl             { soakTok (TRefines RevivalsDivergences) }
+    <0>@nl"[R="@nl              { soakTok (TRefines Refusals) }
+    <0>@nl"[RD="@nl             { soakTok (TRefines RefusalsDivergences) }
 
     <soak>((\-\-.*\n)|$whitechar)+ { skip }
     <soak>""/$not_white         { begin 0 }
@@ -118,32 +118,32 @@ tokens :-
     <0>"include"$white_no_nl+.*\n { switchInput }
 
     -- Process Syntax
-    <0>@nl"[]"@nl               { tok TExtChoice }
-    <0>@nl"|~|"@nl              { tok TIntChoice }
-    <0>@nl"|||"@nl              { tok TInterleave }
-    <0>@nl"/\"@nl               { tok TInterrupt }
-    <0>@nl"->"@nl               { tok TPrefix }
-    <0>@nl"[>"@nl               { tok TSlidingChoice }
-    <0>@nl"|>"@nl               { tok TRException }
-    <0>@nl"||"@nl               { tok TParallel }
-    <0>@nl";"@nl                { tok TSemiColon }
-    <0>@nl"&"@nl                { tok TGuard }
-    <0>@nl"/+"@nl               { tok TLSyncInterrupt }
-    <0>@nl"+\"@nl               { tok TRSyncInterrupt }
-    <0>@nl"[+"@nl               { tok TLSyncExtChoice }
-    <0>@nl"+]"@nl               { tok TRSyncExtChoice }
+    <0>@nl"[]"@nl               { soakTok TExtChoice }
+    <0>@nl"|~|"@nl              { soakTok TIntChoice }
+    <0>@nl"|||"@nl              { soakTok TInterleave }
+    <0>@nl"/\"@nl               { soakTok TInterrupt }
+    <0>@nl"->"@nl               { soakTok TPrefix }
+    <0>@nl"[>"@nl               { soakTok TSlidingChoice }
+    <0>@nl"|>"@nl               { soakTok TRException }
+    <0>@nl"||"@nl               { soakTok TParallel }
+    <0>@nl";"@nl                { soakTok TSemiColon }
+    <0>@nl"&"@nl                { soakTok TGuard }
+    <0>@nl"/+"@nl               { soakTok TLSyncInterrupt }
+    <0>@nl"+\"@nl               { soakTok TRSyncInterrupt }
+    <0>@nl"[+"@nl               { soakTok TLSyncExtChoice }
+    <0>@nl"+]"@nl               { soakTok TRSyncExtChoice }
 
     -- Boolean Operators
     <0>@nl"and"/$notid          { soakTok TAnd }
     <0>@nl"or"/$notid           { soakTok TOr }
     <0>@nl"not"/$notid          { soakTok TNot }
-    <0>@nl"=="@nl               { tok TEq }
-    <0>@nl"!="@nl               { tok TNotEq }
-    <0>@nl"<="@nl               { tok TLtEq }
-    <0>@nl">="@nl               { tok TGtEq }
+    <0>@nl"=="@nl               { soakTok TEq }
+    <0>@nl"!="@nl               { soakTok TNotEq }
+    <0>@nl"<="@nl               { soakTok TLtEq }
+    <0>@nl">="@nl               { soakTok TGtEq }
     -- We need a empty sequence token since the parser will not execute the
     <0>"<"$whitechar*">"        { tok TEmptySeq }
-    <0>"<"@nl                   { tok TLt }
+    <0>"<"@nl                   { soakTok TLt }
     <0>@nl">"                   { gt }
 
     -- Parenthesis
@@ -159,31 +159,31 @@ tokens :-
     <0>@nl"]]"                  { closeseq TRDoubleSqBracket }
     <0>@nl"[|"@nl               { openseq TLPipeSqBracket }
     <0>@nl"|]"@nl               { closeseq TRPipeSqBracket }
-    <0>@nl"["@nl                { tok TLSqBracket }
-    <0>@nl"]"@nl                { tok TRSqBracket }
+    <0>@nl"["@nl                { soakTok TLSqBracket }
+    <0>@nl"]"@nl                { soakTok TRSqBracket }
 
     -- General Symbols
-    <0>@nl"|"@nl                { tok TPipe }
-    <0>@nl","@nl                { tok TComma }
-    <0>@nl".."@nl               { tok TDoubleDot }
-    <0>@nl"."@nl                { tok TDot }
-    <0>@nl"?"@nl                { tok TQuestionMark }
-    <0>@nl"!"@nl                { tok TExclamationMark }
-    <0>@nl"$"@nl                { tok TDollar }
-    <0>@nl"<-"@nl               { tok TDrawnFrom }
-    <0>@nl"<->"@nl              { tok TTie }
-    <0>"::"                     { tok TScope }
+    <0>@nl"|"@nl                { soakTok TPipe }
+    <0>@nl","@nl                { soakTok TComma }
+    <0>@nl".."@nl               { soakTok TDoubleDot }
+    <0>@nl"."@nl                { soakTok TDot }
+    <0>@nl"?"@nl                { soakTok TQuestionMark }
+    <0>@nl"!"@nl                { soakTok TExclamationMark }
+    <0>@nl"$"@nl                { soakTok TDollar }
+    <0>@nl"<-"@nl               { soakTok TDrawnFrom }
+    <0>@nl"<->"@nl              { soakTok TTie }
+    <0>"::"                     { soakTok TScope }
     <0>@nl":"                   { soakTok TColon }
 
-    <0>@nl" ::"@nl              { tok TOfType }
-    <0>@nl":: "@nl              { tok TOfType }
-    <0>@nl"=>*"@nl              { tok TYieldStar }
-    <0>@nl"=>"@nl               { tok TYield }
+    <0>@nl" ::"@nl              { soakTok TOfType }
+    <0>@nl":: "@nl              { soakTok TOfType }
+    <0>@nl"=>*"@nl              { soakTok TYieldStar }
+    <0>@nl"=>"@nl               { soakTok TYield }
 
-    <0>@nl"@@"@nl               { tok TDoubleAt }
+    <0>@nl"@@"@nl               { soakTok TDoubleAt }
 
     -- Program Structure
-    <0>@nl"="@nl                { tok TDefineEqual }
+    <0>@nl"="@nl                { soakTok TDefineEqual }
     <0>@nl"if"/$notid           { soakTok TIf }
     <0>@nl"then"/$notid         { soakTok TThen }
     <0>@nl"else"/$notid         { soakTok TElse }
@@ -199,21 +199,21 @@ tokens :-
     <0>"module"/$notid          { soakTok TModule }
     <0>"exports"/$notid         { tok TExports }
     <0>"endmodule"/$notid       { tok TEndModule }
-    <0>"instance"               { tok TInstance }
-    <0>@nl"\"@nl                { tok TBackSlash }
-    <0>@nl"@"@nl                { tok TLambdaDot }
+    <0>"instance"               { soakTok TInstance }
+    <0>@nl"\"@nl                { soakTok TBackSlash }
+    <0>@nl"@"@nl                { soakTok TLambdaDot }
     <0>"Timed"/$notid           { soakTok TTimed }
 
     -- Arithmetic
-    <0>@nl"+"@nl                { tok TPlus }
+    <0>@nl"+"@nl                { soakTok TPlus }
     <0>"-"/[[^\->]\n]           { soakTok TMinus }
-    <0>@nl"*"@nl                { tok TTimes }
-    <0>@nl"/"@nl                { tok TDivide }
-    <0>@nl"%"@nl                { tok TMod }
+    <0>@nl"*"@nl                { soakTok TTimes }
+    <0>@nl"/"@nl                { soakTok TDivide }
+    <0>@nl"%"@nl                { soakTok TMod }
 
     -- Sequence Symbols
-    <0>@nl"^"@nl                { tok TConcat }
-    <0>"#"@nl                   { tok THash }
+    <0>@nl"^"@nl                { soakTok TConcat }
+    <0>"#"@nl                   { soakTok THash }
 
     -- 'Wildcards'
     <0>$alpha+$alphanum*$prime* { stok (\ s -> TIdent s) }
@@ -223,7 +223,7 @@ tokens :-
     <0>@nl\"@string*\"          { stok (\ s -> TString (read s)) }
 
     -- Must be after names
-    <0>@nl"_"@nl                { tok TWildCard }
+    <0>@nl"_"@nl                { soakTok TWildCard }
 
     <0>@nltok                   { tok TNewLine }
 

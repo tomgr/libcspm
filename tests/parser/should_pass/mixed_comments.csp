@@ -1,0 +1,20 @@
+f =
+   {
+      ((0,0),
+       0, {- FDR3 seems not to like comments like this -}
+       (0,3)),
+       
+      ((0,1),  
+       0,
+       (0,0))
+      -- FDR3 seems not to like comments like this 
+   }
+
+P = STOP [] {- S -}
+      STOP
+
+Q = STOP |~| {- S -}
+      STOP
+
+R = STOP ||| {- S -}
+      STOP
