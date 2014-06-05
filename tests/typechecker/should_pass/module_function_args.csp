@@ -1,0 +1,11 @@
+module M(X, f)
+    
+exports
+    
+    h = f(0) + 1
+
+endmodule
+
+f(x) = 0
+
+instance T = M(0, f)

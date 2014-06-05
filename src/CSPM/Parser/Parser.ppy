@@ -281,7 +281,7 @@ PatList :: { [PPat] }
 
 ExpList :: { [PExp] }
     :
-    "(" CExpList ")"                            { reverse $2 }
+    "(" CExpList ")"                            { $2 }
 
 Assertion :: { PAssertion }
     :
