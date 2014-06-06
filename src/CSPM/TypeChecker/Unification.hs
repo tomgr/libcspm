@@ -135,10 +135,13 @@ unifyAll (t1:ts) = do
 -- constraint, or can be made to satsify the constraint by appropriate type
 -- substitutions, in which case the type substitutions are performed.
 unifyConstraint :: Constraint -> Type -> TypeCheckMonad ()
-unifyConstraint c (TVar v) | isRigid v = do
+unifyConstraint c typ =
+    addConstraintUnificationPair (c, typ) $! unifyConstraintNoStk c typ
+
+unifyConstraintNoStk c (TVar v) | isRigid v = do
     when (not (or (map (constraintImpliedBy c) (constraints v)))) $ do
-        raiseMessageAsError $ constraintUnificationErrorMessage c (TVar v)
-unifyConstraint c (TVar v) = do
+        raiseConstraintErrorMessage
+unifyConstraintNoStk c (TVar v) = do
     res <- readTypeRef v
     case res of
         Left (tva, cs)  -> 
@@ -146,8 +149,8 @@ unifyConstraint c (TVar v) = do
                 fv <- freshTypeVarWithConstraints (nub (sort (c:cs)))
                 applySubstitution v fv
                 return ()
-        Right t         -> unifyConstraint c t
-unifyConstraint c (TExtendable t pt) = do
+        Right t         -> unifyConstraintNoStk c t
+unifyConstraintNoStk c (TExtendable t pt) = do
     res <- readTypeRef pt
     case res of
         Left _  ->
@@ -157,63 +160,63 @@ unifyConstraint c (TExtendable t pt) = do
                 unifyConstraint c t
                 safeWriteTypeRef pt TExtendableEmptyDotList
             else 
-                when (c /= CEq && c /= CSet) $ raiseMessageAsError $
-                    constraintUnificationErrorMessage c (TExtendable t pt)
+                when (c /= CEq && c /= CSet) $ raiseConstraintErrorMessage
         Right t -> do
             t' <- compress (TExtendable t pt)
             unifyConstraint c t'
-unifyConstraint CYieldable (TDatatype n) = return ()
-unifyConstraint CYieldable TEvent = return ()
-unifyConstraint CYieldable (TDot t1 t2) = do
+unifyConstraintNoStk CYieldable (TDatatype n) = return ()
+unifyConstraintNoStk CYieldable TEvent = return ()
+unifyConstraintNoStk CYieldable (TDot t1 t2) = do
     t <- evaluateDots (TDot t1 t2)
     case t of
-        TDot _ _ -> raiseMessageAsError $
-            constraintUnificationErrorMessage CYieldable t
+        TDot _ _ -> raiseConstraintErrorMessage
         _ -> unifyConstraint CYieldable t
-unifyConstraint CYieldable t =
-    raiseMessageAsError $ constraintUnificationErrorMessage CYieldable t
-unifyConstraint CSet TProc = return ()
-unifyConstraint c TInt = return ()
-unifyConstraint c TChar = return ()
+unifyConstraintNoStk CYieldable t = raiseConstraintErrorMessage
+unifyConstraintNoStk CSet TProc = return ()
+unifyConstraintNoStk c TInt = return ()
+unifyConstraintNoStk c TChar = return ()
  -- Bools are not orderable
-unifyConstraint c TBool | c /= COrd = return ()
-unifyConstraint CEq (TDatatype n) = do
+unifyConstraintNoStk c TBool | c /= COrd = return ()
+unifyConstraintNoStk CEq (TDatatype n) = do
     b <- datatypeIsComparableForEquality n
     if b then return ()
-    else raiseMessageAsError $ constraintUnificationErrorMessage CEq (TDatatype n)
+    else raiseConstraintErrorMessage
 -- User data types are not orderable
-unifyConstraint c (TDatatype n) | c /= COrd = return ()
-unifyConstraint c TEvent | c /= COrd = return ()
-unifyConstraint CInputable (TSeq _) = return ()
-unifyConstraint CSet (TSeq t) = unifyConstraint CSet t
-unifyConstraint CEq (TSeq t) = unifyConstraint CEq t
+unifyConstraintNoStk c (TDatatype n) | c /= COrd = return ()
+unifyConstraintNoStk c TEvent | c /= COrd = return ()
+unifyConstraintNoStk CInputable (TSeq _) = return ()
+unifyConstraintNoStk CSet (TSeq t) = unifyConstraint CSet t
+unifyConstraintNoStk CEq (TSeq t) = unifyConstraint CEq t
 -- Ordering sequenecs means prefixing testing, which requires only equality
-unifyConstraint COrd (TSeq t) = unifyConstraint CEq t
-unifyConstraint CInputable (TTuple _) = return ()
-unifyConstraint c (TTuple ts) = mapM_ (unifyConstraint c) ts
+unifyConstraintNoStk COrd (TSeq t) = unifyConstraint CEq t
+unifyConstraintNoStk CInputable (TTuple _) = return ()
+unifyConstraintNoStk c (TTuple ts) = mapM_ (unifyConstraint c) ts
 -- Dotable types are not orderable (as events and datatypes are not). Nor are
 -- they inputable. We can create sets of them though.
-unifyConstraint CEq (TDotable a b) = unifyConstraint CEq a >> unifyConstraint CEq b
-unifyConstraint CSet (TDotable a b) = unifyConstraint CSet a >> unifyConstraint CSet b
-unifyConstraint CInputable (TDot t1 t2) = do
+unifyConstraintNoStk CEq (TDotable a b) = unifyConstraint CEq a >> unifyConstraint CEq b
+unifyConstraintNoStk CSet (TDotable a b) = unifyConstraint CSet a >> unifyConstraint CSet b
+unifyConstraintNoStk CInputable (TDot t1 t2) = do
     t <- evaluateDots (TDot t1 t2)
     case t of
         TDot t1 t2 -> mapM_ (unifyConstraint CInputable) [t1,t2]
         _ -> unifyConstraint CInputable t
-unifyConstraint c (TDot t1 t2) | c /= COrd =
+unifyConstraintNoStk c (TDot t1 t2) | c /= COrd =
     unifyConstraint c t1 >> unifyConstraint c t2
-unifyConstraint CSet (TSet t) = unifyConstraint CSet t
-unifyConstraint CInputable (TSet t) = return ()
-unifyConstraint CEq (TSet t) = unifyConstraint CEq t
+unifyConstraintNoStk CSet (TSet t) = unifyConstraint CSet t
+unifyConstraintNoStk CInputable (TSet t) = return ()
+unifyConstraintNoStk CEq (TSet t) = unifyConstraint CEq t
 -- sets are comparable for equality/orderable iff their inner type is
 -- comparable for equality (as set ordering means subset testing, which requires
 -- only equality)
-unifyConstraint COrd (TSet t) = unifyConstraint CEq t
-unifyConstraint CInputable (TMap _ _) = return ()
-unifyConstraint c (TMap k v) = unifyConstraint c k >> unifyConstraint c v
-unifyConstraint c t = 
-    raiseMessageAsError $ constraintUnificationErrorMessage c t
+unifyConstraintNoStk COrd (TSet t) = unifyConstraint CEq t
+unifyConstraintNoStk CInputable (TMap _ _) = return ()
+unifyConstraintNoStk c (TMap k v) = unifyConstraint c k >> unifyConstraint c v
+unifyConstraintNoStk c t = raiseConstraintErrorMessage
 
+raiseConstraintErrorMessage :: TypeCheckMonad a
+raiseConstraintErrorMessage = do
+    constraintStack <- getConstraintUnificationStack
+    raiseMessageAsError $ constraintUnificationErrorMessage constraintStack
 
 -- | Takes a type and converts TDot t1 t2 to [t1, t2].
 typeToDotList :: Type -> TypeCheckMonad [Type]

@@ -54,6 +54,32 @@ unificationErrorMessage unificationStack =
                 nest 8 (text "with actual type" <+> pt2)])
         $$ tabIndent (printOrigins ts)
 
+constraintUnificationErrorMessage :: [(Constraint, Type)] -> Error
+constraintUnificationErrorMessage [] = panic "Empty unification stack during error"
+constraintUnificationErrorMessage unificationStack = 
+    let 
+        hd = head unificationStack
+        lt = last unificationStack
+        (tc, t) = hd
+        (itc, it) = lt
+        ts = [it, t]
+        [pt1, pt2] = prettyPrintTypes ts
+    in
+        sep [text "The type" <+> pt2,
+            nest 8 (text "does not have the constraint" <+> prettyPrint tc)]
+        $$
+        (if hd == lt then empty
+            else sep [text "whilst checking that the type" <+> pt1,
+                nest 8 (text "has the constraint" <+> prettyPrint itc)])
+        $$ tabIndent (printOrigins ts)
+        $$ case it of
+            TVar v | isRigid v -> 
+                let n = rigidName v in
+                text "Maybe try adding" <+> prettyPrint itc <+> prettyPrint n
+                <+> text "to the type-constraint at:"
+                $$ nest 4 (prettyPrint (nameDefinition n))
+            _ -> empty
+
 printOrigins :: [Type] -> Doc
 printOrigins ts =
     let 
@@ -65,19 +91,6 @@ printOrigins ts =
                 "is the rigid type variable bound by the type signature at",
                 nest 4 (prettyPrint (nameDefinition n))]
     in vcat $ map printOrigin rigidVars
-
-constraintUnificationErrorMessage :: Constraint -> Type -> Error
-constraintUnificationErrorMessage c t = 
-    hang (hang (text "The type") tabWidth (prettyPrint t)) tabWidth
-        (text "does not have the constraint" <+> prettyPrint c)
-    $$ tabIndent (printOrigins [t])
-    $$ case t of
-        TVar v | isRigid v -> 
-            let n = rigidName v in
-            text "Maybe try adding" <+> prettyPrint c <+> prettyPrint n
-            <+> text "to the type-constraint at:"
-            $$ nest 4 (prettyPrint (nameDefinition n))
-        _ -> empty
 
 deprecatedNameUsed :: Name -> Maybe Name -> Error
 deprecatedNameUsed n Nothing = 

@@ -12,6 +12,7 @@ module CSPM.TypeChecker.Monad (
     ErrorContext, addErrorContext, getErrorContexts,
     getSrcSpan, setSrcSpan,
     getUnificationStack, addUnificationPair,
+    getConstraintUnificationStack, addConstraintUnificationPair,
     symmetricUnificationAllowed, disallowSymmetricUnification,
     getInError, setInError,
     resetWarnings, getWarnings, addWarning,
@@ -60,6 +61,8 @@ data TypeInferenceState = TypeInferenceState {
         -- | Stack of attempted unifications - the current one
         -- is at the front. In the form (expected, actual).
         unificationStack :: [(Type, Type)],
+        -- | Stack of attempted constraint unficiations, as per unificationStack.
+        constraintUnificationStack :: [(Constraint, Type)],
         -- | The stack of names that we are currently type-checking.
         definitionStack :: [Name],
         -- | Are we currently in an error state
@@ -79,6 +82,7 @@ newTypeInferenceState = TypeInferenceState {
         errors = [],
         warnings = [],
         unificationStack = [],
+        constraintUnificationStack = [],
         definitionStack = [],
         inError = False,
         symUnificationAllowed = True,
@@ -191,6 +195,18 @@ addUnificationPair tp p = do
     a <- p
     modify (\ st -> st { unificationStack = stk })
     return a
+
+addConstraintUnificationPair :: (Constraint, Type) -> TypeCheckMonad a ->
+    TypeCheckMonad a
+addConstraintUnificationPair tp p = do
+    stk <- getConstraintUnificationStack
+    modify (\st -> st { constraintUnificationStack = tp:stk })
+    a <- p
+    modify (\ st -> st { constraintUnificationStack = stk })
+    return a
+
+getConstraintUnificationStack :: TypeCheckMonad [(Constraint, Type)]
+getConstraintUnificationStack = gets constraintUnificationStack
 
 addDefinitionName :: Name -> TypeCheckMonad a -> TypeCheckMonad a
 addDefinitionName n prog = do
