@@ -155,13 +155,11 @@ instance TypeCheckable (Exp Name) Type where
         return TInt
     typeCheck' (Paren e) = typeCheck e
     typeCheck' (Set es) = do
-        t <- ensureAreEqual es
-        ensureHasConstraint CSet t
+        t <- ensureAreEqualAndHaveConstraint CSet es
         return $ TSet t
     typeCheck' (SetComp es stmts) = 
         typeCheckStmts TSet stmts $ do
-            t <- ensureAreEqual es
-            ensureHasConstraint CSet t
+            t <- ensureAreEqualAndHaveConstraint CSet es
             return $ TSet t
     typeCheck' (SetEnum es) =  do
         fv <- freshTypeVarWithConstraints [CYieldable]

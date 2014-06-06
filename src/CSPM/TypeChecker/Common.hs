@@ -34,6 +34,16 @@ ensureAreEqual (e:es) = do
     mapM (\e -> typeCheckExpect e t) es
     return t
 
+ensureAreEqualTo :: TypeCheckable a Type => Type -> [a] -> TypeCheckMonad Type
+ensureAreEqualTo typ es = do
+    mapM (\e -> typeCheckExpect e typ) es
+    return typ
+
+ensureAreEqualAndHaveConstraint :: TypeCheckable a Type => Constraint -> [a] -> TypeCheckMonad Type
+ensureAreEqualAndHaveConstraint c es = do
+    fv1 <- freshTypeVarWithConstraints [c]
+    ensureAreEqualTo fv1 es
+
 ensureIsList :: TypeCheckable a b => a -> TypeCheckMonad b
 ensureIsList e = do
     fv <- freshTypeVar
