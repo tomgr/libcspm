@@ -23,6 +23,25 @@ import Util.List
 import Util.PartialFunctions
 import Util.PrettyPrint
 
+takeFirstJust :: [Maybe a] -> Maybe a
+takeFirstJust [] = Nothing
+takeFirstJust (Just x : _) = Just x
+takeFirstJust (Nothing : xs) = takeFirstJust xs
+
+pathBetweenVerticies :: Ord i => Graph i v -> i -> i -> Maybe [i]
+pathBetweenVerticies g start end = visit start (S.singleton start)
+    where
+        visit n visited | n == end = Just [end]
+        visit n visited =
+            case successors g n of
+                [] -> Nothing
+                ns -> takeFirstJust [
+                            case visit n' (S.insert n' visited) of
+                                Nothing -> Nothing
+                                Just p -> Just (n:p)
+                            | n' <- successors g n, not (S.member n' visited)
+                        ]
+
 -- | Type check a list of possibly mutually recursive functions
 typeCheckDecls :: [TCDecl] -> TypeCheckMonad ()
 typeCheckDecls decls = do
@@ -100,34 +119,20 @@ typeCheckDecls decls = do
                 instancesOfMod n =
                     [i | i@(ModuleInstance _ nt _ _ _) <- instances, nt == n]
 
-                checkMod (Module nm _ _ _) = 
-                    case instancesOfMod nm of
-                        [] -> return ()
-                        (ModuleInstance n _ _ instanceMap _ : is) -> do
-                            -- Find the cycle
-                            mapM_ (\ n -> do
-                                raiseMessageAsError $
-                                    illegalModuleInstanceCycleErrorMessage nm n 
-                                        (mapPF (invert varToDeclIdMap)
-                                            (pathBetweenVerticies declGraph
+                checkMod (Module nm _ ds1 ds2) = 
+                    mapM_ (\ (ModuleInstance ni _ _ instanceMap _) -> mapM_ (\ n -> 
+                        -- Check to see if there is a path from the module to
+                        -- this var of this instance of the module.
+                        when (hasPath declGraph (apply varToDeclIdMap nm)
+                                (apply varToDeclIdMap n)) $ do
+                            let Just path = pathBetweenVerticies declGraph
                                                 (apply varToDeclIdMap nm)
-                                                (apply varToDeclIdMap n)))
-                                ) (map fst instanceMap)
-                pathBetweenVerticies :: Ord i => Graph i v -> i -> i -> [i]
-                pathBetweenVerticies g i i' =
-                    let
-                        -- Do a DFS
-                        findPath visited i =
-                            let scs = successors g i
-                            in if i' `elem` scs then ([i'], [])
-                                else check visited scs
-                        check visited [] = ([], visited)
-                        check visited (x:xs) =
-                            let (path, visited') = findPath visited x
-                            in case path of
-                                [] -> check visited' xs
-                                _ -> (x : path, visited')
-                    in i : fst (findPath [] i)
+                                                (apply varToDeclIdMap n)
+                                p = mapPF invDeclMap path
+                                firstName = head $ boundNames $ head $ p
+                            setSrcSpan (nameDefinition firstName) $! raiseMessageAsError $
+                                illegalModuleInstanceCycleErrorMessage decls nm ni p
+                        ) (map fst instanceMap)) (instancesOfMod nm)
             in mapM_ checkMod mods
 
         -- When an error occurs continue type checking, but only
@@ -189,10 +194,7 @@ typeCheckMutualyRecursiveGroup ds' = do
     zipWithM setType fvs (map (ForAll []) ftvs)
 
     -- Type check each declaration then generalise the types
-    nts <- generaliseGroup fvs $ map (\ d -> 
-        case boundNames d of
-            [] -> typeCheck d
-            (n:_) -> addDefinitionName n (typeCheck d)) ds
+    nts <- generaliseGroup fvs $ map typeCheck ds
 
     -- Compress all the types we have inferred here (they should never be 
     -- touched again)
@@ -391,12 +393,6 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
             return [(n, TTuple tpats)]
 
     typeCheck' (ModuleInstance n nt args nm (Just mod)) = do
-        -- Check instance
-        stk <- getDefinitionStack
-        when (nt `elem` stk) $ raiseMessageAsError $
-            illegalModuleInstanceCycleErrorMessage nt n $ nt :
-                reverse (takeWhile (\n -> not (n == nt)) stk)
-
         ts <- getType nt
         (TTuple ts, sub) <- instantiate' ts
         targs <- zipWithM typeCheckExpect args ts

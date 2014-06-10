@@ -13,11 +13,16 @@ module CSPM.TypeChecker.Exceptions (
 where
 
 import Prelude
+import Data.List
+import Data.Maybe
 
 import Data.List (nub, sort)
+import CSPM.DataStructures.FreeVars
 import CSPM.DataStructures.Names
+import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
 import CSPM.PrettyPrinter
+import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 
@@ -105,13 +110,47 @@ unsafeNameUsed n =
         <+> text "has not been type-checked."
     $$ text "Therefore, a runtime type error may occur."
 
-illegalModuleInstanceCycleErrorMessage :: Name -> Name -> [Name] -> Error
-illegalModuleInstanceCycleErrorMessage mName iName path = 
-    fsep [text "The module" <+> prettyPrint mName,
+illegalModuleInstanceCycleErrorMessage :: [TCDecl] -> Name -> Name -> [TCDecl] -> Error
+illegalModuleInstanceCycleErrorMessage decls mName iName path = 
+    let 
+        findWithDependency :: [TCDecl] -> Name -> Maybe (TCDecl, Name)
+        findWithDependency decls n =
+            case filter (\ d -> n `elem` freeVars d) decls of
+                [] -> Nothing
+                (x:_) -> Just (x, n)
+
+        findInstanceCyclePath :: Maybe Name -> [TCDecl] -> Doc
+        findInstanceCyclePath (Just thisName) [_] =
+            prettyPrint thisName <+> text "in" <+> prettyPrint iName
+            $$ text "which is an instance of" <+> prettyPrint mName
+        findInstanceCyclePath thisName (from:to:rest) =
+            case unAnnotate from of
+                Module mn _ ds1 ds2 -> 
+                    let (d, n) = head $ catMaybes $ map (findWithDependency (ds1++ds2))
+                                    $ boundNames to
+                    in case thisName of
+                        Nothing -> 
+                            text "Module" <+> prettyPrint mn <+> text "contains"
+                                <+> prettyPrint (head (boundNames d))
+                                <+> text "which calls"
+                            $$ findInstanceCyclePath (Just n) (to:rest)
+                        Just thisName -> 
+                            prettyPrint thisName <> text ", which is defined in"
+                                <+> text "module" <+> prettyPrint mn
+                            $$ text "and also contains"
+                                <+> prettyPrint (head (boundNames d))
+                                <+> text "which calls"
+                            $$ findInstanceCyclePath (Just n) (to:rest)
+                _ -> 
+                    let newName = head (intersect (freeVars from) (boundNames to))
+                    in prettyPrint (fromJust thisName) <+> text "which calls"
+                        $$ findInstanceCyclePath (Just newName) (to:rest)
+
+    in fsep [text "The module" <+> prettyPrint mName,
         text "uses a definition in an instance" <+> prettyPrint iName,
         text "of itself, which is not allowed."]
     $$ text "The path by which the module calls its instance is:"
-    $$ tabIndent (list (map prettyPrint path))
+    $$ tabIndent (findInstanceCyclePath Nothing path)
 
 -- | A datatype used to hold which errors and warnings to actually emit.
 data ErrorOptions = ErrorOptions {

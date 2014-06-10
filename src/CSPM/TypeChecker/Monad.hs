@@ -20,7 +20,6 @@ module CSPM.TypeChecker.Monad (
     datatypeIsComparableForEquality,
     unmarkDatatypeAsComparableForEquality,
     modifyErrorOptions,
-    addDefinitionName, getDefinitionStack,
     
     raiseMessageAsError, raiseMessagesAsError, panic,
     manyErrorsIfFalse, errorIfFalseM, errorIfFalse, tryAndRecover, failM,
@@ -63,8 +62,6 @@ data TypeInferenceState = TypeInferenceState {
         unificationStack :: [(Type, Type)],
         -- | Stack of attempted constraint unficiations, as per unificationStack.
         constraintUnificationStack :: [(Constraint, Type)],
-        -- | The stack of names that we are currently type-checking.
-        definitionStack :: [Name],
         -- | Are we currently in an error state
         inError :: Bool,
         symUnificationAllowed :: Bool,
@@ -83,7 +80,6 @@ newTypeInferenceState = TypeInferenceState {
         warnings = [],
         unificationStack = [],
         constraintUnificationStack = [],
-        definitionStack = [],
         inError = False,
         symUnificationAllowed = True,
         comparableForEqualityDataTypes = [],
@@ -207,16 +203,6 @@ addConstraintUnificationPair tp p = do
 
 getConstraintUnificationStack :: TypeCheckMonad [(Constraint, Type)]
 getConstraintUnificationStack = gets constraintUnificationStack
-
-addDefinitionName :: Name -> TypeCheckMonad a -> TypeCheckMonad a
-addDefinitionName n prog = do
-    modify (\st -> st { definitionStack = n : (definitionStack st) })
-    a <- prog
-    modify (\st -> st { definitionStack = tail (definitionStack st) })
-    return a
-
-getDefinitionStack :: TypeCheckMonad [Name]
-getDefinitionStack = gets definitionStack
 
 symmetricUnificationAllowed :: TypeCheckMonad Bool
 symmetricUnificationAllowed = gets symUnificationAllowed

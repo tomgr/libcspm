@@ -1,0 +1,16 @@
+module M
+exports
+    y = 0
+
+    x = N::c
+endmodule
+
+module N
+exports
+c = {}
+g = global
+endmodule
+
+instance M1 = M
+
+global = M1::y
