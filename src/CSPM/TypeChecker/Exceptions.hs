@@ -13,10 +13,9 @@ module CSPM.TypeChecker.Exceptions (
 where
 
 import Prelude
-import Data.List
 import Data.Maybe
 
-import Data.List (nub, sort)
+import Data.List (intersect, nub, sort)
 import CSPM.DataStructures.FreeVars
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
@@ -26,51 +25,59 @@ import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 
-type Error = Doc
+type Error = VariableRepresentationMap -> (Doc, VariableRepresentationMap)
 type Warning = Doc
 
+noMap result map = (result, map)
+
 incorrectArgumentCountMessage :: Doc -> Int -> Int -> Error
-incorrectArgumentCountMessage func expected actual = 
+incorrectArgumentCountMessage func expected actual = noMap $
     hang (hang (text "The function") tabWidth func) tabWidth
         (text "was supplied with" <+> int actual <+> 
         text "arguments, but was expecting" <+> int expected)
 
 infiniteUnificationMessage :: Type -> Type -> Error
-infiniteUnificationMessage t1 t2 = 
-    let [ppt1, ppt2] = prettyPrintTypes [t1, t2] in
-    text "Cannot construct the infinite type:" <+> ppt1 <+> equals <+> ppt2
+infiniteUnificationMessage t1 t2 vmap = 
+    let ([ppt1, ppt2], map') = prettyPrintTypesWithMap vmap [t1, t2] in
+    (text "Cannot construct the infinite type:" <+> ppt1 <+> equals <+> ppt2,
+        map')
 
-unificationErrorMessage :: [(Type, Type)] -> Error
-unificationErrorMessage [] = panic "Empty unification stack during error"
-unificationErrorMessage unificationStack = 
+unificationErrorMessage :: Bool -> [(Type, Type)] -> Error
+unificationErrorMessage _ [] _ = panic "Empty unification stack during error"
+unificationErrorMessage useWhilst unificationStack vmap = 
     let 
         hd = head unificationStack
         lt = last unificationStack
         (it1, it2) = hd
         (t1, t2) = lt
         ts = [it1, it2, t1, t2]
-        [pit1, pit2, pt1, pt2] = prettyPrintTypes ts
+        ([pit1, pit2, pt1, pt2], vmap') = prettyPrintTypesWithMap vmap ts
     in
-        sep [text "Couldn't match expected type" <+> pit1,
+        (sep [if useWhilst then 
+                text "whilst matching expected type" <+> pit1
+            else text "Couldn't match expected type" <+> pit1,
             nest 8 (text "with actual type" <+> pit2)]
         $$
         (if hd == lt then empty
             else sep [text "whilst matching expected type" <+> pt1,
                 nest 8 (text "with actual type" <+> pt2)])
-        $$ tabIndent (printOrigins ts)
+        $$ tabIndent (printOrigins ts),
+        vmap')
 
-constraintUnificationErrorMessage :: [(Constraint, Type)] -> Error
-constraintUnificationErrorMessage [] = panic "Empty unification stack during error"
-constraintUnificationErrorMessage unificationStack = 
+constraintUnificationErrorMessage :: [(Constraint, Type)] -> [(Type, Type)] -> Error
+constraintUnificationErrorMessage [] _ _ = panic "Empty unification stack during error"
+constraintUnificationErrorMessage constraintStack unificationStack vmap = 
     let 
-        hd = head unificationStack
-        lt = last unificationStack
+        hd = head constraintStack
+        lt = last constraintStack
         (tc, t) = hd
         (itc, it) = lt
         ts = [it, t]
-        [pt1, pt2] = prettyPrintTypes ts
+        ([pt1, pt2], vmap') = prettyPrintTypesWithMap vmap ts
+
+        (uniError, vmap'') = unificationErrorMessage True unificationStack vmap'
     in
-        sep [text "The type" <+> pt2,
+        (sep [text "The type" <+> pt2,
             nest 8 (text "does not have the constraint" <+> prettyPrint tc)]
         $$
         (if hd == lt then empty
@@ -84,6 +91,8 @@ constraintUnificationErrorMessage unificationStack =
                 <+> text "to the type-constraint at:"
                 $$ nest 4 (prettyPrint (nameDefinition n))
             _ -> empty
+        $$ uniError,
+        vmap'')
 
 printOrigins :: [Type] -> Doc
 printOrigins ts =
@@ -97,21 +106,21 @@ printOrigins ts =
                 nest 4 (prettyPrint (nameDefinition n))]
     in vcat $ map printOrigin rigidVars
 
-deprecatedNameUsed :: Name -> Maybe Name -> Error
+deprecatedNameUsed :: Name -> Maybe Name -> Doc
 deprecatedNameUsed n Nothing = 
     prettyPrint n <+> text "is deprecated."
-deprecatedNameUsed n (Just replacement) = 
+deprecatedNameUsed n (Just replacement) =
     prettyPrint n <+> text "is deprecated - use" <+>
     prettyPrint replacement <+> text "instead."
 
-unsafeNameUsed :: Name -> Error
+unsafeNameUsed :: Name -> Doc
 unsafeNameUsed n =
     text "The invocation of" <+> prettyPrint n 
         <+> text "has not been type-checked."
     $$ text "Therefore, a runtime type error may occur."
 
 illegalModuleInstanceCycleErrorMessage :: [TCDecl] -> Name -> Name -> [TCDecl] -> Error
-illegalModuleInstanceCycleErrorMessage decls mName iName path = 
+illegalModuleInstanceCycleErrorMessage decls mName iName path = noMap $
     let 
         findWithDependency :: [TCDecl] -> Name -> Maybe (TCDecl, Name)
         findWithDependency decls n =

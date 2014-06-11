@@ -4,7 +4,8 @@ module CSPM.DataStructures.Types (
     -- * Data Structures
     TypeVar, TypeScheme(..), Constraint(..), Type(..), TypeVarRef(..),
     prettyPrintTypes, isRigid, constraintImpliedBy, reduceConstraints,
-    collectConstraints,
+    collectConstraints, prettyPrintTypeSchemes, VariableRepresentationMap,
+    prettyPrintTypesWithMap, prettyPrintTypeSchemesWithMap, augamentTypeScheme,
 
     -- * Creation of Types
     freshTypeVar, freshTypeVarWithConstraints, freshTypeVarRef,
@@ -206,22 +207,50 @@ instance PrettyPrintable Constraint where
 
 -- | Pretty prints several types using the same variable substitutions
 prettyPrintTypes :: [Type] -> [Doc]
-prettyPrintTypes ts = map (flip runReader vmap . M.prettyPrint) ts
+prettyPrintTypes ts = fst (prettyPrintTypesWithMap Mp.empty ts)
+
+prettyPrintTypesWithMap :: VariableRepresentationMap -> [Type] ->
+    ([Doc], VariableRepresentationMap)
+prettyPrintTypesWithMap vmap ts =
+        (map (flip runReader vmap' . M.prettyPrint) ts, vmap')
     where
         vs = (nub . map fst . concatMap collectConstraints) ts
-        tvrefs = map 
         -- | Map from int to letter to improve presentation
-        vmap = variableMapForTypeVars vs
+        vmap' = variableMapForTypeVars vmap vs
 
-type VarMap = Mp.Map TypeVar Doc
+prettyPrintTypeSchemes :: [TypeScheme] -> [Doc]
+prettyPrintTypeSchemes ts = fst (prettyPrintTypeSchemesWithMap Mp.empty ts)
 
-variableMapForTypeVars :: [TypeVarRef] -> VarMap
-variableMapForTypeVars tvs = 
+-- | Pretty prints the type-schemes, using the map to pretty-print variable
+-- names. If any new variable names are found, they are added to a new
+-- variable map, which is also returned.
+prettyPrintTypeSchemesWithMap :: VariableRepresentationMap -> [TypeScheme] ->
+    ([Doc], VariableRepresentationMap)
+prettyPrintTypeSchemesWithMap vmap ts =
+        (map (flip runReader vmap' . M.prettyPrint) ts, vmap')
+    where
+        vs = (nub . map fst . concatMap (collectConstraints . typeSchemeType)) ts
+        -- | Map from int to letter to improve presentation
+        vmap' = variableMapForTypeVars vmap vs
+
+-- | Given a type scheme, adds any extra constraints it finds in the type
+-- variables contained with the type-scheem.
+augamentTypeScheme :: TypeScheme -> TypeScheme
+augamentTypeScheme (ForAll cs t) = ForAll (nub $ sort $ cs ++ cs') t
+    where cs' = [(typeVar tv, c) | (tv, c) <- collectConstraints t]
+
+type VariableRepresentationMap = Mp.Map TypeVar Doc
+
+variableMapForTypeVars :: VariableRepresentationMap -> [TypeVarRef] ->
+    VariableRepresentationMap
+variableMapForTypeVars existingMap tvs = 
     let
-        (rigid, nonRigid) = partition isRigid tvs
+        (rigid, nonRigid) = partition isRigid $
+            filter (\ tv -> not (Mp.member (typeVar tv) existingMap)) tvs
 
         extract (RigidTypeVarRef _ _ n) = [show n]
-        usedCharacterStrings = concatMap extract rigid
+        usedCharacterStrings =
+            map (show . snd) (Mp.toList existingMap) ++ concatMap extract rigid
 
         gen :: Int -> [Char] -> [Char] -> [Doc]
         gen n xs [] = gen (n+1) xs xs
@@ -234,7 +263,7 @@ variableMapForTypeVars tvs =
 
         vs = map (\ (RigidTypeVarRef tv _ n) -> (tv, prettyPrint n)) rigid
             ++ zip (map typeVar nonRigid) availableStrings
-    in Mp.fromList vs
+    in Mp.union existingMap (Mp.fromList vs)
 
 instance PrettyPrintable Type where
     prettyPrint t = prettyPrint (ForAll ts t)
@@ -280,7 +309,7 @@ instance Precedence Type where
     sameOperator TChar TChar = True
     sameOperator _ _ = False
 
-instance M.MonadicPrettyPrintable (Reader VarMap) Type where
+instance M.MonadicPrettyPrintable (Reader VariableRepresentationMap) Type where
     prettyPrint (TVar tvref) = do
         st <- ask
         return $! case Mp.lookup (typeVar tvref) st of
@@ -309,17 +338,10 @@ instance M.MonadicPrettyPrintable (Reader VarMap) Type where
     prettyPrint (op@(TExtendable t tvref)) =
         M.ppBinaryOp' op (M.text "=>*") (TVar tvref) t
 
-instance PrettyPrintable TypeScheme where
-    prettyPrint (ForAll ts t) =
-        case varsWithCs of
-            [] -> empty
-            [x] -> constraintsText <+> text "=> "
-            _ -> parens constraintsText <+> text "=> "
-        <> runReader (M.prettyPrint t) vmap
-        where
-            -- | Map from int to letter to improve presentation
-            vmap = variableMapForTypeVars (map fst (collectConstraints t))
-
+instance M.MonadicPrettyPrintable (Reader VariableRepresentationMap) TypeScheme where
+    prettyPrint (ForAll ts t) = do
+        vmap <- ask
+        let
             -- | Vars with constraints
             varsWithCs = [(v, c) | (v, cs) <- nub (sortConstraints ts),
                                     c <- reduceConstraints cs, cs /= []]
@@ -327,12 +349,21 @@ instance PrettyPrintable TypeScheme where
                 compare (show $ Mp.lookup tv1 vmap) (show $ Mp.lookup tv2 vmap)
                 `thenCmp` compare cs1 cs2
             sortConstraints = sortBy compareConstraints
-            constraintsText = list [
-                    prettyPrint c <+>
+            constraintsText = M.list $ mapM (\ (tv, c) ->
+                    return (prettyPrint c) M.<+>
                         case Mp.lookup tv vmap of
-                            Just x -> x
+                            Just x -> return x
                             Nothing -> panic "Could not pretty print type"
-                     | (tv, c) <- varsWithCs]
+                    ) varsWithCs
+        M.sep $ sequence [
+            case varsWithCs of
+                [] -> M.empty
+                [x] -> constraintsText M.<+> M.text "=>"
+                _ -> M.parens constraintsText M.<+> M.text "=>",
+            M.prettyPrint t]
+
+instance PrettyPrintable TypeScheme where
+    prettyPrint ts = head $ prettyPrintTypeSchemes [ts]
 
 collectConstraints :: Type -> [(TypeVarRef, [Constraint])]
 collectConstraints = combine . collect
