@@ -240,7 +240,8 @@ unifyConstraintNoStk c t = raiseConstraintErrorMessage
 raiseConstraintErrorMessage :: TypeCheckMonad a
 raiseConstraintErrorMessage = do
     constraintStack <- getConstraintUnificationStack
-    raiseMessageAsError $ constraintUnificationErrorMessage constraintStack
+    cts <- safeGetUnificationStack False
+    raiseMessageAsError $ constraintUnificationErrorMessage constraintStack cts
 
 -- | Takes a type and converts TDot t1 t2 to [t1, t2].
 typeToDotList :: Type -> TypeCheckMonad [Type]
@@ -659,10 +660,15 @@ safeWriteTypeRef tvref t = writeTypeRef tvref t
 -- [TDotable TInt (TDatatype (Name "A")),TBool]
 raiseUnificationError :: Bool -> TypeCheckMonad a
 raiseUnificationError isDotError = do
+    cts <- safeGetUnificationStack isDotError
+    raiseMessageAsError $ unificationErrorMessage False cts
+
+safeGetUnificationStack :: Bool -> TypeCheckMonad [(Type, Type)]
+safeGetUnificationStack isDotError = do
     b <- getInError
     if b then throwException $ UserError else setInError True $ do
     ts <- getUnificationStack
-    cts <- mapM (\ (t1, t2) -> do
+    mapM (\ (t1, t2) -> do
         t1 <- compress t1
         t2 <- compress t2
         -- Try and tidy any dot lists
@@ -671,7 +677,6 @@ raiseUnificationError isDotError = do
             t2 <- evaluateDots t2
             return (t1, t2)) (return (t1,t2))
         return (t1, t2)) ts
-    raiseMessageAsError $ unificationErrorMessage cts
 
 -- Returns the type that we substitute for
 -- NB: in a quantified type we do not apply the substitution to any 

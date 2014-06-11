@@ -28,7 +28,8 @@ checkFunctionCall func args expectedTypes = do
                 hang (hang (text "In the" <+> speakNth count 
                             <+> text "argument of")
                             tabWidth (func <> comma) )
-                    tabWidth (text "namely" <+> prettyPrint arg)
+                    tabWidth (text "namely" <+> prettyPrint arg),
+                freeVars arg
             ) (do
                 -- When we computer the type of the function we evaluated all
                 -- dots in the arguments. Therefore, here we can evaluate the
@@ -68,7 +69,8 @@ instance TypeCheckable (Exp Name) Type where
                 unify texp tact
 
     errorContext e = Just $ 
-        hang (text "In the expression:") tabWidth (prettyPrint e)
+        (hang (text "In the expression:") tabWidth (prettyPrint e),
+            freeVars e)
     
     typeCheck' (App f args) = do
         targs <- replicateM (length args) freshTypeVar
@@ -335,7 +337,8 @@ instance TypeCheckable (Exp Name) Type where
 typeCheckField :: TCField -> (Type -> TypeCheckMonad a) -> TypeCheckMonad a
 typeCheckField field tc = 
     let
-        errCtxt = hang (text "In the field:") tabWidth (prettyPrint field)
+        errCtxt = (hang (text "In the field:") tabWidth (prettyPrint field),
+                    freeVars field)
         checkInput p e = do
             t <- typeCheck e
             tp <- addErrorContext errCtxt (do
@@ -361,8 +364,9 @@ typeCheckField field tc =
 typeCheckStmt :: (Type -> Type) -> TCStmt -> TypeCheckMonad a -> TypeCheckMonad a
 typeCheckStmt typc stmt tc = 
     let
-        errCtxt = hang (text "In the statement of a comprehension:") tabWidth
-                        (prettyPrint stmt)
+        errCtxt = (hang (text "In the statement of a comprehension:") tabWidth
+                        (prettyPrint stmt),
+                    freeVars stmt)
         
         check (Qualifier e) = do
             addErrorContext errCtxt (ensureIsBool e)

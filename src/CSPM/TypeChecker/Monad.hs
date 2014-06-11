@@ -28,6 +28,8 @@ where
 
 import Control.Monad.State
 import Data.List ((\\))
+import qualified Data.Map as M
+import qualified Data.Set as S
 import Prelude hiding (lookup)
 
 import CSPM.DataStructures.Names
@@ -42,7 +44,10 @@ import Util.PrettyPrint
 -- *************************************************************************
 -- Type Checker Monad
 -- *************************************************************************
-type ErrorContext = Doc
+
+-- | An error context consists of a rendered document, and a list of variables
+-- whose types might be relevant
+type ErrorContext = (Doc, [Name])
 
 data TypeInferenceState = TypeInferenceState {
         -- | The type environment, which is a map from names to types.
@@ -258,9 +263,44 @@ raiseMessagesAsError :: [Error] -> TypeCheckMonad a
 raiseMessagesAsError msgs = do
     src <- getSrcSpan
     ctxts <- getErrorContexts
-    let ctxtDocs = ctxts
-    let contextMsg = trimAndRenderContexts maxContexts ctxtDocs
-    addErrors [mkErrorMessage src (msg $$ contextMsg) | msg <- msgs]
+    let printMessages vmap [] = ([], vmap)
+        printMessages vmap (m:msgs) = (d : ds, vmap')
+            where
+                (d, vmap') = m vmap
+                (ds, vmap'') = printMessages vmap' msgs
+        (formattedMsgs, vmap) = printMessages M.empty msgs
+
+        ctxtDocs = map fst ctxts
+        -- | Eliminate duplicates from a list, preserving the list's order.
+        eliminateDupes xs = eliminateDupes' S.empty xs
+            where
+                eliminateDupes' _ [] = []
+                eliminateDupes' seen (x:xs) | S.member x seen =
+                    eliminateDupes' seen xs
+                eliminateDupes' seen (x:xs) =
+                    x : eliminateDupes' (S.insert x seen) xs
+
+        -- | Relevant variables
+        ctxtVars = take 10 $ eliminateDupes $
+                    filter (\n -> nameType n /= WiredInName) $
+                    concatMap snd ctxts
+
+    ctxtVarTypes <- mapM (\ n -> getType n >>= compressTypeScheme) ctxtVars
+
+    let
+        -- We augament the type schemes found above since they may be
+        -- incomplete, so the type constraints can be scattered around.
+        (prettyContextVars, vmap') =
+            prettyPrintTypeSchemesWithMap vmap (map augamentTypeScheme ctxtVarTypes)
+        contextMsg =
+            trimAndRenderContexts maxContexts ctxtDocs
+            $$ case ctxtVars of
+                [] -> empty
+                _ -> text "Relevant variable types:"
+                    $$ tabIndent (vcat (zipWith (\ n t -> do
+                            prettyPrint n <+> text "::" <+> t
+                        ) ctxtVars prettyContextVars))
+    addErrors [mkErrorMessage src (msg $$ contextMsg) | msg <- formattedMsgs]
     failM
     where
         -- Don't print too much context

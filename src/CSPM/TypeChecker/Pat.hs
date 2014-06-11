@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances #-}
 module CSPM.TypeChecker.Pat () where
 
+import CSPM.DataStructures.FreeVars
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax hiding (getType)
 import CSPM.DataStructures.Types
@@ -26,7 +27,8 @@ instance TypeCheckable (Pat Name) Type where
                 unify texp tact
 
     errorContext p = Just $
-        hang (text "In the pattern" <> colon) tabWidth (prettyPrint p)
+        (hang (text "In the pattern" <> colon) tabWidth (prettyPrint p),
+            freeVars p)
 
     typeCheck' (PConcat p1 p2) = do
         t <- ensureIsList p1

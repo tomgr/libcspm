@@ -238,24 +238,24 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
     errorContext (FunBind n ms _) = Just $ 
         -- This will only be helpful if the equations don't match in
         -- type
-        text "In the declaration of:" <+> prettyPrint n
+        (text "In the declaration of:" <+> prettyPrint n, [])
     errorContext (p@(PatBind pat exp _)) = Just $
-        hang (text "In a pattern binding:") tabWidth (prettyPrint p)
+        (hang (text "In a pattern binding:") tabWidth (prettyPrint p), [])
     errorContext (DataType n cs) = Just $
-        text "In the declaration of:" <+> prettyPrint n
+        (text "In the declaration of:" <+> prettyPrint n, [])
     errorContext (SubType n cs) = Just $
-        text "In the declaration of:" <+> prettyPrint n
+        (text "In the declaration of:" <+> prettyPrint n, [])
     errorContext (NameType n e) = Just $
-        text "In the declaration of:" <+> prettyPrint n
+        (text "In the declaration of:" <+> prettyPrint n, [])
     errorContext (Channel ns es) = Just $
-        text "In the declaration of:" <+> list (map prettyPrint ns)
+        (text "In the declaration of:" <+> list (map prettyPrint ns), [])
     errorContext (Assert a) = Just $
-        text "In the assertion:" <+> prettyPrint a
+        (text "In the assertion:" <+> prettyPrint a, [])
     errorContext (TimedSection _ _ _) = Nothing
     errorContext (Transparent ns) = Nothing
     errorContext (External ns) = Nothing
     errorContext (ModuleInstance n _ _ _ _) = Just $
-        text "In the declaration of the module instance:" <+> prettyPrint n
+        (text "In the declaration of the module instance:" <+> prettyPrint n, [])
     errorContext (Module _ _ _ _) = Nothing
     errorContext (PrintStatement _) = Nothing
     
@@ -281,8 +281,9 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         return [(n, t')]
         where
             matchCtxt an = 
-                hang (text "In an equation for" <+> prettyPrint n <> colon) 
-                    tabWidth (prettyPrintMatch n an)
+                (hang (text "In an equation for" <+> prettyPrint n <> colon) 
+                    tabWidth (prettyPrintMatch n an),
+                [])
     typeCheck' (p@(PatBind pat exp mta)) = do
         let boundTypeVars =
                 case mta of
@@ -482,7 +483,7 @@ instance TypeCheckable TCAssertion () where
 
 instance TypeCheckable (Assertion Name) () where
     errorContext a = Just $ 
-        hang (text "In the assertion" <> colon) tabWidth (prettyPrint a)
+        (hang (text "In the assertion" <> colon) tabWidth (prettyPrint a), [])
     typeCheck' (PropertyCheck e1 p m opts) = do
         ensureIsProc e1
         mapM_ typeCheck opts
@@ -509,8 +510,8 @@ instance TypeCheckable TCDataTypeClause (Name, [Type]) where
 
 instance TypeCheckable (DataTypeClause Name) (Name, [Type]) where
     errorContext c = Just $
-        hang (text "In the data type clause" <> colon) tabWidth 
-            (prettyPrint c)
+        (hang (text "In the data type clause" <> colon) tabWidth 
+            (prettyPrint c), [])
     typeCheck' (DataTypeClause n' Nothing) = do
         return (n', [])
     typeCheck' (DataTypeClause n' (Just e)) = do
