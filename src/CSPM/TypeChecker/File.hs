@@ -14,4 +14,4 @@ instance TypeCheckable (AnCSPMFile Name) () where
 
 instance TypeCheckable (CSPMFile Name) () where
     errorContext _ = Nothing
-    typeCheck' (CSPMFile ds) = typeCheckDecls ds
+    typeCheck' (CSPMFile ds) = typeCheckDecls True ds

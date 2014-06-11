@@ -1,0 +1,4 @@
+f =
+    let
+        h = error("Something")
+    within (h+0, not h)

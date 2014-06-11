@@ -113,7 +113,7 @@ instance TypeCheckable (Exp Name) Type where
     typeCheck' (Let decls exp) = do
         -- Add a new scope: typeCheckDecl will add vars into it 
         local (boundNames decls) $ do
-            typeCheckDecls decls
+            typeCheckDecls False decls
             typeCheck exp
     typeCheck' (Lit lit) = typeCheck lit
     typeCheck' (List es) = do

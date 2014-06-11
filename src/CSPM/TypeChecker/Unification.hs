@@ -1,6 +1,6 @@
 module CSPM.TypeChecker.Unification (
-    generaliseGroup, instantiate, unify, unifyAll, evaluateDots,
-    typeToDotList, dotableToDotList, substituteTypes, instantiate',
+    generaliseGroup, generaliseSubGroup, instantiate, unify, unifyAll,
+    evaluateDots, typeToDotList, dotableToDotList, substituteTypes, instantiate',
 ) where
 
 import Control.Monad
@@ -78,6 +78,30 @@ generaliseGroup names tsm = do
             unboundVars = 
                 filter (\ (fv, cs) -> not (fv `elem` map fst envfvs)) deffvs
             ts = ForAll unboundVars t
+        setType n ts
+        return (n, ts)) nts) ts
+
+generaliseSubGroup :: [Name] -> [Name] -> [TypeCheckMonad [(Name, Type)]] -> 
+                    TypeCheckMonad [[(Name, TypeScheme)]]
+generaliseSubGroup names toGeneralise tsm = do
+    -- Perform the type checking
+    ts <- sequence tsm
+    env <- getEnvironment
+    -- Get all the free variables that are currently in the environment that 
+    -- were not bound by any of this group.
+    envfvs <- (liftM (map fst . nub) . concatMapM freeTypeVars)
+            [t | (n, SymbolInformation { 
+                        typeScheme = ForAll _ t 
+                }) <- toList env, not (n `elem` names)]
+    mapM (\ nts -> mapM (\ (n,t) -> do
+        -- The free vars in this type
+        deffvs <- freeTypeVars t
+        -- All the free variables that were actually bound by this declaration 
+        -- (rather than some other declaration in the environment).
+        let 
+            unboundVars = 
+                filter (\ (fv, cs) -> not (fv `elem` envfvs)) deffvs
+            ts = if n `elem` toGeneralise then ForAll unboundVars t else ForAll [] t
         setType n ts
         return (n, ts)) nts) ts
 

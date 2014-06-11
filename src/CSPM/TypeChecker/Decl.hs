@@ -43,8 +43,8 @@ pathBetweenVerticies g start end = visit start (S.singleton start)
                         ]
 
 -- | Type check a list of possibly mutually recursive functions
-typeCheckDecls :: [TCDecl] -> TypeCheckMonad ()
-typeCheckDecls decls = do
+typeCheckDecls :: Bool -> [TCDecl] -> TypeCheckMonad ()
+typeCheckDecls generaliseTypes decls = do
 
     -- Flatten the decls so that definitions in modules are also type-checked
     -- in the correct order.
@@ -143,7 +143,7 @@ typeCheckDecls decls = do
             err <- tryAndRecover True (do
                 let ds = typeInferenceGroup $ S.toList g
                 checkSCCForModuleCycles ds
-                typeCheckMutualyRecursiveGroup ds
+                typeCheckMutualyRecursiveGroup generaliseTypes ds
                 return False
                 ) (return True)
             if not err then typeCheckGroups gs b
@@ -178,8 +178,8 @@ typeCheckDecls decls = do
 -- | Type checks a group of certainly mutually recursive functions. Only 
 -- functions that are mutually recursive should be included otherwise the
 -- types could end up being less general.
-typeCheckMutualyRecursiveGroup :: [TCDecl] -> TypeCheckMonad ()
-typeCheckMutualyRecursiveGroup ds' = do
+typeCheckMutualyRecursiveGroup :: Bool -> [TCDecl] -> TypeCheckMonad ()
+typeCheckMutualyRecursiveGroup generaliseTypes ds' = do
     -- TODO: fix temporary hack
     let 
         cmp x y = case (unAnnotate x, unAnnotate y) of
@@ -190,11 +190,18 @@ typeCheckMutualyRecursiveGroup ds' = do
         ds = sortBy cmp ds'
         fvs = boundNames ds
 
+        hasTypeAnnotation (An _ _ (FunBind _ _ (Just _))) = True
+        hasTypeAnnotation (An _ _ (PatBind _ _ (Just _))) = True
+        hasTypeAnnotation _ = False
+
+        toGeneralise = boundNames $ filter hasTypeAnnotation ds
+
     ftvs <- replicateM (length fvs) freshTypeVar
     zipWithM setType fvs (map (ForAll []) ftvs)
 
     -- Type check each declaration then generalise the types
-    nts <- generaliseGroup fvs $ map typeCheck ds
+    nts <- if generaliseTypes then generaliseGroup fvs $ map typeCheck ds
+            else generaliseSubGroup fvs toGeneralise $ map typeCheck ds
 
     -- Compress all the types we have inferred here (they should never be 
     -- touched again)
@@ -277,7 +284,11 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                 hang (text "In an equation for" <+> prettyPrint n <> colon) 
                     tabWidth (prettyPrintMatch n an)
     typeCheck' (p@(PatBind pat exp mta)) = do
-        (texp, tpat) <-
+        let boundTypeVars =
+                case mta of
+                    Just (An _ _ (STypeScheme boundNs _ _)) -> boundNs
+                    _ -> []
+        (texp, tpat) <- local boundTypeVars $ do
             case mta of
                 Nothing -> do
                     tpat <- typeCheck pat
@@ -388,7 +399,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         let fvs = boundNames args
         local fvs $ do
             tpats <- mapM (\ pat -> typeCheck pat >>= evaluateDots) args
-            typeCheckDecls (pubDs ++ privDs)
+            typeCheckDecls True (pubDs ++ privDs)
             tpats <- mapM (\ pat -> typeCheck pat >>= evaluateDots) args
             return [(n, TTuple tpats)]
 

@@ -1,0 +1,5 @@
+f =
+    let
+        -- g :: (a) -> a
+        g(x) = x
+    within (g(0), g(true))

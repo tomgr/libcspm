@@ -1,0 +1,8 @@
+f =
+    let
+        g :: (a) -> a
+        g(x) = x
+
+        h :: a
+        h = error("Something")
+    within (g(0), g(true), h+0, not h)
