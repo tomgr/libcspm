@@ -196,6 +196,14 @@ typeCheckMutualyRecursiveGroup generaliseTypes ds' = do
 
         toGeneralise = boundNames $ filter hasTypeAnnotation ds
 
+        extractDataTypeClauseNames (An _ _ (DataType _ cs)) =
+            [n | An _ _ (DataTypeClause n _) <- cs]
+        extractDataTypeClauseNames _ = []
+        dataTypeClauseNames = S.fromList $ concatMap extractDataTypeClauseNames ds
+
+        dataTypeWithClause n = head $ filter (\ x ->
+            n `elem` extractDataTypeClauseNames x) ds
+
     ftvs <- replicateM (length fvs) freshTypeVar
     zipWithM setType fvs (map (ForAll []) ftvs)
 
@@ -208,6 +216,17 @@ typeCheckMutualyRecursiveGroup generaliseTypes ds' = do
     mapM_ (\ n -> do
         t <- getType n
         t' <- compressTypeScheme t
+        when (S.member n dataTypeClauseNames) $
+            -- Check that t' is not polymorphic
+            case t' of
+                ForAll [] _ -> return ()
+                _ -> do
+                    let d@(An _ _ (DataType _ cs)) = dataTypeWithClause n
+                        c = head [c | c@(An _ _ (DataTypeClause n' _)) <- cs, n == n']
+                        Just errCtxt1 = errorContext (unAnnotate d)
+                        Just errCtxt2 = errorContext (unAnnotate c)
+                    addErrorContext errCtxt1 $ addErrorContext errCtxt2 $ setSrcSpan (loc c) $
+                        raiseMessageAsError $ ambiguousDataTypeClauseError n t'
         setType n t') fvs
 
 -- | Takes a type and returns the inner type, i.e. the type that this
@@ -342,6 +361,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                 let nclause = case unAnnotate clause of
                             DataTypeClause x _ -> x
                 (_, tsFields) <- typeCheck clause
+                ts <- getType nclause
                 ForAll [] typeCon <- getType nclause
                 (actFields, dataType) <- dotableToDotList typeCon
                 -- Check that the datatype is the correct subtype.

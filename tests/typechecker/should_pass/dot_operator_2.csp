@@ -162,6 +162,7 @@ banums = {1..0}
 ivnames = union({IV.j | j <- ivnums},{IA.j.k | j <- ianums, k <- itype(IA.j)})
 ivnums = {1..9}
 ianums = {1..2}
+ianames :: {Int}
 ianames = {}
 MinI = 0
 MaxI = 4

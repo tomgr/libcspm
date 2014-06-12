@@ -34,7 +34,7 @@ datatype A = B.{0..1} | X.{0..1}.{0..1}
 channel dd : A.{true, false}.A
 test14(x) = dd.X.0!x -> STOP
 
-Y = {}
+Y = {0}
 
 datatype Z = L.Y
 

@@ -8,6 +8,7 @@ module CSPM.TypeChecker.Exceptions (
     deprecatedNameUsed,
     unsafeNameUsed,
     illegalModuleInstanceCycleErrorMessage,
+    ambiguousDataTypeClauseError,
     ErrorOptions(..), defaultErrorOptions,
 )
 where
@@ -160,6 +161,43 @@ illegalModuleInstanceCycleErrorMessage decls mName iName path = noMap $
         text "of itself, which is not allowed."]
     $$ text "The path by which the module calls its instance is:"
     $$ tabIndent (findInstanceCyclePath Nothing path)
+
+ambiguousDataTypeClauseError :: Name -> TypeScheme -> Error
+ambiguousDataTypeClauseError clauseName clauseType vmap = 
+    let ([d], vmap') = prettyPrintTypeSchemesWithMap vmap [clauseType]
+
+        extractFields (TDotable tl tr) = tl : extractFields tr
+        extractFields t = [t]
+
+        ForAll xs typ = clauseType
+        fields = init $ extractFields typ
+
+        isPolymorphic (TVar tvref) = True
+        isPolymorphic (TFunction targs tr) = or (map isPolymorphic (tr:targs))
+        isPolymorphic (TSeq t) = isPolymorphic t
+        isPolymorphic (TSet t) = isPolymorphic t
+        isPolymorphic (TTuple ts) = or (map isPolymorphic ts)
+        isPolymorphic (TDot t1 t2) = isPolymorphic t1 || isPolymorphic t2
+        isPolymorphic (TDotable t1 t2) = isPolymorphic t1 || isPolymorphic t2
+        isPolymorphic (TMap k v) = isPolymorphic k || isPolymorphic v
+        isPolymorphic (TExtendable t tvref) = isPolymorphic t
+
+        polymorphicFields = filter (isPolymorphic . fst) (zip fields [1..])
+
+        (prettyTypes, vmap'') =
+            prettyPrintTypesWithMap vmap' (map fst polymorphicFields) 
+
+        polymorphicFields' = zip prettyTypes (map snd polymorphicFields)
+
+    in (text "The data type clause" <+> prettyPrint clauseName
+        <+> text "has a polymorphic type:"
+        $$ tabIndent d
+        $$ text "To fix this, constrain the type of the following polymorphic fields of"
+            <+> prettyPrint clauseName <> colon
+        $$ tabIndent (vcat (map (\ (t, n) -> 
+                text "Field" <+> int n <> colon <+> t
+            ) polymorphicFields')),
+        vmap'')
 
 -- | A datatype used to hold which errors and warnings to actually emit.
 data ErrorOptions = ErrorOptions {
