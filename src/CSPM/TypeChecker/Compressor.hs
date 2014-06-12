@@ -144,7 +144,7 @@ instance Compressable (Decl a) where
     mcompress (Channel ns me) = return (Channel ns) $$ mcompress me
     mcompress (DataType n cs) = return (DataType n) $$ mcompress cs
     mcompress (SubType n cs) = return (SubType n) $$ mcompress cs
-    mcompress (NameType n e) = return (NameType n) $$ mcompress e
+    mcompress (NameType n e ta) = return (NameType n) $$ mcompress e $$ mcompress ta
     mcompress (Module n args ds1 ds2) =
         return (Module n) $$ mcompress args $$ mcompress ds1 $$ mcompress ds2
     mcompress (ModuleInstance n nt args nm rnm) =

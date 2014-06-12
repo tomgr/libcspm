@@ -239,7 +239,7 @@ desugarDecl (An x y d) = do
                 return Channel $$ mapM substituteName ns $$ desugar me
             DataType n cs -> return DataType $$ substituteName n $$ desugar cs
             SubType n cs -> return SubType $$ substituteName n $$ desugar cs
-            NameType n e -> return NameType $$ substituteName n $$ desugar e
+            NameType n e ta -> return NameType $$ substituteName n $$ desugar e $$ return ta
             TimedSection (Just n) f ds ->
                 return TimedSection $$ (substituteName n >>= return . Just) $$
                     desugar f $$ timedSection (desugarDecls ds)

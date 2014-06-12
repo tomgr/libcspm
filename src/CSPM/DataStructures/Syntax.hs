@@ -549,7 +549,7 @@ data Decl id =
     -- | A subtype declaration, e.g. @subtype T = Clause1 | Clause2@.
     | SubType id [AnDataTypeClause id]
     -- | A nametype declaration, e.g. @nametype T2 = T.T@.
-    | NameType id (AnExp id)
+    | NameType id (AnExp id) (Maybe (AnSTypeScheme id))
     -- | A module declaration, e.g. @module X(Y,Z) ... export ... endmodule@.
     | Module {
         moduleName :: id,

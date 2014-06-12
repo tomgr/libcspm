@@ -652,7 +652,7 @@ renameDeclarations topLevel ds prog = do
                 n <- nameMaker (loc pd) rn
                 setName rn n
                 return ([rn], [])
-            NameType rn _ -> do
+            NameType rn _ _ -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
                 return ([rn], [])
@@ -762,10 +762,13 @@ renameDeclarations topLevel ds prog = do
                     ta' <- rename ta
                     ms' <- mapM rename ms
                     return $ FunBind n ms' ta'
-            NameType rn e -> resetModuleContext $ do
+            NameType rn e ta -> resetModuleContext $ do
                 n <- renameVarRHS rn
-                e' <- addScope $ rename e
-                return $ NameType n e'
+                addTypeScope $ do
+                    -- Must be done here in types are in scope in expressions
+                    ta' <- rename ta
+                    e' <- addScope $ rename e
+                    return $ NameType n e' ta'
             PatBind p e ta -> resetModuleContext $ do
                 p' <- renamePattern ignoringNameMaker p
                 addTypeScope $ do
@@ -1319,7 +1322,7 @@ instance FreeVars (Decl UnRenamedName) where
         return $ n : [n' | DataTypeClause n' _ <- map unAnnotate cs]
     freeVars (SubType n _) = return [n]
     freeVars (FunBind n _ _) = return [n]
-    freeVars (NameType n _) = return [n]
+    freeVars (NameType n _ _) = return [n]
     freeVars (PatBind p _ _) = freeVars p
     freeVars (Transparent ns) = return ns
     freeVars (Module (UnQual n) _ _ expDs) = do

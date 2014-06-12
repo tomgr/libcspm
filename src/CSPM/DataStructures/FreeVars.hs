@@ -22,7 +22,7 @@ instance BoundNames (Decl Name) where
     boundNames (Channel ns es) = ns
     boundNames (SubType n dcs) = [n]
     boundNames (DataType n dcs) = n : boundNames dcs
-    boundNames (NameType n e) = [n]
+    boundNames (NameType n e _) = [n]
     boundNames (External ns) = []
     boundNames (Transparent ns) = []
     boundNames (Assert _) = []
@@ -242,7 +242,7 @@ instance FreeVars (Decl Name) where
     freeVars' (DataType n cs) = freeVars [cs]
     freeVars' (SubType n cs) =
         concatMap (\ (DataTypeClause n e) -> n : freeVars e) (map unAnnotate cs)
-    freeVars' (NameType n e) = freeVars' e
+    freeVars' (NameType n e ta) = freeVars' e ++ freeVars' ta
     freeVars' (External ns) = []
     freeVars' (Transparent ns) = []
     freeVars' (Assert a) = freeVars a

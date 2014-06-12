@@ -155,7 +155,7 @@ bindDecl (an@(An _ _ (SubType n cs))) = do
                 vs <- mapM (mkSet . unAnnotate) cs
                 return $ VSet (infiniteUnions vs)
     return $ [(n, computeSetOfValues)]
-bindDecl (an@(An _ _ (NameType n e))) = do
+bindDecl (an@(An _ _ (NameType n e _))) = do
     registerCall <- maybeRegisterCall
     return $ [(n, registerCall n $ do
         v <- eval e

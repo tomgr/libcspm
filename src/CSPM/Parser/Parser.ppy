@@ -250,7 +250,7 @@ DeclA :: { PDecl }
     | "transparent" NameCommaList1              { AN2L (Transparent (map unLoc $2)) }
     | "assert" "anot" Assertion                 { AN2 (Assert (AN2 (ASNot $3))) }
     | "assert" Assertion                        { AN2 (Assert $2) }
-    | "nametype" Name "=" CExp                  { AN2 (NameType (unLoc $2) $4) }
+    | "nametype" Name "=" CExp                  { AN2 (NameType (unLoc $2) $4 Nothing) }
     | "module" Name OptPatList Newlines DeclList
       "exports" Newlines DeclList "endmodule"    { AN2 (Module (unLoc $2) $3 
                                                     (map checkModuleDecl $5)
@@ -666,8 +666,9 @@ attachTypeAnnotations ds =
                 _ -> [ambiguousTypeAnnotationsError n locs]
             ) locsByName
 
-        nameForDecl  (An _ _ (FunBind n _ _)) = [n]
+        nameForDecl (An _ _ (FunBind n _ _)) = [n]
         nameForDecl (An _ _ (PatBind (An _ _ (PVar n)) _ _)) = [n]
+        nameForDecl (An _ _ (NameType n _ _)) = [n]
         nameForDecl _ = []
 
         allNames = nub $ sort $ map fst nameLocs
@@ -691,6 +692,8 @@ attachTypeAnnotations ds =
         annotateDecl (An x y (PatBind (p@(An _ _ (PVar n))) e Nothing))
                 | M.member n typeAnMap =
             [An x y (PatBind p e (Just $ annotationForName n))]
+        annotateDecl (An x y (NameType n e Nothing)) | M.member n typeAnMap =
+            [An x y (NameType n e (Just $ annotationForName n))]
         annotateDecl (An _ _ (ParsedTypeAnnotation _ _)) = []
         annotateDecl d = [d]
     in if length dupeErrors > 0 then

@@ -245,7 +245,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         (text "In the declaration of:" <+> prettyPrint n, [])
     errorContext (SubType n cs) = Just $
         (text "In the declaration of:" <+> prettyPrint n, [])
-    errorContext (NameType n e) = Just $
+    errorContext (NameType n e _) = Just $
         (text "In the declaration of:" <+> prettyPrint n, [])
     errorContext (Channel ns es) = Just $
         (text "In the declaration of:" <+> list (map prettyPrint ns), [])
@@ -383,9 +383,20 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         ForAll [] t <- getType n
         t' <- unify t (TSet (TDatatype n))
         return $ (n, t'):nts
-    typeCheck' (NameType n e) = do
-        t <- typeCheck e
-        valueType <- evalTypeExpression t
+    typeCheck' (NameType n e mta) = do
+        let boundTypeVars =
+                case mta of
+                    Just (An _ _ (STypeScheme boundNs _ _)) -> boundNs
+                    _ -> []
+        valueType <- local boundTypeVars $ do
+            case mta of
+                Nothing -> do
+                    t <- typeCheck e
+                    evalTypeExpression t
+                Just ta -> do
+                    ForAll _ typ <- typeCheck ta
+                    t <- typeCheckExpect e typ
+                    evalTypeExpression t
         return [(n, TSet valueType)]
     typeCheck' (Transparent ns) = return []
     typeCheck' (External ns) = return []
