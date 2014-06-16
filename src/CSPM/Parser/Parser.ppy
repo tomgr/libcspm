@@ -610,9 +610,9 @@ OptStmtList :: { [PStmt] }
     | "|" StmtCommaList             { $2 }
 Stmt :: { PStmt }
     :
-    Pat "<-" Exp                    { AN2 (Generator $1 $3) }
-    | Pat ":" Exp                   { AN2 (Generator $1 $3) }
-    | Exp                           { AN (Qualifier $1) }
+    Pat "<-" CExp                   { AN2 (Generator $1 $3) }
+    | Pat ":" CExp                  { AN2 (Generator $1 $3) }
+    | CExp                          { AN (Qualifier $1) }
 StmtCommaList :: { [PStmt] }
     :
     rStmtCommaList                  { reverse $1 }
