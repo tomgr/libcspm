@@ -9,6 +9,7 @@ module CSPM.TypeChecker.Exceptions (
     unsafeNameUsed,
     illegalModuleInstanceCycleErrorMessage,
     ambiguousDataTypeClauseError,
+    ambiguousChannelError,
     ErrorOptions(..), defaultErrorOptions,
 )
 where
@@ -163,7 +164,17 @@ illegalModuleInstanceCycleErrorMessage decls mName iName path = noMap $
     $$ tabIndent (findInstanceCyclePath Nothing path)
 
 ambiguousDataTypeClauseError :: Name -> TypeScheme -> Error
-ambiguousDataTypeClauseError clauseName clauseType vmap = 
+ambiguousDataTypeClauseError clauseName clauseType = 
+    ambiguousTypeError (text "The data type clause" <+> prettyPrint clauseName)
+        (prettyPrint clauseName) clauseType
+
+ambiguousChannelError :: Name -> TypeScheme -> Error
+ambiguousChannelError channelName channelType =
+    ambiguousTypeError (text "The channel" <+> prettyPrint channelName)
+        (prettyPrint channelName) channelType
+
+ambiguousTypeError :: Doc -> Doc -> TypeScheme -> Error
+ambiguousTypeError headerDoc nameDoc clauseType vmap = 
     let ([d], vmap') = prettyPrintTypeSchemesWithMap vmap [clauseType]
 
         extractFields (TDotable tl tr) = tl : extractFields tr
@@ -189,15 +200,15 @@ ambiguousDataTypeClauseError clauseName clauseType vmap =
 
         polymorphicFields' = zip prettyTypes (map snd polymorphicFields)
 
-    in (text "The data type clause" <+> prettyPrint clauseName
-        <+> text "has a polymorphic type:"
+    in (headerDoc <+> text "has a polymorphic type:"
         $$ tabIndent d
         $$ text "To fix this, constrain the type of the following polymorphic fields of"
-            <+> prettyPrint clauseName <> colon
+            <+> nameDoc <> colon
         $$ tabIndent (vcat (map (\ (t, n) -> 
                 text "Field" <+> int n <> colon <+> t
             ) polymorphicFields')),
         vmap'')
+
 
 -- | A datatype used to hold which errors and warnings to actually emit.
 data ErrorOptions = ErrorOptions {

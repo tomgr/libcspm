@@ -204,6 +204,12 @@ typeCheckMutualyRecursiveGroup generaliseTypes ds' = do
         dataTypeWithClause n = head $ filter (\ x ->
             n `elem` extractDataTypeClauseNames x) ds
 
+        extractChannelNames (An _ _ (Channel ns _)) = ns
+        extractChannelNames _ = []
+        channelNames = S.fromList $ concatMap extractChannelNames ds
+        channelDeclWithName n = head $ filter (\ x ->
+            n `elem` extractChannelNames x) ds
+
     ftvs <- replicateM (length fvs) freshTypeVar
     zipWithM setType fvs (map (ForAll []) ftvs)
 
@@ -216,6 +222,15 @@ typeCheckMutualyRecursiveGroup generaliseTypes ds' = do
     mapM_ (\ n -> do
         t <- getType n
         t' <- compressTypeScheme t
+        when (S.member n channelNames) $
+            -- Check that t' is not polymorphic
+            case t' of
+                ForAll [] _ -> return ()
+                _ -> do
+                    let d@(An _ _ (Channel _ cs)) = channelDeclWithName n
+                        Just errCtxt = errorContext (unAnnotate d)
+                    addErrorContext errCtxt $ setSrcSpan (loc d) $
+                        raiseMessageAsError $ ambiguousChannelError n t'
         when (S.member n dataTypeClauseNames) $
             -- Check that t' is not polymorphic
             case t' of
