@@ -192,6 +192,13 @@ ambiguousTypeError headerDoc nameDoc clauseType vmap =
         isPolymorphic (TDotable t1 t2) = isPolymorphic t1 || isPolymorphic t2
         isPolymorphic (TMap k v) = isPolymorphic k || isPolymorphic v
         isPolymorphic (TExtendable t tvref) = isPolymorphic t
+        isPolymorphic TProc = False
+        isPolymorphic TInt = False
+        isPolymorphic TBool = False
+        isPolymorphic TChar = False
+        isPolymorphic TEvent = False
+        isPolymorphic TExtendableEmptyDotList = False
+        isPolymorphic (TDatatype _) = False
 
         polymorphicFields = filter (isPolymorphic . fst) (zip fields [1..])
 
