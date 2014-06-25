@@ -123,9 +123,11 @@ makeTest fp test expectedResult =
                     test fp
                     getState lastWarnings
         return $! case res of 
-                    Left (SourceError e) -> LibCSPMTestResult expectedResult ErrorOccured e []
+                    Left (SourceError e) -> length (show e) `seq`
+                        LibCSPMTestResult expectedResult ErrorOccured e []
                     Right [] -> LibCSPMTestResult expectedResult PassedNoWarnings [] []
-                    Right ws -> LibCSPMTestResult expectedResult WarningsEmitted [] ws
+                    Right ws -> length (show ws) `seq`
+                        LibCSPMTestResult expectedResult WarningsEmitted [] ws
     ) (\ (e :: SomeException) -> return $ LibCSPMTestPanic (show e))
 
 testFunctions = [
