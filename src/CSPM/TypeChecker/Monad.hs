@@ -307,7 +307,9 @@ raiseMessagesAsError msgs = do
         trimAndRenderContexts 0 _ = empty
         trimAndRenderContexts n [] = empty
         trimAndRenderContexts n (doc:docs) = 
-            doc $$ trimAndRenderContexts (n-1) docs
+            (if n == maxContexts || length (show doc) < 400 then doc
+            else text (head (lines (show doc))) <> char '…')
+            $$ trimAndRenderContexts (n-1) docs
         maxContexts = 3
 
 tryAndRecover :: Bool -> TypeCheckMonad a -> TypeCheckMonad a -> TypeCheckMonad a
