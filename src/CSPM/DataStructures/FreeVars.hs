@@ -250,7 +250,7 @@ instance FreeVars (Decl Name) where
     freeVars' (Module _ _ ds1 ds2) = freeVars' ds1 ++ freeVars' ds2
     freeVars' (TimedSection (Just n) f ds) =
         n : freeVars' f ++ concatMap freeVars' ds
-    freeVars' (ModuleInstance _ n _ _ _) = [n]
+    freeVars' (ModuleInstance _ n args _ _) = n : freeVars' args
     freeVars' (PrintStatement _) = []
 
 instance FreeVars (Assertion Name) where
