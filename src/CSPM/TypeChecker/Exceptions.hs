@@ -48,21 +48,31 @@ unificationErrorMessage :: Bool -> [(Type, Type)] -> Error
 unificationErrorMessage _ [] _ = panic "Empty unification stack during error"
 unificationErrorMessage useWhilst unificationStack vmap = 
     let 
-        hd = head unificationStack
-        lt = last unificationStack
-        (it1, it2) = hd
-        (t1, t2) = lt
-        ts = [it1, it2, t1, t2]
-        ([pit1, pit2, pt1, pt2], vmap') = prettyPrintTypesWithMap vmap ts
+        stackToPrint = 
+            if length unificationStack <= 4 then
+                unificationStack
+            else
+                take 3 unificationStack ++ [last unificationStack]
+
+        allTypes = concatMap (\ (t1, t2) -> [t1,t2]) stackToPrint
+        (ppTypes', vmap') = prettyPrintTypesWithMap vmap allTypes
+        intoTuples [] = []
+        intoTuples (x:y:xs) = (x, y):intoTuples xs
+        ppTypes = intoTuples ppTypes'
+
+        (pit1, pit2) = head ppTypes
+
+        ppExpected (t1, t2) = 
+            sep [text "whilst matching expected type" <+> t1,
+                nest 8 (text "with actual type" <+> t2)]
+
+        ts = concatMap (\ (t1, t2) -> [t1,t2]) stackToPrint
     in
         (sep [if useWhilst then 
                 text "whilst matching expected type" <+> pit1
             else text "Couldn't match expected type" <+> pit1,
             nest 8 (text "with actual type" <+> pit2)]
-        $$
-        (if hd == lt then empty
-            else sep [text "whilst matching expected type" <+> pt1,
-                nest 8 (text "with actual type" <+> pt2)])
+        $$ vcat (map ppExpected (tail ppTypes))
         $$ tabIndent (printOrigins ts),
         vmap')
 
