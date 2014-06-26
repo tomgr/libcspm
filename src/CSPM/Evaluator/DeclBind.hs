@@ -33,7 +33,7 @@ bindDecls ds = do
             vss <- sequence (map snd eventNvs)
             return $ VSet $ infiniteUnions $ vs : map (\ (VSet s) -> s) vss
 
-        isChannelDecl (Channel _ _) = True
+        isChannelDecl (Channel _ _ _) = True
         isChannelDecl _ = False
 
     if or (map (isChannelDecl . unAnnotate) ds) then do
@@ -98,7 +98,7 @@ bindDecl (an@(An _ _ (PatBind p e _))) = do
                 (False, _) -> throwError $ 
                     patternMatchFailureMessage (loc an) p v
     return $ [(n, ev)]
-bindDecl (an@(An _ _ (Channel ns me))) = do
+bindDecl (an@(An _ _ (Channel ns me _))) = do
     registerCall <- maybeRegisterCall
     let
         mkChan :: Name -> EvaluationMonad Value
@@ -121,7 +121,7 @@ bindDecl (an@(An _ _ (DataType n cs))) = do
     registerCall <- maybeRegisterCall
     let
         mkDataTypeClause :: DataTypeClause Name -> (Name, EvaluationMonad Value)
-        mkDataTypeClause (DataTypeClause nc me) = (nc, do
+        mkDataTypeClause (DataTypeClause nc me _) = (nc, do
             vss <- case me of
                 Just e -> eval e >>= evalTypeExprToList nc
                 Nothing -> return []
@@ -135,7 +135,7 @@ bindDecl (an@(An _ _ (DataType n cs))) = do
                     let fs = fromList [VDataType nc] : elems fields
                     return $ cartesianProduct CartDot fs
             in registerCall n $ do
-                vs <- mapM mkSet [nc | DataTypeClause nc _ <- map unAnnotate cs]
+                vs <- mapM mkSet [nc | DataTypeClause nc _ _ <- map unAnnotate cs]
                 return $ VSet (infiniteUnions vs)
     return $ (n, computeSetOfValues):(map mkDataTypeClause (map unAnnotate cs))
 bindDecl (an@(An _ _ (SubType n cs))) = do
@@ -143,7 +143,7 @@ bindDecl (an@(An _ _ (SubType n cs))) = do
     let
         computeSetOfValues =
             let 
-                mkSet (DataTypeClause nc me) = do
+                mkSet (DataTypeClause nc me _) = do
                     (_, _, fields) <- dataTypeInfo nc
                     fs <- case me of
                             Just e -> eval e >>= evalTypeExprToList nc

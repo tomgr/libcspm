@@ -183,23 +183,6 @@ ambiguousTypeError headerDoc nameDoc clauseType vmap =
         ForAll xs typ = clauseType
         fields = init $ extractFields typ
 
-        isPolymorphic (TVar tvref) = True
-        isPolymorphic (TFunction targs tr) = or (map isPolymorphic (tr:targs))
-        isPolymorphic (TSeq t) = isPolymorphic t
-        isPolymorphic (TSet t) = isPolymorphic t
-        isPolymorphic (TTuple ts) = or (map isPolymorphic ts)
-        isPolymorphic (TDot t1 t2) = isPolymorphic t1 || isPolymorphic t2
-        isPolymorphic (TDotable t1 t2) = isPolymorphic t1 || isPolymorphic t2
-        isPolymorphic (TMap k v) = isPolymorphic k || isPolymorphic v
-        isPolymorphic (TExtendable t tvref) = isPolymorphic t
-        isPolymorphic TProc = False
-        isPolymorphic TInt = False
-        isPolymorphic TBool = False
-        isPolymorphic TChar = False
-        isPolymorphic TEvent = False
-        isPolymorphic TExtendableEmptyDotList = False
-        isPolymorphic (TDatatype _) = False
-
         polymorphicFields = filter (isPolymorphic . fst) (zip fields [1..])
 
         (prettyTypes, vmap'') =

@@ -2,10 +2,12 @@
 module CSPM.TypeChecker.Decl (typeCheckDecls) where
 
 import Control.Monad
+import Control.Monad.Trans
 import Data.Graph.Wrapper
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.List (intersect, (\\), sortBy)
+import Data.Maybe (fromJust)
 
 import CSPM.DataStructures.FreeVars
 import CSPM.DataStructures.Names
@@ -197,14 +199,14 @@ typeCheckMutualyRecursiveGroup generaliseTypes ds' = do
         toGeneralise = boundNames $ filter hasTypeAnnotation ds
 
         extractDataTypeClauseNames (An _ _ (DataType _ cs)) =
-            [n | An _ _ (DataTypeClause n _) <- cs]
+            [n | An _ _ (DataTypeClause n _ _) <- cs]
         extractDataTypeClauseNames _ = []
         dataTypeClauseNames = S.fromList $ concatMap extractDataTypeClauseNames ds
 
         dataTypeWithClause n = head $ filter (\ x ->
             n `elem` extractDataTypeClauseNames x) ds
 
-        extractChannelNames (An _ _ (Channel ns _)) = ns
+        extractChannelNames (An _ _ (Channel ns _ _)) = ns
         extractChannelNames _ = []
         channelNames = S.fromList $ concatMap extractChannelNames ds
         channelDeclWithName n = head $ filter (\ x ->
@@ -227,7 +229,7 @@ typeCheckMutualyRecursiveGroup generaliseTypes ds' = do
             case t' of
                 ForAll [] _ -> return ()
                 _ -> do
-                    let d@(An _ _ (Channel _ cs)) = channelDeclWithName n
+                    let d@(An _ _ (Channel _ cs _)) = channelDeclWithName n
                         Just errCtxt = errorContext (unAnnotate d)
                     addErrorContext errCtxt $ setSrcSpan (loc d) $
                         raiseMessageAsError $ ambiguousChannelError n t'
@@ -237,7 +239,7 @@ typeCheckMutualyRecursiveGroup generaliseTypes ds' = do
                 ForAll [] _ -> return ()
                 _ -> do
                     let d@(An _ _ (DataType _ cs)) = dataTypeWithClause n
-                        c = head [c | c@(An _ _ (DataTypeClause n' _)) <- cs, n == n']
+                        c = head [c | c@(An _ _ (DataTypeClause n' _ _)) <- cs, n == n']
                         Just errCtxt1 = errorContext (unAnnotate d)
                         Just errCtxt2 = errorContext (unAnnotate c)
                     addErrorContext errCtxt1 $ addErrorContext errCtxt2 $ setSrcSpan (loc c) $
@@ -281,7 +283,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         (text "In the declaration of:" <+> prettyPrint n, [])
     errorContext (NameType n e _) = Just $
         (text "In the declaration of:" <+> prettyPrint n, [])
-    errorContext (Channel ns es) = Just $
+    errorContext (Channel ns es _) = Just $
         (text "In the declaration of:" <+> list (map prettyPrint ns), [])
     errorContext (Assert a) = Just $
         (text "In the assertion:" <+> prettyPrint a, [])
@@ -351,19 +353,35 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         return $ zip ns [t | ForAll _ t <- ts]
     -- The following two clauses rely on the fact that they have been 
     -- prebound.
-    typeCheck' (Channel ns Nothing) = do
+    typeCheck' (Channel ns Nothing ta) = do
+        case ta of
+            Nothing -> return ()
+            Just ta -> typeCheckExpect ta TEvent >> return ()
         -- We now unify the each type to be a TEvent
         mapM (\ n -> do
             ForAll [] t <- getType n
             unify TEvent t) ns
         -- (Now getType n for any n in ns will return TEvent)
         return [(n, TEvent) | n <- ns]
-    typeCheck' (Channel ns (Just e)) = do
-        t <- typeCheck e
-        -- Events must be comparable for equality.
-        ensureHasConstraint CEq t
-        valueType <- evalTypeExpression t
-        dotList <- typeToDotList valueType
+    typeCheck' (Channel ns (Just e) mta) = do
+        let boundTypeVars =
+                case mta of
+                    Just (An _ _ (STypeScheme boundNs _ _)) -> boundNs
+                    _ -> []
+        dotList <- local boundTypeVars $ do
+            t <- case mta of
+                Nothing -> typeCheck e
+                Just ta -> do
+                    ForAll _ valueType <- typeCheck ta
+                    (tfs, urt) <- dotableToDotList valueType
+                    unify TEvent urt
+                    fv <- freshTypeVar
+                    unify (TDotable fv TEvent) valueType
+                    typeCheckExpect e (foldr1 TDot (map TSet tfs))
+            -- Events must be comparable for equality.
+            ensureHasConstraint CEq t
+            valueType <- evalTypeExpression t
+            typeToDotList valueType
         let t = foldr TDotable TEvent dotList
         mapM (\ n -> do
             ForAll [] t' <- getType n
@@ -374,7 +392,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         parentType <- freshTypeVar
         mapM_ (\ clause -> do
                 let nclause = case unAnnotate clause of
-                            DataTypeClause x _ -> x
+                            DataTypeClause x _ _ -> x
                 (_, tsFields) <- typeCheck clause
                 ts <- getType nclause
                 ForAll [] typeCon <- getType nclause
@@ -394,9 +412,22 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         ntss <- mapM (\ clause -> do
             let 
                 n' = case unAnnotate clause of
-                        DataTypeClause x _ -> x
+                        DataTypeClause x _ _ -> x
             ForAll [] t <- getType n'
-            (n', ts) <- typeCheck clause
+            (n', ts) <-
+                case dataTypeClauseDeclaredType (unAnnotate clause) of
+                    Nothing -> typeCheck clause
+                    Just ta -> do
+                        let boundTypeVars =
+                                case ta of
+                                    An _ _ (STypeScheme boundNs _ _) -> boundNs
+                        local boundTypeVars $ do
+                            ForAll _ tsig <- ensureIsExtendable ta (TDatatype n)
+                            (n', ts) <- typeCheck clause
+                            setSrcSpan (loc clause) $
+                                addErrorContext (fromJust (errorContext (unAnnotate clause))) $
+                                    unify tsig (foldr TDotable (TDatatype n) ts)
+                            return (n', ts)
             let texp = foldr TDotable (TDatatype n) ts
             t <- unify texp t
             return ((n', t), ts)
@@ -510,7 +541,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         mapM_ (\ d -> case unAnnotate d of
             DataType n clauses -> do
                 let n' = subName n
-                tclauses <- mapM (\ (An _ _ (DataTypeClause n _)) -> do
+                tclauses <- mapM (\ (An _ _ (DataTypeClause n _ _)) -> do
                     ForAll _ t <- getType (subName n)
                     return t) clauses
                 markDatatypeAsComparableForEquality n'
@@ -558,9 +589,9 @@ instance TypeCheckable (DataTypeClause Name) (Name, [Type]) where
     errorContext c = Just $
         (hang (text "In the data type clause" <> colon) tabWidth 
             (prettyPrint c), [])
-    typeCheck' (DataTypeClause n' Nothing) = do
+    typeCheck' (DataTypeClause n' Nothing _) = do
         return (n', [])
-    typeCheck' (DataTypeClause n' (Just e)) = do
+    typeCheck' (DataTypeClause n' (Just e) _) = do
         t <- typeCheck e
         valueType <- evalTypeExpression t
         dotList <- typeToDotList valueType
@@ -617,6 +648,7 @@ instance TypeCheckable (Match Name) Type where
 instance TypeCheckable TCSTypeScheme TypeScheme where
     errorContext an = Nothing
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
+    typeCheckExpect an t = setSrcSpan (loc an) $ typeCheckExpect (inner an) t
 instance TypeCheckable (STypeScheme Name) TypeScheme where
     errorContext _ = Nothing
     typeCheck' (STypeScheme boundNs cs t) = do
@@ -631,9 +663,15 @@ instance TypeCheckable (STypeScheme Name) TypeScheme where
         t' <- typeCheck t
         return $ ForAll tvs t'
 
+    typeCheckExpect tv t = do
+        ts@(ForAll _ t') <- typeCheck' tv
+        unify t' t
+        return ts
+
 instance TypeCheckable TCSType Type where
     errorContext _ = Nothing
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
+    typeCheckExpect an t = setSrcSpan (loc an) $ typeCheckExpect (inner an) t
 instance TypeCheckable (SType Name) Type where
     errorContext _ = Nothing
     typeCheck' (STVar var) = getType var >>= \ (ForAll [] t) -> return t
@@ -668,3 +706,7 @@ instance TypeCheckable (SType Name) Type where
     typeCheck' STBool = return TBool
     typeCheck' STChar = return TChar
     typeCheck' STEvent = return TEvent
+
+    typeCheckExpect tv t = do
+        t' <- typeCheck' tv
+        unify t' t

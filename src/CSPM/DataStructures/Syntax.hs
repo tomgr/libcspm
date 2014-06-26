@@ -543,7 +543,7 @@ data Decl id =
         transparentImportedNames :: [id]
     }
     -- | A channel declaration, e.g. @channel c, d : {0..1}.{0..1}@.
-    | Channel [id] (Maybe (AnExp id))
+    | Channel [id] (Maybe (AnExp id)) (Maybe (AnSTypeScheme id))
     -- | A datatype declaration, e.g. @datatype T = Clause1 | Clause2@.
     | DataType id [AnDataTypeClause id]
     -- | A subtype declaration, e.g. @subtype T = Clause1 | Clause2@.
@@ -642,7 +642,9 @@ data DataTypeClause id =
         -- | The expression that gives the set of values that can be dotted
         -- with this clause. For example, in the above example the datatype
         -- clause for A would have "Int.Bool" as its type expression.
-        dataTypeClauseTypeExpression :: Maybe (AnExp id)
+        dataTypeClauseTypeExpression :: Maybe (AnExp id),
+        -- | A declared type for a data-type clause.
+        dataTypeClauseDeclaredType :: Maybe (AnSTypeScheme id)
     }
     deriving (Eq, Ord, Show)
 

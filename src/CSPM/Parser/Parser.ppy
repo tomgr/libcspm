@@ -14,6 +14,7 @@ where
 import Data.Char
 import Data.List (groupBy, nub, sort, sortBy, (\\))
 import qualified Data.Map as M
+import Data.Maybe (catMaybes)
 
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
@@ -242,8 +243,8 @@ Decl :: { PDecl }
 DeclA :: { PDecl }
     :
     Exp "=" CExp                                {% convDecl $1 $3 }
-    | "channel" NameCommaList1                  { AN2L (Channel (map unLoc $2) Nothing) }
-    | "channel" NameCommaList1 ":" CExp         { AN2 (Channel (map unLoc $2) (Just $4)) }
+    | "channel" NameCommaList1                  { AN2L (Channel (map unLoc $2) Nothing Nothing) }
+    | "channel" NameCommaList1 ":" CExp         { AN2 (Channel (map unLoc $2) (Just $4) Nothing) }
     | "datatype" Name "=" DataTypeClauseList1   { AN2L (DataType (unLoc $2) $4) }
     | "subtype" Name "=" DataTypeClauseList1    { AN2L (SubType (unLoc $2) $4) }
     | "external" NameCommaList1                 { AN2L (External (map unLoc $2)) }
@@ -314,8 +315,8 @@ ModelOption :: { PModelOption }
 
 DataTypeClause :: { PDataTypeClause }
     :
-    Name "." CExp                               { AN2 (DataTypeClause (unLoc $1) (Just $3)) }
-    | Name                                      { AN (DataTypeClause (unLoc $1) Nothing) }
+    Name "." CExp                               { AN2 (DataTypeClause (unLoc $1) (Just $3) Nothing) }
+    | Name                                      { AN (DataTypeClause (unLoc $1) Nothing Nothing) }
 DataTypeClauseList1 :: { [PDataTypeClause] }
     :
     rDataTypeClauseList                         { reverse $1 }
@@ -654,6 +655,11 @@ attachTypeAnnotations ds =
         nameLocs :: [(UnRenamedName, SrcSpan)]
         nameLocs = [(n, loc x) | (n, x) <- extractedAnnotations]
 
+        locForName n =
+            case lookup n nameLocs of
+                Just loc -> loc
+                _ -> panic "Could not find name"
+
         locsByName :: [(UnRenamedName, [SrcSpan])]
         locsByName =
             map (\ nss -> (fst (head nss), map snd nss)) $
@@ -669,6 +675,8 @@ attachTypeAnnotations ds =
         nameForDecl (An _ _ (FunBind n _ _)) = [n]
         nameForDecl (An _ _ (PatBind (An _ _ (PVar n)) _ _)) = [n]
         nameForDecl (An _ _ (NameType n _ _)) = [n]
+        nameForDecl (An _ _ (Channel ns _ _)) = ns
+        nameForDecl (An _ _ (DataType _ cs)) = map (dataTypeClauseName . unAnnotate) cs
         nameForDecl _ = []
 
         allNames = nub $ sort $ map fst nameLocs
@@ -694,6 +702,17 @@ attachTypeAnnotations ds =
             [An x y (PatBind p e (Just $ annotationForName n))]
         annotateDecl (An x y (NameType n e Nothing)) | M.member n typeAnMap =
             [An x y (NameType n e (Just $ annotationForName n))]
+        annotateDecl d@(An x y (Channel ns e Nothing)) | or (map (flip M.member typeAnMap) ns) =
+                case ans of
+                    [an] -> [An x y (Channel ns e (Just an))]
+                    _ -> throwSourceError [ambiguousChannelTypeError d ns (map loc ans)]
+            where ans = catMaybes $ map (flip M.lookup typeAnMap) ns
+        annotateDecl (An x y (DataType n cs)) = [An x y (DataType n csP)]
+            where
+                annotateClause (An x y (DataTypeClause n e Nothing)) | M.member n typeAnMap =
+                    An x y (DataTypeClause n e (Just $ annotationForName n))
+                annotateClause d = d
+                csP = map annotateClause cs
         annotateDecl (An _ _ (ParsedTypeAnnotation _ _)) = []
         annotateDecl d = [d]
     in if length dupeErrors > 0 then

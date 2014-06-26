@@ -1,0 +1,3 @@
+c1 :: Int=>Event
+c2 :: Int=>Event
+channel c1, c2 : Int

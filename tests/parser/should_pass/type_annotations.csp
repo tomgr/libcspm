@@ -42,3 +42,14 @@ j2(x,y) = x
 
 k :: (Eq a, Ord a) => ((a, b), Event) -> a
 k(x,y) = x
+
+c1 :: Int=>Event
+channel c1 : {}
+
+c2 :: Int=>Bool=>Event
+channel c2 : Int.Bool
+
+Y :: Int => X
+Z :: Bool => X
+datatype X = Y.Int | Z.Bool
+

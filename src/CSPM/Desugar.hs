@@ -235,8 +235,8 @@ desugarDecl (An x y d) = do
             Assert a -> return Assert $$ desugar a
             External ns -> return External $$ mapM substituteName ns
             Transparent ns -> return Transparent $$ mapM substituteName ns
-            Channel ns me ->
-                return Channel $$ mapM substituteName ns $$ desugar me
+            Channel ns me ta ->
+                return Channel $$ mapM substituteName ns $$ desugar me $$ return ta
             DataType n cs -> return DataType $$ substituteName n $$ desugar cs
             SubType n cs -> return SubType $$ substituteName n $$ desugar cs
             NameType n e ta -> return NameType $$ substituteName n $$ desugar e $$ return ta
@@ -273,8 +273,8 @@ instance Desugarable (ModelOption Name) where
     desugar (PartialOrderReduce m) = return $ PartialOrderReduce m
 
 instance Desugarable (DataTypeClause Name) where
-    desugar (DataTypeClause n me) =
-        return DataTypeClause $$ substituteName n $$ desugar me
+    desugar (DataTypeClause n me ta) =
+        return DataTypeClause $$ substituteName n $$ desugar me $$ return ta
 
 instance Desugarable (Match Name) where
     desugar (Match pss e) = return Match $$ desugar pss $$ desugar e

@@ -1,0 +1,3 @@
+Y :: Int => Event
+datatype X = Y.Int
+

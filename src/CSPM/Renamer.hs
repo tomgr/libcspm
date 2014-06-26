@@ -28,6 +28,7 @@ import qualified Data.Set as S
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
+import CSPM.DataStructures.Types
 import CSPM.Prelude
 import CSPM.PrettyPrinter
 import Util.Annotated
@@ -588,12 +589,12 @@ renameDeclarations topLevel ds prog = do
         -- namespace. Returns the set of names that were bound.
         insertLabels :: PDecl -> RenamerMonad [UnRenamedName]
         insertLabels ad = case unAnnotate ad of
-            Channel ns _ -> mapM (\ rn -> do
+            Channel ns _ _ -> mapM (\ rn -> do
                 n' <- externalNameMaker True (loc ad) rn
                 setName rn n'
                 return rn) ns
             DataType rn cs -> mapM (\ cl -> case unAnnotate cl of
-                    DataTypeClause rn _ -> do
+                    DataTypeClause rn _ _ -> do
                         n' <- externalNameMaker True (loc cl) rn
                         setName rn n'
                         return rn
@@ -630,7 +631,7 @@ renameDeclarations topLevel ds prog = do
             RenamerMonad ([UnRenamedName], [UnRenamedName])
         insertBoundNames nameMaker pd = case unAnnotate pd of
             Assert _ -> return ([], [])
-            Channel _ _ -> return ([], [])
+            Channel _ _ _ -> return ([], [])
             DataType rn _ -> do
                 n <- nameMaker (loc pd) rn
                 setName rn n
@@ -732,25 +733,28 @@ renameDeclarations topLevel ds prog = do
             Assert e -> resetModuleContext $ do
                 e' <- addScope $ rename e
                 return $ Assert e'
-            Channel rns e -> resetModuleContext $ do
+            Channel rns e ta -> resetModuleContext $ do
                 ns <- mapM renameVarRHS rns
-                e' <- addScope $ rename e
-                return $ Channel ns e'
+                addTypeScope $ addScope $ do
+                    e' <- rename e
+                    ta' <- rename ta
+                    return $ Channel ns e' ta'
             DataType rn cs -> resetModuleContext $ do
                 n <- renameVarRHS rn
                 cs' <- mapM (\ pc -> addScope $ reAnnotate pc $ case unAnnotate pc of
-                                DataTypeClause rn e -> do
+                                DataTypeClause rn e ta -> addTypeScope $ do
                                     n' <- renameVarRHS rn
                                     e' <- rename e
-                                    return $ DataTypeClause n' e') cs
+                                    ta' <- rename ta
+                                    return $ DataTypeClause n' e' ta') cs
                 return $ DataType n cs'
             SubType rn cs -> resetModuleContext $ do
                 n <- renameVarRHS rn
                 cs' <- mapM (\ pc -> addScope $ reAnnotate pc $ case unAnnotate pc of
-                                DataTypeClause rn e -> do
+                                DataTypeClause rn e Nothing -> do
                                     n' <- renameVarRHS rn
                                     e' <- rename e
-                                    return $ DataTypeClause n' e') cs
+                                    return $ DataTypeClause n' e' Nothing) cs
                 return $ SubType n cs'
             External rns -> resetModuleContext $ do
                 ns <- mapM renameVarRHS rns
@@ -883,10 +887,10 @@ checkModuleNameDuplicates ds =
             [An loc () (ModuleNameCheck n)]
         extractModuleNames (An _ _ (TimedSection _ _ ds)) =
             concatMap extractModuleNames ds
-        extractModuleNames (An loc _ (Channel ns _)) =
+        extractModuleNames (An loc _ (Channel ns _ _)) =
             [An loc () (ModuleNameCheck n) | n <- ns]
         extractModuleNames (An loc _ (DataType n cs)) =
-            [An loc () (ModuleNameCheck n') | An loc _ (DataTypeClause n' _) <- cs]
+            [An loc () (ModuleNameCheck n') | An loc _ (DataTypeClause n' _ _) <- cs]
         extractModuleNames _ = []
     in checkDuplicates $ concatMap extractModuleNames ds
 
@@ -1317,9 +1321,9 @@ instance FreeVars (Field UnRenamedName) where
 instance FreeVars (Decl UnRenamedName) where
     freeVars (Assert _) = return []
     freeVars (External ns) = return ns
-    freeVars (Channel ns _) = return ns
+    freeVars (Channel ns _ _) = return ns
     freeVars (DataType n cs) =
-        return $ n : [n' | DataTypeClause n' _ <- map unAnnotate cs]
+        return $ n : [n' | DataTypeClause n' _ _ <- map unAnnotate cs]
     freeVars (SubType n _) = return [n]
     freeVars (FunBind n _ _) = return [n]
     freeVars (NameType n _ _) = return [n]

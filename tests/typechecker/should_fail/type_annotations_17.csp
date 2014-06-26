@@ -1,0 +1,2 @@
+c :: Eq a => a=>Event
+channel c : {}

@@ -15,6 +15,7 @@ module CSPM.Parser.Exceptions (
     definitionSpanFileError,
     looksLikeRTFErrorMessage,
     duplicateModelOptionsError,
+    ambiguousChannelTypeError,
     
     throwSourceError
 )
@@ -103,3 +104,9 @@ duplicateModelOptionsError opts = mkErrorMessage (loc (head opts)) $
             PartialOrderReduce _ -> text ":[partial order reduce]"
     <+> text "has been specified several times at:"
     $$ list (map (prettyPrint . loc) opts)
+
+ambiguousChannelTypeError :: PDecl -> [UnRenamedName] -> [SrcSpan] -> ErrorMessage
+ambiguousChannelTypeError chanDec anNs spans = mkErrorMessage (loc chanDec) $
+    hang (text "The channel declaration for" <+> list (map prettyPrint anNs)
+            $$ text "has multiple type annotations at" <> colon)
+        tabWidth (vcat (map prettyPrint spans))

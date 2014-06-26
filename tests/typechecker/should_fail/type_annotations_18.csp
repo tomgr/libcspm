@@ -1,0 +1,2 @@
+c :: Int
+channel c : Bool

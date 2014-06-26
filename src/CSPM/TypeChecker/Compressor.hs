@@ -141,7 +141,7 @@ instance Compressable (Decl a) where
     mcompress (Assert a) = return Assert $$ mcompress a
     mcompress (External ns) = return (External ns)
     mcompress (Transparent ns) = return (Transparent ns)
-    mcompress (Channel ns me) = return (Channel ns) $$ mcompress me
+    mcompress (Channel ns me ta) = return (Channel ns) $$ mcompress me $$ mcompress ta
     mcompress (DataType n cs) = return (DataType n) $$ mcompress cs
     mcompress (SubType n cs) = return (SubType n) $$ mcompress cs
     mcompress (NameType n e ta) = return (NameType n) $$ mcompress e $$ mcompress ta
@@ -166,7 +166,8 @@ instance Compressable (ModelOption a) where
     mcompress (PartialOrderReduce m) = return $ PartialOrderReduce m
 
 instance Compressable (DataTypeClause a) where
-    mcompress (DataTypeClause n me) = return (DataTypeClause n) $$ mcompress me
+    mcompress (DataTypeClause n me ta) =
+        return (DataTypeClause n) $$ mcompress me $$ mcompress ta
 
 instance Compressable (Match a) where
     mcompress (Match pss e) = return Match $$ mcompress pss $$ mcompress e

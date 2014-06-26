@@ -19,7 +19,7 @@ instance BoundNames a => BoundNames [a] where
 instance BoundNames (Decl Name) where
     boundNames (FunBind n ms _) = [n]
     boundNames (PatBind p ms _) = boundNames p
-    boundNames (Channel ns es) = ns
+    boundNames (Channel ns es _) = ns
     boundNames (SubType n dcs) = [n]
     boundNames (DataType n dcs) = n : boundNames dcs
     boundNames (NameType n e _) = [n]
@@ -35,7 +35,7 @@ instance BoundNames (Decl Name) where
     boundNames (PrintStatement _) = []
 
 instance BoundNames (DataTypeClause Name) where
-    boundNames (DataTypeClause n _) = [n]
+    boundNames (DataTypeClause n _ _) = [n]
 
 instance BoundNames (Pat Name) where
     boundNames (PVar n) | isNameDataConstructor n = []
@@ -238,10 +238,11 @@ instance FreeVars (Field Name) where
 instance FreeVars (Decl Name) where
     freeVars' (FunBind n ms ta) = freeVars ms ++ freeVars ta
     freeVars' (PatBind p e ta) = freeVars p ++ freeVars e ++ freeVars ta
-    freeVars' (Channel ns es) = freeVars es
+    freeVars' (Channel ns es ta) = freeVars es ++ freeVars ta
     freeVars' (DataType n cs) = freeVars [cs]
     freeVars' (SubType n cs) =
-        concatMap (\ (DataTypeClause n e) -> n : freeVars e) (map unAnnotate cs)
+        concatMap (\ (DataTypeClause n e ta) -> n : freeVars e ++ freeVars ta)
+            (map unAnnotate cs)
     freeVars' (NameType n e ta) = freeVars' e ++ freeVars' ta
     freeVars' (External ns) = []
     freeVars' (Transparent ns) = []
@@ -270,8 +271,8 @@ instance FreeVars (Match Name) where
         in (fvs2 \\ fvs1) ++ depsPs
 
 instance FreeVars (DataTypeClause Name) where
-    freeVars' (DataTypeClause n Nothing) = []
-    freeVars' (DataTypeClause n (Just e)) = freeVars' e
+    freeVars' (DataTypeClause n Nothing _) = []
+    freeVars' (DataTypeClause n (Just e) _) = freeVars' e
 
 instance FreeVars (STypeScheme Name) where
     freeVars' (STypeScheme ns _ t) = sort (nub (freeVars' t)) \\ ns

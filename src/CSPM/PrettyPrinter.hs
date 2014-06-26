@@ -61,26 +61,24 @@ instance PrettyPrintable id => PrettyPrintable (SType id) where
     prettyPrint (STDatatype n) = prettyPrint n
     prettyPrint (STParen t) = parens (prettyPrint t)
 
+prettyPrintTypeAnnotation :: PrettyPrintable id => Doc -> Maybe (AnSTypeScheme id) -> Doc
+prettyPrintTypeAnnotation _ Nothing = empty
+prettyPrintTypeAnnotation ns (Just ta) = 
+    ns <+> text "::" <+> prettyPrint ta
+
 instance PrettyPrintable id => PrettyPrintable (Decl id) where
     prettyPrint (FunBind n ms ts) =
-        (case ts of
-            Nothing -> empty
-            Just ta -> 
-                prettyPrint n <+> text "::" <+> prettyPrint ta
-        )
+        prettyPrintTypeAnnotation (prettyPrint n) ts
         $$ vcat (map (prettyPrintMatch n) ms)
     prettyPrint (PatBind pat exp ts) =
-        (case ts of
-            Nothing -> empty
-            Just ta -> 
-                prettyPrint pat <+> text "::" <+> prettyPrint ta
-        )
+        prettyPrintTypeAnnotation (prettyPrint pat) ts
         $$ hang (prettyPrint pat <+> equals) tabWidth (prettyPrint exp)
-    prettyPrint (Channel ns Nothing) =
-        text "channel" <+> list (map prettyPrint ns)
-    prettyPrint (Channel ns (Just e)) =
-        text "channel" <+> list (map prettyPrint ns)
-        <+> text ":" <+> prettyPrint e
+    prettyPrint (Channel ns me ts) =
+        prettyPrintTypeAnnotation (list (map prettyPrint ns)) ts
+        $$ text "channel" <+> list (map prettyPrint ns)
+        <+> case me of
+                Just c -> text ":" <+> prettyPrint c
+                Nothing -> empty
     prettyPrint (External ns) =
         text "external" <+> list (map prettyPrint ns)
     prettyPrint (Transparent ns) =
@@ -154,9 +152,10 @@ instance PrettyPrintable SemanticProperty where
     prettyPrint LivelockFreedom = text "divergence free"
 
 instance PrettyPrintable id => PrettyPrintable (DataTypeClause id) where
-    prettyPrint (DataTypeClause n Nothing) = prettyPrint n
-    prettyPrint (DataTypeClause n (Just e)) = 
-        prettyPrint n <> text "." <> prettyPrint e
+    prettyPrint (DataTypeClause n me _) = prettyPrint n
+        <> case me of
+            Nothing -> empty
+            Just e -> text "." <> prettyPrint e
 
 instance PrettyPrintable id => PrettyPrintable (Pat id) where
     prettyPrint (PConcat e1 e2) =
