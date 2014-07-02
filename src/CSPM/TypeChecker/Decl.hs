@@ -478,12 +478,13 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         let fvs = boundNames args
         local fvs $ do
             tpats <- mapM (\ pat -> typeCheck pat >>= evaluateDots) args
-            typeCheckDecls (not (length args > 0)) True (pubDs ++ privDs)
+            typeCheckDecls (length args == 0) True (pubDs ++ privDs)
             tpats <- mapM (\ pat -> typeCheck pat >>= evaluateDots) args
             return [(n, TTuple tpats)]
 
     typeCheck' (ModuleInstance n nt args nm (Just mod)) = do
         ts <- getType nt
+        addModuleInstanceMap nm
         (TTuple ts, sub) <- instantiate' ts
         zipWithM typeCheckExpect args ts
         let subName n = case safeApply (invert nm) n of
@@ -529,13 +530,37 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                     sub TEvent = return TEvent
                     sub TChar = return TChar
                     sub TExtendableEmptyDotList = return TExtendableEmptyDotList
-
-                t' <- sub t'
-                setType ourName $ ForAll xs t'
-                return (ourName, t')
+                t <- sub t
+                xs <- freeTypeVars t
+                setType ourName $ ForAll xs t
+                return (ourName, t)
             ) nm
 
         let An _ _ (Module _ _ privDs pubDs) = mod
+
+            isParamModule (An _ _ (Module _ (_:_) _ _)) = True
+            isParamModule _ = False
+
+            boundSubNames = boundNames (filter (not . isParamModule) (privDs ++ pubDs))
+
+        -- Check channels/datatypes for ambigutity and mark datatypes as
+        -- comparable if appropriate.
+        mapM_ (\ (ourName, _) -> do
+            canonicalName <- canonicalNameOfInstanceName ourName
+            if canonicalName `elem` boundSubNames then do
+                ForAll xs t <- getType ourName
+                case (xs, t) of
+                    (_:_, TDotable _ _) -> do
+                        (fs, urt) <- dotableToDotList t
+                        case urt of
+                            TEvent -> raiseMessageAsError $
+                                ambiguousChannelError ourName (ForAll xs t)
+                            TDatatype n -> raiseMessageAsError $
+                                ambiguousDataTypeClauseError ourName (ForAll xs t)
+                            _ -> return ()
+                    _ -> return ()
+            else return ()
+            ) nm
 
         -- Mark datatypes as comparable as appropriate
         mapM_ (\ d -> case unAnnotate d of
@@ -549,8 +574,10 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                         (mapM_ (ensureHasConstraint CEq) tclauses >> return True)
                         (return False)
                 when (not b) $ unmarkDatatypeAsComparableForEquality n'
+
             _ -> return ()
             ) (privDs ++ pubDs)
+
         return nts
     typeCheck' (PrintStatement _) = return []
 

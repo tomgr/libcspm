@@ -1,0 +1,7 @@
+module M(A)
+exports
+(X, Y) = A
+channel c : X
+endmodule
+
+instance N = M(({0}, {}))

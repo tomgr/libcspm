@@ -499,3 +499,22 @@ freshRegisteredTypeVarWithConstraints cs =
     freshTypeVarWithConstraints cs >>= registerTypeVariable
 freshRegisteredRigidTypeVarWithConstraints x y =
     freshRigidTypeVarWithConstraints x y >>= registerTypeVariable
+
+canonicalNameOfInstanceName :: Name -> TypeCheckMonad Name
+canonicalNameOfInstanceName n = do
+    m <- gets moduleInstanceNameSubstitution
+    return $! case M.lookup n m of
+                Just n -> n
+                Nothing -> panic "Could not find canonical name for instance"
+
+addModuleInstanceMap :: [(Name, Name)] -> TypeCheckMonad ()
+addModuleInstanceMap ns = 
+    modify (\ st -> st {
+        moduleInstanceNameSubstitution =
+            let oldMap = moduleInstanceNameSubstitution st
+                newMap = M.fromList $! map (\ (new, old) ->
+                                case M.lookup old oldMap of
+                                    Just old -> (new, old)
+                                    Nothing -> (new, old)) ns
+            in M.union newMap oldMap
+    })

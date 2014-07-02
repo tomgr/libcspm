@@ -1,0 +1,6 @@
+module M(X)
+datatype C = Y.X
+exports
+endmodule
+
+instance N = M({})
