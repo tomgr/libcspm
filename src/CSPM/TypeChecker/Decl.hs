@@ -45,8 +45,8 @@ pathBetweenVerticies g start end = visit start (S.singleton start)
                         ]
 
 -- | Type check a list of possibly mutually recursive functions
-typeCheckDecls :: Bool -> [TCDecl] -> TypeCheckMonad ()
-typeCheckDecls generaliseTypes decls = do
+typeCheckDecls :: Bool -> Bool -> [TCDecl] -> TypeCheckMonad ()
+typeCheckDecls checkAmbiguity generaliseTypes decls = do
 
     -- Flatten the decls so that definitions in modules are also type-checked
     -- in the correct order.
@@ -145,7 +145,7 @@ typeCheckDecls generaliseTypes decls = do
             err <- tryAndRecover True (do
                 let ds = typeInferenceGroup $ S.toList g
                 checkSCCForModuleCycles ds
-                typeCheckMutualyRecursiveGroup generaliseTypes ds
+                typeCheckMutualyRecursiveGroup checkAmbiguity generaliseTypes ds
                 return False
                 ) (return True)
             if not err then typeCheckGroups gs b
@@ -180,8 +180,8 @@ typeCheckDecls generaliseTypes decls = do
 -- | Type checks a group of certainly mutually recursive functions. Only 
 -- functions that are mutually recursive should be included otherwise the
 -- types could end up being less general.
-typeCheckMutualyRecursiveGroup :: Bool -> [TCDecl] -> TypeCheckMonad ()
-typeCheckMutualyRecursiveGroup generaliseTypes ds' = do
+typeCheckMutualyRecursiveGroup :: Bool -> Bool -> [TCDecl] -> TypeCheckMonad ()
+typeCheckMutualyRecursiveGroup checkAmbiguity generaliseTypes ds' = do
     -- TODO: fix temporary hack
     let 
         cmp x y = case (unAnnotate x, unAnnotate y) of
@@ -212,39 +212,40 @@ typeCheckMutualyRecursiveGroup generaliseTypes ds' = do
         channelDeclWithName n = head $ filter (\ x ->
             n `elem` extractChannelNames x) ds
 
-    ftvs <- replicateM (length fvs) freshTypeVar
-    zipWithM setType fvs (map (ForAll []) ftvs)
+    freshTypeVariableContext $ do
+        ftvs <- replicateM (length fvs) freshRegisteredTypeVar
+        zipWithM setType fvs (map (ForAll []) ftvs)
 
-    -- Type check each declaration then generalise the types
-    nts <- if generaliseTypes then generaliseGroup fvs $ map typeCheck ds
-            else generaliseSubGroup fvs toGeneralise $ map typeCheck ds
+        -- Type check each declaration then generalise the types
+        if generaliseTypes then generaliseGroup (map typeCheck ds)
+            else generaliseSubGroup toGeneralise (map typeCheck ds)
 
-    -- Compress all the types we have inferred here (they should never be 
-    -- touched again)
-    mapM_ (\ n -> do
-        t <- getType n
-        t' <- compressTypeScheme t
-        when (S.member n channelNames) $
-            -- Check that t' is not polymorphic
-            case t' of
-                ForAll [] _ -> return ()
-                _ -> do
-                    let d@(An _ _ (Channel _ cs _)) = channelDeclWithName n
-                        Just errCtxt = errorContext (unAnnotate d)
-                    addErrorContext errCtxt $ setSrcSpan (loc d) $
-                        raiseMessageAsError $ ambiguousChannelError n t'
-        when (S.member n dataTypeClauseNames) $
-            -- Check that t' is not polymorphic
-            case t' of
-                ForAll [] _ -> return ()
-                _ -> do
-                    let d@(An _ _ (DataType _ cs)) = dataTypeWithClause n
-                        c = head [c | c@(An _ _ (DataTypeClause n' _ _)) <- cs, n == n']
-                        Just errCtxt1 = errorContext (unAnnotate d)
-                        Just errCtxt2 = errorContext (unAnnotate c)
-                    addErrorContext errCtxt1 $ addErrorContext errCtxt2 $ setSrcSpan (loc c) $
-                        raiseMessageAsError $ ambiguousDataTypeClauseError n t'
-        setType n t') fvs
+        -- Compress all the types we have inferred here (they should never be 
+        -- touched again)
+        mapM_ (\ n -> do
+            t <- getType n
+            t' <- compressTypeScheme t
+            when (checkAmbiguity && S.member n channelNames) $
+                -- Check that t' is not polymorphic
+                case t' of
+                    ForAll [] _ -> return ()
+                    _ -> do
+                        let d@(An _ _ (Channel _ cs _)) = channelDeclWithName n
+                            Just errCtxt = errorContext (unAnnotate d)
+                        addErrorContext errCtxt $ setSrcSpan (loc d) $
+                            raiseMessageAsError $ ambiguousChannelError n t'
+            when (checkAmbiguity && S.member n dataTypeClauseNames) $
+                -- Check that t' is not polymorphic
+                case t' of
+                    ForAll [] _ -> return ()
+                    _ -> do
+                        let d@(An _ _ (DataType _ cs)) = dataTypeWithClause n
+                            c = head [c | c@(An _ _ (DataTypeClause n' _ _)) <- cs, n == n']
+                            Just errCtxt1 = errorContext (unAnnotate d)
+                            Just errCtxt2 = errorContext (unAnnotate c)
+                        addErrorContext errCtxt1 $ addErrorContext errCtxt2 $ setSrcSpan (loc c) $
+                            raiseMessageAsError $ ambiguousDataTypeClauseError n t'
+            setType n t') fvs
 
 -- | Takes a type and returns the inner type, i.e. the type that this
 -- is a set of. For example TSet t1 -> t, TTuple [TSet t1, TSet t2] -> (t1, t2).
@@ -262,7 +263,7 @@ evalTypeExpression (TDot t1 t2) = do
     return $ TDot t1' t2'
 -- Otherwise, it must be a set.
 evalTypeExpression t = do
-    fv <- freshTypeVar
+    fv <- freshRegisteredTypeVar
     unify t (TSet fv)
     return fv
 
@@ -375,7 +376,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                     ForAll _ valueType <- typeCheck ta
                     (tfs, urt) <- dotableToDotList valueType
                     unify TEvent urt
-                    fv <- freshTypeVar
+                    fv <- freshRegisteredTypeVar
                     unify (TDotable fv TEvent) valueType
                     typeCheckExpect e (foldr1 TDot (map TSet tfs))
             -- Events must be comparable for equality.
@@ -389,7 +390,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         return $ [(n, t) | n <- ns]
     typeCheck' (SubType n clauses) = do
         -- Get the type fromthe first clause
-        parentType <- freshTypeVar
+        parentType <- freshRegisteredTypeVar
         mapM_ (\ clause -> do
                 let nclause = case unAnnotate clause of
                             DataTypeClause x _ _ -> x
@@ -398,7 +399,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                 ForAll [] typeCon <- getType nclause
                 (actFields, dataType) <- dotableToDotList typeCon
                 -- Check that the datatype is the correct subtype.
-                tvref' <- freshTypeVarRef []
+                tvref' <- freshRegisteredTypeVarRef []
                 unify (TExtendable parentType tvref') dataType
                 -- Check that the fields are compatible with the expected fields.
                 zipWithM unify actFields tsFields
@@ -477,21 +478,20 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         let fvs = boundNames args
         local fvs $ do
             tpats <- mapM (\ pat -> typeCheck pat >>= evaluateDots) args
-            typeCheckDecls True (pubDs ++ privDs)
+            typeCheckDecls (not (length args > 0)) True (pubDs ++ privDs)
             tpats <- mapM (\ pat -> typeCheck pat >>= evaluateDots) args
             return [(n, TTuple tpats)]
 
     typeCheck' (ModuleInstance n nt args nm (Just mod)) = do
         ts <- getType nt
         (TTuple ts, sub) <- instantiate' ts
-        targs <- zipWithM typeCheckExpect args ts
+        zipWithM typeCheckExpect args ts
         let subName n = case safeApply (invert nm) n of
                             Just n' -> n'
                             Nothing -> n
         -- Set the types of each of our arguments
         nts <- mapM (\ (ourName, theirName) -> do
-                ForAll xs t <- getType theirName
-                t' <- substituteTypes sub t
+                ForAll _ t <- getType theirName >>= substituteTypeScheme sub
                 -- We also need to change any datatype according to name map
                 let sub (TVar tvref) = do
                         res <- readTypeRef tvref
@@ -631,8 +631,8 @@ instance TypeCheckable (Match Name) Type where
         let fvs = boundNames groups
         local fvs $ do
             -- Check that the function signature is of a plausible shape
-            rt <- freshTypeVar
-            argts <- mapM (flip replicateM freshTypeVar) (map length groups)
+            rt <- freshRegisteredTypeVar
+            argts <- mapM (flip replicateM freshRegisteredTypeVar) (map length groups)
             unify tsig $ foldr (\ targs tr -> TFunction targs tr) rt argts
 
             -- The rest of the code is as before (comments before also apply)
@@ -656,7 +656,7 @@ instance TypeCheckable (STypeScheme Name) TypeScheme where
             let ncs = map (\ (STypeConstraint c _) -> c) $
                         filter (\ (STypeConstraint _ n') -> n == n') $
                         (map unAnnotate cs)
-            t@(TVar tvref) <- freshRigidTypeVarWithConstraints n ncs
+            t@(TVar tvref) <- freshRegisteredRigidTypeVarWithConstraints n ncs
             setType n (ForAll [] t)
             return (typeVar tvref, constraints tvref)
             ) boundNs

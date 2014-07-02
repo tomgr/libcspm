@@ -15,7 +15,7 @@ instance TypeCheckable TCInteractiveStmt () where
 
 instance TypeCheckable (InteractiveStmt Name) () where
     errorContext a = Nothing
-    typeCheck' (Bind decls) = typeCheckDecls True decls
+    typeCheck' (Bind decls) = typeCheckDecls True True decls
     typeCheck' (Evaluate exp) = 
         typeCheck exp >>= evaluateDots >> return ()
     typeCheck' (RunAssertion a) = typeCheck a >> return ()

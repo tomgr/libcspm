@@ -1,10 +1,12 @@
 module CSPM.TypeChecker.Unification (
     generaliseGroup, generaliseSubGroup, instantiate, unify, unifyAll,
     evaluateDots, typeToDotList, dotableToDotList, substituteTypes, instantiate',
+    substituteTypeScheme, freeTypeVars,
 ) where
 
 import Control.Monad
 import Data.List (nub, sort)
+import qualified Data.Set as S
 import Prelude
 
 import CSPM.DataStructures.Names
@@ -14,6 +16,8 @@ import CSPM.TypeChecker.Exceptions
 import CSPM.TypeChecker.Monad
 import Util.Exception
 import Util.Monad
+
+import Control.Monad.Trans
 
 -- | Return the free type variables (and their constraints) for all 'TypeVar's 
 -- that occur in 'Type'.
@@ -57,50 +61,43 @@ freeTypeVars' TExtendableEmptyDotList = return []
 -- where Env does not contain the function whose type we are generalizing
 -- (this is because when we type a declaration we are really typing a 
 -- lambda function).
-generaliseGroup :: [Name] -> [TypeCheckMonad [(Name, Type)]] -> 
-                    TypeCheckMonad [[(Name, TypeScheme)]]
-generaliseGroup names tsm = do
+generaliseGroup :: [TypeCheckMonad [(Name, Type)]] -> 
+    TypeCheckMonad [[(Name, TypeScheme)]]
+generaliseGroup tsm = do
     -- Perform the type checking
     ts <- sequence tsm
-    env <- getEnvironment
-    -- Get all the free variables that are currently in the environment that 
-    -- were not bound by any of this group.
-    envfvs <- (liftM nub . concatMapM freeTypeVars)
-            [t | (n, SymbolInformation { 
-                        typeScheme = ForAll _ t 
-                }) <- toList env, not (n `elem` names)]
+    (_ : envfvs'' : _) <- currentTypeVariableContexts
+    -- envfvs'' consists of all TypeRefs that were registered before this type
+    -- context was opened. However, it's possible that during unification inside
+    -- the current type context, some typerefs inside envfvs'' were actually
+    -- subsituted or. Hence, we compute the freeTypeVars of every type in
+    -- envfvs''.
+    envfvs' <- mapM (freeTypeVars . TVar) (S.toList envfvs'')
+    let envfvs = S.fromList $! map fst (concat envfvs')
     mapM (\ nts -> mapM (\ (n,t) -> do
         -- The free vars in this type
         deffvs <- freeTypeVars t
         -- All the free variables that were actually bound by this declaration 
         -- (rather than some other declaration in the environment).
-        let 
-            unboundVars = 
-                filter (\ (fv, cs) -> not (fv `elem` map fst envfvs)) deffvs
+        let unboundVars = filter (\ (fv, cs) -> not (S.member fv envfvs)) deffvs
             ts = ForAll unboundVars t
         setType n ts
         return (n, ts)) nts) ts
 
-generaliseSubGroup :: [Name] -> [Name] -> [TypeCheckMonad [(Name, Type)]] -> 
+generaliseSubGroup :: [Name] -> [TypeCheckMonad [(Name, Type)]] -> 
                     TypeCheckMonad [[(Name, TypeScheme)]]
-generaliseSubGroup names toGeneralise tsm = do
+generaliseSubGroup toGeneralise tsm = do
     -- Perform the type checking
     ts <- sequence tsm
-    env <- getEnvironment
-    -- Get all the free variables that are currently in the environment that 
-    -- were not bound by any of this group.
-    envfvs <- (liftM (map fst . nub) . concatMapM freeTypeVars)
-            [t | (n, SymbolInformation { 
-                        typeScheme = ForAll _ t 
-                }) <- toList env, not (n `elem` names)]
+    (_ : envfvs'' : _) <- currentTypeVariableContexts
+    envfvs' <- mapM (freeTypeVars . TVar) (S.toList envfvs'')
+    let envfvs = S.fromList $! map fst (concat envfvs')
     mapM (\ nts -> mapM (\ (n,t) -> do
         -- The free vars in this type
         deffvs <- freeTypeVars t
         -- All the free variables that were actually bound by this declaration 
         -- (rather than some other declaration in the environment).
-        let 
-            unboundVars = 
-                filter (\ (fv, cs) -> not (fv `elem` envfvs)) deffvs
+        let unboundVars = filter (\ (fv, cs) -> not (S.member fv envfvs)) deffvs
             ts = if n `elem` toGeneralise then ForAll unboundVars t else ForAll [] t
         setType n ts
         return (n, ts)) nts) ts
@@ -111,7 +108,7 @@ instantiate ts = instantiate' ts >>= return . fst
 
 instantiate' :: TypeScheme -> TypeCheckMonad (Type, [(TypeVar, Type)])
 instantiate' (ForAll ts t) = do
-    tvs <- mapM (freshTypeVarWithConstraints . snd) ts
+    tvs <- mapM (freshRegisteredTypeVarWithConstraints . snd) ts
     let sub = (zip (map fst ts) tvs)
     t <- substituteTypes sub t
     return (t, sub)
@@ -149,7 +146,7 @@ occurs a TExtendableEmptyDotList = return False
 -- | Unifys all types to a single type. The first type is  used as the 
 -- expected Type in error messages.
 unifyAll :: [Type] -> TypeCheckMonad Type
-unifyAll [] = freshTypeVar
+unifyAll [] = freshRegisteredTypeVar
 unifyAll [t] = return t
 unifyAll (t1:ts) = do
     t2 <- unifyAll ts
@@ -170,7 +167,7 @@ unifyConstraintNoStk c (TVar v) = do
     case res of
         Left (tva, cs)  -> 
             when (not (or (map (constraintImpliedBy c) cs))) $ do
-                fv <- freshTypeVarWithConstraints (nub (sort (c:cs)))
+                fv <- freshRegisteredTypeVarWithConstraints (nub (sort (c:cs)))
                 applySubstitution v fv
                 return ()
         Right t         -> unifyConstraintNoStk c t
@@ -440,7 +437,7 @@ unifyNoStk (TVar t1) (TVar t2) = do
                 mapM_ (flip unifyConstraint (TVar t2)) cs
                 applySubstitution t1 (TVar t2)
             else do
-                fv <- freshTypeVarWithConstraints cs
+                fv <- freshRegisteredTypeVarWithConstraints cs
                 applySubstitution t1 fv
                 applySubstitution t2 fv
                 return fv
@@ -619,12 +616,12 @@ unifyNoStk (TDotable argt rt) (TExtendable t pt) = do
     -- unify argt=>rt and pt=>*t.
     -- Check rt is of the form pt'=>*t.
     -- Args for pt thus become argt:pt'
-    pt' <- freshTypeVarRef []
+    pt' <- freshRegisteredTypeVarRef []
     rt' <- unify (TExtendable t pt') rt
     safeWriteTypeRef pt $! TDotable argt (TVar pt')
     return $! TDotable argt (TExtendable t pt')
 unifyNoStk (TExtendable t pt) (TDotable argt rt) = do
-    pt' <- freshTypeVarRef []
+    pt' <- freshRegisteredTypeVarRef []
     rt' <- unify (TExtendable t pt') rt
     safeWriteTypeRef pt $! TDotable argt (TVar pt')
     return $! TDotable argt (TExtendable t pt')
@@ -698,6 +695,16 @@ applySubstitution tvref typ = do
 
 substituteTypes :: [(TypeVar, Type)] -> Type -> TypeCheckMonad Type
 substituteTypes sub t = foldM (\ x y -> substituteType y x) t sub
+
+substituteTypeScheme :: [(TypeVar, Type)] -> TypeScheme -> TypeCheckMonad TypeScheme
+substituteTypeScheme sub (ForAll xs t) = do
+    t' <- substituteTypes sub t
+    let subConstraint (tv, cs) =
+            case lookup tv sub of
+                Nothing -> (tv, cs)
+                Just (TVar tv') -> (typeVar tv', cs)
+        xs' = map subConstraint xs
+    return $! ForAll xs' t'
 
 -- | Applies a subtitution directly to the type. This is used in
 -- type instantiation where we create a fresh type for each universal 

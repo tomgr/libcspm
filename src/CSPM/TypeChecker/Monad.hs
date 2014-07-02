@@ -20,6 +20,15 @@ module CSPM.TypeChecker.Monad (
     datatypeIsComparableForEquality,
     unmarkDatatypeAsComparableForEquality,
     modifyErrorOptions,
+
+    registerTypeVariable, freshTypeVariableContext, currentTypeVariableContexts,
+    registerTypeRef,
+
+    freshRegisteredTypeVar, freshRegisteredTypeVarRef,
+    freshRegisteredTypeVarWithConstraints,
+    freshRegisteredRigidTypeVarWithConstraints,
+
+    canonicalNameOfInstanceName, addModuleInstanceMap,
     
     raiseMessageAsError, raiseMessagesAsError, panic,
     manyErrorsIfFalse, errorIfFalseM, errorIfFalse, tryAndRecover, failM,
@@ -52,6 +61,11 @@ type ErrorContext = (Doc, [Name])
 data TypeInferenceState = TypeInferenceState {
         -- | The type environment, which is a map from names to types.
         environment :: Env.Environment,
+        -- | The set of type variables in a syntactic context.
+        typeVariableContexts :: [S.Set TypeVarRef],
+        -- | A map from the name of a variable in a module instance to the
+        -- name of the actual definition.
+        moduleInstanceNameSubstitution :: M.Map Name Name,
         -- | Location of the current AST element - used for error
         -- pretty printing
         srcSpan :: SrcSpan,
@@ -79,6 +93,8 @@ data TypeInferenceState = TypeInferenceState {
 newTypeInferenceState :: TypeInferenceState
 newTypeInferenceState = TypeInferenceState {
         environment = Env.new,
+        typeVariableContexts = [S.empty],
+        moduleInstanceNameSubstitution = M.empty,
         srcSpan = Unknown,
         errorContexts = [],
         errors = [],
@@ -120,7 +136,7 @@ local :: [Name] -> TypeCheckMonad a -> TypeCheckMonad a
 local ns m = 
     do
         env <- getEnvironment
-        newArgs <- replicateM (length ns) freshTypeVar
+        newArgs <- replicateM (length ns) freshRegisteredTypeVar
         let symbs = map (Env.mkSymbolInformation . ForAll []) newArgs
         setEnvironment (Env.bind env (zip ns symbs))
         
@@ -310,6 +326,7 @@ raiseMessagesAsError msgs = do
             (if n == maxContexts || length (show doc) < 400 then doc
             else text (head (lines (show doc))) <> char '…')
             $$ trimAndRenderContexts (n-1) docs
+        maxContexts :: Int
         maxContexts = 3
 
 tryAndRecover :: Bool -> TypeCheckMonad a -> TypeCheckMonad a -> TypeCheckMonad a
@@ -447,3 +464,38 @@ compress (tr @ (TExtendable t pt)) = do
 
     extractFromTExtendable pt
 compress t = return t
+
+freshTypeVariableContext :: TypeCheckMonad a -> TypeCheckMonad a
+freshTypeVariableContext prog = do
+    modify (\st -> st {
+        typeVariableContexts =
+            let ctxts = typeVariableContexts st
+            in head ctxts : ctxts
+        })
+    a <- prog
+    modify (\st -> st { typeVariableContexts = tail (typeVariableContexts st) })
+    return a
+
+registerTypeVariable :: Type -> TypeCheckMonad Type
+registerTypeVariable tv@(TVar var) = do
+    modify (\st -> st { typeVariableContexts = 
+        let ctxt:ctxts = typeVariableContexts st
+        in (S.insert var ctxt) : ctxts })
+    return tv
+
+registerTypeRef :: TypeVarRef -> TypeCheckMonad TypeVarRef
+registerTypeRef var = do
+    modify (\st -> st { typeVariableContexts = 
+        let ctxt:ctxts = typeVariableContexts st
+        in (S.insert var ctxt) : ctxts })
+    return var
+
+currentTypeVariableContexts :: TypeCheckMonad [S.Set TypeVarRef]
+currentTypeVariableContexts = gets typeVariableContexts
+
+freshRegisteredTypeVar = freshTypeVar >>= registerTypeVariable
+freshRegisteredTypeVarRef cs = freshTypeVarRef cs >>= registerTypeRef
+freshRegisteredTypeVarWithConstraints cs =
+    freshTypeVarWithConstraints cs >>= registerTypeVariable
+freshRegisteredRigidTypeVarWithConstraints x y =
+    freshRigidTypeVarWithConstraints x y >>= registerTypeVariable

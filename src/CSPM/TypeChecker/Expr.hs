@@ -73,8 +73,8 @@ instance TypeCheckable (Exp Name) Type where
             freeVars e)
     
     typeCheck' (App f args) = do
-        targs <- replicateM (length args) freshTypeVar
-        tr <- freshTypeVar
+        targs <- replicateM (length args) freshRegisteredTypeVar
+        tr <- freshRegisteredTypeVar
         typeCheckExpect f (TFunction targs tr)
         checkFunctionCall (prettyPrint f) args targs
         return tr
@@ -115,7 +115,7 @@ instance TypeCheckable (Exp Name) Type where
     typeCheck' (Let decls exp) = do
         -- Add a new scope: typeCheckDecl will add vars into it 
         local (boundNames decls) $ do
-            typeCheckDecls False decls
+            typeCheckDecls True False decls
             typeCheck exp
     typeCheck' (Lit lit) = typeCheck lit
     typeCheck' (List es) = do
@@ -164,12 +164,12 @@ instance TypeCheckable (Exp Name) Type where
             t <- ensureAreEqualAndHaveConstraint CSet es
             return $ TSet t
     typeCheck' (SetEnum es) =  do
-        fv <- freshTypeVarWithConstraints [CYieldable]
+        fv <- freshRegisteredTypeVarWithConstraints [CYieldable]
         mapM (flip ensureIsExtendable fv) es
         return $ TSet fv
     typeCheck' (SetEnumComp es stmts) = 
         typeCheckStmts TSet stmts $ do
-            fv <- freshTypeVarWithConstraints [CYieldable]
+            fv <- freshRegisteredTypeVarWithConstraints [CYieldable]
             mapM (flip ensureIsExtendable fv) es
             return $ TSet fv
     typeCheck' (SetEnumFrom lb) = do

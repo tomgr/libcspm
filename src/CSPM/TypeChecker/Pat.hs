@@ -54,7 +54,7 @@ instance TypeCheckable (Pat Name) Type where
     typeCheck' (PTuple ps) = do
         ts <- mapM typeCheck ps
         return $ TTuple ts
-    typeCheck' (PWildCard) = freshTypeVar
+    typeCheck' (PWildCard) = freshRegisteredTypeVar
     typeCheck' (PVar n) = do
         t @ (ForAll _ t') <- getType n
         -- All variables are already in scope hence we can just return the

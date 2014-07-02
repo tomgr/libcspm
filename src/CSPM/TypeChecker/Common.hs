@@ -28,7 +28,7 @@ instance TypeCheckable Literal Type where
     typeCheck' (String _) = return $ TSeq TChar
     
 ensureAreEqual :: TypeCheckable a Type => [a] -> TypeCheckMonad Type
-ensureAreEqual [] = freshTypeVar
+ensureAreEqual [] = freshRegisteredTypeVar
 ensureAreEqual (e:es) = do
     t <- typeCheck e
     mapM (\e -> typeCheckExpect e t) es
@@ -41,17 +41,17 @@ ensureAreEqualTo typ es = do
 
 ensureAreEqualAndHaveConstraint :: TypeCheckable a Type => Constraint -> [a] -> TypeCheckMonad Type
 ensureAreEqualAndHaveConstraint c es = do
-    fv1 <- freshTypeVarWithConstraints [c]
+    fv1 <- freshRegisteredTypeVarWithConstraints [c]
     ensureAreEqualTo fv1 es
 
 ensureIsList :: TypeCheckable a b => a -> TypeCheckMonad b
 ensureIsList e = do
-    fv <- freshTypeVar
+    fv <- freshRegisteredTypeVar
     typeCheckExpect e (TSeq fv)
 
 ensureIsSet :: TypeCheckable a b => a -> TypeCheckMonad b
 ensureIsSet e = do
-    fv <- freshTypeVarWithConstraints [CSet]
+    fv <- freshRegisteredTypeVarWithConstraints [CSet]
     typeCheckExpect e (TSet fv)
 
 ensureIsBool :: TypeCheckable a b => a -> TypeCheckMonad b
@@ -65,7 +65,7 @@ ensureIsChannel e = ensureIsExtendable e TEvent
 
 ensureIsExtendable :: TypeCheckable a b => a -> Type -> TypeCheckMonad b
 ensureIsExtendable e t = do
-    tvref <- freshTypeVarRef []
+    tvref <- freshRegisteredTypeVarRef []
     typeCheckExpect e (TExtendable t tvref)
 
 ensureIsEvent :: TypeCheckable a b => a -> TypeCheckMonad b
@@ -76,5 +76,5 @@ ensureIsProc e = typeCheckExpect e TProc
 
 ensureHasConstraint :: Constraint -> Type -> TypeCheckMonad Type
 ensureHasConstraint c t = do
-    fv1 <- freshTypeVarWithConstraints [c]
+    fv1 <- freshRegisteredTypeVarWithConstraints [c]
     unify fv1 t
