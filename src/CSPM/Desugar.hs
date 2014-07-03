@@ -145,7 +145,9 @@ desugarDecl (an@(An x y (PatBind p e ta))) = do
         st -> do
             -- We are binding multiple things and thus need to make an extractor
             nameToBindTo <- mkFreshInternalName
-            let typeOf n = head [ts | (n', ts) <- st, n' == n]
+            let typeOf n = case [ts | (n', ts) <- st, n' == n] of
+                                [ts] -> ts
+                                [] -> panic $! "Could not find the type of "++show n
                 expToBindTo = An Unknown dummyAnnotation (Var nameToBindTo)
                 mkExtractorPat' n (An a b p) = An a b (mkExtractorPat n p) 
                 mkExtractorPat n (PCompList p1 p2 pold) =
@@ -248,14 +250,14 @@ desugarDecl (An x y d) = do
 
 desugarDecls :: [TCDecl] -> DesugarMonad [TCDecl]
 desugarDecls ds = do
-    ds <- concatMapM desugarDecl ds
     let substituteSymbolTable (d@(An _ (Nothing, _) _)) = return d
         substituteSymbolTable (An x (Just st, y) d) = do
             st <- mapM (\ (n, t) -> do
                 n <- substituteName n
                 return $! (n, t)) st
             return $ An x (Just st, y) d
-    mapM substituteSymbolTable ds
+    ds <- mapM substituteSymbolTable ds
+    concatMapM desugarDecl ds
 
 instance Desugarable (Assertion Name) where
     desugar (Refinement e1 m e2 opts) = 
