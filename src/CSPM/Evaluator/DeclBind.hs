@@ -167,8 +167,6 @@ bindDecl (an@(An _ _ (NameType n e _))) = do
             [s] -> return $ VSet s
             _ -> return $ VSet $ cartesianProduct CartDot sets)]
 bindDecl (an@(An _ _ (Assert _))) = return []
-bindDecl (an@(An _ _ (External ns))) = return []
-bindDecl (an@(An _ _ (Transparent ns))) = return []
 bindDecl (an@(An _ _ (TimedSection (Just tn) f ds))) = do
     nds <- concatMapM bindDecl ds
     let packageDecl :: EvaluationMonad Value -> EvaluationMonad Value

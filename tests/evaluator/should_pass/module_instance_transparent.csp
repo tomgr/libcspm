@@ -1,0 +1,15 @@
+module M(X)
+exports
+transparent normal
+endmodule
+
+instance N = M({})
+
+procTest1 = N::normal(STOP)
+
+module G
+exports
+transparent normal
+endmodule
+
+procTest2 = G::normal(STOP)

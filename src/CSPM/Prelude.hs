@@ -4,6 +4,7 @@ module CSPM.Prelude (
     BuiltIn(..),
     builtins,
     builtInName,
+    builtInWithName,
     transparentFunctionForOccName,
     externalFunctionForOccName
 ) 
@@ -33,7 +34,9 @@ instance Eq BuiltIn where
     b1 == b2 = name b1 == name b2
 
 bMap = M.fromList [(stringName b, name b) | b <- builtins True]
+builtinMap = M.fromList [(name b, b) | b <- builtins True]
 builtInName s = M.findWithDefault (panic "builtin not found") s bMap
+builtInWithName s = M.findWithDefault (panic "builtin not found") s builtinMap
 
 builtins :: Bool -> [BuiltIn]
 builtins includeHidden = 

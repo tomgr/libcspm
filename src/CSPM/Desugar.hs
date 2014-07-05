@@ -230,6 +230,10 @@ desugarDecl (d@(An _ _ (ModuleInstance nax nt args nm (Just mod)))) = do
                     (PatBind p e Nothing)
             patBinds = zipWith makePatBind pats args
         desugarDecls $ patBinds ++ ds1 ++ ds2
+desugarDecl (An x y (Transparent ns)) =
+    concatMapM makeAliasDefinition ns
+desugarDecl (An x y (External ns)) = 
+    concatMapM makeAliasDefinition ns
 desugarDecl (An x y d) = do
     d' <- case d of
             FunBind n ms ta ->
@@ -247,6 +251,22 @@ desugarDecl (An x y d) = do
                     desugar f $$ timedSection (desugarDecls ds)
             PrintStatement s -> return $ PrintStatement s
     return [An x y d']
+
+makeAliasDefinition :: Name -> DesugarMonad [TCDecl]
+makeAliasDefinition n = do
+    n' <- substituteName n
+    if n' == n then return []
+    else do
+        let newPSymTableThunk = panic "new psymbol table evaluated"
+            typeOf n = typeScheme (builtInWithName n)
+        return [
+            An Unknown
+                (Just [(n', typeOf n)], newPSymTableThunk)
+                (PatBind
+                    (An Unknown dummyAnnotation (PVar n'))
+                    (An Unknown dummyAnnotation (Var n))
+                    Nothing)
+            ]
 
 desugarDecls :: [TCDecl] -> DesugarMonad [TCDecl]
 desugarDecls ds = do

@@ -1,0 +1,3 @@
+procTest2 = normal(STOP)
+
+procTest2

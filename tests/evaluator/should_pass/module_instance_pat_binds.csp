@@ -6,6 +6,4 @@ endmodule
 instance N = M((0,1))
 
 test1 = N::y == 0
-test2 = N::y == 1
-
-assert STOP [T= test1 and test2 & STOP
+test2 = N::z == 1
