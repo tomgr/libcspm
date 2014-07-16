@@ -17,11 +17,11 @@ printCallStack :: Maybe ScopeIdentifier -> Doc
 printCallStack Nothing = text "Lexical call stack: none available"
 printCallStack (Just p) =
     let ppFrame _ Nothing = empty
-        ppFrame i (Just (SFunctionBind n vss p)) =
-            int i <> colon <+> prettyPrint (SFunctionBind n vss Nothing)
+        ppFrame i (Just (SFunctionBind h n vss p)) =
+            int i <> colon <+> prettyPrint (SFunctionBind h n vss Nothing)
             $$ ppFrame (i+1) p
-        ppFrame i (Just (SVariableBind vs p)) =
-            int i <> colon <+> prettyPrint (SVariableBind vs Nothing)
+        ppFrame i (Just (SVariableBind h vs p)) =
+            int i <> colon <+> prettyPrint (SVariableBind h vs Nothing)
             $$ ppFrame (i+1) p
     in text "Lexical call stack:" $$ tabIndent (ppFrame 1 (Just p))
 

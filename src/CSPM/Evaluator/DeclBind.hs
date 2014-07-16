@@ -74,7 +74,7 @@ bindDecl (an@(An _ _ (FunBind n ms _))) = do
             -- Make sure we save the enclosing environment (as it contains
             -- variables that we need).
             st <- gets id
-            let fid = FMatchBind n (reverse ass) parentScope
+            let fid = matchBindFunction n (reverse ass) parentScope
             return $ VFunction fid $ \ vs ->
                 (if profilerActive st then
                     modify (\ st' -> st {

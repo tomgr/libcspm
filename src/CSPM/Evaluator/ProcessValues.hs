@@ -18,6 +18,7 @@ module CSPM.Evaluator.ProcessValues (
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import qualified Data.Foldable as F
 import qualified Data.Sequence as S
+import qualified Data.Set as St
 import Data.Hashable
 import Util.Exception
 import Util.Prelude
@@ -237,19 +238,21 @@ components (PUnaryOp _ p1) = S.singleton p1
 
 -- | Given a process, returns the initial process and all processes that it
 -- calls.
-splitProcIntoComponents :: (Eq pn, F.Foldable seq) => Proc seq op pn ev evs evm -> 
+splitProcIntoComponents :: (Eq pn, Ord pn, F.Foldable seq) =>
+    Proc seq op pn ev evs evm -> 
     (Proc seq op pn ev evs evm, [(pn, Proc seq op pn ev evs evm)])
 splitProcIntoComponents p =
     let
-        explored pns n = n `elem` (map fst pns)
+        explored s n = St.member n s
 
-        exploreAll pns [] = pns
-        exploreAll pns (p:ps) = exploreAll (explore pns p) ps
+        exploreAll s pns [] = (s, pns)
+        exploreAll s pns (p:ps) = exploreAll s' pns' ps
+            where (s', pns') = explore s pns p
 
-        explore pns (PUnaryOp _ p) = explore pns p
-        explore pns (PBinaryOp _ p1 p2) = exploreAll pns [p1,p2]
-        explore pns (POp _ ps) = exploreAll pns (F.toList ps)
-        explore pns (PProcCall n p) =
-            if explored pns n then pns
-            else explore ((n, p):pns) p
-    in (p, explore [] p)
+        explore s pns (PUnaryOp _ p) = explore s pns p
+        explore s pns (PBinaryOp _ p1 p2) = exploreAll s pns [p1,p2]
+        explore s pns (POp _ ps) = exploreAll s pns (F.toList ps)
+        explore s pns (PProcCall n p) =
+            if explored s n then (s, pns)
+            else explore (St.insert n s) ((n, p):pns) p
+    in (p, snd $ explore St.empty [] p)

@@ -89,7 +89,7 @@ instance Evaluatable (Exp Name) where
     eval (Lambda ps e) = do
         st <- getState
         psid <- getParentScopeIdentifier
-        let fid = FLambda (Lambda ps e) psid
+        let fid = lambdaFunction (Lambda ps e) psid
         return $ VFunction fid $ \ vs -> return $ runEvaluator st $ do
             let (matches, binds) = bindAll ps vs
             if matches then do

@@ -4,6 +4,7 @@ module CSPM.Evaluator.Values (
     ScopeIdentifier(..), FunctionIdentifier(..),
     compareValues,
     procName, scopeId, annonymousScopeId,
+    builtInFunction, lambdaFunction, matchBindFunction,
     valueEventToEvent,
     noSave, maybeSave, removeThunk, lookupVar,
     tupleFromList,
@@ -54,78 +55,87 @@ data Value =
 -- for 'FunctionIdentifier's.
 data ScopeIdentifier =
     SFunctionBind {
+        scopeIdentifierCachedHash :: Int,
         scopeFunctionName :: Name,
         scopeFunctionArguments :: [[Value]],
         parentScopeIdentifier :: Maybe ScopeIdentifier
     }
     | SVariableBind {
+        scopeIdentifierCachedHash :: Int,
         variablesBound :: [Value],
         parentScopeIdentifier :: Maybe ScopeIdentifier
     }
 
 instance Eq ScopeIdentifier where
-    SFunctionBind n1 vss1 p1 == SFunctionBind n2 vss2 p2 =
-        n1 == n2 && vss1 == vss2 && p1 == p2
-    SVariableBind vs1 p1 == SVariableBind vs2 p2 =
-        vs1 == vs2 && p1 == p2
+    SFunctionBind h1 n1 vss1 p1 == SFunctionBind h2 n2 vss2 p2 =
+        h1 == h2 && n1 == n2 && vss1 == vss2 && p1 == p2
+    SVariableBind h1 vs1 p1 == SVariableBind h2 vs2 p2 =
+        h1 == h2 && vs1 == vs2 && p1 == p2
 
 instance Hashable ScopeIdentifier where
-    hashWithSalt s (SFunctionBind n1 args1 p1) =
-        s `hashWithSalt` (1 :: Int) `hashWithSalt` n1 `hashWithSalt` args1 `hashWithSalt` p1
-    hashWithSalt s (SVariableBind vs1 p1) =
-        s `hashWithSalt` (2 :: Int) `hashWithSalt` vs1 `hashWithSalt` p1
+    hashWithSalt s = hashWithSalt s . scopeIdentifierCachedHash
 
 instance Ord ScopeIdentifier where
-    compare (SFunctionBind n1 vss1 p1) (SFunctionBind n2 vss2 p2) =
+    compare (SFunctionBind h1 n1 vss1 p1) (SFunctionBind h2 n2 vss2 p2) =
         compare n1 n2 `thenCmp` compare vss1 vss2 `thenCmp` compare p1 p2
-    compare (SFunctionBind _ _ _) _ = LT
-    compare _ (SFunctionBind _ _ _) = GT
-    compare (SVariableBind vs1 p1) (SVariableBind vs2 p2) =
+    compare (SFunctionBind _ _ _ _) _ = LT
+    compare _ (SFunctionBind _ _ _ _) = GT
+    compare (SVariableBind h1 vs1 p1) (SVariableBind h2 vs2 p2) =
         compare vs1 vs2 `thenCmp` compare p1 p2
 
 data FunctionIdentifier = 
     FBuiltInFunction {
+        functionIdentifierCachedHash :: Int,
         functionName :: Name,
         arguments :: [Value]
     }
     | FLambda {
+        functionIdentifierCachedHash :: Int,
         lambdaExpression :: Exp Name,
         parentFunctionIdentifier :: Maybe ScopeIdentifier
     }
     | FMatchBind {
+        functionIdentifierCachedHash :: Int,
         functionName :: Name,
         argumentGroups :: [[Value]],
         -- | The free variables this is bound in
         scopeIdentifier :: Maybe ScopeIdentifier
     }
 
+builtInFunction :: Name -> [Value] -> FunctionIdentifier
+builtInFunction n vs = FBuiltInFunction h n vs
+    where h = (2 :: Int) `hashWithSalt` n `hashWithSalt` vs
+
+lambdaFunction :: Exp Name -> Maybe ScopeIdentifier -> FunctionIdentifier
+lambdaFunction expr parent = FLambda h expr parent
+    where h = (3 :: Int) `hashWithSalt` (show expr) `hashWithSalt` parent
+
+matchBindFunction :: Name -> [[Value]] -> Maybe ScopeIdentifier -> FunctionIdentifier
+matchBindFunction n vs parent = FMatchBind h n vs parent
+    where h = (4 :: Int) `hashWithSalt` n `hashWithSalt` vs `hashWithSalt` parent
+
 instance Eq FunctionIdentifier where
-    FBuiltInFunction n1 vs1 == FBuiltInFunction n2 vs2 =
-        n1 == n2 && vs1 == vs2
-    FLambda e1 parent1 == FLambda e2 parent2 =
-        e1 == e2 && parent1 == parent2
-    FMatchBind n1 args1 parent1 == FMatchBind n2 args2 parent2 =
-        n1 == n2 && args1 == args2 && parent1 == parent2
+    FBuiltInFunction h1 n1 vs1 == FBuiltInFunction h2 n2 vs2 =
+        h1 == h2 && n1 == n2 && vs1 == vs2
+    FLambda h1 e1 parent1 == FLambda h2 e2 parent2 =
+        h1 == h2 && e1 == e2 && parent1 == parent2
+    FMatchBind h1 n1 args1 parent1 == FMatchBind h2 n2 args2 parent2 =
+        h1 == h2 && n1 == n2 && args1 == args2 && parent1 == parent2
     _ == _ = False
 
 instance Hashable FunctionIdentifier where
-    hashWithSalt s (FBuiltInFunction n1 vs) =
-        s `hashWithSalt` (2 :: Int) `hashWithSalt` n1 `hashWithSalt` vs
-    hashWithSalt s (FLambda expr parent) =
-        s `hashWithSalt` (3 :: Int) `hashWithSalt` (show expr) `hashWithSalt` parent
-    hashWithSalt s (FMatchBind n vs parent) =
-         s `hashWithSalt` (4 :: Int) `hashWithSalt` n `hashWithSalt` vs `hashWithSalt` parent
+    hashWithSalt s = hashWithSalt s . functionIdentifierCachedHash
 
 instance Ord FunctionIdentifier where
-    compare (FBuiltInFunction n1 args1) (FBuiltInFunction n2 args2) =
+    compare (FBuiltInFunction h1 n1 args1) (FBuiltInFunction h2 n2 args2) =
         compare n1 n2 `thenCmp` compare args1 args2
-    compare (FBuiltInFunction _ _) _ = LT
-    compare _ (FBuiltInFunction _ _) = GT
-    compare (FLambda e1 parent1) (FLambda e2 parent2) =
+    compare (FBuiltInFunction _ _ _) _ = LT
+    compare _ (FBuiltInFunction _ _ _) = GT
+    compare (FLambda h1 e1 parent1) (FLambda h2 e2 parent2) =
         compare parent1 parent2 `thenCmp` compare e1 e2
-    compare (FLambda _ _) _ = LT
-    compare _ (FLambda _ _) = GT
-    compare (FMatchBind n1 vs1 parent1) (FMatchBind n2 vs2 parent2) =
+    compare (FLambda _ _ _) _ = LT
+    compare _ (FLambda _ _ _) = GT
+    compare (FMatchBind h1 n1 vs1 parent1) (FMatchBind h2 n2 vs2 parent2) =
         compare n1 n2 `thenCmp` compare parent1 parent2 `thenCmp` compare vs1 vs2
 
 tupleFromList :: [Value] -> Value
@@ -264,10 +274,16 @@ procName :: ScopeIdentifier -> ProcName
 procName = ProcName
 
 scopeId :: Name -> [[Value]] -> Maybe ScopeIdentifier -> ScopeIdentifier
-scopeId n vss pn = SFunctionBind n (map (map trimValueForProcessName) vss) pn
+scopeId n vss pn = SFunctionBind h n args pn
+    where
+        h = (1 :: Int) `hashWithSalt` n `hashWithSalt` args `hashWithSalt` pn
+        args = map (map trimValueForProcessName) vss
 
 annonymousScopeId :: [Value] -> Maybe ScopeIdentifier -> ScopeIdentifier
-annonymousScopeId vss pn = SVariableBind (map trimValueForProcessName vss) pn
+annonymousScopeId vss pn = SVariableBind h args pn
+    where
+        h = (2 :: Int) `hashWithSalt` args `hashWithSalt` pn
+        args = map trimValueForProcessName vss
 
 -- | This assumes that the value is a VDot with the left is a VChannel
 valueEventToEvent :: Value -> Event
@@ -276,11 +292,11 @@ valueEventToEvent = UserEvent
 errorThunk = panic "Trimmed value function evaluated"
 
 trimFunctionIdentifier :: FunctionIdentifier -> FunctionIdentifier
-trimFunctionIdentifier (FBuiltInFunction n args) =
-    FBuiltInFunction n (map trimValueForProcessName args)
-trimFunctionIdentifier (FLambda e p) = FLambda e p
-trimFunctionIdentifier (FMatchBind n args p) =
-    FMatchBind n (map (map trimValueForProcessName) args) p
+trimFunctionIdentifier (FBuiltInFunction h n args) =
+    FBuiltInFunction h n (map trimValueForProcessName args)
+trimFunctionIdentifier (FLambda h e p) = FLambda h e p
+trimFunctionIdentifier (FMatchBind h n args p) =
+    FMatchBind h n (map (map trimValueForProcessName) args) p
 
 trimValueForProcessName :: Value -> Value
 trimValueForProcessName (VInt i) = VInt i

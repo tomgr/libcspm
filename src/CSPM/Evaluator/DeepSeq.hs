@@ -12,13 +12,13 @@ import CSPM.Evaluator.Values
 -- worry about errors inside expressions since the desugarer is strict.
 
 instance NFData ScopeIdentifier where
-    rnf (SFunctionBind n vss s) = n `seq` rnf vss `seq` rnf s
-    rnf (SVariableBind vs s) = rnf vs `seq` rnf s
+    rnf (SFunctionBind h n vss s) = h `seq` n `seq` rnf vss `seq` rnf s
+    rnf (SVariableBind h vs s) = h `seq` rnf vs `seq` rnf s
 
 instance NFData FunctionIdentifier where
-    rnf (FBuiltInFunction n xs) = n `seq` rnf xs
-    rnf (FLambda n p) = n `seq` rnf p
-    rnf (FMatchBind n vss p) = n `seq` rnf vss `seq` rnf p
+    rnf (FBuiltInFunction h n xs) = h `seq` n `seq` rnf xs
+    rnf (FLambda h n p) = h `seq` n `seq` rnf p
+    rnf (FMatchBind h n vss p) = h `seq` n `seq` rnf vss `seq` rnf p
 
 instance NFData Value where
     rnf (VInt x) = rnf x

@@ -45,7 +45,7 @@ builtInFunctions = do
             S.fromList [VTuple (listArray (0,1) [arr!1, arr!0]) | VTuple arr <- S.toList s]
         cspm_relational_image [VSet s] = 
             let f = relationalImage s 
-                fid = FBuiltInFunction (builtInName "relational_image") [VSet s]
+                fid = builtInFunction (builtInName "relational_image") [VSet s]
             in VFunction fid (\[x] -> f x >>= return . VSet)
         cspm_mtransclose [VSet s1, VSet s2] = fdrSymmetricTransitiveClosure s1 s2
         cspm_relational_inverse_image s = cspm_relational_image [cspm_transpose s]
@@ -191,7 +191,7 @@ builtInFunctions = do
         mkMonadicFunc (s, f) = do
             let n = builtInName s
                 f' vs = registerCall n (f vs)
-            return $! (n, VFunction (FBuiltInFunction n []) f')
+            return $! (n, VFunction (builtInFunction n []) f')
 
         procs = [
             ("STOP", csp_stop),

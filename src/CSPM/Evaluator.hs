@@ -78,7 +78,7 @@ addToEnvironment bs = addScopeAndBindM bs getState
 
 -- | Attempts to convert a process name to a process, if possible.
 maybeProcessNameToProcess :: ProcName -> EvaluationMonad (Maybe UProc)
-maybeProcessNameToProcess (pn@(ProcName (SFunctionBind fn [args] Nothing))) = do
+maybeProcessNameToProcess (pn@(ProcName (SFunctionBind _ fn [args] Nothing))) = do
     -- Evaluate the function again
     VFunction _ func <- lookupVar fn
     let checkArgument (VInt i) = True

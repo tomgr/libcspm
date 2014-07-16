@@ -148,17 +148,17 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
 
 instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
         M.MonadicPrettyPrintable m ScopeIdentifier where
-    prettyPrint (SFunctionBind n args Nothing) =
+    prettyPrint (SFunctionBind _ n args Nothing) =
         M.prettyPrint n
         M.<> M.hcat (mapM (\as -> M.parens (M.list (mapM M.prettyPrint as))) args)
-    prettyPrint (SFunctionBind n args (Just pn)) =
-        M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (SFunctionBind n args Nothing)
-    prettyPrint (SVariableBind args Nothing) =
+    prettyPrint (SFunctionBind h n args (Just pn)) =
+        M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (SFunctionBind h n args Nothing)
+    prettyPrint (SVariableBind _ args Nothing) =
         M.text "ANNON" M.<> (M.parens (M.list (mapM M.prettyPrint args)))
-    prettyPrint (SVariableBind args (Just pn)) =
-        M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (SVariableBind args Nothing)
+    prettyPrint (SVariableBind h args (Just pn)) =
+        M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (SVariableBind h args Nothing)
 
-    prettyPrintBrief (SFunctionBind n args Nothing) =
+    prettyPrintBrief (SFunctionBind _ n args Nothing) =
         let
             spaceThreashold = 15
 
@@ -188,14 +188,14 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
         in M.prettyPrintBrief n M.<> M.hcat (mapM (\as ->
                 if length as >= spaceThreashold then M.ellipsis
                 else M.parens $ M.list $ mapM smallPP as) args)
-    prettyPrintBrief (SFunctionBind n args (Just pn)) =
+    prettyPrintBrief (SFunctionBind h n args (Just pn)) =
         M.prettyPrintBrief pn M.<> M.text "::"
-        M.<> M.prettyPrintBrief (SFunctionBind n args Nothing)
-    prettyPrintBrief (SVariableBind args Nothing) =
+        M.<> M.prettyPrintBrief (SFunctionBind h n args Nothing)
+    prettyPrintBrief (SVariableBind _ args Nothing) =
         M.text "ANNON" M.<> (M.parens (M.list (mapM M.prettyPrintBrief args)))
-    prettyPrintBrief (SVariableBind args (Just pn)) =
+    prettyPrintBrief (SVariableBind h args (Just pn)) =
         M.prettyPrintBrief pn M.<> M.text "::"
-        M.<> M.prettyPrintBrief (SVariableBind args Nothing)
+        M.<> M.prettyPrintBrief (SVariableBind h args Nothing)
 
 instance (Applicative m, F.Foldable seq, Functor seq, Monad m, 
             M.MonadicPrettyPrintable m ev, M.MonadicPrettyPrintable m evs) => 
@@ -457,14 +457,14 @@ instance (Applicative m, Monad m,
             (\ (k,v) -> M.prettyPrint k M.<+> M.text "=>" M.<+> M.prettyPrint v)
             (Mp.toList m))
         M.<+> M.text "|)"
-    prettyPrint (VFunction (FBuiltInFunction n args) _) =
+    prettyPrint (VFunction (FBuiltInFunction _ n args) _) =
         M.prettyPrint n M.<> case args of
                             [] -> M.empty
                             _ -> M.parens (M.list (mapM M.prettyPrint args))
-    prettyPrint (VFunction (FLambda e Nothing) _) = M.prettyPrint e
-    prettyPrint (VFunction (FLambda e (Just p)) _) =
+    prettyPrint (VFunction (FLambda _ e Nothing) _) = M.prettyPrint e
+    prettyPrint (VFunction (FLambda _ e (Just p)) _) =
         M.prettyPrint p M.<> M.text "::" M.<> M.parens (M.prettyPrint e)
-    prettyPrint (VFunction (FMatchBind n args parent) _) =
+    prettyPrint (VFunction (FMatchBind _ n args parent) _) =
         (case parent of
             Just pid -> M.prettyPrint pid M.<> M.text "::"
             Nothing -> M.empty
