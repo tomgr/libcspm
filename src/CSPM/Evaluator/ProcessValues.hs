@@ -76,12 +76,12 @@ instance (Hashable ev, Hashable evs, Hashable (seq evs)) =>
     hashWithSalt s (Prioritise False evs) =
         s `hashWithSalt` (8 :: Int) `hashWithSalt` evs
     hashWithSalt s (Prioritise True evs) = s `hashWithSalt` (9 :: Int) `hashWithSalt` evs
-    hashWithSalt s ModelCompress = 10
-    hashWithSalt s StrongBisim = 11
-    hashWithSalt s TauLoopFactor = 12
-    hashWithSalt s WeakBisim = 13
-    hashWithSalt s Determinise = 14
-    hashWithSalt s DelayBisim = 15
+    hashWithSalt s ModelCompress = s `hashWithSalt` (10 :: Int)
+    hashWithSalt s StrongBisim = s `hashWithSalt` (11 :: Int)
+    hashWithSalt s TauLoopFactor = s `hashWithSalt` (12 :: Int)
+    hashWithSalt s WeakBisim = s `hashWithSalt` (13 :: Int)
+    hashWithSalt s Determinise = s `hashWithSalt` (14 :: Int)
+    hashWithSalt s DelayBisim = s `hashWithSalt` (15 :: Int)
     hashWithSalt s (TraceWatchdog evs ev) =
         s `hashWithSalt` (16 :: Int) `hashWithSalt` evs `hashWithSalt` ev
     hashWithSalt s (FailureWatchdog evs ev) =
@@ -113,18 +113,18 @@ instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs)) =>
         Hashable (CSPOperator seq ev evs evm) where
     hashWithSalt s (PAlphaParallel a) = s `hashWithSalt` (1 :: Int) `hashWithSalt` a
     hashWithSalt s (PException a) = s `hashWithSalt` (2 :: Int) `hashWithSalt` a
-    hashWithSalt s PExternalChoice = 3
+    hashWithSalt s PExternalChoice = s `hashWithSalt` (3 :: Int)
     hashWithSalt s (PGenParallel evs) = s `hashWithSalt` (4 :: Int) `hashWithSalt` evs
     hashWithSalt s (PHide evs) = s `hashWithSalt` (5 :: Int) `hashWithSalt` evs
-    hashWithSalt s PInternalChoice = 6
-    hashWithSalt s PInterrupt = 7
-    hashWithSalt s PInterleave = 8
+    hashWithSalt s PInternalChoice = s `hashWithSalt` (6 :: Int)
+    hashWithSalt s PInterrupt = s `hashWithSalt` (7 :: Int)
+    hashWithSalt s PInterleave = s `hashWithSalt` (8 :: Int)
     hashWithSalt s (PLinkParallel evs) = s `hashWithSalt` (9 :: Int) `hashWithSalt` evs
     hashWithSalt s (POperator op) = s `hashWithSalt` (11 :: Int) `hashWithSalt` op
     hashWithSalt s (PPrefix ev) = s `hashWithSalt` (12 :: Int) `hashWithSalt` ev
     hashWithSalt s (PRename evm) = s `hashWithSalt` (13 :: Int) `hashWithSalt` evm
-    hashWithSalt s PSequentialComp = 14
-    hashWithSalt s PSlidingChoice = 15
+    hashWithSalt s PSequentialComp = s `hashWithSalt` (14 :: Int)
+    hashWithSalt s PSlidingChoice = s `hashWithSalt` (15 :: Int)
     hashWithSalt s (PSynchronisingExternalChoice evs) =
         s `hashWithSalt` (16 :: Int) `hashWithSalt` evs
     hashWithSalt s (PSynchronisingInterrupt evs) =
