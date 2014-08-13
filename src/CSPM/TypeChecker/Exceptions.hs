@@ -4,6 +4,7 @@ module CSPM.TypeChecker.Exceptions (
     infiniteUnificationMessage,
     unificationErrorMessage,
     incorrectArgumentCountMessage,
+    incorrectModuleArgumentCountMessage,
     constraintUnificationErrorMessage,
     deprecatedNameUsed,
     unsafeNameUsed,
@@ -38,6 +39,11 @@ incorrectArgumentCountMessage func expected actual = noMap $
         (text "was supplied with" <+> int actual <+> 
         text "arguments, but was expecting" <+> int expected)
 
+incorrectModuleArgumentCountMessage :: Doc -> Int -> Int -> Error
+incorrectModuleArgumentCountMessage moduleName expected actual = noMap $
+    hang (hang (text "The module") tabWidth moduleName) tabWidth
+        (text "was supplied with" <+> int actual <+> 
+        text "arguments, but was expecting" <+> int expected)
 infiniteUnificationMessage :: Type -> Type -> Error
 infiniteUnificationMessage t1 t2 vmap = 
     let ([ppt1, ppt2], map') = prettyPrintTypesWithMap vmap [t1, t2] in

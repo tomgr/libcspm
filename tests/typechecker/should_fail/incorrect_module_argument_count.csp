@@ -1,0 +1,5 @@
+module M(a)
+exports
+endmodule
+
+instance N = M(0, 1)

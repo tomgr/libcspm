@@ -486,6 +486,9 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         ts <- getType nt
         addModuleInstanceMap nm
         (TTuple ts, sub) <- instantiate' ts
+        when (length ts /= length args) $
+            raiseMessageAsError $ incorrectModuleArgumentCountMessage
+                (prettyPrint nt) (length args) (length ts)
         zipWithM typeCheckExpect args ts
         let subName n = case safeApply (invert nm) n of
                             Just n' -> n'
