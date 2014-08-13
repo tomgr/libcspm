@@ -1,0 +1,3 @@
+datatype X = Y.Int
+
+subtype Z = Y.{0}.{1}

@@ -398,6 +398,9 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                 ts <- getType nclause
                 ForAll [] typeCon <- getType nclause
                 (actFields, dataType) <- dotableToDotList typeCon
+                when (length tsFields > length actFields) $
+                    raiseMessageAsError $ incorrectSubtypeFieldCountMessage
+                        (prettyPrint nclause) (length actFields) (length tsFields)
                 -- Check that the datatype is the correct subtype.
                 tvref' <- freshRegisteredTypeVarRef []
                 unify (TExtendable parentType tvref') dataType
