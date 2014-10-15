@@ -151,3 +151,14 @@ setNotRectangularErrorMessage loc s1 ms2 = mkErrorMessage loc $
             $$ hang (text "and thus the following values are missing:") tabWidth
                 (prettyPrint (difference s2 s1))
         Nothing -> empty
+
+prioritisePartialOrderCyclicOrder :: [Event] -> SrcSpan ->
+    Maybe ScopeIdentifier -> ErrorMessage
+prioritisePartialOrderCyclicOrder scc loc scid = mkErrorMessage loc $
+    text "The partial order specified for priortisepo contains the following cycle:"
+    $$ tabIndent (list (map prettyPrint scc))
+
+prioritiseNonMaximalElement :: Event -> SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
+prioritiseNonMaximalElement event loc scid = mkErrorMessage loc $
+    text "The event:" <+> prettyPrint event
+    <+> text "is declared as maximal, but is not maximal in the order."

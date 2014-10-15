@@ -5,8 +5,12 @@ module CSPM.Evaluator.BuiltInFunctions (
 
 import Data.Array
 import Data.List
+import Control.Monad
 import Control.Monad.ST
 import Data.Hashable
+import qualified Data.HashTable.Class as H
+import qualified Data.HashTable.ST.Basic as B
+import qualified Data.Set as St
 import qualified Data.Map as M
 import qualified Data.Sequence as Sq
 
@@ -116,6 +120,12 @@ builtInFunctions = do
             let sets = map (\ (VSet s) -> S.valueSetToEventSet s) alphas
                 pop = Prioritise cache (Sq.fromList sets)
             in return $ VProc $ PUnaryOp (POperator pop) p
+        csp_prioritise_partialorder [VProc p, VSet order, VSet maximal] = do
+            let orderList = [(UserEvent (t!0), UserEvent (t!1)) | VTuple t <- S.toList order]
+            order <- computePrioritisePartialOrder orderList
+                        [UserEvent ev | ev <- S.toList maximal]
+            let pop = PartialOrderPrioritise order
+            return $ VProc $ PUnaryOp (POperator pop) p
         csp_timed_priority [VProc p] = do
             Just (_, tn) <- gets timedSection
             let tock = UserEvent $ VDot [VChannel tn]
@@ -184,6 +194,7 @@ builtInFunctions = do
             ("timed_priority", csp_timed_priority),
             ("prioritise", csp_prioritise True),
             ("prioritise_nocache", csp_prioritise False),
+            ("prioritisepo", csp_prioritise_partialorder),
             ("WAIT", csp_wait), ("mapLookup", cspm_mapLookup)
             ]
 
@@ -316,3 +327,55 @@ fdrSymmetricTransitiveClosure vs1 vs2 =
             rs <- G.nonReflexiveRepresentativesForNodes g
             return $! [tupleFromList [a,b] | (b,a) <- rs, S.member a vs2, S.member b vs2]
     in S.fromList $ runST computeRepresentatives
+
+computePrioritisePartialOrder :: [(Event, Event)] -> [Event] ->
+    EvaluationMonad (Sq.Seq (Event, Event))
+computePrioritisePartialOrder evs maxEvents =
+    let
+        maxEventSet = St.fromList maxEvents
+        allEvents = nub $ sort $ concat $ maxEvents : [[ev1, ev2] | (ev1, ev2) <- evs]
+        extraEdges =
+            [(Tau, ev) | ev <- allEvents, not (St.member ev maxEventSet)]
+            ++ [(Tick, ev) | ev <- allEvents, not (St.member ev maxEventSet)]
+        allEdges = evs ++ extraEdges
+
+        cyclicSccs graphSccs = filter isCyclicScc graphSccs
+            where
+                isCyclicScc (G.AcyclicSCC _) = False
+                isCyclicScc (G.CyclicSCC _) = True
+
+        transitiveClosureEdges = runST $ do
+            graph <- G.newGraphNoDupeNodes (Tau : Tick : allEvents) allEdges
+            sccs <- G.sccs graph
+            case cyclicSccs sccs of
+                [] -> do
+                    -- The sccs are in reverse topological order (i.e. if an SCC x has
+                    -- an edge to a SCC y), then x preceeds y. Thus, we reverse the
+                    -- ordering. This means by the time we compute the edges for a node
+                    -- x that has an edge to a node y, we have already computed the
+                    -- closure of y.
+                    let topSortedNodes = reverse [x | G.AcyclicSCC x <- sccs]
+
+                    htable <- H.new :: ST s (B.HashTable s Event [Event])
+                    edges <- mapM (\ n -> do
+                        successors <- G.successorNodes graph n
+                        newSuccessors <- mapM (\ s -> do
+                                Just xs <- H.lookup htable s
+                                return xs
+                            ) successors
+                        let xs = nub $ sort $ successors ++ concat newSuccessors
+                        H.insert htable n xs
+                        return [(n, x) | x <- xs]
+                        ) topSortedNodes
+                    return $ Right $ concat edges
+                G.CyclicSCC xs : _ ->
+                    return $ Left xs
+
+        edgeIsInValid (ev1, ev2) = St.member ev2 maxEventSet
+    in
+        case transitiveClosureEdges of
+            Left cyclicScc -> throwError' (prioritisePartialOrderCyclicOrder cyclicScc)
+            Right edges -> 
+                case filter edgeIsInValid edges of
+                    [] -> return $ Sq.fromList [(v1, v2) | (v1, v2) <- edges]
+                    (_, e) : _ -> throwError' (prioritiseNonMaximalElement e)

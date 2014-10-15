@@ -1,0 +1,5 @@
+procTest1 =
+    prioritisepo(STOP, {(b, c), (τ, b), (τ, c), (✓, b), (✓, c), (a, b),
+                        (a, c)})
+
+procTest1

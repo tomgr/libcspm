@@ -83,6 +83,11 @@ instance (Applicative m, F.Foldable seq, Monad m, M.MonadicPrettyPrintable m ev,
     prettyPrint (Prioritise cache as) =
         (if cache then M.text "prioritise" else M.text "prioritise_nocache")
         M.<> M.parens (M.angles (M.list (mapM M.prettyPrint (F.toList as))))
+    prettyPrint (PartialOrderPrioritise as) =
+        M.text "prioritisepo"
+        M.<> M.parens (M.braces (M.list (mapM (\ (ev1, ev2) ->
+            M.parens (M.prettyPrint ev1 M.<> M.comma M.<+> M.prettyPrint ev2))
+            (F.toList as))))
     prettyPrint (TraceWatchdog evs ev) = M.text "trace_watchdog"
     prettyPrint StrongBisim = M.text "sbisim"
     prettyPrint TauLoopFactor = M.text "tau_loop_factor"
@@ -91,6 +96,7 @@ instance (Applicative m, F.Foldable seq, Monad m, M.MonadicPrettyPrintable m ev,
     prettyPrintBrief (FailureWatchdog _ _) = M.text "failure_watchdog"
     prettyPrintBrief (Prioritise True as) = M.text "prioritise"
     prettyPrintBrief (Prioritise False as) = M.text "prioritise_nocache"
+    prettyPrintBrief (PartialOrderPrioritise _) = M.text "prioritisepo"
     prettyPrintBrief (TraceWatchdog _ _) = M.text "trace_watchdog"
     prettyPrintBrief op = M.prettyPrint op
 
@@ -101,6 +107,11 @@ ppOperatorWithArg (Prioritise cache as) proc = do
     (if cache then M.text "prioritise" else M.text "prioritise_nocache")
     M.<> M.parens (proc M.<> M.comma M.<+>
         M.angles (M.list (mapM M.prettyPrint (F.toList as))))
+ppOperatorWithArg (PartialOrderPrioritise as) proc = do
+    M.text "prioritisepo" M.<> M.parens (proc M.<> M.comma M.<+>
+        M.braces (M.list (mapM (\ (ev1, ev2) ->
+            M.parens (M.prettyPrint ev1 M.<> M.comma M.<+> M.prettyPrint ev2))
+            (F.toList as))))
 ppOperatorWithArg (TraceWatchdog evs ev) proc =
     M.text "trace_watchdog" M.<> M.parens (proc M.<> M.comma M.<+>
         M.prettyPrint evs M.<> M.comma M.<+> M.prettyPrint ev)
@@ -111,6 +122,9 @@ ppBriefOperatorWithArg (FailureWatchdog evs ev) proc =
         proc M.<> M.comma M.<+> M.ellipsis M.<> M.comma M.<+> M.ellipsis)
 ppBriefOperatorWithArg (Prioritise cache as) proc = do
     (if cache then M.text "prioritise" else M.text "prioritise_nocache")
+    M.<> M.parens (proc M.<> M.comma M.<+> M.ellipsis)
+ppBriefOperatorWithArg (PartialOrderPrioritise as) proc = do
+    M.text "prioritisepo"
     M.<> M.parens (proc M.<> M.comma M.<+> M.ellipsis)
 ppBriefOperatorWithArg (TraceWatchdog evs ev) proc =
     M.text "trace_watchdog" M.<> M.parens (

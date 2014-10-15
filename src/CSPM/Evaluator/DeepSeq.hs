@@ -80,6 +80,7 @@ instance NFData UnCompiledProcOperator where
     rnf (Normalize b) = rnf b
     rnf ModelCompress = ()
     rnf (Prioritise b evs) = rnf b `seq` rnf evs
+    rnf (PartialOrderPrioritise evs) = rnf evs
     rnf StrongBisim = ()
     rnf TauLoopFactor = ()
     rnf (TraceWatchdog evs ev) = rnf evs `seq` rnf ev

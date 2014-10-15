@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances,
     GeneralizedNewtypeDeriving, MultiParamTypeClasses,
-    TypeSynonymInstances, UndecidableInstances #-}
+    StandaloneDeriving, TypeSynonymInstances, UndecidableInstances #-}
 module CSPM.Evaluator.ProcessValues (
     -- * Events
     Event(..),
@@ -58,13 +58,19 @@ data ProcOperator seq ev evs =
     | Normalize Bool
     | ModelCompress
     | Prioritise Bool (seq evs)
+    | PartialOrderPrioritise (seq (ev, ev))
     | StrongBisim
     | TauLoopFactor
     | TraceWatchdog evs ev
     | WeakBisim
-    deriving (Eq, Ord)
 
-instance (Hashable ev, Hashable evs, Hashable (seq evs)) =>
+deriving instance (Eq ev, Eq (seq evs), Eq evs, Eq (seq (ev, ev)))
+    => Eq (ProcOperator seq ev evs)
+deriving instance (Ord ev, Ord (seq evs), Ord evs, Ord (seq (ev, ev)))
+    => Ord (ProcOperator seq ev evs)
+
+instance (Hashable ev, Hashable evs, Hashable (seq evs),
+            Hashable (seq (ev, ev))) =>
         Hashable (ProcOperator seq ev evs) where
     hashWithSalt s (Chase True) = s `hashWithSalt` (1 :: Int)
     hashWithSalt s (Chase False) = s `hashWithSalt` (2 :: Int)
@@ -86,6 +92,8 @@ instance (Hashable ev, Hashable evs, Hashable (seq evs)) =>
         s `hashWithSalt` (16 :: Int) `hashWithSalt` evs `hashWithSalt` ev
     hashWithSalt s (FailureWatchdog evs ev) =
         s `hashWithSalt` (18 :: Int) `hashWithSalt` evs `hashWithSalt` ev
+    hashWithSalt s (PartialOrderPrioritise a) =
+        s `hashWithSalt` (19 :: Int) `hashWithSalt` a
 
 data CSPOperator seq ev evs evm =
     PAlphaParallel (seq evs)
@@ -107,9 +115,14 @@ data CSPOperator seq ev evs evm =
     | PSlidingChoice
     | PSynchronisingExternalChoice evs
     | PSynchronisingInterrupt evs
-    deriving (Eq, Ord)
 
-instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs)) =>
+deriving instance (Eq ev, Eq (seq evs), Eq evs, Eq (seq (ev, ev)), Eq evm)
+    => Eq (CSPOperator seq ev evs evm)
+deriving instance (Ord ev, Ord (seq evs), Ord evs, Ord (seq (ev, ev)), Ord evm)
+    => Ord (CSPOperator seq ev evs evm)
+
+instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs),
+        Hashable (seq (ev, ev))) =>
         Hashable (CSPOperator seq ev evs evm) where
     hashWithSalt s (PAlphaParallel a) = s `hashWithSalt` (1 :: Int) `hashWithSalt` a
     hashWithSalt s (PException a) = s `hashWithSalt` (2 :: Int) `hashWithSalt` a

@@ -1,0 +1,5 @@
+external prioritisepo
+
+channel a, b, c
+
+procTest1 = prioritisepo(STOP, {(a, b), (b, c)}, {a})
