@@ -120,10 +120,12 @@ builtInFunctions = do
             let sets = map (\ (VSet s) -> S.valueSetToEventSet s) alphas
                 pop = Prioritise cache (Sq.fromList sets)
             in return $ VProc $ PUnaryOp (POperator pop) p
-        csp_prioritise_partialorder [VProc p, VSet order, VSet maximal] = do
+        csp_prioritise_partialorder [VProc p, VSet prioritisedEvents,
+                VSet order, VSet maximal] = do
             let orderList = [(UserEvent (t!0), UserEvent (t!1)) | VTuple t <- S.toList order]
             order <- computePrioritisePartialOrder orderList
                         [UserEvent ev | ev <- S.toList maximal]
+                        [UserEvent ev | ev <- S.toList prioritisedEvents]
             let pop = PartialOrderPrioritise order
             return $ VProc $ PUnaryOp (POperator pop) p
         csp_timed_priority [VProc p] = do
@@ -328,12 +330,14 @@ fdrSymmetricTransitiveClosure vs1 vs2 =
             return $! [tupleFromList [a,b] | (b,a) <- rs, S.member a vs2, S.member b vs2]
     in S.fromList $ runST computeRepresentatives
 
-computePrioritisePartialOrder :: [(Event, Event)] -> [Event] ->
+computePrioritisePartialOrder :: [(Event, Event)] -> [Event] -> [Event] ->
     EvaluationMonad (Sq.Seq (Event, Event))
-computePrioritisePartialOrder evs maxEvents =
+computePrioritisePartialOrder evs maxEvents prioritsedEvents =
     let
         maxEventSet = St.fromList maxEvents
-        allEvents = nub $ sort $ concat $ maxEvents : [[ev1, ev2] | (ev1, ev2) <- evs]
+        prioritsedEventsSet = St.fromList prioritsedEvents
+        allEvents = nub $ sort $ concat $ prioritsedEvents : maxEvents :
+            [[ev1, ev2] | (ev1, ev2) <- evs]
         extraEdges =
             [(Tau, ev) | ev <- allEvents, not (St.member ev maxEventSet)]
             ++ [(Tick, ev) | ev <- allEvents, not (St.member ev maxEventSet)]
@@ -372,10 +376,18 @@ computePrioritisePartialOrder evs maxEvents =
                     return $ Left xs
 
         edgeIsInValid (ev1, ev2) = St.member ev2 maxEventSet
+
+        eventsMissingFromPrioritised = St.toList $
+            St.difference (St.fromList allEvents) prioritsedEventsSet
     in
-        case transitiveClosureEdges of
-            Left cyclicScc -> throwError' (prioritisePartialOrderCyclicOrder cyclicScc)
-            Right edges -> 
-                case filter edgeIsInValid edges of
-                    [] -> return $ Sq.fromList [(v1, v2) | (v1, v2) <- edges]
-                    (_, e) : _ -> throwError' (prioritiseNonMaximalElement e)
+        case eventsMissingFromPrioritised of
+            [] ->
+                case transitiveClosureEdges of
+                    Left cyclicScc -> throwError' (prioritisePartialOrderCyclicOrder cyclicScc)
+                    Right edges -> 
+                        case filter edgeIsInValid edges of
+                            [] -> return $ Sq.fromList [(v1, v2) | (v1, v2) <- edges]
+                            (_, e) : _ -> throwError' (prioritiseNonMaximalElement e)
+            _ ->
+                 throwError' (prioritisePartialOrderEventsMissing prioritsedEvents
+                    eventsMissingFromPrioritised)

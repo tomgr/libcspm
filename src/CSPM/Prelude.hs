@@ -151,7 +151,8 @@ makeBuiltins = do
             ("loop", TFunction [TProc] TProc),
             ("prioritise", TFunction [TProc, TSeq (TSet TEvent)] TProc),
             ("prioritise_nocache", TFunction [TProc, TSeq (TSet TEvent)] TProc),
-            ("prioritisepo", TFunction [TProc, TSet (TTuple [TEvent, TEvent]), TSet TEvent] TProc),
+            ("prioritisepo", TFunction [TProc, TSet TEvent,
+                TSet (TTuple [TEvent, TEvent]), TSet TEvent] TProc),
             ("trace_watchdog", TFunction [TProc, TSet TEvent, TEvent] TProc)
             ]
 

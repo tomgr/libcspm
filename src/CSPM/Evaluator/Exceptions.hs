@@ -162,3 +162,12 @@ prioritiseNonMaximalElement :: Event -> SrcSpan -> Maybe ScopeIdentifier -> Erro
 prioritiseNonMaximalElement event loc scid = mkErrorMessage loc $
     text "The event:" <+> prettyPrint event
     <+> text "is declared as maximal, but is not maximal in the order."
+
+prioritisePartialOrderEventsMissing :: [Event] -> [Event] -> SrcSpan ->
+    Maybe ScopeIdentifier -> ErrorMessage
+prioritisePartialOrderEventsMissing allEvents missingEvents loc scid = mkErrorMessage loc $
+    text "The events:"
+    $$ tabIndent (list (map prettyPrint missingEvents))
+    $$ text "appear in the partial order, or in the set of maximal events, but are"
+    $$ text "not in the set of all prioritised events:"
+    $$ tabIndent (list (map prettyPrint allEvents))

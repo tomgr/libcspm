@@ -1,4 +1,4 @@
 external prioritisepo
 
 channel a, b
-procTest1 = prioritisepo(STOP, {(a, b), (b, a)}, {a})
+procTest1 = prioritisepo(STOP,  {a, b}, {(a, b), (b, a)}, {a})

@@ -2,5 +2,5 @@ external prioritisepo
 
 channel a, b
 
-procTest1 = prioritisepo(STOP, {a, b}, {(a, b)}, {b})
+procTest1 = prioritisepo(STOP, {}, {(a, b)}, {})
 assert procTest1 :[deadlock free [F]]
