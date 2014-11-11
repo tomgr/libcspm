@@ -132,7 +132,9 @@ instance (Desugarable a, Desugarable b) => Desugarable (a,b) where
         return (a', b')
 
 instance Desugarable (CSPMFile Name) where
-    desugar (CSPMFile ds) = return CSPMFile $$ desugarDecls ds
+    desugar (CSPMFile ds) = return CSPMFile $$ do
+        ds <- desugarDecls ds
+        return ds
 
 desugarDecl :: TCDecl -> DesugarMonad [TCDecl]
 desugarDecl (an@(An x y (PatBind p e ta))) = do
@@ -163,6 +165,7 @@ desugarDecl (an@(An x y (PatBind p e ta))) = do
                 mkExtractorPat n (PSet ps) = PSet (map (mkExtractorPat' n) ps)
                 mkExtractorPat n (PTuple ps) = PTuple (map (mkExtractorPat' n) ps)
                 mkExtractorPat n PWildCard = PWildCard
+                mkExtractorPat _ (PVar n') | isNameDataConstructor n' = PVar n'
                 mkExtractorPat n (PVar n') | n == n' = PVar n
                 mkExtractorPat n (PVar n') = PWildCard
 

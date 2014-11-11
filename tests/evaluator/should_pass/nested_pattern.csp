@@ -1,0 +1,11 @@
+datatype A = Acl.Int
+datatype B = Bcl.Int.A
+datatype C = Ccl.Int.B
+
+test1 =
+  let
+    Ccl.ci.Bcl.bi.Acl.ai = Ccl.0.Bcl.1.Acl.2
+  within
+    ci == 0
+
+assert STOP [T= if test1 then STOP else STOP
