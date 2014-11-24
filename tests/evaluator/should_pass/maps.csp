@@ -42,6 +42,8 @@ test35 = (| |) == emptyMap
 test36 = member((| |), Map({}, {}))
 test37 = member((| |), Map({0}, {0}))
 test38 = member((| 0 => 0 |), Map({0}, {0}))
+test39 = not mapMember(mapDelete((| 0 => 1 |), 0), 0)
+test40 = mapMember(mapDelete((| 0 => 1 |), 1), 0)
 
 channel c : Map({0, 1}, {0, 1})
 

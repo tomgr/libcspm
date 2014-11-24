@@ -131,12 +131,13 @@ makeBuiltins = do
         cspm_mapUpdateMultiple k v =
             ("mapUpdateMultiple",
                 TFunction [TMap k v, TSeq (TTuple [k, v])] (TMap k v))
+        cspm_mapDelete k v = ("mapDelete", TFunction [TMap k v, k] (TMap k v))
         cspm_Map k v = ("Map", TFunction [TSet k, TSet v] (TSet (TMap k v)))
 
         mapFunctions :: [Type -> Type -> (String, Type)]
         mapFunctions = [cspm_emptyMap, cspm_mapFromList, cspm_mapLookup,
             cspm_mapMember, cspm_mapToList, cspm_mapUpdate,
-            cspm_mapUpdateMultiple]
+            cspm_mapUpdateMultiple, cspm_mapDelete]
 
         externalAndTransparentFunctions :: [(String, Type)]
         externalAndTransparentFunctions = [

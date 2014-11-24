@@ -73,6 +73,7 @@ builtInFunctions = do
         cspm_mapUpdate [VMap m, k, v] = VMap $ M.insert k v m
         cspm_mapUpdateMultiple [VMap m, VList s] = VMap $
             foldr (uncurry M.insert) m [(arr!0, arr!1) | VTuple arr <- s]
+        cspm_mapDelete [VMap m, k] = VMap $ M.delete k m
         cspm_Map [VSet k, VSet v] = S.allMaps k v
 
         map_funcs = [
@@ -80,7 +81,8 @@ builtInFunctions = do
                 ("mapMember", cspm_mapMember),
                 ("mapToList", cspm_mapToList),
                 ("mapUpdate", cspm_mapUpdate),
-                ("mapUpdateMultiple", cspm_mapUpdateMultiple)
+                ("mapUpdateMultiple", cspm_mapUpdateMultiple),
+                ("mapDelete", cspm_mapDelete)
             ]
         
         cspm_length [VList xs] = VInt $ length xs
