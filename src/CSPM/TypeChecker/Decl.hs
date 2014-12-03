@@ -669,8 +669,13 @@ instance TypeCheckable (Match Name) Type where
             unify tsig $ foldr (\ targs tr -> TFunction targs tr) rt argts
 
             -- The rest of the code is as before (comments before also apply)
-            tgroups <- zipWithM (\ pats argts -> zipWithM (\ pat argt -> 
-                    typeCheckExpect pat argt >>= evaluateDots
+            tgroups <- zipWithM (\ pats argts -> zipWithM (\ pat argt -> do
+                    argt <- compress argt
+                    tact <- typeCheck pat
+                    -- We must disallow symmetric unification here as we don't
+                    -- want to allow type signatures that require a type B, but
+                    -- actually have a pattern of type x.y
+                    disallowSymmetricUnification (unify tact argt) >>= evaluateDots
                 ) pats argts) groups argts    
             tr <- typeCheckExpect exp rt >>= evaluateDots
             tgroups <- mapM (\ pats -> mapM (\ pat -> 

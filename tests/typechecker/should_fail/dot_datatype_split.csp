@@ -1,0 +1,6 @@
+datatype T = A.Bool | B.Bool
+
+f :: (T) -> Bool
+f(_.b) = b
+f(_) = error("")
+
