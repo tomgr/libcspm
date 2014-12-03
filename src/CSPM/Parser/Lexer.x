@@ -34,31 +34,6 @@ $notid = [[^0-9a-zA-Z_]\(\[$whitechar]
 @nltok = (@comment|())\n@nl
 @notnot = [^n]|(n[^o])|(no[^t])
 
--- For string identification
-$symbol = [\!\#\$\%\&\*\+\.\/\<\=\>\?\@\\\^\|\-\~]
-$large = [A-Z \xc0-\xd6 \xd8-\xde]
-$small = [a-z \xdf-\xf6 \xf8-\xff \_]
-$string_alpha = [$small $large]
-$graphic   = [$string_alpha $symbol $digit \:\"\']
-
-$octit     = 0-7
-$hexit     = [0-9 A-F a-f]
-
-@decimal     = $digit+
-@octal       = $octit+
-@hexadecimal = $hexit+
-@exponent    = [eE] [\-\+] @decimal
-
-$cntrl   = [$large \@\[\\\]\^\_]
-@ascii   = \^ $cntrl | NUL | SOH | STX | ETX | EOT | ENQ | ACK
-     | BEL | BS | HT | LF | VT | FF | CR | SO | SI | DLE
-     | DC1 | DC2 | DC3 | DC4 | NAK | SYN | ETB | CAN | EM
-     | SUB | ESC | FS | GS | RS | US | SP | DEL
-$charesc = [abfnrtv\\\"\'\&]
-@escape  = \\ ($charesc | @ascii | @decimal | o @octal | x @hexadecimal)
-@gap     = \\ $whitechar+ \\
-@string  = $graphic # [\"\\] | " " | @escape | @gap
-
 
 -- Note that we allow newlines to preceed all tokens, except for those that
 -- may possibly be at the start of a new expression. Therefore, for example,
@@ -218,9 +193,8 @@ tokens :-
     -- 'Wildcards'
     <0>$alpha+$alphanum*$prime* { stok (\ s -> TIdent s) }
     <0>@nl$digit+               { stok (\ s -> TInteger (read s)) }
-    <0>@nl \' ($graphic # [\'\\] | " " | @escape) \' 
-                                { stok (\ s -> TChar (read s)) }
-    <0>@nl\"@string*\"          { stok (\ s -> TString (read s)) }
+    <0>@nl\'                    { lexChar }
+    <0>@nl\"                    { lexString }
 
     -- Must be after names
     <0>@nl"_"@nl                { soakTok TWildCard }
@@ -261,6 +235,70 @@ closeseq token inp len =
                 setSequenceStack [0]
         tok token inp len
 
+lexString :: AlexInput -> Int -> ParseMonad LToken
+lexString _ _ = do
+    st <- getParserState
+    FileParserState { fileName = fname, tokenizerPos = pos } <- getTopFileParserState
+    let
+        startLoc = filePositionToSrcLoc fname pos
+
+        accumulate :: String -> AlexInput -> ParseMonad LToken
+        accumulate s st  = do
+            case alexGetChar' st of
+                (c, st) -> do
+                    case c of
+                        '\n' -> raiseLexicalError st
+                        '"' -> do
+                            let endLoc = currentFilePosition st
+                            setParserState st
+                            return $! L (makeLineSpan startLoc endLoc)
+                                (TString (reverse s))
+                        '\\' ->
+                            -- Escaped string
+                            case alexGetChar' st of
+                                (c, st) ->
+                                    case c of
+                                        '\n' -> raiseLexicalError st
+                                        'r' -> accumulate ('\r':s) st
+                                        'n' -> accumulate ('\n':s) st
+                                        't' -> accumulate ('\t':s) st
+                                        _ -> accumulate ('\"':s) st
+                        c -> accumulate (c:s) st
+    accumulate "" st
+
+lexChar :: AlexInput -> Int -> ParseMonad LToken
+lexChar _ _ = do
+    st <- getParserState
+    let startLoc = currentFilePosition st
+
+        -- Consumes the closing '
+        checkClosing st c =
+            case alexGetChar' st of
+                ('\'', st) -> do
+                    let endLoc = currentFilePosition st
+                    setParserState st
+                    return $! L (makeLineSpan startLoc endLoc) (TChar c)
+                _ -> raiseLexicalError st
+
+    case alexGetChar' st of
+        (c, st) -> do
+            case c of
+                '\n' -> raiseLexicalError st
+                '\\' ->
+                    let (c, st') = lexCharSubtitution st
+                    in checkClosing st' c
+                c -> checkClosing st c
+
+lexCharSubtitution :: AlexInput -> (Char, AlexInput)
+lexCharSubtitution st =
+    case alexGetChar' st of
+        (c, st) -> (sub c, st)
+    where
+        sub 'r' = '\r'
+        sub 'n' = '\n'
+        sub 't' = '\t'
+        sub c = c
+
 gt :: AlexInput -> Int -> ParseMonad LToken
 gt inp len = do
     (c:cs) <- getSequenceStack
@@ -285,8 +323,8 @@ tok t (ParserState { fileStack = fps:_ }) len =
 tok _ _ _ = panic "tok: invalid state"
 
 stok :: (String -> Token) -> AlexInput -> Int -> ParseMonad LToken
-stok f (st @ ParserState { fileStack = stk }) len = do
-        tok (f (filter (\c -> not (elem c ['\r','\n'])) (takeChars len stk))) st len
+stok f (st @ ParserState { fileStack = stk }) len =
+    tok (f (filter (\c -> not (elem c ['\r','\n'])) (takeChars len stk))) st len
 
 skip :: AlexInput -> Int -> ParseMonad LToken
 skip _ _ = getNextToken
@@ -303,29 +341,20 @@ nestedComment _ _ = do
     st <- getParserState
     go 1 st
     where 
-        err :: ParseMonad a
-        err = do
-            FileParserState { 
-                fileName = fname, 
-                tokenizerPos = pos } <- getTopFileParserState
-            throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
         go :: Int -> AlexInput -> ParseMonad LToken
         go 0 st = do setParserState st; getNextToken
         go n st = do
-            case alexGetChar st of
-                Nothing  -> err
-                Just (c,st) -> do
+            case alexGetChar' st of
+                (c, st) -> do
                     case c of
                         '-' -> do
-                            case alexGetChar st of
-                                Nothing          -> err
-                                Just ('\125',st) -> go (n-1) st
-                                Just (_,st)      -> go n st
+                            case alexGetChar' st of
+                                ('\125',st) -> go (n-1) st
+                                (_,st)      -> go n st
                         '\123' -> do
-                            case alexGetChar st of
-                                Nothing       -> err
-                                Just ('-',st) -> go (n+1) st
-                                Just (_,st)   -> go n st
+                            case alexGetChar' st of
+                                ('-',st) -> go (n+1) st
+                                (_,st)   -> go n st
                         _ -> go n st
 
 switchInput :: AlexInput -> Int -> ParseMonad LToken
@@ -390,23 +419,27 @@ alexGetChar (st @ (ParserState { fileStack = fps:fpss })) = gc fps
                 fps' = fps { input = s, tokenizerPos = p', previousChar = c }
                 st' = st { fileStack = fps':fpss }
 
+alexGetChar' :: AlexInput -> (Char, AlexInput)
+alexGetChar' st =
+    case alexGetChar st of
+        Just t -> t
+        Nothing -> 
+            throwSourceError [lexicalErrorMessage (currentFilePosition st)]
+
 getNextToken :: ParseMonad LToken
 getNextToken = do
     FileParserState { 
         input = input,
-        fileName = fname, 
-        tokenizerPos = pos, 
         currentStartCode = sc } <- getTopFileParserState
     st <- getParserState
     if length (fileStack st) > 1 && input == [] then do
         -- Switch input back
         setParserState (st { fileStack = tail (fileStack st) })
         -- Insert a newline to stop expressions spanning files
-        return $! L ((filePositionToSrcLoc fname pos)) TNewLine
+        return $! L (currentFilePosition st) TNewLine
     else case alexScan st sc of
         AlexEOF -> return $ L Unknown TEOF
-        AlexError _ -> 
-            throwSourceError [lexicalErrorMessage (filePositionToSrcLoc fname pos)]
+        AlexError _ -> raiseLexicalError st
         AlexSkip st' _ -> do
             setParserState st'
             getNextToken
@@ -414,6 +447,23 @@ getNextToken = do
             setParserState st'
             action st len
 
+raiseLexicalError :: AlexInput -> ParseMonad a
+raiseLexicalError st =
+    throwSourceError [lexicalErrorMessage (currentFilePosition st)]
+
 getNextTokenWrapper :: (LToken -> ParseMonad a) -> ParseMonad a
 getNextTokenWrapper cont = getNextToken >>= cont
+
+currentFilePosition :: AlexInput -> SrcSpan
+currentFilePosition st =
+   let FileParserState { 
+            fileName = fname, 
+            tokenizerPos = pos
+            } = head (fileStack st)
+    in filePositionToSrcLoc fname pos
+
+makeLineSpan :: SrcSpan -> SrcSpan -> SrcSpan
+makeLineSpan (SrcSpanPoint f1 l1 c1) (SrcSpanPoint f2 l2 c2)
+    | f1 == f2 && l1 == l2 = SrcSpanOneLine f1 l1 c1 c2
+
 }
