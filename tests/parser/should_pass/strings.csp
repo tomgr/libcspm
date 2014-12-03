@@ -1,3 +1,4 @@
+f(x)=x
 x = f('\'')
 y = f("\"afasfafs\"asfasfasfasfa")
 z = f("☑♤τ")

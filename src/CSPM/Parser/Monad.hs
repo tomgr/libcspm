@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, ScopedTypeVariables #-}
 module CSPM.Parser.Monad (
     ParseMonad, ParserState(..), 
     FileParserState(..), movePos,
@@ -107,23 +107,31 @@ modifyTopFileParserState stf =
     modify (\ st -> let fs:fss = fileStack st in 
                         st { fileStack = (stf fs):fss })
 
+-- | Strictly reads a file using the specified encoding
+strictReadFileWithEncoding :: String -> TextEncoding -> IO String
+strictReadFileWithEncoding filename enc = do
+    f <- openFile filename ReadMode
+    hSetEncoding f enc
+    x <- hGetContents f
+    length x `seq` return x
+
 pushFile :: String -> ParseMonad a -> ParseMonad a
 pushFile fname prog = do
     dirname <- gets rootDir     
-    let 
-        filename = combine dirname fname
-        handle :: IOException -> a
-        handle e = throwSourceError [fileAccessErrorMessage filename]
+    let filename = combine dirname fname
     fileContentsMap <- gets fileContents
     str <- case M.lookup filename fileContentsMap of
             Just contents -> return contents
-            Nothing -> liftIO $ catch (do
-                handle <- openFile filename ReadMode
-                -- Decode the file using an ASCII codec (except in comments,
-                -- all CSPM characters should be ASCII - clearly in comments
-                -- we can just ignore anything non-ASCII).
-                hSetEncoding handle char8
-                hGetContents handle) handle
+            Nothing -> liftIO $
+                -- Try reading the file using UTF8, but fallback to ASCII if
+                -- this fails
+                catch (strictReadFileWithEncoding filename utf8)
+                    (\ (_ :: IOException) ->
+                        catch (strictReadFileWithEncoding filename char8)
+                            (\ (_ :: IOException) ->    
+                                throwSourceError [fileAccessErrorMessage filename]
+                            )
+                    )
     when (stripPrefix "{\\rtf1" str /= Nothing) $
         throwSourceError [looksLikeRTFErrorMessage filename]
     modify (\st -> st { loadedFiles = filename:loadedFiles st })
