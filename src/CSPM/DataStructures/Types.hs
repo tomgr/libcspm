@@ -344,7 +344,8 @@ instance M.MonadicPrettyPrintable (Reader VariableRepresentationMap) Type where
     prettyPrint (TTuple ts) =
         M.parens (M.list (mapM M.prettyPrint ts))
     prettyPrint (TMap k v) =
-        M.text "Map" M.<+> M.prettyPrint k M.<+> M.prettyPrint v
+        M.text "(|" M.<+> M.prettyPrint k M.<+> M.text "=>"
+        M.<+> M.prettyPrint v M.<+> M.text "|)"
     prettyPrint (op@(TDot t1 t2)) =
         M.ppBinaryOp' op (M.char '.') t1 t2
     prettyPrint (op@(TDotable t1 t2)) = M.ppBinaryOp' op (M.text "=>") t1 t2
