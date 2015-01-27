@@ -51,6 +51,9 @@ typeCheckDecls checkAmbiguity generaliseTypes decls = do
     -- Flatten the decls so that definitions in modules are also type-checked
     -- in the correct order.
     let flattenDecl :: TCDecl -> [TCDecl]
+        flattenDecl (An a b (Module mn [] ds1 ds2)) =
+            (An a b (Module mn [] ds1 ds2))
+            : concatMap flattenDecl (ds1 ++ ds2)
         flattenDecl (An a b (Module mn args ds1 ds2)) =
             [An a b (Module mn args
                         (concatMap flattenDecl ds1)
@@ -132,6 +135,9 @@ typeCheckDecls checkAmbiguity generaliseTypes decls = do
                                                 (apply varToDeclIdMap n)
                                 p = mapPF invDeclMap path
                                 firstName = head $ boundNames $ head $ p
+                            liftIO $ putStrLn $ "Found Path "++show path
+                            liftIO $ putStrLn $ "Found Path "++show p
+                            liftIO $ putStrLn $ "Found Path "++show firstName
                             setSrcSpan (nameDefinition firstName) $! raiseMessageAsError $
                                 illegalModuleInstanceCycleErrorMessage decls nm ni p
                         ) (map fst instanceMap)) (instancesOfMod nm)
@@ -477,11 +483,12 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
             Just f -> typeCheckExpect f (TFunction [TEvent] TInt) >> return ()
             Nothing -> return ()
         return []
+    typeCheck' (Module n [] _ _) = return [(n, TTuple [])]
     typeCheck' (Module n args pubDs privDs) = do
         let fvs = boundNames args
         local fvs $ do
             tpats <- mapM (\ pat -> typeCheck pat >>= evaluateDots) args
-            typeCheckDecls (length args == 0) True (pubDs ++ privDs)
+            typeCheckDecls False True (pubDs ++ privDs)
             tpats <- mapM (\ pat -> typeCheck pat >>= evaluateDots) args
             return [(n, TTuple tpats)]
 

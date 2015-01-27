@@ -160,6 +160,17 @@ illegalModuleInstanceCycleErrorMessage decls mName iName path = noMap $
             $$ text "which is an instance of" <+> prettyPrint mName
         findInstanceCyclePath thisName (from:to:rest) =
             case unAnnotate from of
+                Module mn [] ds1 ds2 -> 
+                    let n = head $ boundNames to
+                    in case thisName of
+                        Nothing -> 
+                            text "Module" <+> prettyPrint mn <+> text "contains"
+                            $$ findInstanceCyclePath (Just n) (to:rest)
+                        Just thisName -> 
+                            prettyPrint thisName <> text ", which is defined in"
+                                <+> text "module" <+> prettyPrint mn
+                            $$ text "and also contains"
+                            $$ findInstanceCyclePath (Just n) (to:rest)
                 Module mn _ ds1 ds2 -> 
                     let (d, n) = head $ catMaybes $ map (findWithDependency (ds1++ds2))
                                     $ boundNames to
@@ -176,7 +187,7 @@ illegalModuleInstanceCycleErrorMessage decls mName iName path = noMap $
                                 <+> prettyPrint (head (boundNames d))
                                 <+> text "which calls"
                             $$ findInstanceCyclePath (Just n) (to:rest)
-                _ -> 
+                _ ->
                     let newName = head (intersect (freeVars from) (boundNames to))
                     in prettyPrint (fromJust thisName) <+> text "which calls"
                         $$ findInstanceCyclePath (Just newName) (to:rest)

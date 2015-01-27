@@ -1,16 +1,6 @@
 module M
 exports
-    y = 0
-
-    x = N::c
-endmodule
-
-module N
-exports
-c = {}
-g = global
+y = M1::y
 endmodule
 
 instance M1 = M
-
-global = M1::y

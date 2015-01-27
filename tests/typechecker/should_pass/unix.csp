@@ -1,0 +1,12 @@
+datatype Encryption = Alice | Sam
+
+-- ENV_MSG :: {Encryption}
+ENV_MSG = SYSTEM_M::ENV_MSG
+
+channel env : Encryption.ENV_MSG
+
+module SYSTEM_M
+  Alpha_Sam = {|env.Sam|}
+exports
+  ENV_MSG = {Alice}
+endmodule
