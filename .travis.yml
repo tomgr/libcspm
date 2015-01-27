@@ -9,3 +9,7 @@ notifications:
     on_start: always
 
 ghc: 7.8
+
+before_install:
+    cabal install happy alex
+    export PATH=$HOME/.cabal/bin:$PATH
