@@ -5,7 +5,6 @@ module CSPM.Evaluator.BuiltInFunctions (
 
 import Data.Array
 import Data.List
-import Control.Monad
 import Control.Monad.ST
 import Data.Hashable
 import qualified Data.HashTable.Class as H

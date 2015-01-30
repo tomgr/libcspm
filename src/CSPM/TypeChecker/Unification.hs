@@ -11,13 +11,10 @@ import Prelude
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Types
-import CSPM.TypeChecker.Environment
 import CSPM.TypeChecker.Exceptions
 import CSPM.TypeChecker.Monad
 import Util.Exception
 import Util.Monad
-
-import Control.Monad.Trans
 
 -- | Return the free type variables (and their constraints) for all 'TypeVar's 
 -- that occur in 'Type'.
