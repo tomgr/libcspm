@@ -135,9 +135,6 @@ typeCheckDecls checkAmbiguity generaliseTypes decls = do
                                                 (apply varToDeclIdMap n)
                                 p = mapPF invDeclMap path
                                 firstName = head $ boundNames $ head $ p
-                            liftIO $ putStrLn $ "Found Path "++show path
-                            liftIO $ putStrLn $ "Found Path "++show p
-                            liftIO $ putStrLn $ "Found Path "++show firstName
                             setSrcSpan (nameDefinition firstName) $! raiseMessageAsError $
                                 illegalModuleInstanceCycleErrorMessage decls nm ni p
                         ) (map fst instanceMap)) (instancesOfMod nm)
