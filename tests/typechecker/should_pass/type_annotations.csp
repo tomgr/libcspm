@@ -15,6 +15,9 @@ datatype A = B
 f5 :: A
 f5 = B
 
+f5a :: (A) -> A
+f5a(B) = B
+
 channel c_ : Int
 
 f6 :: Event
@@ -84,3 +87,8 @@ f25(S, C) =
         f(<>, _) = {}
         f(s, c) = Union({ productions(x.c) | x <- set(s) })
     within Union({f(S,c) | c <- C})
+
+datatype F = G.Int
+
+fooId :: (F) -> F
+fooId (G.n) = G.n
