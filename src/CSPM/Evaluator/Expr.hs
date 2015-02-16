@@ -23,6 +23,7 @@ import CSPM.Evaluator.Values
 import qualified CSPM.Evaluator.ValueSet as S
 import Util.Annotated
 import Util.Exception
+import Util.List
 
 -- In order to keep lazy evaluation working properly only use pattern
 -- matching when you HAVE to know the value. (Hence why we delay pattern
@@ -482,7 +483,7 @@ evalProc a = eval a >>= \v -> case v of
     _       -> panic "Type checker error"
 
 removeDuplicateTies :: Sq.Seq (Event, Event) -> Sq.Seq (Event, Event)
-removeDuplicateTies = Sq.fromList . nub . F.toList . Sq.unstableSort
+removeDuplicateTies = Sq.fromList . sortedNub . F.toList . Sq.unstableSort
 
 evalTies :: [TCStmt] -> [(TCExp, TCExp)] -> EvaluationMonad (Sq.Seq (Event, Event))
 evalTies stmts ties = do

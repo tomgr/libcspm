@@ -23,6 +23,7 @@ import qualified CSPM.Evaluator.ValueSet as S
 import CSPM.Prelude
 import qualified Data.Graph.ST as G
 import Util.Exception
+import Util.List
 import Util.Prelude
 import Util.PrettyPrint
 
@@ -337,7 +338,7 @@ computePrioritisePartialOrder evs maxEvents prioritsedEvents =
     let
         maxEventSet = St.fromList maxEvents
         prioritsedEventsSet = St.fromList prioritsedEvents
-        allEvents = nub $ sort $ concat $ prioritsedEvents : maxEvents :
+        allEvents = sortedNub $ sort $ concat $ prioritsedEvents : maxEvents :
             [[ev1, ev2] | (ev1, ev2) <- evs]
         extraEdges =
             [(Tau, ev) | ev <- allEvents, not (St.member ev maxEventSet)]
@@ -368,7 +369,7 @@ computePrioritisePartialOrder evs maxEvents prioritsedEvents =
                                 Just xs <- H.lookup htable s
                                 return xs
                             ) successors
-                        let xs = nub $ sort $ successors ++ concat newSuccessors
+                        let xs = sortedNub $ sort $ successors ++ concat newSuccessors
                         H.insert htable n xs
                         return [(n, x) | x <- xs]
                         ) topSortedNodes
