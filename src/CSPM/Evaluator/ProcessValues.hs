@@ -97,6 +97,7 @@ instance (Hashable ev, Hashable evs, Hashable (seq evs),
 
 data CSPOperator seq ev evs evm =
     PAlphaParallel (seq evs)
+    | PChaos evs
     | PException evs
     | PExternalChoice
     | PGenParallel evs
@@ -125,6 +126,7 @@ instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs),
         Hashable (seq (ev, ev))) =>
         Hashable (CSPOperator seq ev evs evm) where
     hashWithSalt s (PAlphaParallel a) = s `hashWithSalt` (1 :: Int) `hashWithSalt` a
+    hashWithSalt s (PChaos a) = s `hashWithSalt` (16 :: Int) `hashWithSalt` a
     hashWithSalt s (PException a) = s `hashWithSalt` (2 :: Int) `hashWithSalt` a
     hashWithSalt s PExternalChoice = s `hashWithSalt` (3 :: Int)
     hashWithSalt s (PGenParallel evs) = s `hashWithSalt` (4 :: Int) `hashWithSalt` evs
@@ -161,6 +163,7 @@ trimEvent (UserEvent v) = UserEvent (trimValueForProcessName v)
 
 trimOperator :: UnCompiledOperator -> UnCompiledOperator
 trimOperator (PAlphaParallel s) = PAlphaParallel (fmap (fmap trimEvent) s)
+trimOperator (PChaos s) = PChaos (fmap trimEvent s)
 trimOperator (PException s) = PException (fmap trimEvent s)
 trimOperator PExternalChoice = PExternalChoice
 trimOperator (PGenParallel evs) = PGenParallel (fmap trimEvent evs)

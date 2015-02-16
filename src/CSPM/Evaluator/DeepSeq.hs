@@ -54,6 +54,7 @@ instance NFData UProc where
 
 instance NFData UnCompiledOperator where
     rnf (PAlphaParallel evs) = rnf evs
+    rnf (PChaos evs) = rnf evs
     rnf (PException evs) = rnf evs
     rnf PExternalChoice = ()
     rnf (PGenParallel evs) = rnf evs

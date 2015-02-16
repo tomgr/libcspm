@@ -215,6 +215,7 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
             M.MonadicPrettyPrintable m ev, M.MonadicPrettyPrintable m evs) => 
         M.MonadicPrettyPrintable m (CSPOperator seq ev evs (seq (ev,ev))) where
     prettyPrintBrief (PAlphaParallel _) = M.text "[ || ]"
+    prettyPrintBrief (PChaos _) = M.text "CHAOS"
     prettyPrintBrief (PException _) = M.text "[| |>"
     prettyPrintBrief PExternalChoice = M.text "[]"
     prettyPrintBrief (PGenParallel _) = M.text "[| |]"
@@ -236,6 +237,9 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
         M.$$ (M.tabIndent $ M.vcat $
             mapM (\ (cid, a) -> M.int cid M.<> M.colon M.<+> M.prettyPrint a)
                 (zip [1..] (F.toList as)))
+    prettyPrint (PChaos a) = 
+        M.text "CHAOS over:"
+        M.$$ M.tabIndent (M.prettyPrint a)
     prettyPrint (PException a) =
         M.text "Exception with event set:"
         M.$$ M.tabIndent (M.prettyPrint a)
@@ -292,6 +296,7 @@ instance Precedence (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
 
     precedence (PProcCall _ _) = 0
     precedence (PUnaryOp (POperator _) _) = 0
+    precedence (POp (PChaos _) _) = 0
 
 ppBinaryOp, ppBriefBinaryOp ::
     (F.Foldable seq, Functor seq, M.MonadicPrettyPrintable m pn,
@@ -339,6 +344,8 @@ instance
                     zipWithM (\ a p -> M.parens $ M.sep $ sequence [
                             M.prettyPrint a, M.comma M.<+> M.prettyPrint p]
                     ) (F.toList as) (F.toList ps))) M.<+> M.text "@ [a] p"
+    prettyPrint (op@(POp (PChaos a) _)) =
+        M.text "CHAOS" M.<> M.parens (M.prettyPrint a)
     prettyPrint (op@(PBinaryOp (PException a) p1 p2)) =
         ppBinaryOp op (M.text "[|" M.<+> M.prettyPrint a M.<+> M.text "|>") p1 p2
     prettyPrint (op@(POp PExternalChoice ps)) =
@@ -402,6 +409,8 @@ instance
             M.prettyPrintBriefPrec (precedence op) p M.<+> M.text "[…||…] SKIP"
         else M.sep (M.punctuateFront (M.text "[…||…] ")
                 (mapM (M.prettyPrintBriefPrec (precedence op)) (F.toList ps)))
+    prettyPrintBrief (op@(POp (PChaos _) _)) =
+        M.text "CHAOS" M.<> M.parens (M.ellipsis)
     prettyPrintBrief (op@(PBinaryOp (PException a) p1 p2)) =
         ppBriefBinaryOp op (M.text "[|…|>") p1 p2
     prettyPrintBrief (op@(POp PExternalChoice ps)) =

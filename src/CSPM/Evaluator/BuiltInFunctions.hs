@@ -99,12 +99,9 @@ builtInFunctions = do
                 -- | We convert the set into an explicit set as this makes
                 -- comparisons faster than leaving it as a set represented as
                 -- (for instance) a CompositeSet of CartProduct sets.
-                n = procName $ scopeId (builtInName "CHAOS") [[VSet $ S.fromList $ S.toList a]] Nothing
-                evSet = S.valueSetToEventSet a
-                branches :: Sq.Seq UProc
-                branches = fmap (\ ev -> PUnaryOp (PPrefix ev) chaosCall) evSet
-                p = POp PInternalChoice $
-                    Sq.fromList [csp_stop, POp PExternalChoice branches]
+                n = procName $ scopeId (builtInName "CHAOS")
+                        [[VSet $ S.fromList $ S.toList a]] Nothing
+                p = POp (PChaos (S.valueSetToEventSet a)) Sq.empty
         csp_loop [VProc p] =
             let pn = procName $ scopeId (builtInName "loop") [[VProc p]] Nothing
                 procCall = PProcCall pn (PBinaryOp PSequentialComp p procCall)
