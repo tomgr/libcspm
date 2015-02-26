@@ -499,7 +499,6 @@ ExpA :: { PExp }
     | "{|" ExpCommaList "|}"        { AN2 (SetEnum $2) }
     | "{|" ExpCommaList "|" StmtCommaList "|}" { AN2 (SetEnumComp $2 $4) }
 
-    -- TODO: disallow these in expressions
     -- Patterns
     | "_"                           { LL (ExpPatWildCard) }
     | Exp "@@" Exp                  { LL (ExpPatDoublePattern $1 $3) }
@@ -786,118 +785,74 @@ checkTimedDecl (anDecl@(An _ _ (PrintStatement _))) =
     throwSourceError [invalidTimedSectionDeclarationErrorMessage anDecl]
 checkTimedDecl d = d
 
-checkExp :: PExp -> PExp
 -- Transform X \ Y ||| Z (which will have been parsed as X \ (Y ||| Z)) into
 -- (X \ Y) ||| Z (and ditto for other parallel operators). Note that we cannot
 -- do this using precedences, since we do want X ||| Y \ Z to bracket \ Z around
 -- the whole of X ||| Y. Thus, we really need a context dependent precedence,
 -- which happy doesnt have.
-checkExp (An l1 an1 (Hiding e1 (An l2 an2 (Interleave e2 e3)))) =
+transformHiding :: PExp -> PExp
+transformHiding exp =
     let
-        e1a = checkExp e1
-        e2a = checkExp e2
-        e3a = checkExp e3
-        -- The parallel location is simply the whole expression
-        lpar = l1
-        lhide = combineSpans (loc e1a) (loc e2a)
-    in An lpar an1 (Interleave (An lhide an2 (Hiding e1a e2a)) e3a)
-checkExp (An l1 an1 (Hiding e1 (An l2 an2 (GenParallel e2 e3 e4)))) =
-    let
-        e1a = checkExp e1
-        e2a = checkExp e2
-        e3a = checkExp e3
-        e4a = checkExp e4
-        -- The parallel location is simply the whole expression
-        lpar = l1
-        lhide = combineSpans (loc e1a) (loc e2a)
-    in An lpar an1 (GenParallel (An lhide an2 (Hiding e1a e2a)) e3a e4a)
-checkExp (An l1 an1 (Hiding e1 (An l2 an2 (AlphaParallel e2 e3 e4 e5)))) =
-    let
-        e1a = checkExp e1
-        e2a = checkExp e2
-        e3a = checkExp e3
-        e4a = checkExp e4
-        e5a = checkExp e5
-        -- The parallel location is simply the whole expression
-        lpar = l1
-        lhide = combineSpans (loc e1a) (loc e2a)
-    in An lpar an1 (AlphaParallel (An lhide an2 (Hiding e1a e2a)) e3a e4a e5a)
-checkExp (An l1 an1 (Hiding e1 (An l2 an2 (Exception e2 e3 e4)))) =
-    let
-        e1a = checkExp e1
-        e2a = checkExp e2
-        e3a = checkExp e3
-        e4a = checkExp e4
-        -- The parallel location is simply the whole expression
-        lpar = l1
-        lhide = combineSpans (loc e1a) (loc e2a)
-    in An lpar an1 (Exception (An lhide an2 (Hiding e1a e2a)) e3a e4a)
-checkExp (An l1 an1 (Hiding e1 (An l2 an2 (InternalChoice e2 e3)))) =
-    let
-        e1a = checkExp e1
-        e2a = checkExp e2
-        e3a = checkExp e3
-        -- The parallel location is simply the whole expression
-        lpar = l1
-        lhide = combineSpans (loc e1a) (loc e2a)
-    in An lpar an1 (InternalChoice (An lhide an2 (Hiding e1a e2a)) e3a)
-checkExp (An l1 an1 (Hiding e1 (An l2 an2 (ExternalChoice e2 e3)))) =
-    let
-        e1a = checkExp e1
-        e2a = checkExp e2
-        e3a = checkExp e3
-        -- The parallel location is simply the whole expression
-        lpar = l1
-        lhide = combineSpans (loc e1a) (loc e2a)
-    in An lpar an1 (ExternalChoice (An lhide an2 (Hiding e1a e2a)) e3a)
-checkExp (An l1 an1 (Hiding e1 (An l2 an2 (Interrupt e2 e3)))) =
-    let
-        e1a = checkExp e1
-        e2a = checkExp e2
-        e3a = checkExp e3
-        -- The parallel location is simply the whole expression
-        lpar = l1
-        lhide = combineSpans (loc e1a) (loc e2a)
-    in An lpar an1 (Interrupt (An lhide an2 (Hiding e1a e2a)) e3a)
-checkExp (An l1 an1 (Hiding e1 (An l2 an2 (SlidingChoice e2 e3)))) =
-    let
-        e1a = checkExp e1
-        e2a = checkExp e2
-        e3a = checkExp e3
-        -- The parallel location is simply the whole expression
-        lpar = l1
-        lhide = combineSpans (loc e1a) (loc e2a)
-    in An lpar an1 (SlidingChoice (An lhide an2 (Hiding e1a e2a)) e3a)
-checkExp (An l1 an1 (Hiding e1 (An l2 an2 (SequentialComp e2 e3)))) =
-    let
-        e1a = checkExp e1
-        e2a = checkExp e2
-        e3a = checkExp e3
-        -- The parallel location is simply the whole expression
-        lpar = l1
-        lhide = combineSpans (loc e1a) (loc e2a)
-    in An lpar an1 (SequentialComp (An lhide an2 (Hiding e1a e2a)) e3a)
-checkExp (An l1 an1 (Hiding e1 (An l2 an2 (SynchronisingExternalChoice e2 e3 e4)))) =
-    let
-        e1a = checkExp e1
-        e2a = checkExp e2
-        e3a = checkExp e3
-        e4a = checkExp e4
-        -- The parallel location is simply the whole expression
-        lpar = l1
-        lhide = combineSpans (loc e1a) (loc e2a)
-    in An lpar an1 (SynchronisingExternalChoice (An lhide an2 (Hiding e1a e2a)) e3a e4a)
-checkExp (An l1 an1 (Hiding e1 (An l2 an2 (SynchronisingInterrupt e2 e3 e4)))) =
-    let
-        e1a = checkExp e1
-        e2a = checkExp e2
-        e3a = checkExp e3
-        e4a = checkExp e4
-        -- The parallel location is simply the whole expression
-        lpar = l1
-        lhide = combineSpans (loc e1a) (loc e2a)
-    in An lpar an1 (SynchronisingInterrupt (An lhide an2 (Hiding e1a e2a)) e3a e4a)
-checkExp (anExp@(An a b exp)) =
+        extractLeft (An _ _ (Interleave e _)) = e
+        extractLeft (An _ _ (GenParallel e _ _)) = e
+        extractLeft (An _ _ (AlphaParallel e _ _ _)) = e
+        extractLeft (An _ _ (Exception e _ _)) = e
+        extractLeft (An _ _ (InternalChoice e _)) = e
+        extractLeft (An _ _ (ExternalChoice e _)) = e
+        extractLeft (An _ _ (Interrupt e _)) = e
+        extractLeft (An _ _ (SlidingChoice e _)) = e
+        extractLeft (An _ _ (SequentialComp e _)) = e
+        extractLeft (An _ _ (SynchronisingExternalChoice e _ _)) = e
+        extractLeft (An _ _ (SynchronisingInterrupt e _ _)) = e
+
+        transform :: SrcSpan -> PExp -> PExp -> PExp
+        transform loc newLeft (An _ an1 (Interleave _ e3)) =
+            An loc an1 (Interleave newLeft e3)
+        transform loc newLeft (An _ an1 (GenParallel _ e3 e4)) =
+            An loc an1 (GenParallel newLeft e3 e4)
+        transform loc newLeft (An _ an1 (AlphaParallel _ e3 e4 e5)) =
+            An loc an1 (AlphaParallel newLeft e3 e4 e5)
+        transform loc newLeft (An _ an1 (Exception _ e3 e4)) =
+            An loc an1 (Exception newLeft e3 e4)
+        transform loc newLeft (An _ an1 (InternalChoice _ e3)) =
+            An loc an1 (InternalChoice newLeft e3)
+        transform loc newLeft (An _ an1 (ExternalChoice _ e3)) =
+            An loc an1 (ExternalChoice newLeft e3)
+        transform loc newLeft (An _ an1 (Interrupt _ e3)) =
+            An loc an1 (Interrupt newLeft e3)
+        transform loc newLeft (An _ an1 (SlidingChoice _ e3)) =
+            An loc an1 (SlidingChoice newLeft e3)
+        transform loc newLeft (An _ an1 (SequentialComp _ e3)) =
+            An loc an1 (SequentialComp newLeft e3)
+        transform loc newLeft (An _ an1 (SynchronisingExternalChoice _ e2 e3)) =
+            An loc an1 (SynchronisingExternalChoice newLeft e2 e3)
+        transform loc newLeft (An _ an1 (SynchronisingInterrupt _ e2 e3)) =
+            An loc an1 (SynchronisingInterrupt newLeft e2 e3)
+
+        shouldTransform (An _ _ (Interleave _ _)) = True
+        shouldTransform (An _ _ (Interleave _ _)) = True
+        shouldTransform (An _ _ (GenParallel _ _ _)) = True
+        shouldTransform (An _ _ (AlphaParallel _ _ _ _)) = True
+        shouldTransform (An _ _ (Exception _ _ _)) = True
+        shouldTransform (An _ _ (InternalChoice _ _)) = True
+        shouldTransform (An _ _ (ExternalChoice _ _)) = True
+        shouldTransform (An _ _ (Interrupt _ _)) = True
+        shouldTransform (An _ _ (SlidingChoice _ _)) = True
+        shouldTransform (An _ _ (SequentialComp _ _)) = True
+        shouldTransform (An _ _ (SynchronisingExternalChoice _ _ _)) = True
+        shouldTransform (An _ _ (SynchronisingInterrupt _ _ _)) = True
+        shouldTransform _ = False
+    in
+        case exp of
+            An l1 an1 (Hiding e1 e2) | shouldTransform e2 ->
+                let
+                    newHideArg = extractLeft e2
+                    lhide = combineSpans (loc e1) (loc newHideArg)
+                in transform l1 (An lhide an1 (Hiding e1 newHideArg)) e2
+            _ -> exp
+
+checkExp :: PExp -> PExp
+checkExp anExp =
     let 
         check :: Exp UnRenamedName -> Exp UnRenamedName
         check (App e es) = App (checkExp e) (map checkExp es)
@@ -973,7 +928,8 @@ checkExp (anExp@(An a b exp)) =
         
         check x = throwSourceError [invalidExpressionErrorMessage anExp]
     in
-        An a b (check exp)
+        case transformHiding anExp of
+            An a b exp -> An a b (check exp)
 
 getFuncArgs :: PSType -> [PSType]
 getFuncArgs (An _ _ (STParen s)) = [s]
