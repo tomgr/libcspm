@@ -1,0 +1,11 @@
+P1 = STOP |\ {} ||| STOP
+P2 = STOP |\ {} [| {} |] STOP
+P3 = STOP |\ {} [{}||{}] STOP
+P4 = STOP |\ {} [| {} |> STOP
+P5 = STOP |\ {} |~| STOP
+P6 = STOP |\ {} [] STOP
+P7 = STOP |\ {} [+{}+] STOP
+P8 = STOP |\ {} /\ STOP
+P9 = STOP |\ {} /+{}+\ STOP
+P10 = STOP |\ {} [> STOP
+P11 = STOP |\ {} ; STOP

@@ -103,6 +103,7 @@ tokens :-
     <0>@nl"||"@nl               { soakTok TParallel }
     <0>@nl";"@nl                { soakTok TSemiColon }
     <0>@nl"&"@nl                { soakTok TGuard }
+    <0>@nl"|\"@nl               { soakTok TProject }
     <0>@nl"/+"@nl               { soakTok TLSyncInterrupt }
     <0>@nl"+\"@nl               { soakTok TRSyncInterrupt }
     <0>@nl"[+"@nl               { soakTok TLSyncExtChoice }

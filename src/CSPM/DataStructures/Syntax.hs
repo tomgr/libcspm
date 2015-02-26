@@ -402,6 +402,13 @@ data Exp id =
         prefixFields :: [AnField id],
         prefixProcess :: AnExp id
     }
+    -- | Project events, e.g. @P |\ A@.
+    | Project {
+        -- | The process the projection is applied to.
+        projectionProcess :: AnExp id,
+        -- | The set of events to be not hidden.
+        projectionAlphabet :: AnExp id
+    }
     -- | Event renaming, e.g. @P [[ a.x <- b.x | x <- X ]]@.
     | Rename {
         -- | The process that is renamed.

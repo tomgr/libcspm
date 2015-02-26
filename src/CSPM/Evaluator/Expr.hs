@@ -390,6 +390,10 @@ instance Evaluatable (Exp Name) where
         ts <- evalTies stmts ties
         return $ VProc $
             PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
+    eval (Project e1 e2) = do
+        p <- evalProc e1
+        VSet s <- eval e2
+        return $ VProc $ PUnaryOp (PProject (S.valueSetToEventSet s)) p
     eval (Rename e1 ties stmts) = do
         p1 <- evalProc e1
         ts <- evalTies stmts ties

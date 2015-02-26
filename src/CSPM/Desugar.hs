@@ -375,6 +375,7 @@ instance Desugarable (Exp Name) where
                 ptype <- freshPType
                 setPType ptype TProc
                 return $ TimedPrefix n (An srcSpan (Just TProc, ptype) dp))
+    desugar (Project e1 e2) = return Project $$ desugar e1 $$ desugar e2
     desugar (Rename e1 ties stmts) =
         return Rename $$ desugar e1 $$ desugar ties $$ desugar stmts
     desugar (SequentialComp e1 e2) = return SequentialComp $$ desugar e1 $$ desugar e2

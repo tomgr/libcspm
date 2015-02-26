@@ -1,0 +1,6 @@
+channel a, b
+channel c : Bool
+
+procTest1 = STOP |\ {}
+procTest2 = STOP |\ {a,b}
+procTest3 = STOP |\ {|c|}

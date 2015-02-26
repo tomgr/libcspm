@@ -285,6 +285,8 @@ instance PrettyPrintable id => PrettyPrintable (Exp id) where
     prettyPrint (Prefix ev fs e) =
         ppBinOp (prettyPrint ev <> hcat (map prettyPrint fs)) (text "->")
                 (prettyPrint e)
+    prettyPrint (Project e1 e2) = 
+        ppBinOp (prettyPrint e1) (text "|\\") (prettyPrint e2)
     prettyPrint (Rename e ties stmts) =
         prettyPrint e <+> brackets (brackets (
                 ppComp' (map ppRename ties) stmts

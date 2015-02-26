@@ -256,6 +256,10 @@ instance TypeCheckable (Exp Name) Type where
         ensureIsEvent e1
         ensureIsProc e2
         return TProc
+    typeCheck' (Project e1 e2) = do
+        ensureIsProc e1
+        typeCheckExpect e2 (TSet TEvent)
+        return TProc
     typeCheck' (Prefix e1 fields e2) = do
         let 
             fvsByField = map (\f -> (f, boundNames f)) fields

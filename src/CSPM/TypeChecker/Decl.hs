@@ -2,7 +2,6 @@
 module CSPM.TypeChecker.Decl (typeCheckDecls) where
 
 import Control.Monad
-import Control.Monad.Trans
 import Data.Graph.Wrapper
 import qualified Data.Map as M
 import qualified Data.Set as S

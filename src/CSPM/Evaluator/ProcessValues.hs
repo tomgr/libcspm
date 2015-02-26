@@ -110,6 +110,7 @@ data CSPOperator seq ev evs evm =
     | PLinkParallel evm
     | POperator (ProcOperator seq ev evs)
     | PPrefix ev
+    | PProject evs
     -- Map from Old -> New event
     | PRename evm
     | PSequentialComp
@@ -126,7 +127,7 @@ instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs),
         Hashable (seq (ev, ev))) =>
         Hashable (CSPOperator seq ev evs evm) where
     hashWithSalt s (PAlphaParallel a) = s `hashWithSalt` (1 :: Int) `hashWithSalt` a
-    hashWithSalt s (PChaos a) = s `hashWithSalt` (16 :: Int) `hashWithSalt` a
+    hashWithSalt s (PChaos a) = s `hashWithSalt` (19 :: Int) `hashWithSalt` a
     hashWithSalt s (PException a) = s `hashWithSalt` (2 :: Int) `hashWithSalt` a
     hashWithSalt s PExternalChoice = s `hashWithSalt` (3 :: Int)
     hashWithSalt s (PGenParallel evs) = s `hashWithSalt` (4 :: Int) `hashWithSalt` evs
@@ -137,6 +138,7 @@ instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs),
     hashWithSalt s (PLinkParallel evs) = s `hashWithSalt` (9 :: Int) `hashWithSalt` evs
     hashWithSalt s (POperator op) = s `hashWithSalt` (11 :: Int) `hashWithSalt` op
     hashWithSalt s (PPrefix ev) = s `hashWithSalt` (12 :: Int) `hashWithSalt` ev
+    hashWithSalt s (PProject ev) = s `hashWithSalt` (18 :: Int) `hashWithSalt` ev
     hashWithSalt s (PRename evm) = s `hashWithSalt` (13 :: Int) `hashWithSalt` evm
     hashWithSalt s PSequentialComp = s `hashWithSalt` (14 :: Int)
     hashWithSalt s PSlidingChoice = s `hashWithSalt` (15 :: Int)
@@ -175,6 +177,7 @@ trimOperator (PLinkParallel evm) =
     PLinkParallel (fmap (\(ev,ev') -> (trimEvent ev, trimEvent ev')) evm)
 trimOperator (POperator op) = POperator op
 trimOperator (PPrefix ev) = PPrefix (trimEvent ev)
+trimOperator (PProject evs) = PProject (fmap trimEvent evs)
 trimOperator (PRename evm) = 
     PRename (fmap (\(ev,ev') -> (trimEvent ev, trimEvent ev')) evm)
 trimOperator PSequentialComp = PSequentialComp

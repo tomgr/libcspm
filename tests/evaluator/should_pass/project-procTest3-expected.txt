@@ -1,0 +1,3 @@
+procTest3 = STOP |\ {c.false, c.true}
+
+procTest3

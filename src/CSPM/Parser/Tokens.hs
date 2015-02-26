@@ -117,6 +117,7 @@ data Token =
     | TSlidingChoice
     | TRException
     | TParallel
+    | TProject
 
     | TLSyncInterrupt
     | TRSyncInterrupt
@@ -243,6 +244,7 @@ instance PrettyPrintable Token where
     prettyPrint TSlidingChoice = text "[>"
     prettyPrint TRException = text "|>"
     prettyPrint TParallel = text "||"
+    prettyPrint TProject = text "|\\"
 
     prettyPrint TLSyncInterrupt = text "/+"
     prettyPrint TRSyncInterrupt = text "+\\"

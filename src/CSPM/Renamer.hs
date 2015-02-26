@@ -1134,6 +1134,7 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
         e1' <- rename e1
         (fs', e2') <- renameFields fs (rename e2)
         return $ Prefix e1' fs' e2'
+    rename (Project e1 e2) = return Project $$ rename e1 $$ rename e2
     rename (Rename e1 ties stmts) = do
         e1' <- rename e1
         (stmts', ties') <- renameStatements stmts (rename ties)

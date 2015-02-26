@@ -226,6 +226,7 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
     prettyPrintBrief (PLinkParallel _) = M.text "[ <-> ]"
     prettyPrintBrief (POperator op) = M.prettyPrintBrief op
     prettyPrintBrief (PPrefix _) = M.text "->"
+    prettyPrintBrief (PProject _) = M.text "|\\"
     prettyPrintBrief (PRename _) = M.text "[[ ]]"
     prettyPrintBrief PSequentialComp = M.text ";"
     prettyPrintBrief PSlidingChoice = M.text "[>"
@@ -262,6 +263,9 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
     prettyPrint (POperator op) = 
         M.text "Compression using" M.<+> M.prettyPrint op
     prettyPrint (PPrefix ev) = M.text "Prefix" M.<+> M.prettyPrint ev
+    prettyPrint (PProject a) =
+        M.text "Projecting event set:"
+        M.$$ M.tabIndent (M.prettyPrint a)
     prettyPrint (PRename em) =
         M.text "Renaming using map:"
         M.$$ (M.tabIndent $ M.vcat $
@@ -279,6 +283,7 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
 
 instance Precedence (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
     precedence (PUnaryOp (PHide _) _) = 10
+    precedence (PUnaryOp (PProject _) _) = 10
     precedence (POp PInterleave _) = 9
     precedence (PBinaryOp (PException _) _ _) = 8
     precedence (POp (PAlphaParallel _) _) = 8
@@ -383,6 +388,9 @@ instance
     prettyPrint (op@(PUnaryOp (PPrefix e) p)) =
         M.prettyPrint e M.<+> M.text "->"
         M.<+> M.prettyPrintPrec op p
+    prettyPrint (op@(PUnaryOp (PProject a) p)) =
+        M.prettyPrintPrec op p
+        M.<+> M.text "|\\" M.<+> M.prettyPrint a
     prettyPrint (op@(PUnaryOp (PRename evm) p)) =
         M.prettyPrintPrec op p M.<> M.text "[[" 
         M.<> M.list (mapM (\ (evOld, evNew) -> 
@@ -443,6 +451,9 @@ instance
     prettyPrintBrief (op@(PUnaryOp (PPrefix e) p)) =
         M.prettyPrintBrief e M.<+> M.text "->" M.<+> M.ellipsis
         --M.<+> M.prettyPrintBriefPrec (precedence op) p
+    prettyPrintBrief (op@(PUnaryOp (PProject a) p)) =
+        M.prettyPrintBriefPrec (precedence op) p
+        M.<+> M.text "|\\" M.<+> M.braces M.ellipsis
     prettyPrintBrief (op@(PUnaryOp (PRename evm) p)) =
         M.prettyPrintBriefPrec (precedence op) p M.<> M.text "[[…]]"
     prettyPrintBrief (op@(PBinaryOp PSequentialComp p1 p2)) =

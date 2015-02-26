@@ -100,6 +100,7 @@ instance Compressable (Exp a) where
     mcompress (LinkParallel e1 ties stmts e2) = return 
         LinkParallel $$ mcompress e1 $$ mcompress ties $$ mcompress stmts $$ mcompress e2
     mcompress (Prefix e1 fs e2) = return Prefix $$ mcompress e1 $$ mcompress fs $$ mcompress e2
+    mcompress (Project e1 e2) = return Project $$ mcompress e1 $$ mcompress e2
     mcompress (Rename e1 ties stmts) = return
         Rename $$ mcompress e1 $$ mcompress ties $$ mcompress stmts
     mcompress (SequentialComp e1 e2) = return SequentialComp $$ mcompress e1 $$ mcompress e2

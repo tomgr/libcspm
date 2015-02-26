@@ -152,6 +152,7 @@ import Util.Exception (panic)
     "[>"                { L _ TSlidingChoice }
     "|>"                { L _ TRException }
     "||"                { L _ TParallel }
+    "|\\"               { L _ TProject }
     ";"                 { L _ TSemiColon }
     "&"                 { L _ TGuard }
 
@@ -163,7 +164,7 @@ import Util.Exception (panic)
 -- TODO: lambda dot
 %nonassoc "let" "within" "@" "if" "then" "else"
 %nonassoc "@@" --COLON AT AS
-%left "\\"
+%left "\\" "|\\"
 %left "|||"
 %nonassoc "|>" "[|" "|]" "[" "]" "||" --"[[" "]]" -- PROB
 %left "|~|"
@@ -514,6 +515,7 @@ ExpA :: { PExp }
     | Exp "[|" Exp "|]" Exp         { AN2 (GenParallel $1 $3 $5) }
     | Exp "[" Exp "||" Exp "]" Exp  { AN2 (AlphaParallel $1 $3 $5 $7) }
     | Exp "/\\" Exp                 { AN2 (Interrupt $1 $3) }
+    | Exp "|\\" Exp                 { AN2 (Project $1 $3) }
     | Exp "[|" Exp "|>" Exp         { AN2 (Exception $1 $3 $5) }
     | Exp "[>" Exp                  { AN2 (SlidingChoice $1 $3) }
     | Exp ";" Exp                   { AN2 (SequentialComp $1 $3) }
@@ -790,8 +792,8 @@ checkTimedDecl d = d
 -- do this using precedences, since we do want X ||| Y \ Z to bracket \ Z around
 -- the whole of X ||| Y. Thus, we really need a context dependent precedence,
 -- which happy doesnt have.
-transformHiding :: PExp -> PExp
-transformHiding exp =
+transformHideProject :: PExp -> PExp
+transformHideProject exp =
     let
         extractLeft (An _ _ (Interleave e _)) = e
         extractLeft (An _ _ (GenParallel e _ _)) = e
@@ -849,6 +851,11 @@ transformHiding exp =
                     newHideArg = extractLeft e2
                     lhide = combineSpans (loc e1) (loc newHideArg)
                 in transform l1 (An lhide an1 (Hiding e1 newHideArg)) e2
+            An l1 an1 (Project e1 e2) | shouldTransform e2 ->
+                let
+                    newHideArg = extractLeft e2
+                    lhide = combineSpans (loc e1) (loc newHideArg)
+                in transform l1 (An lhide an1 (Project e1 newHideArg)) e2
             _ -> exp
 
 checkExp :: PExp -> PExp
@@ -903,6 +910,7 @@ checkExp anExp =
         check (LinkParallel e1 ties stmts e2) = 
             LinkParallel (checkExp e1) ties stmts (checkExp e2)
         check (Prefix e1 fields e2) = Prefix (checkExp e1) fields (checkExp e2)
+        check (Project e1 e2) = Project (checkExp e1) (checkExp e2)
         check (Rename e ties stmts) = Rename (checkExp e) ties stmts
         check (SequentialComp e1 e2) = SequentialComp (checkExp e1) (checkExp e2)
         check (SlidingChoice e1 e2) = SlidingChoice (checkExp e1) (checkExp e2)
@@ -928,7 +936,7 @@ checkExp anExp =
         
         check x = throwSourceError [invalidExpressionErrorMessage anExp]
     in
-        case transformHiding anExp of
+        case transformHideProject anExp of
             An a b exp -> An a b (check exp)
 
 getFuncArgs :: PSType -> [PSType]
