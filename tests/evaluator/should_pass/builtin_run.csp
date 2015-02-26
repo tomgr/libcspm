@@ -1,0 +1,5 @@
+channel a, b, c
+
+procTest1 = RUN({})
+
+procTest2 = RUN({}) [] RUN({a,b,c})

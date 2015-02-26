@@ -102,6 +102,15 @@ builtInFunctions = do
                 n = procName $ scopeId (builtInName "CHAOS")
                         [[VSet $ S.fromList $ S.toList a]] Nothing
                 p = POp (PChaos (S.valueSetToEventSet a)) Sq.empty
+        csp_run [VSet a] = VProc runCall
+            where
+                runCall = PProcCall n p
+                -- | We convert the set into an explicit set as this makes
+                -- comparisons faster than leaving it as a set represented as
+                -- (for instance) a CompositeSet of CartProduct sets.
+                n = procName $ scopeId (builtInName "RUN")
+                        [[VSet $ S.fromList $ S.toList a]] Nothing
+                p = POp (PRun (S.valueSetToEventSet a)) Sq.empty
         csp_loop [VProc p] =
             let pn = procName $ scopeId (builtInName "loop") [[VProc p]] Nothing
                 procCall = PProcCall pn (PBinaryOp PSequentialComp p procCall)
@@ -180,6 +189,7 @@ builtInFunctions = do
             ("elem", cspm_elem),
             ("member", cspm_member), ("card", cspm_card),
             ("empty", cspm_empty), ("CHAOS", csp_chaos),
+            ("RUN", csp_run),
             ("loop", csp_loop), ("relational_image", cspm_relational_image),
             ("relational_inverse_image", cspm_relational_inverse_image),
             ("transpose", cspm_transpose), ("show", cspm_show),

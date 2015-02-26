@@ -113,6 +113,7 @@ data CSPOperator seq ev evs evm =
     | PProject evs
     -- Map from Old -> New event
     | PRename evm
+    | PRun evs
     | PSequentialComp
     | PSlidingChoice
     | PSynchronisingExternalChoice evs
@@ -140,6 +141,7 @@ instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs),
     hashWithSalt s (PPrefix ev) = s `hashWithSalt` (12 :: Int) `hashWithSalt` ev
     hashWithSalt s (PProject ev) = s `hashWithSalt` (18 :: Int) `hashWithSalt` ev
     hashWithSalt s (PRename evm) = s `hashWithSalt` (13 :: Int) `hashWithSalt` evm
+    hashWithSalt s (PRun a) = s `hashWithSalt` (20 :: Int) `hashWithSalt` a
     hashWithSalt s PSequentialComp = s `hashWithSalt` (14 :: Int)
     hashWithSalt s PSlidingChoice = s `hashWithSalt` (15 :: Int)
     hashWithSalt s (PSynchronisingExternalChoice evs) =
@@ -180,6 +182,7 @@ trimOperator (PPrefix ev) = PPrefix (trimEvent ev)
 trimOperator (PProject evs) = PProject (fmap trimEvent evs)
 trimOperator (PRename evm) = 
     PRename (fmap (\(ev,ev') -> (trimEvent ev, trimEvent ev')) evm)
+trimOperator (PRun s) = PRun (fmap trimEvent s)
 trimOperator PSequentialComp = PSequentialComp
 trimOperator PSlidingChoice = PSlidingChoice
 trimOperator (PSynchronisingExternalChoice evs) =

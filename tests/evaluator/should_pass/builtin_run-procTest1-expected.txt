@@ -1,0 +1,5 @@
+RUN({}) = RUN({})
+
+procTest1 = RUN({})
+
+procTest1

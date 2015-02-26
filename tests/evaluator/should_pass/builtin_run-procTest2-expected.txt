@@ -1,0 +1,7 @@
+RUN({a, b, c}) = RUN({a, b, c})
+
+RUN({}) = RUN({})
+
+procTest2 = RUN({}) [] RUN({a, b, c})
+
+procTest2

@@ -228,6 +228,7 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
     prettyPrintBrief (PPrefix _) = M.text "->"
     prettyPrintBrief (PProject _) = M.text "|\\"
     prettyPrintBrief (PRename _) = M.text "[[ ]]"
+    prettyPrintBrief (PRun _) = M.text "RUN"
     prettyPrintBrief PSequentialComp = M.text ";"
     prettyPrintBrief PSlidingChoice = M.text "[>"
     prettyPrintBrief (PSynchronisingExternalChoice _) = M.text "[+ +]"
@@ -272,6 +273,9 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
             mapM (\(ev1, ev2) ->
                     M.prettyPrint ev1 M.<+> M.text "->" M.<+> M.prettyPrint ev2)
                 (F.toList em))
+    prettyPrint (PRun a) = 
+        M.text "RUN over:"
+        M.$$ M.tabIndent (M.prettyPrint a)
     prettyPrint PSequentialComp = M.text "Sequential Composition"
     prettyPrint PSlidingChoice = M.text "Sliding Choice"
     prettyPrint (PSynchronisingExternalChoice evs) =
@@ -302,6 +306,7 @@ instance Precedence (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
     precedence (PProcCall _ _) = 0
     precedence (PUnaryOp (POperator _) _) = 0
     precedence (POp (PChaos _) _) = 0
+    precedence (POp (PRun _) _) = 0
 
 ppBinaryOp, ppBriefBinaryOp ::
     (F.Foldable seq, Functor seq, M.MonadicPrettyPrintable m pn,
@@ -397,6 +402,8 @@ instance
                             M.prettyPrint evOld M.<+> M.text "<-" 
                             M.<+> M.prettyPrint evNew) $ F.toList evm) 
         M.<> M.text "]]"
+    prettyPrint (op@(POp (PRun a) _)) =
+        M.text "RUN" M.<> M.parens (M.prettyPrint a)
     prettyPrint (op@(PBinaryOp PSequentialComp p1 p2)) =
         ppBinaryOp op (M.char ';') p1 p2
     prettyPrint (op@(PBinaryOp PSlidingChoice p1 p2)) =
@@ -456,6 +463,8 @@ instance
         M.<+> M.text "|\\" M.<+> M.braces M.ellipsis
     prettyPrintBrief (op@(PUnaryOp (PRename evm) p)) =
         M.prettyPrintBriefPrec (precedence op) p M.<> M.text "[[…]]"
+    prettyPrintBrief (op@(POp (PRun _) _)) =
+        M.text "RUN" M.<> M.parens (M.ellipsis)
     prettyPrintBrief (op@(PBinaryOp PSequentialComp p1 p2)) =
         ppBriefBinaryOp op (M.char ';') p1 p2
     prettyPrintBrief (op@(PBinaryOp PSlidingChoice p1 p2)) =
