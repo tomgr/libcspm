@@ -1,0 +1,11 @@
+module M2(X)
+exports
+
+module N
+exports
+a=2
+endmodule
+
+endmodule
+
+-- instance I2 = M2(0)

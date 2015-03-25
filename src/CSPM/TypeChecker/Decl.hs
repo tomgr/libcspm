@@ -54,9 +54,7 @@ typeCheckDecls checkAmbiguity generaliseTypes decls = do
             (An a b (Module mn [] ds1 ds2))
             : concatMap flattenDecl (ds1 ++ ds2)
         flattenDecl (An a b (Module mn args ds1 ds2)) =
-            [An a b (Module mn args
-                        (concatMap flattenDecl ds1)
-                        (concatMap flattenDecl ds2))]
+            [An a b (Module mn args ds1 ds2)]
         flattenDecl (d@(An _ _ (TimedSection _ _ ds))) =
             -- We need to type-check the function in the timed section, but we
             -- flatten the decls so that dependencies work out ok.
