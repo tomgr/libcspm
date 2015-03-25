@@ -585,7 +585,8 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
             _ -> return ()
             ) (privDs ++ pubDs)
 
-        return nts
+        ForAll _ ts <- getType nt
+        return $! (n, ts) : nts
     typeCheck' (PrintStatement _) = return []
 
 instance TypeCheckable TCAssertion () where

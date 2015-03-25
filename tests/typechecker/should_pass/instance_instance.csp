@@ -1,0 +1,13 @@
+module M1(X)
+exports
+f = X
+endmodule
+
+module M2
+exports
+
+instance N = M1(true)
+
+endmodule
+
+instance I2 = M2
