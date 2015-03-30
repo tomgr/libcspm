@@ -340,23 +340,27 @@ takeChars _ _ = panic "takeChars: invalid input"
 nestedComment :: AlexInput -> Int -> ParseMonad LToken
 nestedComment _ _ = do
     st <- getParserState
-    go 1 st
-    where 
+    let 
+        startLoc = currentFilePosition st
+        getChar st =
+            alexGetCharWithErrorMessage (commentNotClosedErrorMessage startLoc) st
+
         go :: Int -> AlexInput -> ParseMonad LToken
         go 0 st = do setParserState st; getNextToken
         go n st = do
-            case alexGetChar' st of
+            case getChar st of
                 (c, st) -> do
                     case c of
                         '-' -> do
-                            case alexGetChar' st of
+                            case getChar st of
                                 ('\125',st) -> go (n-1) st
                                 (_,st)      -> go n st
                         '\123' -> do
-                            case alexGetChar' st of
+                            case getChar st of
                                 ('-',st) -> go (n+1) st
                                 (_,st)   -> go n st
                         _ -> go n st
+    go 1 st
 
 switchInput :: AlexInput -> Int -> ParseMonad LToken
 switchInput st len = do
@@ -422,10 +426,13 @@ alexGetChar (st @ (ParserState { fileStack = fps:fpss })) = gc fps
 
 alexGetChar' :: AlexInput -> (Char, AlexInput)
 alexGetChar' st =
+    alexGetCharWithErrorMessage (lexicalErrorMessage (currentFilePosition st)) st
+
+alexGetCharWithErrorMessage :: ErrorMessage -> AlexInput -> (Char, AlexInput)
+alexGetCharWithErrorMessage msg st =
     case alexGetChar st of
         Just t -> t
-        Nothing -> 
-            throwSourceError [lexicalErrorMessage (currentFilePosition st)]
+        Nothing -> throwSourceError [msg]
 
 getNextToken :: ParseMonad LToken
 getNextToken = do

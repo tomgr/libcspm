@@ -16,6 +16,7 @@ module CSPM.Parser.Exceptions (
     looksLikeRTFErrorMessage,
     duplicateModelOptionsError,
     ambiguousChannelTypeError,
+    commentNotClosedErrorMessage,
     
     throwSourceError
 )
@@ -60,6 +61,10 @@ invalidIncludeErrorMessage srcspan =
 
 lexicalErrorMessage :: SrcSpan -> ErrorMessage
 lexicalErrorMessage srcspan = mkErrorMessage srcspan (text "Lexical error")
+
+commentNotClosedErrorMessage :: SrcSpan -> ErrorMessage
+commentNotClosedErrorMessage srcspan =
+    mkErrorMessage srcspan $! text "Unclosed multiline comment opened here."
 
 parseErrorMessage :: LToken -> ErrorMessage
 parseErrorMessage tok = mkErrorMessage (locatedLoc tok) $
