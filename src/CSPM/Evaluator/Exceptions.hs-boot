@@ -13,9 +13,9 @@ patternMatchFailureMessage :: SrcSpan -> TCPat -> Value -> ErrorMessage
 headEmptyListMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
 tailEmptyListMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
 funBindPatternMatchFailureMessage :: SrcSpan -> Name -> [[Value]] -> ErrorMessage
-replicatedInternalChoiceOverEmptySetMessage :: Exp Name -> SrcSpan -> 
+replicatedInternalChoiceOverEmptySetMessage :: TCExp ->
     Maybe ScopeIdentifier -> ErrorMessage
-replicatedInternalChoiceOverEmptySetMessage' :: Pat Name -> SrcSpan ->
+replicatedInternalChoiceOverEmptySetMessage' :: TCPat ->
     Maybe ScopeIdentifier -> ErrorMessage
 typeCheckerFailureMessage :: String -> ErrorMessage
 cannotConvertIntegersToListMessage :: ErrorMessage

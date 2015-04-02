@@ -2,6 +2,7 @@ module CSPM.DataStructures.Literals (
     Literal(..)
 ) where
 
+import Util.Annotated
 import Util.PrettyPrint
 
 data Literal = 
@@ -13,6 +14,8 @@ data Literal =
     | Char Char
     -- | A string.
     | String String
+    -- | A source code location.
+    | Loc SrcSpan
     deriving (Eq, Ord, Show)
 
 instance PrettyPrintable Literal where
@@ -21,3 +24,4 @@ instance PrettyPrintable Literal where
     prettyPrint (Bool False) = text "false"
     prettyPrint (Char c) = quotes (char c)
     prettyPrint (String s) = doubleQuotes (text s)
+    prettyPrint (Loc l) = prettyPrint l

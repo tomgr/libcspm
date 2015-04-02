@@ -226,6 +226,7 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
     prettyPrintBrief (PLinkParallel _) = M.text "[ <-> ]"
     prettyPrintBrief (POperator op) = M.prettyPrintBrief op
     prettyPrintBrief (PPrefix _) = M.text "->"
+    prettyPrintBrief (PPrefixEventSet _) = M.text "->"
     prettyPrintBrief (PProject _) = M.text "|\\"
     prettyPrintBrief (PRename _) = M.text "[[ ]]"
     prettyPrintBrief (PRun _) = M.text "RUN"
@@ -264,6 +265,9 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
     prettyPrint (POperator op) = 
         M.text "Compression using" M.<+> M.prettyPrint op
     prettyPrint (PPrefix ev) = M.text "Prefix" M.<+> M.prettyPrint ev
+    prettyPrint (PPrefixEventSet a) =
+        M.text "Prefix events:"
+        M.$$ M.tabIndent (M.prettyPrint a)
     prettyPrint (PProject a) =
         M.text "Projecting event set:"
         M.$$ M.tabIndent (M.prettyPrint a)
@@ -301,6 +305,7 @@ instance Precedence (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
     precedence (PBinaryOp PSlidingChoice _ _) = 4
     precedence (PBinaryOp PSequentialComp _ _) = 3
     precedence (PUnaryOp (PPrefix _) _) = 2
+    precedence (PUnaryOp (PPrefixEventSet _) _) = 2
     precedence (PUnaryOp (PRename _) _) = 1
 
     precedence (PProcCall _ _) = 0
@@ -393,6 +398,9 @@ instance
     prettyPrint (op@(PUnaryOp (PPrefix e) p)) =
         M.prettyPrint e M.<+> M.text "->"
         M.<+> M.prettyPrintPrec op p
+    prettyPrint (op@(PUnaryOp (PPrefixEventSet e) p)) =
+        M.prettyPrint e M.<+> M.text "->"
+        M.<+> M.prettyPrintPrec op p
     prettyPrint (op@(PUnaryOp (PProject a) p)) =
         M.prettyPrintPrec op p
         M.<+> M.text "|\\" M.<+> M.prettyPrint a
@@ -457,6 +465,8 @@ instance
         ppBriefOperatorWithArg cop (M.prettyPrintBriefPrec 100 p)
     prettyPrintBrief (op@(PUnaryOp (PPrefix e) p)) =
         M.prettyPrintBrief e M.<+> M.text "->" M.<+> M.ellipsis
+    prettyPrintBrief (op@(PUnaryOp (PPrefixEventSet e) p)) =
+        M.braces M.ellipsis M.<+> M.text "->" M.<+> M.ellipsis
         --M.<+> M.prettyPrintBriefPrec (precedence op) p
     prettyPrintBrief (op@(PUnaryOp (PProject a) p)) =
         M.prettyPrintBriefPrec (precedence op) p
@@ -501,9 +511,10 @@ instance (Applicative m, Monad m,
             (Mp.toList m))
         M.<+> M.text "|)"
     prettyPrint (VFunction (FBuiltInFunction _ n args) _) =
-        M.prettyPrint n M.<> case args of
-                            [] -> M.empty
-                            _ -> M.parens (M.list (mapM M.prettyPrint args))
+        M.prettyPrint n M.<>
+        case args of
+            [] -> M.empty
+            _ -> M.hcat (mapM (\ as -> M.parens (M.list (mapM M.prettyPrint as))) args)
     prettyPrint (VFunction (FLambda _ e Nothing) _) = M.prettyPrint e
     prettyPrint (VFunction (FLambda _ e (Just p)) _) =
         M.prettyPrint p M.<> M.text "::" M.<> M.parens (M.prettyPrint e)

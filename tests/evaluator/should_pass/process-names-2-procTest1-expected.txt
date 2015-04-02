@@ -1,24 +1,24 @@
-P::cing({0, 1}) =
-    c.0 -> P::cing({1}) [] c.1 -> P::cing({0}) [] a -> P::cing({0, 1})
+P::cing({1, 2}) =
+    c.2 -> P::cing({1}) [] c.1 -> P::cing({2}) [] a -> P::cing({1, 2})
 
-P::cing({0}) = c.0 -> P::cing({}) [] a -> P::cing({0})
+P::cing({2}) = c.2 -> P::cing({}) [] a -> P::cing({2})
 
 P::cing({0, 2}) =
-    c.0 -> P::cing({2}) [] c.2 -> P::cing({0}) [] a -> P::cing({0, 2})
+    c.2 -> P::cing({0}) [] c.0 -> P::cing({2}) [] a -> P::cing({0, 2})
 
 P::cing({1}) = c.1 -> P::cing({}) [] a -> P::cing({1})
 
 P::cing({}) = b -> P
 
-P::cing({2}) = c.2 -> P::cing({}) [] a -> P::cing({2})
+P::cing({0}) = c.0 -> P::cing({}) [] a -> P::cing({0})
 
-P::cing({1, 2}) =
-    c.1 -> P::cing({2}) [] c.2 -> P::cing({1}) [] a -> P::cing({1, 2})
+P::cing({0, 1}) =
+    c.1 -> P::cing({0}) [] c.0 -> P::cing({1}) [] a -> P::cing({0, 1})
 
 P::cing({0, 1, 2}) =
-    c.0 -> P::cing({1, 2})
+    c.2 -> P::cing({0, 1})
     [] c.1 -> P::cing({0, 2})
-    [] c.2 -> P::cing({0, 1})
+    [] c.0 -> P::cing({1, 2})
     [] a -> P::cing({0, 1, 2})
 
 P = P::cing({0, 1, 2})

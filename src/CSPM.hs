@@ -355,7 +355,7 @@ desugarInteractiveStmt s = DS.runDesugar $ DS.desugar s
 -- | Runs the evaluator in the current state, saving the resulting state.
 runEvaluatorInCurrentState :: CSPMMonad m => EV.EvaluationMonad a -> m a
 runEvaluatorInCurrentState p = withSession $ \s -> do
-    let (a, st) = EV.runFromStateToState (evState s) p
+    (a, st) <- liftIO $ EV.runFromStateToState (evState s) p
     modifySession (\s -> s { evState = st })
     return a
 
@@ -364,27 +364,17 @@ runEvaluatorInCurrentState p = withSession $ \s -> do
 -- | Takes a declaration and adds it to the current environment. Requires the
 -- declaration to be desugared.
 bindDeclaration :: CSPMMonad m => TCDecl -> m ()
-bindDeclaration d = withSession $ \s -> do
-    evSt <- runEvaluatorInCurrentState (do
-        ds <- EV.evaluateDecl d
-        EV.addToEnvironment ds)
-    modifySession (\s -> s { evState = evSt })
+bindDeclaration d = runEvaluatorInCurrentState $ EV.evaluateDecl d
  
 -- | Binds all the declarations that are in a particular file. Requires the
 -- file to be desugared.
 bindFile :: CSPMMonad m => TCCSPMFile -> m ()
-bindFile m = do
-    -- Bind
-    evSt <- runEvaluatorInCurrentState $ do
-        ds <- EV.evaluateFile m
-        EV.addToEnvironment ds
-    modifySession (\s -> s { evState = evSt })
-    return ()
+bindFile m = runEvaluatorInCurrentState $ EV.evaluateFile m
  
 -- | Evaluates the expression in the current context. Requires the expression
 -- to be desugared.
 evaluateExpression :: CSPMMonad m => TCExp -> m Value
-evaluateExpression e = runEvaluatorInCurrentState (EV.evaluateExp e)
+evaluateExpression e = runEvaluatorInCurrentState $ EV.evaluateExp e
 
 -- | Obtains the profiling data that the evaluator has produced so far.
 profilingData :: CSPMMonad m => m EV.ProfilingData
@@ -394,7 +384,7 @@ profilingData = runEvaluatorInCurrentState EV.profilingData
 -- is only possible for top-level function applications.
 maybeProcessNameToProcess :: CSPMMonad m => EV.ProcName -> m (Maybe EV.UProc)
 maybeProcessNameToProcess pn =
-    runEvaluatorInCurrentState (EV.maybeProcessNameToProcess pn)
+    runEvaluatorInCurrentState $ EV.maybeProcessNameToProcess pn
 
 -- | Takes an expression string and a type and evaluates the expression,
 -- providing the expression is of the correct type.

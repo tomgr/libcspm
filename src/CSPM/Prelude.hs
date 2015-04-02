@@ -6,11 +6,13 @@ module CSPM.Prelude (
     builtInName,
     builtInWithName,
     transparentFunctionForOccName,
-    externalFunctionForOccName
+    externalFunctionForOccName,
+    locatedBuiltins,
 ) 
 where
 
 import qualified Data.Map as M
+import qualified Data.Set as S
 import System.IO.Unsafe
 
 import CSPM.DataStructures.Names
@@ -53,6 +55,17 @@ externalFunctionForOccName :: OccName -> Maybe BuiltIn
 externalFunctionForOccName (OccName s) =
     let bs = [b | b <- allBuiltins, isExternal b, stringName b == s] in
     if bs == [] then Nothing else Just (head bs)
+
+locatedBuiltins :: S.Set Name
+locatedBuiltins = S.fromList $ map builtInName [
+        "head",
+        "tail",
+        "error",
+        "mapLookup",
+        "prioritise",
+        "prioritise_nocache",
+        "prioritisepo"
+    ]
 
 allBuiltins :: [BuiltIn]
 allBuiltins = unsafePerformIO makeBuiltins

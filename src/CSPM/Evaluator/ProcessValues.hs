@@ -110,6 +110,7 @@ data CSPOperator seq ev evs evm =
     | PLinkParallel evm
     | POperator (ProcOperator seq ev evs)
     | PPrefix ev
+    | PPrefixEventSet evs
     | PProject evs
     -- Map from Old -> New event
     | PRename evm
@@ -139,6 +140,8 @@ instance (Hashable ev, Hashable evm, Hashable evs, Hashable (seq evs),
     hashWithSalt s (PLinkParallel evs) = s `hashWithSalt` (9 :: Int) `hashWithSalt` evs
     hashWithSalt s (POperator op) = s `hashWithSalt` (11 :: Int) `hashWithSalt` op
     hashWithSalt s (PPrefix ev) = s `hashWithSalt` (12 :: Int) `hashWithSalt` ev
+    hashWithSalt s (PPrefixEventSet evs) =
+        s `hashWithSalt` (21 :: Int) `hashWithSalt` evs
     hashWithSalt s (PProject ev) = s `hashWithSalt` (18 :: Int) `hashWithSalt` ev
     hashWithSalt s (PRename evm) = s `hashWithSalt` (13 :: Int) `hashWithSalt` evm
     hashWithSalt s (PRun a) = s `hashWithSalt` (20 :: Int) `hashWithSalt` a
@@ -179,6 +182,7 @@ trimOperator (PLinkParallel evm) =
     PLinkParallel (fmap (\(ev,ev') -> (trimEvent ev, trimEvent ev')) evm)
 trimOperator (POperator op) = POperator op
 trimOperator (PPrefix ev) = PPrefix (trimEvent ev)
+trimOperator (PPrefixEventSet evs) = PPrefixEventSet (fmap trimEvent evs)
 trimOperator (PProject evs) = PProject (fmap trimEvent evs)
 trimOperator (PRename evm) = 
     PRename (fmap (\(ev,ev') -> (trimEvent ev, trimEvent ev')) evm)

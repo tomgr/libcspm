@@ -4,8 +4,8 @@ SKIP::tock = tock -> SKIP::tock [] SKIP
 
 WAIT(tock)(5) = tock -> tock -> tock -> tock -> tock -> SKIP::tock
 
-waitN = WAIT(tock)(5) ; waitN
+waitN'() = WAIT(tock)(5) ; waitN'()
 
-procTest11 = waitN
+procTest12 = waitN'()
 
-procTest11
+procTest12

@@ -1,0 +1,8 @@
+datatype X = Y.Bool | Z
+
+channel c : Bool.X
+
+f(c.y.Y.x) = x
+f(c.y.Z) = true
+
+test1 = f(c.true.Z) == true

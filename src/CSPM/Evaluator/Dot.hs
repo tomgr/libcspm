@@ -13,6 +13,7 @@ import CSPM.Evaluator.ValueSet hiding (cartesianProduct)
 import qualified CSPM.Evaluator.ValueSet as S
 import Data.List (groupBy, sortBy)
 import Data.Maybe (catMaybes, isJust)
+import Util.Annotated
 import Util.List
 import Util.Prelude
 
@@ -43,8 +44,8 @@ isCompleteField (v@(VDot vs)) =
 isCompleteField _ = return True
 
 -- | Takes two values and dots then together appropriately.
-combineDots :: Value -> Value -> EvaluationMonad Value
-combineDots v1 v2 =
+combineDots :: SrcSpan -> Value -> Value -> EvaluationMonad Value
+combineDots loc v1 v2 =
     let
         -- | Dots the given value onto the right of the given base, providing
         -- the left hand value is a field.
@@ -90,13 +91,11 @@ combineDots v1 v2 =
         checkIsValidForField :: ValueSet -> Value -> Int ->
             Value -> EvaluationMonad a -> EvaluationMonad a
         checkIsValidForField allowedSet overallValue field v result = do
-            b <- gets doRuntimeRangeChecks
-            if not b then result else do
             b <- isCompleteField v
             if not b then result else do
             if member v allowedSet then result
             else throwError' $
-                dotIsNotValidMessage overallValue field v allowedSet
+                dotIsNotValidMessage overallValue field v allowedSet loc
 
         splitFieldSet :: Int -> Value -> ValueSet -> ValueSet
         splitFieldSet ix v fieldSet =

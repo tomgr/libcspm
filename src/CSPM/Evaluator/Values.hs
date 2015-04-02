@@ -23,6 +23,7 @@ import qualified Data.Foldable as F
 import Data.Hashable
 import qualified Data.Map as M
 import Prelude hiding (lookup)
+import Util.Annotated
 import Util.Exception
 import Util.Prelude
 
@@ -47,6 +48,7 @@ data Value =
     | VSet S.ValueSet
     | VFunction FunctionIdentifier ([Value] -> EvaluationMonad Value)
     | VProc UProc
+    | VLoc SrcSpan
     | VThunk (EvaluationMonad Value)
 
 -- | A disambiguator between different occurences of either processes or
@@ -87,7 +89,7 @@ data FunctionIdentifier =
     FBuiltInFunction {
         functionIdentifierCachedHash :: Int,
         functionName :: Name,
-        arguments :: [Value]
+        argumentGroups :: [[Value]]
     }
     | FLambda {
         functionIdentifierCachedHash :: Int,
@@ -102,7 +104,7 @@ data FunctionIdentifier =
         scopeIdentifier :: Maybe ScopeIdentifier
     }
 
-builtInFunction :: Name -> [Value] -> FunctionIdentifier
+builtInFunction :: Name -> [[Value]] -> FunctionIdentifier
 builtInFunction n vs = FBuiltInFunction h n vs
     where h = (2 :: Int) `hashWithSalt` n `hashWithSalt` vs
 
@@ -149,10 +151,9 @@ tupleFromList vs = VTuple $! listArray (0, length vs - 1) vs
 noSave :: EvaluationMonad Value -> EvaluationMonad Value
 noSave prog = do
     pn <- getParentScopeIdentifier
-    tok <- gets timedSection
     return $ VThunk $ modify (\ st -> st {
-            CSPM.Evaluator.Monad.parentScopeIdentifier = pn,
-            timedSection = tok }) prog
+            CSPM.Evaluator.Monad.parentScopeIdentifier = pn
+        }) prog
 
 maybeSave :: Type -> EvaluationMonad Value -> EvaluationMonad Value
 maybeSave TProc prog = noSave prog
@@ -182,6 +183,7 @@ instance Hashable Value where
     hashWithSalt s (VFunction id _) = s `hashWithSalt` (11 :: Int) `hashWithSalt` id
     hashWithSalt s (VProc p) = s `hashWithSalt` (12 :: Int) `hashWithSalt` p
     hashWithSalt s (VMap m) = s `hashWithSalt` (13 :: Int) `hashWithSalt` (M.toList m)
+    hashWithSalt s (VLoc l) = s `hashWithSalt` (14 :: Int) `hashWithSalt` l
 
 instance Eq Value where
     VInt i1 == VInt i2 = i1 == i2
@@ -196,6 +198,7 @@ instance Eq Value where
     VProc p1 == VProc p2 = p1 == p2
     VFunction id1 _ == VFunction id2 _ = id1 == id2
     VMap m1 == VMap m2 = m1 == m2
+    VLoc l1 == VLoc l2 = l1 == l2
     
     v1 == v2 = False
     
@@ -264,6 +267,7 @@ instance Ord Value where
     compare (VDataType n) (VDataType n') = compare n n'
     compare (VProc p1) (VProc p2) = compare p1 p2
     compare (VFunction id1 _) (VFunction id2 _) = compare id1 id2
+    compare (VLoc l1) (VLoc l2) = compare l1 l2
 
     compare v1 v2 = panic $
         -- Must be as a result of a mixed set of values, which cannot happen
@@ -293,7 +297,7 @@ errorThunk = panic "Trimmed value function evaluated"
 
 trimFunctionIdentifier :: FunctionIdentifier -> FunctionIdentifier
 trimFunctionIdentifier (FBuiltInFunction h n args) =
-    FBuiltInFunction h n (map trimValueForProcessName args)
+    FBuiltInFunction h n (map (map trimValueForProcessName) args)
 trimFunctionIdentifier (FLambda h e p) = FLambda h e p
 trimFunctionIdentifier (FMatchBind h n args p) =
     FMatchBind h n (map (map trimValueForProcessName) args) p
@@ -302,6 +306,7 @@ trimValueForProcessName :: Value -> Value
 trimValueForProcessName (VInt i) = VInt i
 trimValueForProcessName (VChar c) = VChar c
 trimValueForProcessName (VBool b) = VBool b
+trimValueForProcessName (VLoc l) = VLoc l
 trimValueForProcessName (VTuple vs) = VTuple (fmap trimValueForProcessName vs)
 trimValueForProcessName (VList vs) = VList (map trimValueForProcessName vs)
 trimValueForProcessName (VSet s) =

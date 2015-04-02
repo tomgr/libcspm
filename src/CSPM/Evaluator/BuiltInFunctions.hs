@@ -22,6 +22,7 @@ import CSPM.Evaluator.Values
 import qualified CSPM.Evaluator.ValueSet as S
 import CSPM.Prelude
 import qualified Data.Graph.ST as G
+import Util.Annotated
 import Util.Exception
 import Util.List
 import Util.Prelude
@@ -49,21 +50,22 @@ builtInFunctions = do
             S.fromList [VTuple (listArray (0,1) [arr!1, arr!0]) | VTuple arr <- S.toList s]
         cspm_relational_image [VSet s] = 
             let f = relationalImage s 
-                fid = builtInFunction (builtInName "relational_image") [VSet s]
+                fid = builtInFunction (builtInName "relational_image") [[VSet s]]
             in VFunction fid (\[x] -> f x >>= return . VSet)
         cspm_mtransclose [VSet s1, VSet s2] = fdrSymmetricTransitiveClosure s1 s2
         cspm_relational_inverse_image s = cspm_relational_image [cspm_transpose s]
         cspm_show [v] =
             VList (map VChar (show (prettyPrint v)))
-        cspm_error [err] = throwError' $ \ srcspan _ -> mkErrorMessage srcspan $
-            text "Error:" <+> prettyPrint err
+        cspm_error loc [err] =
+            throwError' $ \ _ -> mkErrorMessage loc $
+                text "Error:" <+> prettyPrint err
 
         cspm_mapFromList [VList s] = VMap $
             M.fromList [(arr!0, arr!1) | VTuple arr <- s]
-        cspm_mapLookup [VMap m, k] =
+        cspm_mapLookup loc [VMap m, k] =
             case M.lookup k m of
                 Just v -> return v
-                Nothing -> throwError' keyNotInDomainOfMapMessage
+                Nothing -> throwError' $ keyNotInDomainOfMapMessage loc
         cspm_mapMember [VMap m, k] =
             case M.lookup k m of
                 Just v -> VBool True
@@ -87,10 +89,10 @@ builtInFunctions = do
         
         cspm_length [VList xs] = VInt $ length xs
         cspm_null [VList xs] = VBool $ null xs
-        cspm_head [VList []] = throwError' headEmptyListMessage
-        cspm_head [VList (x:xs)] = return x
-        cspm_tail [VList []] = throwError' tailEmptyListMessage
-        cspm_tail [VList (x:xs)] = return $ VList xs
+        cspm_head loc [VList []] = throwError' $ headEmptyListMessage loc
+        cspm_head _ [VList (x:xs)] = return x
+        cspm_tail loc [VList []] = throwError' $ tailEmptyListMessage loc
+        cspm_tail _ [VList (x:xs)] = return $ VList xs
         cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
         cspm_elem [v, VList vs] = VBool $ v `elem` vs
         csp_chaos [VSet a] = VProc chaosCall
@@ -123,25 +125,29 @@ builtInFunctions = do
             exs <- productions v
             return $ VSet $ S.fromList exs
 
-        csp_prioritise _ [_, VList []] = throwError' prioritiseEmptyListMessage
-        csp_prioritise cache [VProc p, VList alphas] =
+        csp_prioritise _ loc [_, VList []] =
+            throwError' $ prioritiseEmptyListMessage loc
+        csp_prioritise cache _ [VProc p, VList alphas] =
             let sets = map (\ (VSet s) -> S.valueSetToEventSet s) alphas
                 pop = Prioritise cache (Sq.fromList sets)
             in return $ VProc $ PUnaryOp (POperator pop) p
-        csp_prioritise_partialorder [VProc p, VSet prioritisedEvents,
+        csp_prioritise_partialorder loc [VProc p, VSet prioritisedEvents,
                 VSet order, VSet maximal] = do
             let orderList = [(UserEvent (t!0), UserEvent (t!1)) | VTuple t <- S.toList order]
-            order <- computePrioritisePartialOrder orderList
+            order <- computePrioritisePartialOrder loc orderList
                         [UserEvent ev | ev <- S.toList maximal]
                         [UserEvent ev | ev <- S.toList prioritisedEvents]
             let pop = PartialOrderPrioritise order
             return $ VProc $ PUnaryOp (POperator pop) p
-        csp_timed_priority [VProc p] = do
-            Just (_, tn) <- gets timedSection
-            let tock = UserEvent $ VDot [VChannel tn]
-                pop = Prioritise True $ Sq.fromList $
-                        [Sq.empty, Sq.singleton tock]
-            return $ VProc $ PUnaryOp (POperator pop) p
+        csp_timed_priority [tockVal] =
+            let 
+                prioritiseId =
+                    builtInFunction (builtInName "timed_priority") [[tockVal]]
+                prioritiser [VProc p] = 
+                    return $ VProc $ PUnaryOp (POperator pop) p
+                    where pop = Prioritise True $ Sq.fromList $
+                                    [Sq.empty, Sq.singleton (UserEvent tockVal)]
+            in VFunction prioritiseId prioritiser
 
         csp_failure_watchdog [VProc p, VSet implementationEvents, ev] =
             VProc $ PUnaryOp (POperator (FailureWatchdog
@@ -194,26 +200,39 @@ builtInFunctions = do
             ("relational_inverse_image", cspm_relational_inverse_image),
             ("transpose", cspm_transpose), ("show", cspm_show),
             ("failure_watchdog", csp_failure_watchdog),
-            ("trace_watchdog", csp_trace_watchdog)
+            ("trace_watchdog", csp_trace_watchdog),
+            ("TSTOP", csp_tstop), ("TSKIP", csp_tskip),
+            ("WAIT", csp_wait), ("timed_priority", csp_timed_priority)
             ]
 
         -- | Functions that require a monadic context.
         monadic_funcs = [
-            ("head", cspm_head), ("tail", cspm_tail), 
-            ("productions", cspm_productions), ("extensions", cspm_extensions),
-            ("error", cspm_error), ("TSTOP", csp_tstop), ("TSKIP", csp_tskip),
-            ("timed_priority", csp_timed_priority),
+            ("productions", cspm_productions), ("extensions", cspm_extensions)
+            ]
+
+        locatedFunctions = [
+            ("head", cspm_head), ("tail", cspm_tail),
+            ("error", cspm_error),
             ("prioritise", csp_prioritise True),
             ("prioritise_nocache", csp_prioritise False),
             ("prioritisepo", csp_prioritise_partialorder),
-            ("WAIT", csp_wait), ("mapLookup", cspm_mapLookup)
+            ("mapLookup", cspm_mapLookup)
             ]
+
+        mkLocatedFunction (s, f) =
+            let
+                n = builtInName s
+                outerFid = builtInFunction n [[]]
+                innerFid loc = builtInFunction n [[VLoc loc]]
+                outerFn [VLoc loc] = return $ VFunction (innerFid loc) $
+                    \ vs -> registerCall n (f loc vs)
+            in return $! (n, VFunction outerFid outerFn)
 
         mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)
         mkMonadicFunc (s, f) = do
             let n = builtInName s
                 f' vs = registerCall n (f vs)
-            return $! (n, VFunction (builtInFunction n []) f')
+            return $! (n, VFunction (builtInFunction n [[]]) f')
 
         procs = [
             ("STOP", csp_stop),
@@ -227,34 +246,38 @@ builtInFunctions = do
         csp_skip =
             PProcCall (procName csp_skip_id) (PUnaryOp (PPrefix Tick) csp_stop)
 
-        csp_tstop [] = do
-            Just (_, tn) <- gets timedSection
+        csp_tstop [tockVal@(VDot [VChannel tn])] =
             let
                 pid = procName (scopeId tn [] (Just csp_stop_id))
-                proc = PUnaryOp (PPrefix (UserEvent $ VDot [VChannel tn])) pc
+                proc = PUnaryOp (PPrefix (UserEvent tockVal)) pc
                 pc = PProcCall pid proc
-            return $ VProc pc
+            in VProc pc
 
-        csp_tskip [] = do
-            Just (_, tn) <- gets timedSection
+        csp_tskip [tockVal] =
             let
+                VDot [VChannel tn] = tockVal
                 pid = procName (scopeId tn [] (Just csp_skip_id))
-                proc = PUnaryOp (PPrefix (UserEvent $ VDot [VChannel tn])) pc
+                proc = PUnaryOp (PPrefix (UserEvent tockVal)) pc
                 pc = PProcCall pid $ POp PExternalChoice $
                     proc Sq.<| csp_skip Sq.<| Sq.empty
-            return $ VProc pc
+            in VProc pc
 
-        csp_wait [VInt tocks] = do
-            Just (_, tn) <- gets timedSection
-            VProc tskip <- csp_tskip []
+        csp_wait [tockVal] =
             let
+                VDot [VChannel tn] = tockVal
+                VProc tskip = csp_tskip [tockVal]
+
                 mkTocker 0 = tskip
                 mkTocker n =
-                    PUnaryOp (PPrefix (UserEvent $ VDot [VChannel tn]))
-                        (mkTocker (n-1))
-                waitId = scopeId (builtInName "WAIT") [[VInt tocks]] Nothing
-                pid = procName (scopeId tn [] (Just waitId))
-            return $ VProc $ PProcCall pid $ mkTocker tocks
+                    PUnaryOp (PPrefix (UserEvent tockVal)) (mkTocker (n-1))
+
+                waiterId = builtInFunction (builtInName "WAIT") [[tockVal]]
+                waiter [VInt tocks] =
+                    let
+                        waitId = scopeId (builtInName "WAIT") [[tockVal], [VInt tocks]] Nothing
+                        pid = procName waitId
+                    in VProc $ PProcCall pid $ mkTocker tocks
+            in VFunction waiterId (return . waiter)
 
         mkProc (s, p) = return (builtInName s, VProc p)
         
@@ -294,7 +317,8 @@ builtInFunctions = do
     fs2 <- mapM mkMonadicFunc monadic_funcs
     fs3 <- mapM mkProc procs
     fs4 <- mapM mkConstant constants
-    return $! fs1++fs2++fs3++fs4
+    fs5 <- mapM mkLocatedFunction locatedFunctions
+    return $! fs1++fs2++fs3++fs4++fs5
 
 injectBuiltInFunctions :: EvaluationMonad a -> EvaluationMonad a
 injectBuiltInFunctions prog = do
@@ -339,9 +363,9 @@ fdrSymmetricTransitiveClosure vs1 vs2 =
             return $! [tupleFromList [a,b] | (b,a) <- rs, S.member a vs2, S.member b vs2]
     in S.fromList $ runST computeRepresentatives
 
-computePrioritisePartialOrder :: [(Event, Event)] -> [Event] -> [Event] ->
-    EvaluationMonad (Sq.Seq (Event, Event))
-computePrioritisePartialOrder evs maxEvents prioritsedEvents =
+computePrioritisePartialOrder :: SrcSpan -> [(Event, Event)] -> [Event] ->
+    [Event] -> EvaluationMonad (Sq.Seq (Event, Event))
+computePrioritisePartialOrder loc evs maxEvents prioritsedEvents =
     let
         maxEventSet = St.fromList maxEvents
         prioritsedEventsSet = St.fromList prioritsedEvents
@@ -392,11 +416,12 @@ computePrioritisePartialOrder evs maxEvents prioritsedEvents =
         case eventsMissingFromPrioritised of
             [] ->
                 case transitiveClosureEdges of
-                    Left cyclicScc -> throwError' (prioritisePartialOrderCyclicOrder cyclicScc)
+                    Left cyclicScc ->
+                        throwError' $ prioritisePartialOrderCyclicOrder cyclicScc loc
                     Right edges -> 
                         case filter edgeIsInValid edges of
                             [] -> return $ Sq.fromList [(v1, v2) | (v1, v2) <- edges]
-                            (_, e) : _ -> throwError' (prioritiseNonMaximalElement e)
+                            (_, e) : _ -> throwError' $ prioritiseNonMaximalElement e loc
             _ ->
-                 throwError' (prioritisePartialOrderEventsMissing prioritsedEvents
-                    eventsMissingFromPrioritised)
+                 throwError' $ prioritisePartialOrderEventsMissing
+                    prioritsedEvents eventsMissingFromPrioritised loc

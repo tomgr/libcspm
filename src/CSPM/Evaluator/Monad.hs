@@ -5,20 +5,18 @@ import Prelude hiding (lookup)
 
 import CSPM.DataStructures.Names
 import CSPM.Evaluator.Environment
-import CSPM.Evaluator.ProcessValues
 import {-# SOURCE #-} CSPM.Evaluator.Profiler
 import {-# SOURCE #-} CSPM.Evaluator.Values
-import Util.Annotated
 import Util.Exception
 
+-- TODO: remove and just replace by Environment (removes at least one indirection)
 data EvaluationState = 
     EvaluationState {
         environment :: Environment,
+-- TODO: make static
         parentScopeIdentifier :: Maybe ScopeIdentifier,
-        currentExpressionLocation :: SrcSpan,
-        timedSection :: Maybe (Event -> Int, Name),
-        profilerState :: ProfilerState,
-        doRuntimeRangeChecks :: Bool
+-- TODO: remove?
+        profilerState :: ProfilerState
     }
   
 type EvaluationMonad = Reader EvaluationState
@@ -75,29 +73,7 @@ updateParentScopeIdentifier :: ScopeIdentifier -> EvaluationMonad a -> Evaluatio
 updateParentScopeIdentifier pn prog =
     modify (\ st -> st { parentScopeIdentifier = Just pn }) prog
 
-setCurrentExpressionLocation :: SrcSpan -> EvaluationMonad a -> EvaluationMonad a
-setCurrentExpressionLocation sp prog =
-    modify (\ st -> st { currentExpressionLocation = sp }) prog
-
-getCurrentExpressionLocation :: EvaluationMonad SrcSpan
-getCurrentExpressionLocation = gets currentExpressionLocation
-
-throwError' :: (SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage) -> EvaluationMonad a
+throwError' :: (Maybe ScopeIdentifier -> ErrorMessage) -> EvaluationMonad a
 throwError' f = do
-    loc <- gets currentExpressionLocation
     stk <- gets parentScopeIdentifier
-    throwError (f loc stk)
-
-setTimedCSP :: Name -> (Event -> Int) -> EvaluationMonad a -> EvaluationMonad a
-setTimedCSP tock func prog =
-    modify (\ st -> st { timedSection = Just (func, tock) }) prog
-
-maybeTimedCSP ::
-    EvaluationMonad a ->
-    (Name -> (Event -> Int) -> EvaluationMonad a) ->
-    EvaluationMonad a
-maybeTimedCSP nonTimedProg timedProg = do
-    mfunc <- gets timedSection
-    case mfunc of
-        Nothing -> nonTimedProg
-        Just (f, tock) -> timedProg tock f
+    throwError (f stk)

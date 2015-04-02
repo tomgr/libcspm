@@ -22,6 +22,7 @@ import Util.PrettyPrint hiding (($$))
 
 data DesugarState = DesugarState {
         inTimedSection :: Bool,
+        timedSectionTockName :: Maybe Name,
         currentLoc :: SrcSpan,
         variableSubstitution :: M.Map Name Name,
         parentSubstitutionForModules :: M.Map Name (M.Map Name Name)
@@ -31,19 +32,30 @@ type DesugarMonad = StateT DesugarState IO
 
 runDesugar :: MonadIO m => DesugarMonad a -> m a
 runDesugar prog = liftIO $
-    runStateT prog (DesugarState False Unknown M.empty M.empty) >>= return . fst
+    runStateT prog (DesugarState False Nothing Unknown M.empty M.empty)
+    >>= return . fst
 
-maybeTimedSection :: DesugarMonad a -> DesugarMonad a -> DesugarMonad a
+maybeTimedSection :: DesugarMonad a -> (Name -> DesugarMonad a) -> DesugarMonad a
 maybeTimedSection nonTimed timed = do
     b <- gets inTimedSection
-    if b then timed else nonTimed
+    if b then do
+        Just tn <- gets timedSectionTockName
+        timed tn
+    else nonTimed
 
-timedSection :: DesugarMonad a -> DesugarMonad a
-timedSection prog = do
+timedSection :: Name -> DesugarMonad a -> DesugarMonad a
+timedSection tockName prog = do
     inTimed <- gets inTimedSection
-    modify (\st -> st { inTimedSection = True })
+    oldTockName <- gets timedSectionTockName
+    modify (\st -> st {
+            inTimedSection = True,
+            timedSectionTockName = Just tockName
+        })
     a <- prog
-    modify (\st -> st { inTimedSection = inTimed })
+    modify (\st -> st {
+            inTimedSection = inTimed,
+            timedSectionTockName = oldTockName
+        })
     return a
 
 addParentModuleSubstitution :: Name -> M.Map Name Name -> DesugarMonad ()
@@ -133,8 +145,8 @@ desugarDecl (an@(An x y (PatBind p e ta))) = do
                         case p2 of
                             Just (p, ps) -> Just (mkExtractorPat' n p, map (mkExtractorPat' n) ps)
                             Nothing -> Nothing) pold
-                mkExtractorPat n (PDotApp p1 p2) =
-                    PDotApp (mkExtractorPat' n p1) (mkExtractorPat' n p2)
+                mkExtractorPat n (PCompDot ps pold) =
+                    PCompDot (map (mkExtractorPat' n) ps) pold
                 mkExtractorPat n (PDoublePattern p1 p2) =
                     PDoublePattern (mkExtractorPat' n p1) (mkExtractorPat' n p2)
                 mkExtractorPat n (PLit l) = PLit l
@@ -224,9 +236,10 @@ desugarDecl (An x y d) = do
             DataType n cs -> return DataType $$ substituteName n $$ desugar cs
             SubType n cs -> return SubType $$ substituteName n $$ desugar cs
             NameType n e ta -> return NameType $$ substituteName n $$ desugar e $$ return ta
-            TimedSection (Just n) f ds ->
-                return TimedSection $$ (substituteName n >>= return . Just) $$
-                    desugar f $$ timedSection (desugarDecls ds)
+            TimedSection (Just n) f ds -> do
+                tn <- substituteName n
+                return TimedSection $$ (return $ Just tn) $$
+                    desugar f $$ timedSection tn (desugarDecls ds)
             PrintStatement s -> return $ PrintStatement s
     return [An x y d']
 
@@ -489,7 +502,7 @@ instance Desugarable (Field Name) where
     desugar (Input p e) = return Input $$ desugar p $$ desugar e
     desugar (NonDetInput p e) =
         maybeTimedSection (return NonDetInput $$ desugar p $$ desugar e)
-            (do
+            (\ _ -> do
                 loc <- gets currentLoc
                 throwSourceError [nondetFieldTimedSectionError loc])
 
@@ -627,9 +640,25 @@ nondetFieldTimedSectionError :: SrcSpan -> ErrorMessage
 nondetFieldTimedSectionError loc = mkErrorMessage loc $
     text "A non-deterministic input (i.e. $) is not allowed in a timed section."
 
-mkApplication :: String -> [AnExp Name] -> DesugarMonad (Exp Name)
-mkApplication fn args = do
+mkApplication :: Name -> Type -> [AnExp Name] -> DesugarMonad (Exp Name)
+mkApplication fn fnTyp args = do
     srcSpan <- gets currentLoc
     ptype <- freshPType
-    setPType ptype TProc
-    return $ App (An srcSpan (Just TProc, ptype) (Var (builtInName fn))) args
+    setPType ptype fnTyp
+    var <- mkVar fn fnTyp
+    return $ App var args
+
+mkLit :: Literal -> DesugarMonad TCExp
+mkLit l = do
+    srcSpan <- gets currentLoc
+    let typ = error "typ"
+    ptype <- freshPType
+    setPType ptype typ
+    return $ An srcSpan (Just typ, ptype) (Lit l)
+
+mkVar :: Name -> Type -> DesugarMonad TCExp
+mkVar n typ = do
+    srcSpan <- gets currentLoc
+    ptype <- freshPType
+    setPType ptype typ
+    return $ An srcSpan (Just typ, ptype) (Var n)

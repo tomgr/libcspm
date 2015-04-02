@@ -82,9 +82,9 @@ replicatedLinkParallelOverEmptySeqMessage p l scope = mkErrorMessage l $
     (text "evaluated to the empty sequence. However, replicated linked parallel is not defined for the empty sequence.")
     $$ printCallStack scope
 
-replicatedInternalChoiceOverEmptySetMessage :: Exp Name -> SrcSpan -> 
+replicatedInternalChoiceOverEmptySetMessage :: TCExp -> 
     Maybe ScopeIdentifier -> ErrorMessage
-replicatedInternalChoiceOverEmptySetMessage p l scope = mkErrorMessage l $
+replicatedInternalChoiceOverEmptySetMessage p scope = mkErrorMessage (loc p) $
     hang (
         hang (text "The set expression in"<>colon) tabWidth 
             (prettyPrint p)
@@ -92,9 +92,9 @@ replicatedInternalChoiceOverEmptySetMessage p l scope = mkErrorMessage l $
     (text "evaluated to the empty set. However, replicated internal choice is not defined for the empty set.")
     $$ printCallStack scope
 
-replicatedInternalChoiceOverEmptySetMessage' :: Pat Name -> SrcSpan ->
+replicatedInternalChoiceOverEmptySetMessage' :: TCPat ->
     Maybe ScopeIdentifier -> ErrorMessage
-replicatedInternalChoiceOverEmptySetMessage' p loc scope = mkErrorMessage loc $
+replicatedInternalChoiceOverEmptySetMessage' p scope = mkErrorMessage (loc p) $
     hang (
         hang (text "The pattern"<>colon) tabWidth (prettyPrint p)
     ) tabWidth
