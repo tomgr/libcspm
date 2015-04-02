@@ -67,7 +67,7 @@ import Util.Exception
 type AnCSPMFile id = Annotated () (CSPMFile id)
 type AnDecl id = Annotated (Maybe SymbolTable, PSymbolTable) (Decl id)
 type AnMatch id = Annotated () (Match id)
-type AnPat id = Annotated () (Pat id)
+type AnPat id = Annotated (Maybe Type, PType) (Pat id)
 type AnExp id = Annotated (Maybe Type, PType) (Exp id)
 type AnField id = Annotated () (Field id)
 type AnStmt id = Annotated () (Stmt id)

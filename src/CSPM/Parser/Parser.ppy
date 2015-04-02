@@ -974,7 +974,7 @@ convPat (anExp@ (An a b exp)) =
             PDoublePattern (convPat e1) (convPat e2)
         trans x = throwSourceError [invalidPatternErrorMessage anExp]
     in
-        An a () (trans exp)
+        An a b (trans exp)
 
 checkModelOptions :: [PModelOption] -> [PModelOption]
 checkModelOptions options =
