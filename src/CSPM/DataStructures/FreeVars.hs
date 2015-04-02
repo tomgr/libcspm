@@ -175,6 +175,7 @@ instance FreeVars (Exp Name) where
             fvfields = boundNames fields
             fvse = nub (depsfields++depse)
         in fvse \\ fvfields
+    freeVars' (TimedPrefix e1 e2) = freeVars' e2
     freeVars' (Project e1 e2) = freeVars' [e1, e2]
     freeVars' (Rename e1 renames stmts) =
         let
