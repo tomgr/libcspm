@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances #-}
 module Util.Annotated where
 
 import Data.Hashable
+import GHC.Generics (Generic)
 import Prelude
 import Util.Exception
 import Util.Prelude
@@ -48,7 +49,9 @@ data SrcSpan =
     | Unknown
     -- | A builtin thing
     | BuiltIn
-    deriving Eq
+    deriving (Eq, Generic)
+
+instance Hashable SrcSpan
     
 srcSpanStart :: SrcSpan -> SrcLoc
 srcSpanStart (SrcSpanOneLine f l sc _) = SrcLoc f l sc
