@@ -70,6 +70,7 @@ Library
         CSPM.Evaluator,
         CSPM.Evaluator.AnalyserMonad,
         CSPM.Evaluator.BuiltInFunctions,
+        CSPM.Evaluator.DataTypeAnalyser,
         CSPM.Evaluator.DeclBind,
         CSPM.Evaluator.DeepSeq,
         CSPM.Evaluator.Dot,

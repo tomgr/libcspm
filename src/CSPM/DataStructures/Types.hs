@@ -6,7 +6,7 @@ module CSPM.DataStructures.Types (
     prettyPrintTypes, isRigid, constraintImpliedBy, reduceConstraints,
     collectConstraints, prettyPrintTypeSchemes, VariableRepresentationMap,
     prettyPrintTypesWithMap, prettyPrintTypeSchemesWithMap, augamentTypeScheme,
-    isPolymorphic,
+    isPolymorphic, isDataTypeOrEvent, evaluateYields,
 
     -- * Creation of Types
     freshTypeVar, freshTypeVarWithConstraints, freshTypeVarRef,
@@ -144,6 +144,11 @@ instance Show TypeVarRef where
     show (TypeVarRef tv cs _) = "TypeVarRef "++show tv++" "++show cs
     show (RigidTypeVarRef tv cs n) =
         "RigidTypeVarRef "++show tv ++" "++show cs++" "++show n
+
+isDataTypeOrEvent :: Type -> Bool
+isDataTypeOrEvent TEvent = True
+isDataTypeOrEvent (TDatatype _) = True
+isDataTypeOrEvent _ = False
 
 isRigid :: TypeVarRef -> Bool
 isRigid (RigidTypeVarRef _ _ _) = True
@@ -411,3 +416,51 @@ collectConstraints = combine . collect
         collect TChar = []
         collect (TExtendable t tvref) =
             (tvref, constraints tvref) : collect t
+
+
+splitDotable :: Type -> ([Type], Type)
+splitDotable (TDotable t1 (TDotable t2 t3)) = (t1:ts, urt)
+    where (ts, urt) = splitDotable (TDotable t2 t3)
+splitDotable (TDotable t1 t2) = ([t1], t2)
+splitDotable _ = panic "Not allowed"
+
+evaluateYields :: Type -> Type
+evaluateYields (TDot t1 t2) =
+    let
+        t1' = evaluateYields t1
+        t2' = evaluateYields t2
+
+        evaluate arg rt x | x == arg = rt
+        evaluate arg rt (TDot x y) | x == arg =
+            case rt of
+                TDotable argt rt' -> evaluate argt rt' y
+                _ -> TDot rt y
+        evaluate arg rt d@(TDotable _ _) | arg == urt =
+                evaluateYields (foldr TDotable rt args)
+            where (args, urt) = splitDotable d
+        evaluate arg rt x = TDot (TDotable arg rt) x
+
+        process (TDotable arg rt) t2 = evaluate arg rt t2
+        process t1 t2 = TDot t1 t2
+    in case t1' of
+        -- (x.y).t2' == x.(y.t2')
+        TDot x y -> process x (TDot y t2')
+        t1' -> process t1' t2'
+evaluateYields TProc = TProc
+evaluateYields TInt = TInt
+evaluateYields TBool = TBool
+evaluateYields TChar = TChar
+evaluateYields TEvent = TEvent
+evaluateYields (TSeq t) = TSeq $ evaluateYields t
+evaluateYields (TSet t) = TSet $ evaluateYields t
+evaluateYields (TVar v) = TVar v
+evaluateYields (TDatatype n) = TDatatype n
+evaluateYields (TTuple ts) = TTuple $ map evaluateYields ts
+evaluateYields (TFunction ts t) =
+    TFunction (map evaluateYields ts) (evaluateYields t)
+evaluateYields (TDotable (TDot x y) t2) =
+    evaluateYields $! TDotable x (TDotable y t2)
+evaluateYields (TDotable t1 t2) =
+    TDotable (evaluateYields t1) (evaluateYields t2)
+evaluateYields (TMap k v) = TMap (evaluateYields k) (evaluateYields v)
+evaluateYields (TExtendable urt arg) = TExtendable (evaluateYields urt) arg

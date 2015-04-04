@@ -10,6 +10,7 @@ import CSPM.DataStructures.Syntax
 import CSPM.DataStructures.Types
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.BuiltInFunctions
+import CSPM.Evaluator.DataTypeAnalyser
 import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Exceptions
 import {-# SOURCE #-} CSPM.Evaluator.Expr
@@ -26,6 +27,7 @@ import Util.Monad
 -- the current scope.
 bindDecls :: [TCDecl] -> AnalyserMonad (EvaluationMonad [(Name, EvaluationMonad Value)])
 bindDecls ds = do
+    registerDataTypes ds
     ds' <- mapM bindDecl ds
     return $ do
         registerCall <- maybeRegisterCall
