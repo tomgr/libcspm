@@ -3,15 +3,19 @@ module CSPM.Evaluator.Expr (
     eval,
 ) where
 
+import Data.List (sort)
 import qualified Data.Foldable as F
 import qualified Data.Map as M
 import Data.Sequence ((<|))
 import qualified Data.Sequence as Sq
+import qualified Data.Set as St
 import qualified Data.Traversable as T
 
+import CSPM.DataStructures.FreeVars
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
+import CSPM.DataStructures.Types
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.BuiltInFunctions
 import CSPM.Evaluator.DeclBind
@@ -25,6 +29,8 @@ import qualified CSPM.Evaluator.ValueSet as S
 import Util.Annotated
 import Util.Exception
 import Util.List
+
+import Control.Monad.Trans
 
 -- In order to keep lazy evaluation working properly only use pattern
 -- matching when you HAVE to know the value. (Hence why we delay pattern
@@ -391,8 +397,8 @@ eval (An _ _ (LinkParallel e1 ties stmts e2)) = do
         VProc p1 <- e1
         VProc p2 <- e2
         ts <- ties
-        return $ VProc $
-            PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
+        return $ VProc $ PBinaryOp
+            (PLinkParallel (Sq.fromList $ removeDuplicateTies ts)) p1 p2
 eval (An _ _ (Project e1 e2)) = do
     e1 <- eval e1
     e2 <- eval e2
@@ -406,8 +412,10 @@ eval (An _ _ (Rename e1 ties stmts)) = do
     return $! do
         VProc p1 <- e1
         ts <- ties
-        return $ VProc $ if Sq.null ts then p1 else
-            PUnaryOp (PRename (removeDuplicateTies ts)) p1
+        case ts of
+            [] -> return $! VProc p1
+            _ -> return $! VProc $! PUnaryOp
+                (PRename (Sq.fromList $! removeDuplicateTies ts)) p1
 eval (An _ _ (SequentialComp e1 e2)) = do
     e1 <- eval e1
     e2 <- eval e2
@@ -445,88 +453,91 @@ eval (An _ _ (SynchronisingInterrupt e1 e2 e3)) = do
             PBinaryOp (PSynchronisingInterrupt (S.valueSetToEventSet a)) p1 p2
 
 eval (An _ _ (ReplicatedAlphaParallel stmts e1 e2)) = do
-    stmts <- evalStmts' (\(VSet s) -> S.toSeq s) stmts $ do
+    stmts <- evalStmts (\(VSet s) -> S.toList s) stmts [do
         e1 <- timedCSPSyncSet $ eval e1
         e2 <- eval e2
         return $! do
             VSet s <- e1
             VProc p <- e2
-            return (S.valueSetToEventSet s, p)
+            return (S.valueSetToEventSet s, p)]
     tstop <- maybeTSTOP
     return $! do
         aps <- stmts
-        let (as, ps) = unzipSq aps
-        tstop ps $ return $ VProc $ POp (PAlphaParallel as) ps
+        let (as, ps) = unzip aps
+        tstop ps $! return $! VProc $!
+            POp (PAlphaParallel $! Sq.fromList as) $! Sq.fromList ps
 eval (An _ _ (ReplicatedExternalChoice stmts e)) = do
-    stmts <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
+    stmts <- evalStmts (\(VSet s) -> S.toList s) stmts [evalProc e]
     tstop <- maybeTSTOP
     op <- maybeTimed
         (return PExternalChoice)
         (\ tn _ -> return $ PSynchronisingExternalChoice (tockSet tn))
     return $! do
         ps <- stmts
-        tstop ps (return $ VProc $ POp op ps)
+        tstop ps (return $! VProc $! POp op $! Sq.fromList ps)
 eval (An _ _ (ReplicatedInterleave stmts e)) = do
-    stmts <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
+    stmts <- evalStmts (\(VSet s) -> S.toList s) stmts [evalProc e]
     tstop <- maybeTSTOP
     op <- maybeTimed
         (return PInterleave)
         (\tn _ -> return $ PGenParallel (tockSet tn))
     return $! do
         ps <- stmts
-        tstop ps (return $ VProc $ POp op ps)
+        tstop ps (return $! VProc $! POp op $! Sq.fromList ps)
 eval (e'@(An _ _ (ReplicatedInternalChoice stmts e))) = do
-    stmts <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e)
+    stmts <- evalStmts (\(VSet s) -> S.toList s) stmts [evalProc e]
     return $! do
         ps <- stmts
-        if Sq.null ps then
-            throwError' $ replicatedInternalChoiceOverEmptySetMessage e'
-        else return $ VProc $ POp PInternalChoice ps
+        case ps of
+            [] -> throwError' $ replicatedInternalChoiceOverEmptySetMessage e'
+            _ ->return $! VProc $! POp PInternalChoice $! Sq.fromList ps
 eval (An loc _ e'@(ReplicatedLinkParallel ties tiesStmts stmts e)) = do
-    stmts <- evalStmts' (\(VList vs) -> Sq.fromList vs) stmts $ do
+    stmts <- evalStmts (\(VList vs) -> vs) stmts [do
         ties <- evalTies tiesStmts ties
         e <- evalProc e
         return $! do
             ts <- ties
             p <- e
             return (ts, p)
+        ]
+    let mkLinkPar [(_, p)] = p
+        mkLinkPar ((ts, p1):ps) =
+            PBinaryOp (PLinkParallel (Sq.fromList $ removeDuplicateTies ts))
+                p1 (mkLinkPar ps)
     return $! do
         tsps <- stmts
-        if Sq.null tsps then
-            throwError' $ replicatedLinkParallelOverEmptySeqMessage e' loc
-        else do
-        let
-            (tsps' Sq.:> (_, lastProc)) = Sq.viewr tsps
-            mkLinkPar (ts, p1) p2 =
-                PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
-        return $ VProc $ F.foldr mkLinkPar lastProc tsps'
+        case tsps of
+            [] -> throwError' $ replicatedLinkParallelOverEmptySeqMessage e' loc
+            _ -> return $! VProc $! mkLinkPar tsps
 eval (An _ _ (ReplicatedParallel e1 stmts e2)) = do
     e1 <- timedCSPSyncSet $ eval e1
-    stmts <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e2)
+    stmts <- evalStmts (\(VSet s) -> S.toList s) stmts [evalProc e2]
     tstop <- maybeTSTOP
     return $! do
         VSet s <- e1
         ps <- stmts
-        tstop ps $ 
-            return $ VProc $ POp (PGenParallel (S.valueSetToEventSet s)) ps
+        tstop ps $ return $ VProc $ POp (PGenParallel (S.valueSetToEventSet s))
+            (Sq.fromList ps)
 eval (An _ _ (ReplicatedSequentialComp stmts e)) = do
-    stmts <- evalStmts' (\(VList vs) -> Sq.fromList vs) stmts (evalProc e)
+    stmts <- evalStmts (\(VList vs) -> vs) stmts [evalProc e]
     skip <- maybeTimed
         (return $ lookupVar (builtInName "SKIP"))
         (\tn _ -> return $ tSKIP tn)
     return $! do
         ps <- stmts
-        if Sq.null ps then skip
-        else return $ VProc $ F.foldr1 (PBinaryOp PSequentialComp) ps
+        case ps of
+            [] -> skip
+            _ -> return $ VProc $ foldr1 (PBinaryOp PSequentialComp) ps
 eval (An _ _ (ReplicatedSynchronisingExternalChoice e1 stmts e2)) = do
     e1 <- timedCSPSyncSet $ eval e1
-    stmts <- evalStmts' (\(VSet s) -> S.toSeq s) stmts (evalProc e2)
+    stmts <- evalStmts (\(VSet s) -> S.toList s) stmts [evalProc e2]
     tstop <- maybeTSTOP
     return $! do    
         VSet a <- e1
         ps <- stmts
         tstop ps $ return $ VProc $ POp
-            (PSynchronisingExternalChoice (S.valueSetToEventSet a)) ps
+            (PSynchronisingExternalChoice (S.valueSetToEventSet a))
+            (Sq.fromList ps)
 
 eval e = panic ("No clause to eval "++show e)
 
@@ -537,16 +548,16 @@ evalProc e = do
         VProc p <- prog
         return p
 
-removeDuplicateTies :: Sq.Seq (Event, Event) -> Sq.Seq (Event, Event)
-removeDuplicateTies = Sq.fromList . sortedNub . F.toList . Sq.unstableSort
+removeDuplicateTies :: [(Event, Event)] -> [(Event, Event)]
+removeDuplicateTies = sortedNub . sort
 
 evalTies :: [TCStmt] -> [(TCExp, TCExp)] ->
-    AnalyserMonad (EvaluationMonad (Sq.Seq (Event, Event)))
+    AnalyserMonad (EvaluationMonad [(Event, Event)])
 evalTies stmts ties = do
     tss <- evalStmts (\(VSet s) -> S.toList s) stmts (map evalTie ties)
     return $ do
         vss <- tss
-        return $! Sq.fromList $ concat vss
+        return $! concat vss
     where
         extendTie :: SrcSpan -> SrcSpan -> (Value, Value) -> Value ->
             EvaluationMonad (Event, Event)
@@ -567,6 +578,9 @@ evalTies stmts ties = do
                 -- of events so we compute the extensions.
                 exsOld <- extensions evOld
                 mapM (\ex -> extendTie (loc eOld) (loc eNew) (evOld, evNew) ex) exsOld
+
+-- TODO: modify so that if the statement generators are independent, only
+-- compute each set once, rather than once for each value.
 
 -- | Evaluates the statements, evaluating each prog in progs for each possible 
 -- assingment to the generators that satisfies the qualifiers.
@@ -599,44 +613,62 @@ evalStmts extract stmts progs =
                                 addScopeAndBind binds rest
                         Nothing -> return []) (extract v)
                 return $ concat vss
-    in
-        evStmts stmts
 
--- | Evaluates the statements, evaluating `prog` for each possible 
--- assingment to the generators that satisfies the qualifiers.
-evalStmts' :: (Value -> Sq.Seq Value) -> [TCStmt] ->
-    AnalyserMonad (EvaluationMonad a) -> 
-    AnalyserMonad (EvaluationMonad (Sq.Seq a))
-evalStmts' extract stmts prog =
-    let
-        evStmts [] = do
-            prog <- prog
-            return $! prog >>= return . Sq.singleton
-        evStmts (An _ _ (Qualifier e) : stmts) = do
+        isGenerator (An _ _ (Generator _ _)) = True
+        isGenerator _ = False
+
+        generators = filter isGenerator stmts
+        generatorFvs = St.fromList (freeVars generators)
+
+        generatorsIndependent = and $!
+            map (not . flip St.member generatorFvs) (boundNames generators)
+
+        evGeneratorSets :: [TCStmt] -> AnalyserMonad (EvaluationMonad [Value])
+        evGeneratorSets [] = return $! return []
+        evGeneratorSets (An _ _ (Qualifier _):stmts) = evGeneratorSets stmts
+        evGeneratorSets (An _ _ (Generator _ e):stmts) = do
             e <- eval e
-            rest <- evStmts stmts
-            return $! do
-                VBool b <- e
-                if b then rest else return Sq.empty
-        evStmts (An _ _ (Generator p e) : stmts) = do
-            e <- eval e
-            binder <- bind p
-            rest <- evStmts stmts
+            rest <- evGeneratorSets stmts
             return $! do
                 v <- e
-                F.foldlM (\ s v -> do
+                vs <- rest
+                return $! v : vs
+
+        evBinders [] = do
+            progs <- sequence progs
+            return $! \ _ -> sequence progs
+        evBinders (An _ _ (Qualifier e):stmts) = do
+            e <- eval e
+            rest <- evBinders stmts
+            return $! \ sets -> do
+                VBool b <- e
+                if b then rest sets else return []
+        evBinders (An _ _ (Generator p _):stmts) = do
+            binder <- bind p
+            rest <- evBinders stmts
+            return $! \ (set:sets) -> do
+                vss <- mapM (\v -> do
                     case binder v of
                         Just binds -> do
                             pid <- getParentScopeIdentifier
-                            s' <- updateParentScopeIdentifier (annonymousScopeId [v] pid) $
-                                    addScopeAndBind binds rest
-                            return $ s Sq.>< s'
-                        _ -> return s) Sq.empty (extract v)
-    in evStmts stmts
-
-unzipSq :: Sq.Seq (a,b) -> (Sq.Seq a, Sq.Seq b)
-unzipSq sqs = F.foldr 
-    (\ (a,b) (as, bs) -> (a <| as, b <| bs) ) (Sq.empty, Sq.empty) sqs
+                            updateParentScopeIdentifier (annonymousScopeId [v] pid) $
+                                addScopeAndBind binds (rest sets)
+                        Nothing -> return []) (extract set)
+                return $ concat vss
+    in
+        -- If there are multiple generators that are independent, split the
+        -- evaluation into two stages: firstly compute the sets, and then take
+        -- the cartesian product and do the binding etc. This has the advantage
+        -- of only computing the sets once each, rather than computing the
+        -- subsequent sets for *each* value of the first generator.
+        if generatorsIndependent && length generators > 1 then do
+            setGenerator <- evGeneratorSets stmts
+            binderGenerator <- evBinders stmts
+            return $! do
+                sets <- setGenerator
+                binderGenerator sets
+        else
+            evStmts stmts
 
 timedCSPSyncSet ::
     AnalyserMonad (EvaluationMonad Value) ->
@@ -660,11 +692,14 @@ tSKIP tockName = do
     tskip [tockValue tockName]
 
 maybeTSTOP :: AnalyserMonad
-    (Sq.Seq a -> EvaluationMonad Value -> EvaluationMonad Value)
+    ([a] -> EvaluationMonad Value -> EvaluationMonad Value)
 maybeTSTOP =
     maybeTimed
         (return $ \ _ prog -> prog)
-        (\ tn _ -> return $ \ sq p1 -> if Sq.null sq then tSTOP tn else p1)
+        (\ tn _ -> return $ \ xs p1 ->
+            case xs of 
+                [] -> tSTOP tn
+                _ -> p1)
 
 tock :: Name -> Event
 tock tn = UserEvent (tockValue tn)
