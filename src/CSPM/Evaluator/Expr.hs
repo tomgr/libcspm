@@ -87,13 +87,7 @@ eval (An _ _ (Concat e1 e2)) = do
         -- and therefore the pattern match would force evaluation.)
         let VList vs2 = v2
         return $ VList (vs1++vs2)
-eval (An loc _ (DotApp e1 e2)) = do
-    e1 <- eval e1
-    e2 <- eval e2
-    return $! do
-        v1 <- e1
-        v2 <- e2
-        combineDots loc v1 v2
+eval e@(An loc _ (DotApp e1 e2)) = evaluateDotApplication e
 eval (An _ _ (If e1 e2 e3)) = do
     e1 <- eval e1
     e2 <- eval e2
@@ -685,3 +679,73 @@ makeTocker :: Name -> Int -> UProc -> UProc
 makeTocker tn 0 p = p
 makeTocker tn tocks p =
     PUnaryOp (PPrefix (tock tn)) (makeTocker tn (tocks-1) p)
+
+dataTypeTypeName :: Type -> Name
+dataTypeTypeName (TDatatype n) = n
+dataTypeTypeName TEvent = builtInName "Events"
+dataTypeTypeName t = panic $ show t ++ " is not a datatype type name."
+
+-- | Evaluates a dot application, attempting to optimise it.
+evaluateDotApplication :: TCExp -> AnalyserMonad (EvaluationMonad Value)
+evaluateDotApplication (exp@(An loc _ (DotApp left right))) = do
+    let
+        leftMostDot (An _ _ (DotApp l r)) = (leftMost, args ++ [r])
+            where (leftMost, args) = leftMostDot l
+        leftMostDot x = (x, [])
+
+        (leftMostConstructor, arguments) = leftMostDot exp
+
+        findFields :: [Type] -> [TCExp] -> Maybe [TCExp]
+        findFields [] _ = panic "Empty type list for find fields"
+        findFields [t] [exp] | getType exp == t = Just [exp]
+        findFields (t:ts) (exp:exps) | t == getType exp =
+            case findFields ts exps of
+                Just fs -> Just $ exp : fs
+                Nothing -> Nothing
+        findFields (t:ts) (An _ typ (DotApp l r) : exps) =
+            -- We know t != typ, so we try splitting
+            findFields (t:ts) (l:r:exps)
+        findFields  _ _ = Nothing
+
+        isDotable (TDotable _ _) = True
+        isDotable (TExtendable _ _) = True
+        isDotable _ = False
+
+        catVDots v v'@(VDot (VDataType _ : vs)) = VDot [v, v']
+        catVDots v v'@(VDot (VChannel _ : vs)) = VDot [v, v']
+        catVDots v (VDot vs) = VDot (v:vs)
+        catVDots v v' = VDot [v, v']
+
+        fallback = do
+            e1 <- eval left
+            e2 <- eval right
+            if not (isDotable (getType left)) then
+                return $! do
+                    v1 <- e1
+                    v2 <- e2
+                    return $! catVDots v1 v2
+            else return $! do
+                    v1 <- e1
+                    v2 <- e2
+                    combineDots loc v1 v2
+    if isDataTypeOrEvent (getType exp) then
+        case leftMostConstructor of
+            An _ _ (Var n) -> do
+                dataType <- dataTypeForName (dataTypeTypeName (getType exp))
+                case M.lookup n (dataTypeConstructors dataType) of
+                    Just clause | constructorFieldCount clause > 0
+                            && and (constructorFieldSetIsTrivial clause) ->
+                        case findFields (constructorFieldTypes clause) arguments of
+                            Just fs -> do
+                                computeFields <- mapM eval fs
+                                let constructor =
+                                        case getType exp of
+                                            TEvent -> VChannel n
+                                            TDatatype _ -> VDataType n
+                                return $! do
+                                    fs <- sequence computeFields
+                                    return $! VDot $! constructor : fs
+                            _ -> fallback
+                    _ -> fallback
+            _ -> fallback
+        else fallback
