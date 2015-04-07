@@ -30,7 +30,6 @@ import System.IO.Unsafe
 import CSPM.DataStructures.Names
 import qualified Util.MonadicPrettyPrint as M
 import Util.Exception
-import Util.PartialFunctions
 import Util.Precedence
 import Util.Prelude
 import Util.PrettyPrint
@@ -182,7 +181,7 @@ freshRigidTypeVarWithConstraints n cs = do
     tv <- takeTypeVarFromSupply
     return $ TVar (RigidTypeVarRef tv cs n)
 
-type SymbolTable = PartialFunction Name TypeScheme
+type SymbolTable = [(Name, TypeScheme)]
 type PType = IORef (Maybe Type)
 type PSymbolTable = IORef SymbolTable
 

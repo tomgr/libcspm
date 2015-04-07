@@ -122,7 +122,8 @@ Library
         Util.MonadicPrettyPrintInternal,
         Util.Precedence,
         Util.Prelude,
-        Util.PrettyPrint
+        Util.PrettyPrint,
+        Util.UnsafePointerEquality
     
     Other-Modules:
         Paths_libcspm
@@ -137,7 +138,7 @@ Library
     
     Hs-Source-Dirs: src
     
-    Extensions: DoAndIfThenElse
+    Extensions: DoAndIfThenElse, OverloadedStrings
 
 Test-Suite libcspm_tests
     Type: exitcode-stdio-1.0

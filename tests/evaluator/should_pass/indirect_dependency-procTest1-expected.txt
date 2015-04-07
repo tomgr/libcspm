@@ -1,0 +1,13 @@
+test1(((false, 0), 0))::P = STOP
+
+test1(((false, 0), 0)) = test1(((false, 0), 0))::P
+
+SKIP = ✓ -> STOP
+
+test1(((true, 0), 0))::P = SKIP
+
+test1(((true, 0), 0)) = test1(((true, 0), 0))::P
+
+procTest1 = test1(((true, 0), 0)) [] test1(((false, 0), 0))
+
+procTest1

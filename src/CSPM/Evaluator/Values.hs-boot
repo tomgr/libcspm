@@ -7,9 +7,9 @@ instance Eq Value
 instance Hashable Value
 instance Ord Value
 
-data ScopeIdentifier
-instance Eq ScopeIdentifier
-instance Hashable ScopeIdentifier
-instance Ord ScopeIdentifier
+data InstantiatedFrame
+instance Eq InstantiatedFrame
+instance Hashable InstantiatedFrame
+instance Ord InstantiatedFrame
 
 trimValueForProcessName :: Value -> Value

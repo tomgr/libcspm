@@ -13,17 +13,17 @@ import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 
-printCallStack :: Maybe ScopeIdentifier -> Doc
+printCallStack :: Maybe InstantiatedFrame -> Doc
 printCallStack Nothing = text "Lexical call stack: none available"
-printCallStack (Just p) =
-    let ppFrame _ Nothing = empty
-        ppFrame i (Just (SFunctionBind h n vss p)) =
-            int i <> colon <+> prettyPrint (SFunctionBind h n vss Nothing)
-            $$ ppFrame (i+1) p
-        ppFrame i (Just (SVariableBind h vs p)) =
-            int i <> colon <+> prettyPrint (SVariableBind h vs Nothing)
-            $$ ppFrame (i+1) p
-    in text "Lexical call stack:" $$ tabIndent (ppFrame 1 (Just p))
+--printCallStack (Just p) =
+--    let ppFrame _ Nothing = empty
+--        ppFrame i (Just (SFunctionBind h n vss p)) =
+--            int i <> colon <+> prettyPrint (SFunctionBind h n vss Nothing)
+--            $$ ppFrame (i+1) p
+--        ppFrame i (Just (SVariableBind h vs p)) =
+--            int i <> colon <+> prettyPrint (SVariableBind h vs Nothing)
+--            $$ ppFrame (i+1) p
+--    in text "Lexical call stack:" $$ tabIndent (ppFrame 1 (Just p))
 
 
 patternMatchFailureMessage :: SrcSpan -> TCPat -> Value -> ErrorMessage
@@ -41,27 +41,27 @@ patternMatchesFailureMessage l pat v =
             tabWidth (text "do not match the patterns" <+>
                 list (map prettyPrint pat))
 
-headEmptyListMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
+headEmptyListMessage :: SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
 headEmptyListMessage loc scope = mkErrorMessage loc $ 
     text "Attempt to take head of empty list."
     $$ printCallStack scope
 
-prioritiseEmptyListMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
+prioritiseEmptyListMessage :: SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
 prioritiseEmptyListMessage loc scope = mkErrorMessage loc $ 
     text "Prioritise must be called with a non-empty list."
     $$ printCallStack scope
 
-tailEmptyListMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
+tailEmptyListMessage :: SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
 tailEmptyListMessage loc scope = mkErrorMessage loc $ 
     text "Attempt to take tail of empty list."
     $$ printCallStack scope
 
-divideByZeroMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
+divideByZeroMessage :: SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
 divideByZeroMessage loc scope = mkErrorMessage loc $
     text "Attempt to divide by zero"
     $$ printCallStack scope
 
-keyNotInDomainOfMapMessage :: SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
+keyNotInDomainOfMapMessage :: SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
 keyNotInDomainOfMapMessage loc scope = mkErrorMessage loc $
     text "Lookup called on a key that is not in the domain of the map."
     $$ printCallStack scope
@@ -73,7 +73,7 @@ funBindPatternMatchFailureMessage l n vss = mkErrorMessage l $
             hcat (map (\ vs -> parens (list (map prettyPrint vs))) vss))
 
 replicatedLinkParallelOverEmptySeqMessage :: Exp Name -> SrcSpan ->
-    Maybe ScopeIdentifier -> ErrorMessage
+    Maybe InstantiatedFrame -> ErrorMessage
 replicatedLinkParallelOverEmptySeqMessage p l scope = mkErrorMessage l $
     hang (
         hang (text "The sequence expression in"<>colon) tabWidth 
@@ -83,7 +83,7 @@ replicatedLinkParallelOverEmptySeqMessage p l scope = mkErrorMessage l $
     $$ printCallStack scope
 
 replicatedInternalChoiceOverEmptySetMessage :: TCExp -> 
-    Maybe ScopeIdentifier -> ErrorMessage
+    Maybe InstantiatedFrame -> ErrorMessage
 replicatedInternalChoiceOverEmptySetMessage p scope = mkErrorMessage (loc p) $
     hang (
         hang (text "The set expression in"<>colon) tabWidth 
@@ -93,7 +93,7 @@ replicatedInternalChoiceOverEmptySetMessage p scope = mkErrorMessage (loc p) $
     $$ printCallStack scope
 
 replicatedInternalChoiceOverEmptySetMessage' :: TCPat ->
-    Maybe ScopeIdentifier -> ErrorMessage
+    Maybe InstantiatedFrame -> ErrorMessage
 replicatedInternalChoiceOverEmptySetMessage' p scope = mkErrorMessage (loc p) $
     hang (
         hang (text "The pattern"<>colon) tabWidth (prettyPrint p)
@@ -127,7 +127,7 @@ cannotDifferenceSetsMessage vs1 vs2 = mkErrorMessage Unknown $
     text "Cannot difference the supplied sets."
 
 dotIsNotValidMessage :: Value -> Int -> Value -> ValueSet -> SrcSpan ->
-    Maybe ScopeIdentifier -> ErrorMessage
+    Maybe InstantiatedFrame -> ErrorMessage
 dotIsNotValidMessage (value@(VDot (h:_))) field fieldValue fieldOptions loc scope =
     mkErrorMessage loc $
         hang (text "The value:") tabWidth (prettyPrint value)
@@ -153,18 +153,18 @@ setNotRectangularErrorMessage loc s1 ms2 = mkErrorMessage loc $
         Nothing -> empty
 
 prioritisePartialOrderCyclicOrder :: [Event] -> SrcSpan ->
-    Maybe ScopeIdentifier -> ErrorMessage
+    Maybe InstantiatedFrame -> ErrorMessage
 prioritisePartialOrderCyclicOrder scc loc scid = mkErrorMessage loc $
     text "The partial order specified for priortisepo contains the following cycle:"
     $$ tabIndent (list (map prettyPrint scc))
 
-prioritiseNonMaximalElement :: Event -> SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage
+prioritiseNonMaximalElement :: Event -> SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
 prioritiseNonMaximalElement event loc scid = mkErrorMessage loc $
     text "The event:" <+> prettyPrint event
     <+> text "is declared as maximal, but is not maximal in the order."
 
 prioritisePartialOrderEventsMissing :: [Event] -> [Event] -> SrcSpan ->
-    Maybe ScopeIdentifier -> ErrorMessage
+    Maybe InstantiatedFrame -> ErrorMessage
 prioritisePartialOrderEventsMissing allEvents missingEvents loc scid = mkErrorMessage loc $
     text "The events:"
     $$ tabIndent (list (map prettyPrint missingEvents))

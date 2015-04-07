@@ -2,12 +2,12 @@ DUMP(C) = STOP
 
 DUMP(B) = STOP
 
-Q(B) =
+Q(_) =
     c.B.B -> DUMP(B)
     [] c.B.C -> STOP
     [] c.C.B -> STOP
     [] c.C.C -> DUMP(C)
 
-procTest2 = Q(B)
+procTest2 = Q(_)
 
 procTest2

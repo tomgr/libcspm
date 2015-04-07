@@ -1,8 +1,8 @@
 SKIP = ✓ -> STOP
 
-SKIP::tock = tock -> SKIP::tock [] SKIP
+SKIP(tock) = tock -> SKIP(tock) [] SKIP
 
-WAIT(tock)(5) = tock -> tock -> tock -> tock -> tock -> SKIP::tock
+WAIT(tock)(5) = tock -> tock -> tock -> tock -> tock -> SKIP(tock)
 
 waitN'() = WAIT(tock)(5) ; waitN'()
 

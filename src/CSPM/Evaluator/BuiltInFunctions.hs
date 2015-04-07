@@ -6,14 +6,15 @@ module CSPM.Evaluator.BuiltInFunctions (
 import Data.Array
 import Data.List
 import Control.Monad.ST
+import qualified Data.ByteString.Char8 as B
 import Data.Hashable
 import qualified Data.HashTable.Class as H
 import qualified Data.HashTable.ST.Basic as B
 import qualified Data.Set as St
 import qualified Data.Map as M
-import qualified Data.Sequence as Sq
 
 import CSPM.DataStructures.Names
+import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
@@ -28,10 +29,25 @@ import Util.List
 import Util.Prelude
 import Util.PrettyPrint
 
-builtInFunctions :: EvaluationMonad [(Name, Value)]
+builtinProcName :: FrameInformation -> [[Value]] -> ProcName
+builtinProcName f vss = procName (instantiateBuiltinFrameWithArguments f vss)
+
+builtInFunctions :: AnalyserMonad (EvaluationMonad [(Name, Value)])
 builtInFunctions = do
+    builtinFrames <- mapM (createBuiltinFunctionFrame . name) (builtins True)
+
+    return $! do
     registerCall <- maybeRegisterCall
     let
+        frameMap = M.fromList $ map
+                        (\ f -> (builtinFunctionFrameFunctionName f, f))
+                        builtinFrames
+        frameForBuiltin :: B.ByteString -> FrameInformation
+        frameForBuiltin s =
+            case M.lookup (builtInName s) frameMap of
+                Nothing -> panic "Could not find builtin"
+                Just n -> n
+
         cspm_union [VSet s1, VSet s2] = S.union s1 s2
         cspm_inter [VSet s1, VSet s2] = S.intersection s1 s2
         cspm_diff [VSet s1, VSet s2] = S.difference s1 s2
@@ -48,10 +64,12 @@ builtInFunctions = do
         cspm_seq [VSet s] = S.toList s
         cspm_transpose [VSet s] = VSet $ 
             S.fromList [VTuple (listArray (0,1) [arr!1, arr!0]) | VTuple arr <- S.toList s]
-        cspm_relational_image [VSet s] = 
-            let f = relationalImage s 
-                fid = builtInFunction (builtInName "relational_image") [[VSet s]]
-            in VFunction fid (\[x] -> f x >>= return . VSet)
+        cspm_relational_image =
+            let frameInfo = frameForBuiltin "relational_image"
+            in \ [VSet s] ->
+                let f = relationalImage s 
+                    fid = instantiateBuiltinFrameWithArguments frameInfo [[VSet s]]
+                in VFunction fid (\[x] -> f x >>= return . VSet)
         cspm_mtransclose [VSet s1, VSet s2] = fdrSymmetricTransitiveClosure s1 s2
         cspm_relational_inverse_image s = cspm_relational_image [cspm_transpose s]
         cspm_show [v] =
@@ -95,26 +113,29 @@ builtInFunctions = do
         cspm_tail _ [VList (x:xs)] = return $ VList xs
         cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
         cspm_elem [v, VList vs] = VBool $ v `elem` vs
+        csp_chaos_frame = frameForBuiltin "CHAOS"
         csp_chaos [VSet a] = VProc chaosCall
             where
                 chaosCall = PProcCall n p
                 -- | We convert the set into an explicit set as this makes
                 -- comparisons faster than leaving it as a set represented as
                 -- (for instance) a CompositeSet of CartProduct sets.
-                n = procName $ scopeId (builtInName "CHAOS")
-                        [[VSet $ S.fromList $ S.toList a]] Nothing
-                p = POp (PChaos (S.valueSetToEventSet a)) Sq.empty
+                n = builtinProcName csp_chaos_frame
+                        [[VSet $ S.fromList $ S.toList a]]
+                p = POp (PChaos (S.valueSetToEventSet a)) []
+        csp_run_frame = frameForBuiltin "RUN"
         csp_run [VSet a] = VProc runCall
             where
                 runCall = PProcCall n p
                 -- | We convert the set into an explicit set as this makes
                 -- comparisons faster than leaving it as a set represented as
                 -- (for instance) a CompositeSet of CartProduct sets.
-                n = procName $ scopeId (builtInName "RUN")
-                        [[VSet $ S.fromList $ S.toList a]] Nothing
-                p = POp (PRun (S.valueSetToEventSet a)) Sq.empty
+                n = builtinProcName csp_run_frame
+                        [[VSet $ S.fromList $ S.toList a]]
+                p = POp (PRun (S.valueSetToEventSet a)) []
+        csp_loop_frame = frameForBuiltin "loop"
         csp_loop [VProc p] =
-            let pn = procName $ scopeId (builtInName "loop") [[VProc p]] Nothing
+            let pn = builtinProcName csp_loop_frame [[VProc p]]
                 procCall = PProcCall pn (PBinaryOp PSequentialComp p procCall)
             in VProc procCall
 
@@ -129,7 +150,7 @@ builtInFunctions = do
             throwError' $ prioritiseEmptyListMessage loc
         csp_prioritise cache _ [VProc p, VList alphas] =
             let sets = map (\ (VSet s) -> S.valueSetToEventSet s) alphas
-                pop = Prioritise cache (Sq.fromList sets)
+                pop = Prioritise cache sets
             in return $ VProc $ PUnaryOp (POperator pop) p
         csp_prioritise_partialorder loc [VProc p, VSet prioritisedEvents,
                 VSet order, VSet maximal] = do
@@ -141,12 +162,11 @@ builtInFunctions = do
             return $ VProc $ PUnaryOp (POperator pop) p
         csp_timed_priority [tockVal] =
             let 
-                prioritiseId =
-                    builtInFunction (builtInName "timed_priority") [[tockVal]]
+                frameInfo = frameForBuiltin "timed_priority"
+                prioritiseId = instantiateBuiltinFrameWithArguments frameInfo [[tockVal]]
                 prioritiser [VProc p] = 
                     return $ VProc $ PUnaryOp (POperator pop) p
-                    where pop = Prioritise True $ Sq.fromList $
-                                    [Sq.empty, Sq.singleton (UserEvent tockVal)]
+                    where pop = Prioritise True [[], [UserEvent tockVal]]
             in VFunction prioritiseId prioritiser
 
         csp_failure_watchdog [VProc p, VSet implementationEvents, ev] =
@@ -222,8 +242,9 @@ builtInFunctions = do
         mkLocatedFunction (s, f) =
             let
                 n = builtInName s
-                outerFid = builtInFunction n [[]]
-                innerFid loc = builtInFunction n [[VLoc loc]]
+                frameInfo = frameForBuiltin s
+                outerFid = instantiateBuiltinFrameWithArguments frameInfo []
+                innerFid loc = instantiateBuiltinFrameWithArguments frameInfo [[VLoc loc]]
                 outerFn [VLoc loc] = return $ VFunction (innerFid loc) $
                     \ vs -> registerCall n (f loc vs)
             in return $! (n, VFunction outerFid outerFn)
@@ -231,24 +252,25 @@ builtInFunctions = do
         mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)
         mkMonadicFunc (s, f) = do
             let n = builtInName s
+                frameInfo = frameForBuiltin s
+                fid = instantiateBuiltinFrameWithArguments frameInfo []
                 f' vs = registerCall n (f vs)
-            return $! (n, VFunction (builtInFunction n [[]]) f')
+            return $! (n, VFunction fid f')
 
         procs = [
             ("STOP", csp_stop),
             ("SKIP", csp_skip)
             ]
         
-        csp_skip_id = scopeId (builtInName "SKIP") [] Nothing
-        csp_stop_id = scopeId (builtInName "STOP") [] Nothing
-        csp_stop =
-            PProcCall (procName csp_stop_id) (POp PExternalChoice Sq.empty)
+        csp_skip_id = builtinProcName (frameForBuiltin "SKIP") []
+        csp_stop_id = builtinProcName (frameForBuiltin "STOP") []
+        csp_stop = PProcCall csp_stop_id (POp PExternalChoice [])
         csp_skip =
-            PProcCall (procName csp_skip_id) (PUnaryOp (PPrefix Tick) csp_stop)
+            PProcCall csp_skip_id (PUnaryOp (PPrefix Tick) csp_stop)
 
         csp_tstop [tockVal@(VDot [VChannel tn])] =
             let
-                pid = procName (scopeId tn [] (Just csp_stop_id))
+                pid = builtinProcName (frameForBuiltin "STOP") [[VChannel tn]]
                 proc = PUnaryOp (PPrefix (UserEvent tockVal)) pc
                 pc = PProcCall pid proc
             in VProc pc
@@ -256,12 +278,12 @@ builtInFunctions = do
         csp_tskip [tockVal] =
             let
                 VDot [VChannel tn] = tockVal
-                pid = procName (scopeId tn [] (Just csp_skip_id))
+                pid = builtinProcName (frameForBuiltin "SKIP")  [[VChannel tn]]
                 proc = PUnaryOp (PPrefix (UserEvent tockVal)) pc
-                pc = PProcCall pid $ POp PExternalChoice $
-                    proc Sq.<| csp_skip Sq.<| Sq.empty
+                pc = PProcCall pid $ POp PExternalChoice [proc, csp_skip]
             in VProc pc
 
+        csp_wait_frame = frameForBuiltin "WAIT"
         csp_wait [tockVal] =
             let
                 VDot [VChannel tn] = tockVal
@@ -271,11 +293,11 @@ builtInFunctions = do
                 mkTocker n =
                     PUnaryOp (PPrefix (UserEvent tockVal)) (mkTocker (n-1))
 
-                waiterId = builtInFunction (builtInName "WAIT") [[tockVal]]
+                waiterId = instantiateBuiltinFrameWithArguments csp_wait_frame
+                                [[tockVal]]
                 waiter [VInt tocks] =
                     let
-                        waitId = scopeId (builtInName "WAIT") [[tockVal], [VInt tocks]] Nothing
-                        pid = procName waitId
+                        pid = builtinProcName csp_wait_frame [[tockVal], [VInt tocks]]
                     in VProc $ PProcCall pid $ mkTocker tocks
             in VFunction waiterId (return . waiter)
 
@@ -320,10 +342,12 @@ builtInFunctions = do
     fs5 <- mapM mkLocatedFunction locatedFunctions
     return $! fs1++fs2++fs3++fs4++fs5
 
-injectBuiltInFunctions :: EvaluationMonad a -> EvaluationMonad a
+injectBuiltInFunctions :: EvaluationMonad a -> AnalyserMonad (EvaluationMonad a)
 injectBuiltInFunctions prog = do
     fs <- builtInFunctions
-    addScopeAndBind fs prog
+    return $! do
+        funcs <- fs
+        addScopeAndBind funcs prog
 
 -- | Takes a set and returns a function from value to set of values that are
 -- mapped to.
@@ -364,7 +388,7 @@ fdrSymmetricTransitiveClosure vs1 vs2 =
     in S.fromList $ runST computeRepresentatives
 
 computePrioritisePartialOrder :: SrcSpan -> [(Event, Event)] -> [Event] ->
-    [Event] -> EvaluationMonad (Sq.Seq (Event, Event))
+    [Event] -> EvaluationMonad [(Event, Event)]
 computePrioritisePartialOrder loc evs maxEvents prioritsedEvents =
     let
         maxEventSet = St.fromList maxEvents
@@ -420,7 +444,7 @@ computePrioritisePartialOrder loc evs maxEvents prioritsedEvents =
                         throwError' $ prioritisePartialOrderCyclicOrder cyclicScc loc
                     Right edges -> 
                         case filter edgeIsInValid edges of
-                            [] -> return $ Sq.fromList [(v1, v2) | (v1, v2) <- edges]
+                            [] -> return [(v1, v2) | (v1, v2) <- edges]
                             (_, e) : _ -> throwError' $ prioritiseNonMaximalElement e loc
             _ ->
                  throwError' $ prioritisePartialOrderEventsMissing

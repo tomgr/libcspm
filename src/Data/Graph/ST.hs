@@ -7,6 +7,7 @@ module Data.Graph.ST (
     SCC(..), sccs,
     -- * Relation Tools
     nonReflexiveRepresentativesForNodes,
+    transitiveClosure,
 ) where
 
 import Control.Monad
@@ -16,9 +17,11 @@ import Data.Array.Unboxed
 import Data.Hashable
 import qualified Data.HashTable.Class as H
 import qualified Data.HashTable.ST.Basic as B
-import Data.List (sortBy)
+import Data.List (sort, sortBy)
 import Data.STRef
 import qualified Data.Set.MutableBit as BS
+import Util.List
+import Util.Monad
 
 type HashTable s k v = B.HashTable s k v
 
@@ -285,3 +288,47 @@ nonReflexiveRepresentativesForNodes graph = do
                 return [(n, repr)]
         ) [0..nodeCount graph-1]
     return $! concat xss
+
+transitiveClosure :: (Eq a, Hashable a, Ord a, Show a) => Graph s a -> ST s [(a, [a])]
+transitiveClosure graph = do
+    sccs <- intSccs graph
+    -- The sccs are in reverse topological order (i.e. if an SCC x has
+    -- an edge to a SCC y), then x preceeds y. Thus, we reverse the
+    -- ordering. This means by the time we compute the edges for a node
+    -- x that has an edge to a node y, we have already computed the
+    -- closure of y.
+    let topSortedSccs = reverse sccs
+        sccCount = length sccs
+
+    -- A map from node id to the id of the scc id
+    sccForNode <- newArray (0, nodeCount graph-1) (-1) :: ST s (STUArray s Int Int)
+    zipWithM (\ sccId scc ->
+            mapM_ (\ nid -> writeArray sccForNode nid sccId) (nodesOfScc scc)
+        ) [0..] sccs
+
+    -- Map from scc id to the transitive closure edges of the SCC
+    sccEdgeMap <- newArray (0, sccCount-1) [] :: ST s (STArray s Int [Int])
+    concatMapM (\ scc -> do
+        let nodes = case scc of
+                        AcyclicSCC n -> [n]
+                        CyclicSCC ns -> ns
+            nodeSuccessors = concatMap (successorsForNode graph) nodes
+        sccId <- readArray sccForNode $ head nodes
+        sccSuccessors' <- mapM (readArray sccForNode) nodeSuccessors
+        let sccSuccessors = sortedNub $ sort sccSuccessors'
+        tcSuccessors <- concatMapM (readArray sccEdgeMap) sccSuccessors
+        let successors = nodeSuccessors ++ tcSuccessors
+        writeArray sccEdgeMap sccId successors
+        ns <- mapM (readArray (invNodeMap graph)) nodes
+        xs <- mapM (readArray (invNodeMap graph)) successors
+        --trace (
+        --        show scc
+        --        ++ show sccId
+        --        ++ show sccSuccessors'
+        --        ++ show sccSuccessors
+        --        ++ show successors
+        --        ++ show ns
+        --        ++show xs
+        --    ) $
+        return [(n, xs) | n <- ns]
+        ) topSortedSccs

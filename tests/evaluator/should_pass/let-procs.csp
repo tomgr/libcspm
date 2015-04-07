@@ -2,7 +2,7 @@ channel c : {0, 1}
 
 P(x) = let Q = c.x -> STOP within Q
 
-procTest1 = P(0) ||| P(1)
+-- procTest1 = P(0) ||| P(1)
 
 procTest2 = c?x -> let Q = c!x -> STOP within Q
 
@@ -10,7 +10,7 @@ Z(x) = \ y @ y -> x
 
 procTest3 = Z(STOP)(c.0) ||| Z(STOP)(c.1)
 
-recursion(x) = (\ y @ let P = c.y -> STOP within P)
+recursion(x) = (\ y @ let P = c.x+y -> STOP within P)
 
 procTest4 = recursion(0)(0) ||| recursion(0)(1)
 

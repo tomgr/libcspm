@@ -1,28 +1,26 @@
-GE1 = STOP::tock
+GE1 = STOP(tock)
 
 SKIP = ✓ -> STOP
 
-SKIP::tock = tock -> SKIP::tock [] SKIP
+SKIP(tock) = tock -> SKIP(tock) [] SKIP
 
-SK1 = SKIP::tock
+SK1 = SKIP(tock)
 
-ST1 = STOP::tock
+ST1 = STOP(tock)
 
-SE1 = STOP::tock [+{a, tock}+] STOP::tock
+SE1 = STOP(tock) [+{a, tock}+] STOP(tock)
 
-SI1 = STOP::tock /+ {a, tock} +\ STOP::tock
+SI1 = STOP(tock) /+ {a, tock} +\ STOP(tock)
 
-IN1 = STOP::tock /+ {tock} +\ STOP::tock
+IN1 = STOP(tock) /+ {tock} +\ STOP(tock)
 
-E1 = STOP::tock [+{tock}+] STOP::tock
+E1 = STOP(tock) [+{tock}+] STOP(tock)
 
-AP1 = STOP::tock [{a, tock} || {a, tock}] STOP::tock
+AP1 = STOP(tock) [{a, tock} || {a, tock}] STOP(tock)
 
-GP1 = STOP::tock [| {a, tock} |] STOP::tock
+GP1 = STOP(tock) [| {a, tock} |] STOP(tock)
 
-STOP::tock = tock -> STOP::tock
-
-I1 = STOP::tock [| {tock} |] STOP::tock
+I1 = STOP(tock) [| {tock} |] STOP(tock)
 
 procTest6 =
     I1 [] GP1 [] AP1 [] E1 [] IN1 [] SI1 [] SE1 [] ST1 [] SK1 [] GE1

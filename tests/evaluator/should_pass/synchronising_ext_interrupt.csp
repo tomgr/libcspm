@@ -1,6 +1,6 @@
 channel a : {0..10}
 channel b
 
-procTest1 = [+{|a|}+] x : {STOP, SKIP} @ x
+procTest1 = [+{|a|}+] x : {a.0->STOP, a.1->STOP} @ x
 procTest2 = STOP /+ {a.0,a.1} +\ STOP
 procTest3 = STOP [+ {|a, b|} +] STOP

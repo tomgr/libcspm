@@ -4,7 +4,7 @@ channel d : Complex1.Complex1
 
 f(x) = {x}
 
-Dump(xs) = STOP
+Dump(xs) = if xs == xs then STOP else STOP  
 
 procTest1 = d?X.x?y -> Dump((x,y))
 procTest2 = d?Y.x.y.z -> Dump((x,y,z))

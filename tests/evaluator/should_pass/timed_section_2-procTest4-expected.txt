@@ -1,6 +1,4 @@
-STOP::tock = tock -> STOP::tock
-
-pt4 = STOP::tock
+pt4 = STOP(tock)
 
 procTest4 = pt4
 

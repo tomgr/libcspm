@@ -7,7 +7,6 @@ import Control.Monad.Trans
 import Data.List
 import Data.Typeable
 import CSPM
-import CSPM.Evaluator.ProcessValues
 import CSPM.Evaluator.ValuePrettyPrinter
 import Monad
 import Prelude hiding (catch)

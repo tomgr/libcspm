@@ -13,8 +13,6 @@ import Util.Exception
 data EvaluationState = 
     EvaluationState {
         environment :: Environment,
--- TODO: make static
-        parentScopeIdentifier :: Maybe ScopeIdentifier,
 -- TODO: remove?
         profilerState :: ProfilerState
     }
@@ -66,14 +64,7 @@ addScopeAndBindM binds prog = do
 throwError :: ErrorMessage -> a
 throwError err = throwSourceError [err]
 
-getParentScopeIdentifier :: EvaluationMonad (Maybe ScopeIdentifier)
-getParentScopeIdentifier = gets parentScopeIdentifier
-
-updateParentScopeIdentifier :: ScopeIdentifier -> EvaluationMonad a -> EvaluationMonad a
-updateParentScopeIdentifier pn prog =
-    modify (\ st -> st { parentScopeIdentifier = Just pn }) prog
-
-throwError' :: (Maybe ScopeIdentifier -> ErrorMessage) -> EvaluationMonad a
+throwError' :: (Maybe InstantiatedFrame -> ErrorMessage) -> EvaluationMonad a
 throwError' f = do
-    stk <- gets parentScopeIdentifier
-    throwError (f stk)
+    --stk <- gets parentScopeIdentifier
+    throwError (f Nothing)

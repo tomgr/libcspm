@@ -7,7 +7,7 @@
 module CSPM.Evaluator.ValueSet (
     -- * Construction
     ValueSet(..),
-    emptySet, fromList, toList, toSeq,
+    emptySet, fromList, toList, toSeq, singleton,
     -- * Basic Functions
     compareValueSets,
     member, card, empty,
@@ -35,7 +35,7 @@ import qualified Data.Traversable as T
 
 import {-# SOURCE #-} CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Values
-import qualified CSPM.Evaluator.ProcessValues as CE
+--import qualified CSPM.Evaluator.ProcessValues as CE
 import Util.Exception
 import qualified Util.List as UL
 import Util.Prelude
@@ -198,6 +198,10 @@ emptySet = ExplicitSet S.empty
 -- | Converts a list to a set
 fromList :: [Value] -> ValueSet
 fromList = ExplicitSet . S.fromList
+
+-- | Constructs a singleton set
+singleton :: Value -> ValueSet
+singleton = ExplicitSet . S.singleton
 
 -- | Converts a set to list.
 toList :: ValueSet -> [Value]
@@ -415,8 +419,8 @@ difference (CompositeSet ss) s =
 difference s (CompositeSet ss) = F.foldl difference s ss
 difference s1 s2 = difference (fromList (toList s1)) (fromList (toList s2))
 
-valueSetToEventSet :: ValueSet -> CE.EventSet
-valueSetToEventSet = CE.eventSetFromList . map valueEventToEvent . toList
+valueSetToEventSet :: ValueSet -> EventSet
+valueSetToEventSet = eventSetFromList . map valueEventToEvent . toList
 
 -- | Attempts to decompose the set into a cartesian product, returning Nothing
 -- if it cannot.
