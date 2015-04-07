@@ -37,8 +37,8 @@ import Util.Prelude
 import Util.UnsafePointerEquality
 
 data Value =
-    VInt Int
-    | VChar Char
+    VInt {-# UNPACK #-} !Int
+    | VChar {-# UNPACK #-} !Char
     | VBool Bool
     | VTuple (Array Int Value)
     -- | If A is a datatype clause that has 3 fields a b c then a runtime
@@ -47,8 +47,8 @@ data Value =
     | VDot [Value]
     -- The following two never appear on their own, they are always part of a 
     -- VDot (even if the VDot has no values).
-    | VChannel Name
-    | VDataType Name
+    | VChannel {-# UNPACK #-} !Name
+    | VDataType {-# UNPACK #-} !Name
     | VList [Value]
     | VMap (M.Map Value Value)
     | VSet S.ValueSet
