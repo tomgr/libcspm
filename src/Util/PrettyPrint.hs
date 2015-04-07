@@ -1,6 +1,7 @@
 module Util.PrettyPrint (
     module Text.PrettyPrint.HughesPJ,
     PrettyPrintable (prettyPrint),
+    bytestring,
     tabWidth,
     tabIndent,
     shortDouble,
@@ -11,11 +12,16 @@ module Util.PrettyPrint (
 )
 where 
 
+import qualified Data.ByteString.Char8 as B
+
 import Numeric
 import Text.PrettyPrint.HughesPJ
 
 class PrettyPrintable a where
     prettyPrint :: a -> Doc
+
+bytestring :: B.ByteString -> Doc
+bytestring = text . B.unpack
 
 -- | The width, in spaces, of a tab character.
 tabWidth :: Int

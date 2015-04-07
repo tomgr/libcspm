@@ -2,6 +2,7 @@
 module CSPM.Desugar (Desugarable(..), runDesugar) where
 
 import Control.Monad.State
+import qualified Data.ByteString.Char8 as B
 import Data.List (nub, sort)
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
@@ -545,7 +546,7 @@ instance Desugarable (Pat Name) where
     desugar (PDoublePattern p1 p2) =
         return PDoublePattern $$ desugar p1 $$ desugar p2
     desugar (PLit (String s)) = return $
-        PCompList (map (\ c -> An Unknown (Just $ TSeq TChar, dummyAnnotation) (PLit (Char c))) s)
+        PCompList (map (\ c -> An Unknown (Just $ TSeq TChar, dummyAnnotation) (PLit (Char c))) (B.unpack s))
             Nothing (PLit (String s))
     desugar (PLit l) = return PLit $$ desugar l
     -- We don't remove the Paren as people may pretty print a desugared

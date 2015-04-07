@@ -1,10 +1,7 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances, FunctionalDependencies,
+    ExistentialQuantification, RankNTypes,
+    OverloadedStrings, TypeSynonymInstances, MultiParamTypeClasses,
+    UndecidableInstances #-}
 -- | Renames all variables to unique Names, in the process converting all
 -- UnRenamedName into Name. This simplifies many subsequent phases as every
 -- name is guaranteed to be unique so flat maps may be used, rather than
@@ -21,6 +18,7 @@ module CSPM.Renamer (
 )  where
 
 import Control.Monad.State
+import qualified Data.ByteString.Char8 as B
 import Data.List
 import qualified Data.Map as M
 import Data.Maybe (fromJust, isJust,isNothing)
@@ -35,7 +33,6 @@ import Util.Exception
 import Util.FuzzyLookup
 import qualified Util.HierarchicalMap as HM
 import Util.Monad
-import Util.PartialFunctions
 import Util.PrettyPrint hiding (($$))
 import qualified Util.PrettyPrint as P
 
@@ -484,7 +481,7 @@ reAnnotate (An a b _) m = do
     v <- m
     return $ An a b v
 
-timedNames :: [String]
+timedNames :: [B.ByteString]
 timedNames = ["timed_priority", "WAIT"]
 
 joinName :: UnRenamedName -> UnRenamedName -> UnRenamedName
@@ -1425,7 +1422,7 @@ varNotInScopeMessage n isModule = do
         suggestions = fuzzyLookup (show $ prettyPrint n) availablePp
 
         availableTransExtern = if isModule then [] else
-            [(stringName b, b) | b <- builtins True,
+            [(B.unpack $ stringName b, b) | b <- builtins True,
                 isTransparent b || isExternal b]
         builtinSuggestions = fuzzyLookup (show $ prettyPrint n) availableTransExtern
     return $

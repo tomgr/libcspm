@@ -3,6 +3,8 @@ module CSPM.Parser.Tokens (
 )
 where
 
+import qualified Data.ByteString as B
+
 import CSPM.DataStructures.Syntax (Model(..))
 import CSPM.PrettyPrinter
 import Util.Annotated
@@ -11,18 +13,18 @@ import Util.PrettyPrint
 data Token = 
     TInteger Int
     | TChar Char
-    | TString String
+    | TString B.ByteString
     | TFalse
     | TTrue
-    | TIdent String
+    | TIdent B.ByteString
 
-    | TPrint String
+    | TPrint B.ByteString
 
     | TRefines Model
     | TModel Model
     | TTauPriority
     | TPartialOrderReduce
-    | TStringOption String
+    | TStringOption B.ByteString
     | TDeadlockFree
     | TDivergenceFree
     | TLivelockFree
@@ -138,18 +140,18 @@ instance Show Token where
 instance PrettyPrintable Token where
     prettyPrint (TInteger i) = int i
     prettyPrint (TChar c) = quotes (char c)
-    prettyPrint (TString s) = doubleQuotes (text s)
+    prettyPrint (TString s) = doubleQuotes (bytestring s)
     prettyPrint TFalse = text "false"
     prettyPrint TTrue = text "true"
-    prettyPrint (TIdent s) = text s
+    prettyPrint (TIdent s) = bytestring s
 
-    prettyPrint (TPrint s) = text "print" <+> text s
+    prettyPrint (TPrint s) = text "print" <+> bytestring s
 
     prettyPrint (TRefines m) = char '[' <> prettyPrint m <> char '='
     prettyPrint (TModel m) = char '[' <> prettyPrint m <> char ']'
     prettyPrint TTauPriority = text "tau priority"
     prettyPrint TPartialOrderReduce = text "partial order reduce"
-    prettyPrint (TStringOption s) = char '[' <> text s <> char ']'
+    prettyPrint (TStringOption s) = char '[' <> bytestring s <> char ']'
     prettyPrint TDeadlockFree = text "deadlock free"
     prettyPrint TDivergenceFree = text "divergence free"
     prettyPrint TLivelockFree = text "livelock free"

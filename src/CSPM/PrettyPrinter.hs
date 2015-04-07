@@ -113,7 +113,7 @@ instance PrettyPrintable id => PrettyPrintable (Decl id) where
     prettyPrint (ModuleInstance n nm args mp _) =
         text "instance" <+> prettyPrint n <+> char '=' <+> prettyPrint nm <>
             parens (list (map prettyPrint args))
-    prettyPrint (PrintStatement s) = text "print" <+> text s
+    prettyPrint (PrintStatement s) = text "print" <+> bytestring s
 
 instance PrettyPrintable id => PrettyPrintable (Assertion id) where
     prettyPrint (Refinement e1 m e2 opts) =
@@ -144,7 +144,7 @@ instance PrettyPrintable id => PrettyPrintable (ModelOption id) where
         text ":[tau priority over]:" <+> prettyPrint e
     prettyPrint (PartialOrderReduce Nothing) = text ":[partial order reduce]"
     prettyPrint (PartialOrderReduce (Just m)) =
-        text ":[partial order reduce" <+> text m <+> text "]"
+        text ":[partial order reduce" <+> bytestring m <+> text "]"
 
 instance PrettyPrintable SemanticProperty where
     prettyPrint DeadlockFreedom = text "deadlock free"

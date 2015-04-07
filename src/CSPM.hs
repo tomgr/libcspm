@@ -121,6 +121,7 @@ where
 
 import Control.Applicative
 import Control.Monad.State
+import qualified Data.ByteString as B
 import Data.Version
 import System.FilePath
 
@@ -218,7 +219,7 @@ parseStringAsFile :: CSPMMonad m => String -> m PCSPMFile
 parseStringAsFile str = runParserInCurrentState "" (P.parseStringAsFile str)
 
 -- | Parses the file, with the file contents according to the given map.
-parseStringsAsFile :: CSPMMonad m => String -> [(String, String)] -> m PCSPMFile
+parseStringsAsFile :: CSPMMonad m => String -> [(String, B.ByteString)] -> m PCSPMFile
 parseStringsAsFile rootFile fileContents =
     let (dir, fname) = splitFileName rootFile
         dir' = if dir == "./" then "" else dir
@@ -382,7 +383,7 @@ profilingData = runEvaluatorInCurrentState EV.profilingData
 
 -- | Given a process name, attempts to convert the name into a process. This
 -- is only possible for top-level function applications.
-maybeProcessNameToProcess :: CSPMMonad m => EV.ProcName -> m (Maybe EV.UProc)
+maybeProcessNameToProcess :: CSPMMonad m => EV.ProcName -> m (Maybe EV.Proc)
 maybeProcessNameToProcess pn =
     runEvaluatorInCurrentState $ EV.maybeProcessNameToProcess pn
 

@@ -3,6 +3,7 @@ module CSPM.Evaluator.Expr (
     eval,
 ) where
 
+import qualified Data.ByteString.Char8 as B
 import Data.List (sort)
 import qualified Data.Foldable as F
 import qualified Data.Map as M
@@ -128,7 +129,7 @@ eval (An _ _ (Lit (Char c))) = return $! return $! VChar c
 eval (An _ _ (Lit (Loc l))) = return $! return $! VLoc l
 eval (An _ _ (Lit (String s))) =
     let
-        cs = map VChar s
+        cs = map VChar (B.unpack s)
     in return $! return $! VList cs
 eval (An _ _ (List es)) = do
     es <- mapM eval es

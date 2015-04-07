@@ -57,6 +57,9 @@ module CSPM.DataStructures.Syntax (
     getType, getSymbolTable,
 ) where
 
+import qualified Data.ByteString as B
+import qualified Data.Map as M
+
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Types
@@ -138,7 +141,7 @@ allAssertionsInFile (An _ _ (CSPMFile ds)) =
         assertionsInDecl _ = []
     in concatMap assertionsInDecl' ds
 
-allPrintStatementsInFile :: AnCSPMFile a -> [Located String]
+allPrintStatementsInFile :: AnCSPMFile a -> [Located B.ByteString]
 allPrintStatementsInFile (An _ _ (CSPMFile ds)) =
     let
         printStatementsInDecl (An loc _ (PrintStatement s)) = [L loc s]
@@ -583,14 +586,14 @@ data Decl id =
         moduleInstanceOf :: id,
         -- | The arguments of the module that this is an instance of.
         moduleInstanceOfArguments :: [AnExp id],
-        -- | Map from name of this module to name of inner module.
-        moduleInstanceNameMap :: [(id, id)],
+        -- | Map from name of inner module to name of this module.
+        moduleInstanceNameMap :: M.Map id id,
         -- | The module that this is an instance of
         moduleInstanceOfDeclaration :: Maybe (AnDecl id)
     }
     -- | A print statement, e.g. @print x@.
     | PrintStatement {
-        printStatement :: String
+        printStatement :: B.ByteString
     }
     deriving (Eq, Ord, Show)
 
@@ -628,7 +631,7 @@ data ModelOption id =
     -- | Apply tau-priority over the set of events when deciding this assertion.
     TauPriority (AnExp id)
     -- | Apply partial order reduction when deciding this assertion
-    | PartialOrderReduce (Maybe String)
+    | PartialOrderReduce (Maybe B.ByteString)
     deriving (Eq, Ord, Show)
         
 data SemanticProperty = 

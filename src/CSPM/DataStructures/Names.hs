@@ -15,6 +15,7 @@ module CSPM.DataStructures.Names (
 
 import Control.Applicative
 import Control.Monad.Trans
+import qualified Data.ByteString.Char8 as B
 import Data.Hashable
 import Data.IORef
 import Data.Supply
@@ -26,14 +27,13 @@ import qualified Util.MonadicPrettyPrint as M
 import Util.PrettyPrint
 
 -- | A name that occurs in the source code somewhere.
-data OccName = 
-    OccName String
+data OccName = OccName B.ByteString
     deriving (Eq, Ord, Show, Typeable)
 
 instance PrettyPrintable OccName where
-    prettyPrint (OccName s) = text s
+    prettyPrint (OccName s) = bytestring s
 instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m OccName where
-    prettyPrint (OccName s) = M.text s
+    prettyPrint (OccName s) = M.bytestring s
 
 -- | A name that has not yet been renamed. Created by the parser.
 data UnRenamedName =
@@ -138,7 +138,7 @@ mkInternalName o s = do
 mkFreshInternalName :: MonadIO m => m Name
 mkFreshInternalName = do
     u <- takeNameUnique
-    let s = 'i':show u
+    let s = B.pack ('i':show u)
     return $ Name InternalName (UnQual (OccName s)) Unknown u False
 
 mkWiredInName :: MonadIO m => UnRenamedName -> Bool -> m Name

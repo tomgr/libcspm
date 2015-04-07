@@ -11,6 +11,7 @@ where
 
 -- i.e.: cpp -P src/CSPM/Parser/Parser.ppy > src/CSPM/Parser/Parser.y && happy --ghc --coerce --array src/CSPM/Parser/Parser.y && rm src/CSPM/Parser/Parser.y
 
+import qualified Data.ByteString.Char8 as B
 import Data.Char
 import Data.List (groupBy, nub, sort, sortBy, (\\))
 import qualified Data.Map as M
@@ -633,13 +634,13 @@ combineDecls ((An loc1 b (FunBind n ms Nothing)):
         (An (combineSpans loc1 loc2) b (FunBind n (ms++ms1) Nothing)):ds
 combineDecls (d:ds) = d:combineDecls ds
 
-constraintForName :: SrcSpan -> String -> Constraint
+constraintForName :: SrcSpan -> B.ByteString -> Constraint
 constraintForName _ "Eq" = CEq
 constraintForName _ "Ord" = COrd
 constraintForName _ "Inputable" = CInputable
 constraintForName _ "Set" = CSet
 constraintForName _ "Yieldable" = CYieldable
-constraintForName loc s = throwSourceError [unknownConstraintError s loc]
+constraintForName loc s = throwSourceError [unknownConstraintError (B.unpack s) loc]
 
 attachTypeAnnotations :: [PDecl] -> [PDecl]
 attachTypeAnnotations ds =
