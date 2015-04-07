@@ -120,7 +120,6 @@ Library
         Util.Monad,
         Util.MonadicPrettyPrint,
         Util.MonadicPrettyPrintInternal,
-        Util.PartialFunctions,
         Util.Precedence,
         Util.Prelude,
         Util.PrettyPrint

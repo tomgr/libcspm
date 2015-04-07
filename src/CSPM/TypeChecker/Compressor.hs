@@ -14,7 +14,7 @@ import Util.Monad
 
 class Compressable a where
     -- | Map compress.
-    mcompress :: a -> TypeCheckMonad a
+    mcompress :: a -> IO a
 
 instance (Compressable a) => Compressable (Annotated (Maybe SymbolTable, PSymbolTable) a) where
     mcompress (An l (_, pt) v) = do

@@ -266,9 +266,9 @@ DeclA :: { PDecl }
     | NameCommaList1 OfType STypeScheme         { AN2LL (ParsedTypeAnnotation
                                                     (map unLoc $1) $3) }
     | "instance" Name "=" MaybeQualName ExpList { AN2L (ModuleInstance (unLoc $2)
-                                                    (unLoc $4) $5 [] Nothing) }
+                                                    (unLoc $4) $5 M.empty Nothing) }
     | "instance" Name "=" MaybeQualName         { AN2 (ModuleInstance (unLoc $2)
-                                                    (unLoc $4) [] [] Nothing) }
+                                                    (unLoc $4) [] M.empty Nothing) }
     | print_literal                             { LL (PrintStatement
                                                     (getPrintString $1)) }
 

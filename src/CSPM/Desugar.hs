@@ -6,7 +6,6 @@ import Data.List (nub, sort)
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import qualified Data.Set as S
-import Data.Tuple (swap)
 
 import CSPM.DataStructures.FreeVars
 import CSPM.DataStructures.Literals
@@ -180,9 +179,8 @@ desugarDecl (d@(An _ _ (ModuleInstance nax nt args nm (Just mod)))) = do
     let An _ _ (Module _ pats ds1 ds2) = mod
         fvs = nub (sort (concatMap boundNames pats))
     freshVars <- replicateM (length fvs) mkFreshInternalName
-    let sub = composeSubstitutions parentSub
-                (M.fromList $ zip fvs freshVars ++ swappedNm)
-        swappedNm = map swap nm
+    let sub = composeSubstitutions parentSub $!
+                M.union nm (M.fromList (zip fvs freshVars))
     mapM_ (\ ad -> case unAnnotate ad of
         Module mName _ _ _ ->
             case M.lookup mName sub of
@@ -249,13 +247,13 @@ makeAliasDefinition n = do
     if n' == n then return []
     else do
         let newPSymTableThunk = panic "new psymbol table evaluated"
-            typeOf n = typeScheme (builtInWithName n)
+            typs@(ForAll _ typ) = typeScheme (builtInWithName n)
         return [
             An Unknown
-                (Just [(n', typeOf n)], newPSymTableThunk)
+                (Just [(n', typs)], newPSymTableThunk)
                 (PatBind
-                    (An Unknown dummyAnnotation (PVar n'))
-                    (An Unknown dummyAnnotation (Var n))
+                    (An Unknown (Just typ, dummyAnnotation) (PVar n'))
+                    (An Unknown (Just typ, dummyAnnotation) (Var n))
                     Nothing)
             ]
 

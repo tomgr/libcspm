@@ -2,10 +2,11 @@
 module CSPM.TypeChecker.Decl (typeCheckDecls) where
 
 import Control.Monad
+import Data.List (sort)
 import Data.Graph.Wrapper
 import qualified Data.Map as M
 import qualified Data.Set as S
-import Data.List (intersect, (\\), sortBy)
+import Data.List ((\\), sortBy)
 import Data.Maybe (fromJust)
 
 import CSPM.DataStructures.FreeVars
@@ -21,7 +22,6 @@ import CSPM.TypeChecker.Pat()
 import CSPM.TypeChecker.Unification
 import Util.Annotated
 import Util.List
-import Util.PartialFunctions
 import Util.PrettyPrint
 
 takeFirstJust :: [Maybe a] -> Maybe a
@@ -69,7 +69,11 @@ typeCheckDecls checkAmbiguity generaliseTypes decls = do
 
         -- | Map from declarations to integer identifiers
         declMap = zip flatDecls [0..]
-        invDeclMap = invert declMap
+        invDeclMap = M.fromList [(did, ds) | (ds, did) <- declMap]
+        declarationsInGroup did =
+            case M.lookup did invDeclMap of
+                Just ds -> ds
+                Nothing -> panic $ "Could not find declarations in "++show did
     
     let
         namesBoundByDecls = concatMap (\ (decl, declId) ->
@@ -79,22 +83,23 @@ typeCheckDecls checkAmbiguity generaliseTypes decls = do
 
         -- | Map from names to the identifier of the declaration that it is
         -- defined by.
-        varToDeclIdMap = 
+        varToDeclIdMap = M.fromList $
             [(n, declId) | (declId, ns) <- namesBoundByDecls, n <- ns]
-        boundVars = map fst varToDeclIdMap
-
-    -- Throw an error if a name is defined multiple times
-    when (not (noDups boundVars)) $ panic "Duplicates found after renaming."
+        variableDeclaration n =
+            case M.lookup n varToDeclIdMap of
+                Just d -> d
+                Nothing -> panic $ "Could not find declaration of "++show n
+        boundVars = S.fromList $! M.keys varToDeclIdMap
 
     -- Map from decl id -> [decl id] meaning decl id depends on the list of
     -- ids
-    declDeps <- mapM (\ (decl, declId) -> do
+    let declDeps = map (\ (decl, declId) ->
             let deps = freeVars decl
-            let depsInThisGroup = intersect deps boundVars
-            return (declId, mapPF varToDeclIdMap depsInThisGroup)
-        ) declMap
+                depsInThisGroup = filter (flip S.member boundVars) deps
+                declIdDeps = sortedNub $ sort $
+                                map variableDeclaration depsInThisGroup
+            in (declId, declIdDeps)) declMap
 
-    let 
         -- | Edge from n -> n' iff n uses n'
         declGraph :: Graph Int Int
         declGraph = fromListSimple [(id, deps) | (id, deps) <- declDeps]
@@ -108,7 +113,7 @@ typeCheckDecls checkAmbiguity generaliseTypes decls = do
         sccs = topologicalSort sccgraph
         
         -- | Get the declarations corresponding to certain ids
-        typeInferenceGroup = mapPF invDeclMap
+        typeInferenceGroup dids = map declarationsInGroup dids
 
         -- | Checks that this SCC does not contain both a module and an
         -- instance of the module.
@@ -125,16 +130,16 @@ typeCheckDecls checkAmbiguity generaliseTypes decls = do
                     mapM_ (\ (ModuleInstance ni _ _ instanceMap _) -> mapM_ (\ n -> 
                         -- Check to see if there is a path from the module to
                         -- this var of this instance of the module.
-                        when (hasPath declGraph (apply varToDeclIdMap nm)
-                                (apply varToDeclIdMap n)) $ do
+                        when (hasPath declGraph (variableDeclaration nm)
+                                (variableDeclaration n)) $ do
                             let Just path = pathBetweenVerticies declGraph
-                                                (apply varToDeclIdMap nm)
-                                                (apply varToDeclIdMap n)
-                                p = mapPF invDeclMap path
+                                                (variableDeclaration nm)
+                                                (variableDeclaration n)
+                                p = map declarationsInGroup path
                                 firstName = head $ boundNames $ head $ p
                             setSrcSpan (nameDefinition firstName) $! raiseMessageAsError $
                                 illegalModuleInstanceCycleErrorMessage decls nm ni p
-                        ) (map fst instanceMap)) (instancesOfMod nm)
+                        ) (M.elems instanceMap)) (instancesOfMod nm)
             in mapM_ checkMod mods
 
         -- When an error occurs continue type checking, but only
@@ -499,11 +504,11 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
             raiseMessageAsError $ incorrectModuleArgumentCountMessage
                 (prettyPrint nt) (length ts) (length args)
         zipWithM typeCheckExpect args ts
-        let subName n = case safeApply (invert nm) n of
+        let subName n = case M.lookup n nm of
                             Just n' -> n'
                             Nothing -> n
         -- Set the types of each of our arguments
-        nts <- mapM (\ (ourName, theirName) -> do
+        nts <- mapM (\ (theirName, ourName) -> do
                 ForAll _ t <- getType theirName >>= substituteTypeScheme sub
                 -- We also need to change any datatype according to name map
                 let sub (TVar tvref) = do
@@ -546,7 +551,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                 xs <- freeTypeVars t
                 setType ourName $ ForAll xs t
                 return (ourName, t)
-            ) nm
+            ) (M.toList nm)
 
         let An _ _ (Module _ _ privDs pubDs) = mod
 
@@ -557,7 +562,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
 
         -- Check channels/datatypes for ambigutity and mark datatypes as
         -- comparable if appropriate.
-        mapM_ (\ (ourName, _) -> do
+        mapM_ (\ ourName -> do
             canonicalName <- canonicalNameOfInstanceName ourName
             if canonicalName `elem` boundSubNames then do
                 ForAll xs t <- getType ourName
@@ -572,7 +577,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                             _ -> return ()
                     _ -> return ()
             else return ()
-            ) nm
+            ) (M.elems nm)
 
         -- Mark datatypes as comparable as appropriate
         mapM_ (\ d -> case unAnnotate d of

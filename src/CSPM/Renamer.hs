@@ -548,7 +548,7 @@ renameDeclarations topLevel ds prog = do
                     hideBoundNames ns1 []
                     return $ (ns, [])
                 return $ (UnQual nm):ns
-            ModuleInstance (UnQual nm) nt args [] _ -> do
+            ModuleInstance (UnQual nm) nt args _ _ -> do
                 mntarget <- lookupName nt True
                 when (isNothing mntarget) $ do
                     msg <- varNotInScopeMessage nt True
@@ -610,7 +610,7 @@ renameDeclarations topLevel ds prog = do
                     return (ns, [])
                 return ns
             TimedSection _ _ ds -> concatMapM insertLabels ds
-            ModuleInstance (UnQual mn) nt args [] _ -> do
+            ModuleInstance (UnQual mn) nt args _ _ -> do
                 Just n <- lookupName (UnQual mn) True
                 minfo <- informationForModule (loc ad) nt
                 (ns, []) <- prefixNamesFromScope False mn $ addModuleContext mn $ do
@@ -795,7 +795,7 @@ renameDeclarations topLevel ds prog = do
                     let m = Module n' args' privDs' pubDs'
                     addBoundModuleRenamedVersion n' $ reAnnotatePure pd m
                     return m
-            ModuleInstance (UnQual mn) nt args [] _ -> do
+            ModuleInstance (UnQual mn) nt args _ _ -> do
                 n' <- renameModuleVar (UnQual mn)
                 nt' <- renameModuleVar nt
                 args' <- resetModuleContext $ mapM (addScope . rename) args
@@ -804,16 +804,16 @@ renameDeclarations topLevel ds prog = do
                     nm1 <- mapM (\ rn -> do
                             Just old <- lookupMaybeHiddenName (joinName nt rn) False
                             Just new <- lookupMaybeHiddenName rn False
-                            return (new, old)
+                            return (old, new)
                         ) (publicBoundNames minfo ++ privateBoundNames minfo ++
                             publicBoundLabels minfo ++ privateBoundLabels minfo)
                     nm2 <- mapM (\ rn -> do
                             Just old <- lookupMaybeHiddenName (joinName nt rn) True
                             Just new <- lookupMaybeHiddenName rn True
-                            return (new, old)
+                            return (old, new)
                         ) (publicBoundModules minfo ++ privateBoundModules minfo)
-                    return $ ModuleInstance n' nt' args' (nm1 ++ nm2)
-                        (renamedDeclaration minfo)
+                    return $ ModuleInstance n' nt' args'
+                        (M.fromList (nm1 ++ nm2)) (renamedDeclaration minfo)
             TimedSection Nothing f ds -> do
                 f' <- addScope $ rename f
                 tock <- renameVarRHS (UnQual (OccName "tock"))
@@ -1374,7 +1374,8 @@ duplicatedDefinitionsMessage ns = duplicatedDefinitionsMessage' $
     let
         names = map fst ns
         dupNames = (map head . filter (\ g -> length g > 1) . group . sort) names
-    in [(n, applyRelation ns n) | n <- dupNames]
+        locationsOf n = [loc | (n', loc) <- ns, n == n']
+    in [(n, locationsOf n) | n <- dupNames]
 
 duplicatedDefinitionsMessage' :: [(UnRenamedName, [SrcSpan])] -> [Error]
 duplicatedDefinitionsMessage' nlocs = 
