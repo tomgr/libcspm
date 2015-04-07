@@ -16,20 +16,22 @@ class Compressable a where
     -- | Map compress.
     mcompress :: a -> IO a
 
-instance (Compressable a) => Compressable (Annotated (Maybe SymbolTable, PSymbolTable) a) where
+errorThunk = panic "ptype evaluated after type-checking"
+
+instance (Compressable a) => Compressable (Annotated (SymbolTable, PSymbolTable) a) where
     mcompress (An l (_, pt) v) = do
         symbtable <- readPSymbolTable pt
         symbtable' <- mapM (\ (n, t) -> do
             t' <- compressTypeScheme t
             return (n,t')) symbtable
         v' <- mcompress v
-        return $ An l (Just symbtable', pt) v'
-instance (Compressable a) => Compressable (Annotated (Maybe Type, PType) a) where
+        return $ An l (symbtable', errorThunk) v'
+instance (Compressable a) => Compressable (Annotated (Type, PType) a) where
     mcompress (An l (_, pt) v) = do
         Just t <- readPType pt
         t' <- compress t >>= return . evaluateYields
         v' <- mcompress v
-        return $ An l (Just t', pt) v'
+        return $ An l (t', errorThunk) v'
 instance (Compressable a) => Compressable (Annotated () a) where
     mcompress (An l t v) = do
         v' <- mcompress v

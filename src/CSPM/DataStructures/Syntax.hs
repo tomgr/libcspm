@@ -68,10 +68,10 @@ import Util.Exception
 
 -- Declarations may bind multiple names
 type AnCSPMFile id = Annotated () (CSPMFile id)
-type AnDecl id = Annotated (Maybe SymbolTable, PSymbolTable) (Decl id)
+type AnDecl id = Annotated (SymbolTable, PSymbolTable) (Decl id)
 type AnMatch id = Annotated () (Match id)
-type AnPat id = Annotated (Maybe Type, PType) (Pat id)
-type AnExp id = Annotated (Maybe Type, PType) (Exp id)
+type AnPat id = Annotated (Type, PType) (Pat id)
+type AnExp id = Annotated (Type, PType) (Exp id)
 type AnField id = Annotated () (Field id)
 type AnStmt id = Annotated () (Stmt id)
 type AnDataTypeClause id = Annotated () (DataTypeClause id)
@@ -82,15 +82,11 @@ type AnSTypeConstraint id = Annotated () (STypeConstraint id)
 type AnSType id = Annotated () (SType id)
 type AnModelOption id = Annotated () (ModelOption id)
 
-getType :: Annotated (Maybe Type, PType) a -> Type
-getType an = case fst (annotation an) of
-    Just t -> t
-    Nothing -> panic "Cannot get the type of something that is not typechecked"
+getType :: Annotated (Type, PType) a -> Type
+getType an = fst (annotation an)
 
-getSymbolTable :: Annotated (Maybe SymbolTable, PSymbolTable) a -> SymbolTable
-getSymbolTable an = case fst (annotation an) of
-    Just t -> t
-    Nothing -> panic "Cannot get the symbol table of something that is not typechecked"
+getSymbolTable :: Annotated (SymbolTable, PSymbolTable) a -> SymbolTable
+getSymbolTable an = fst (annotation an)
 
 type PCSPMFile = AnCSPMFile UnRenamedName
 type PDecl = AnDecl UnRenamedName

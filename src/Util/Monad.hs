@@ -35,7 +35,7 @@ orM _ = return False
 ($$) fm argm = do
     f <- fm
     arg <- argm
-    return $ f arg
+    return $! f arg
 
 whenM :: Monad m => m Bool -> m () -> m ()
 whenM bfunc func = do

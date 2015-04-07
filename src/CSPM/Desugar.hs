@@ -103,7 +103,7 @@ instance Desugarable a => Desugarable (Maybe a) where
     desugar Nothing = return Nothing
     desugar (Just a) = desugar a >>= return . Just
 
-instance Desugarable a => Desugarable (Annotated (Maybe Type, PType) a) where
+instance Desugarable a => Desugarable (Annotated (Type, PType) a) where
     desugar (An l (t, pt) i) = do
         modify (\ st -> st { currentLoc = l })
         x <- desugar i
@@ -159,12 +159,12 @@ desugarDecl (an@(An x y (PatBind p e ta))) = do
 
                 newPSymTableThunk = panic "new psymbole table evaluated"
                 mkExtractor n = An (loc an)
-                    (Just [(n, typeOf n)], newPSymTableThunk) 
+                    ([(n, typeOf n)], newPSymTableThunk) 
                     (PatBind (mkExtractorPat' n p') expToBindTo Nothing)
                 -- TODO: calculate the correct ForAll
                 etype = ForAll (nub (sort (concat [ts | (_, ForAll ts _) <- st]))) (getType e')
                 newPat = An (loc an)
-                    (Just [(nameToBindTo, etype)], newPSymTableThunk)
+                    ([(nameToBindTo, etype)], newPSymTableThunk)
                     (PatBind (An Unknown (annotation e') (PVar nameToBindTo)) e' Nothing)
                 extractors = map mkExtractor (boundNames p')
             return $ newPat : extractors
@@ -215,7 +215,7 @@ desugarDecl (d@(An _ _ (ModuleInstance nax nt args nm (Just mod)))) = do
                     symTable = [(fromJust (M.lookup n sub), ForAll [] t)
                                     | (n, t) <- nts, n `elem` fvs]
                 in An (loc p)
-                    (Just symTable, panic "New symbol table evaluated")
+                    (symTable, panic "New symbol table evaluated")
                     (PatBind p e Nothing)
             patBinds = zipWith makePatBind pats args
         desugarDecls $ patBinds ++ ds1 ++ ds2
@@ -251,21 +251,20 @@ makeAliasDefinition n = do
             typs@(ForAll _ typ) = typeScheme (builtInWithName n)
         return [
             An Unknown
-                (Just [(n', typs)], newPSymTableThunk)
+                ([(n', typs)], newPSymTableThunk)
                 (PatBind
-                    (An Unknown (Just typ, dummyAnnotation) (PVar n'))
-                    (An Unknown (Just typ, dummyAnnotation) (Var n))
+                    (An Unknown (typ, dummyAnnotation) (PVar n'))
+                    (An Unknown (typ, dummyAnnotation) (Var n))
                     Nothing)
             ]
 
 desugarDecls :: [TCDecl] -> DesugarMonad [TCDecl]
 desugarDecls ds = do
-    let substituteSymbolTable (d@(An _ (Nothing, _) _)) = return d
-        substituteSymbolTable (An x (Just st, y) d) = do
+    let substituteSymbolTable (An x (st, y) d) = do
             st <- mapM (\ (n, t) -> do
                 n <- substituteName n
                 return $! (n, t)) st
-            return $ An x (Just st, y) d
+            return $ An x (st, y) d
     ds <- mapM substituteSymbolTable ds
     concatMapM desugarDecl ds
 
@@ -435,7 +434,7 @@ instance Desugarable (Exp Name) where
                 srcSpan <- gets currentLoc
                 ptype <- freshPType
                 setPType ptype TProc
-                return $ TimedPrefix n (An srcSpan (Just TProc, ptype) dp))
+                return $ TimedPrefix n (An srcSpan (TProc, ptype) dp))
     desugar (Project e1 e2) = return Project $$ desugar e1 $$ desugar e2
     desugar (Rename e1 ties stmts) = do
         e1 <- desugar e1
@@ -546,7 +545,7 @@ instance Desugarable (Pat Name) where
     desugar (PDoublePattern p1 p2) =
         return PDoublePattern $$ desugar p1 $$ desugar p2
     desugar (PLit (String s)) = return $
-        PCompList (map (\ c -> An Unknown (Just $ TSeq TChar, dummyAnnotation) (PLit (Char c))) (B.unpack s))
+        PCompList (map (\ c -> An Unknown (TSeq TChar, dummyAnnotation) (PLit (Char c))) (B.unpack s))
             Nothing (PLit (String s))
     desugar (PLit l) = return PLit $$ desugar l
     -- We don't remove the Paren as people may pretty print a desugared
@@ -653,11 +652,11 @@ mkLit l = do
     let typ = error "typ"
     ptype <- freshPType
     setPType ptype typ
-    return $ An srcSpan (Just typ, ptype) (Lit l)
+    return $ An srcSpan (typ, ptype) (Lit l)
 
 mkVar :: Name -> Type -> DesugarMonad TCExp
 mkVar n typ = do
     srcSpan <- gets currentLoc
     ptype <- freshPType
     setPType ptype typ
-    return $ An srcSpan (Just typ, ptype) (Var n)
+    return $ An srcSpan (typ, ptype) (Var n)

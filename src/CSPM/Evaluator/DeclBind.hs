@@ -29,24 +29,26 @@ bindDecls :: [TCDecl] -> AnalyserMonad (EvaluationMonad [(Name, EvaluationMonad 
 bindDecls ds = do
     registerDataTypes ds
     ds' <- mapM bindDecl ds
-    return $ do
-        --registerCall <- maybeRegisterCall
+
+    let eventsName = builtInName "Events"
+
+        isChannelDecl (Channel _ _ _) = True
+        isChannelDecl _ = False
+
+    if or (map (isChannelDecl . unAnnotate) ds) then return $! do
         nvs' <- sequence ds'
         let nvs = concat nvs'
-            eventsName = builtInName "Events"
             (eventNvs, normalNvs) = partition (\x -> fst x == eventsName) nvs
             computeEvents vs = do
                 vss <- sequence (map snd eventNvs)
                 return $ VSet $ infiniteUnions $ vs : map (\ (VSet s) -> s) vss
 
-            isChannelDecl (Channel _ _ _) = True
-            isChannelDecl _ = False
-
-        if or (map (isChannelDecl . unAnnotate) ds) then do
-            -- Lookup the existing value of events and add to it
-            VSet vs <- lookupVar eventsName
-            return $ (eventsName, computeEvents vs)  : normalNvs
-        else return nvs
+        -- Lookup the existing value of events and add to it
+        VSet vs <- lookupVar eventsName
+        return $ (eventsName, computeEvents vs)  : normalNvs
+    else return $! do
+        nvs <- sequence ds'
+        return $ concat nvs
 
 bindDecl :: TCDecl -> AnalyserMonad (EvaluationMonad [(Name, EvaluationMonad Value)])
 bindDecl (an @(An loc _ (FunBind n ms _))) = do
@@ -118,8 +120,6 @@ bindDecl (an@(An _ _ (Channel ns me _))) = do
                     return $! e >>= evalTypeExprToList n
                 Nothing -> return $! return []
             return $! (n, do
-                --registerCall <- maybeRegisterCall
-                --registerCall n $ do
                     fields <- fs
                     let arity = fromIntegral (length fields)
                     return $! tupleFromList [
@@ -163,8 +163,6 @@ bindDecl (an@(An _ _ (DataType n cs))) = do
                     let fs = fromList [VDataType nc] : elems fields
                     return $ cartesianProduct CartDot fs
             in do
-                --registerCall <- maybeRegisterCall
-                --registerCall n $ do
                     vs <- mapM mkSet [nc | DataTypeClause nc _ _ <- map unAnnotate cs]
                     return $ VSet (infiniteUnions vs)
     cs <- mapM mkDataTypeClause cs
@@ -186,21 +184,17 @@ bindDecl (an@(An _ _ (SubType n cs))) = do
 
     cs <- mapM analyseSetOfValues cs
     let calculateSet = do
-            --registerCall <- maybeRegisterCall
             vs <- sequence cs
-            --registerCall n $
             return $ VSet (infiniteUnions vs)
     return $! return $! [(n, calculateSet)]
 bindDecl (an@(An _ _ (NameType n e _))) = do
     e <- eval e
     let calculateSet = do
-        --registerCall <- maybeRegisterCall
         v <- e
         sets <- evalTypeExprToList n v
         -- If we only have one set then this is not a cartesian product, this is
         -- just introducing another name (see TPC P543 and
         -- evaluator/should_pass/nametypes.csp).
-        --registerCall n $
         case sets of
             [s] -> return $ VSet s
             _ -> return $ VSet $ cartesianProduct CartDot sets

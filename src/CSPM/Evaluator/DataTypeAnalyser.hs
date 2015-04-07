@@ -87,7 +87,7 @@ registerDataTypes declarations = do
 decomposeDataTypeTypeExpression :: TCExp -> [FieldSet]
 decomposeDataTypeTypeExpression (An _ _ (DotApp e1 e2)) =
     concatMap decomposeDataTypeTypeExpression [e1, e2]
-decomposeDataTypeTypeExpression exp@(An _ (Just (TSet typ@(TDot _ _)), _) x) =
+decomposeDataTypeTypeExpression exp@(An _ (TSet typ@(TDot _ _), _) x) =
         [CompoundFieldSet i exp | i <- [0..fieldCount typ-1]]
     where
         fieldCount (TDot t1 t2) = 1+fieldCount t2
@@ -100,8 +100,8 @@ decomposeDataTypeTypeExpression x = [SimpleFieldSet x]
 -- function approximates this in a conservative fashion.
 fieldExpressionIsTrivial :: TCExp -> Bool
 fieldExpressionIsTrivial (An _ _ (Var n)) | n `elem` builtinCompleteDataTypeSets = True
-fieldExpressionIsTrivial (An _ (Just (TSet (TDatatype _)), _) (Var _)) = True
-fieldExpressionIsTrivial (An _ (Just (TSet TEvent), _) (Var _)) = True
+fieldExpressionIsTrivial (An _ (TSet (TDatatype _), _) (Var _)) = True
+fieldExpressionIsTrivial (An _ (TSet TEvent, _) (Var _)) = True
 fieldExpressionIsTrivial (An _ _ (App (An _ _ (Var f)) [arg]))
     | f `elem` builtinCompleteConstructors = fieldExpressionIsTrivial arg
 fieldExpressionIsTrivial (An _ _ (Tuple es)) =

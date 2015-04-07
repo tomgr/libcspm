@@ -8,7 +8,7 @@ module CSPM.Parser.Monad (
     addFileContents,
     
     runParser, pushFile, pushFileContents,
-    getTokenizerPos, getFileName, getInput, 
+    getTokenizerPos, getInput, 
     getPreviousChar, getCurrentStartCode, setCurrentStartCode, 
     getSequenceStack, setSequenceStack
 )
@@ -16,8 +16,7 @@ where
 
 import Control.Exception
 import Control.Monad.State
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Internal as B
+import qualified Data.ByteString.Char8 as B
 import qualified Data.Map as M
 #if __GLASGOW_HASKELL__ < 705
 import Prelude hiding (catch)
@@ -44,7 +43,7 @@ data FilePosition = FilePosition !Int !Int !Int
 startPos :: FilePosition
 startPos = FilePosition 0 1 1
 
-filePositionToSrcLoc :: String -> FilePosition -> SrcSpan
+filePositionToSrcLoc :: B.ByteString -> FilePosition -> SrcSpan
 filePositionToSrcLoc filePath (FilePosition _ line col) = 
     SrcSpanPoint filePath line col
     
@@ -69,8 +68,8 @@ data ParserState = ParserState {
 
 data FileParserState = FileParserState {
         tokenizerPos :: !FilePosition,
-        fileName :: !String,
-        input :: B.ByteString,
+        fileName :: !B.ByteString,
+        input :: !B.ByteString,
         previousChar :: !Char,
         currentStartCode :: !Int, -- current startcode
         
@@ -121,21 +120,18 @@ pushFile fname prog = do
     when (B.isPrefixOf "{\\rtf1" str) $
         throwSourceError [looksLikeRTFErrorMessage filename]
     modify (\st -> st { loadedFiles = filename:loadedFiles st })
-    pushFileContents filename (B.snoc str (B.c2w '\n'))
+    pushFileContents filename (B.snoc str '\n')
     x <- prog
     return x
 
 pushFileContents :: String -> B.ByteString -> ParseMonad ()
 pushFileContents filename input = 
     modify (\ st ->
-        let fs = FileParserState startPos filename input '\n' 0 [0]
+        let fs = FileParserState startPos (B.pack filename) input '\n' 0 [0]
         in st { fileStack = fs:(fileStack st) })
 
 getTokenizerPos :: ParseMonad FilePosition
 getTokenizerPos = getTopFileParserState >>= (return . tokenizerPos)
-
-getFileName :: ParseMonad String
-getFileName = getTopFileParserState >>= (return . fileName)
 
 getInput :: ParseMonad B.ByteString
 getInput = getTopFileParserState >>= (return . input)
