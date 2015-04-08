@@ -259,14 +259,17 @@ builtInFunctions = do
 
         procs = [
             ("STOP", csp_stop),
-            ("SKIP", csp_skip)
+            ("SKIP", csp_skip),
+            ("DIV", csp_div)
             ]
         
         csp_skip_id = builtinProcName (frameForBuiltin "SKIP") []
         csp_stop_id = builtinProcName (frameForBuiltin "STOP") []
+        csp_div_id = builtinProcName (frameForBuiltin "DIV") []
         csp_stop = PProcCall csp_stop_id (POp PExternalChoice [])
         csp_skip =
             PProcCall csp_skip_id (PUnaryOp (PPrefix Tick) csp_stop)
+        csp_div = PProcCall csp_div_id (POp PInternalChoice [csp_div])
 
         csp_tstop [tockVal@(VDot [VChannel tn])] =
             let

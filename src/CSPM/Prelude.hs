@@ -111,6 +111,7 @@ makeBuiltins = do
 
         cspm_STOP = ("STOP", TProc)
         cspm_SKIP = ("SKIP", TProc)
+        cspm_DIV = ("DIV", TProc)
         cspm_CHAOS = ("CHAOS", TFunction [TSet TEvent] TProc)
         cspm_RUN = ("RUN", TFunction [TSet TEvent] TProc)
         csp_tskip = ("TSKIP", TFunction [] TProc)
@@ -119,7 +120,7 @@ makeBuiltins = do
 
         builtInProcs :: [(B.ByteString, Type)]
         builtInProcs = [cspm_STOP, cspm_SKIP, cspm_CHAOS, cspm_RUN, csp_tstop,
-            csp_tskip, csp_wait]
+            csp_tskip, csp_wait, cspm_DIV]
 
         cspm_Int = ("Int", TSet TInt)
         cspm_Bool = ("Bool", TSet TBool)
