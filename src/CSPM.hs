@@ -99,9 +99,7 @@ module CSPM (
     -- * Evaluator API
     bindFile, bindDeclaration,
     evaluateExpression, maybeProcessNameToProcess,
-    #ifdef CSPM_PROFILING
     dumpProfilingData,
-    #endif
     -- * Shortcuts
     stringToValue,
     -- * Low-Level API
@@ -391,10 +389,12 @@ stringToValue typ str =
     parseExpression str >>= renameExpression >>= 
     ensureExpressionIsOfType typ >>= desugarExpression >>= evaluateExpression
 
-#ifdef CSPM_PROFILING
 -- | Dumps any profiling data that has been computed to stdout/stderr.
 dumpProfilingData :: CSPMMonad m => m ()
+#ifdef CSPM_PROFILING
 dumpProfilingData = liftIO $ EV.dumpProfilingData
+#else
+dumpProfilingData = panic "Not compiled in profiling mode."
 #endif
 
 -- | Return the version of libcspm that is being used.
