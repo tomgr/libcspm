@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module Main where
 
 import Control.DeepSeq
@@ -88,6 +89,9 @@ doFile opts fp = do
                     mapM_ doExpression (assertionExpressions assertion)
 
             mapM_ doAssertion (allAssertionsInFile fs)
+            #ifdef CSPM_PROFILING
+            dumpProfilingData
+            #endif
         case res of
             Left e -> printError ("\n"++show e)
             Right _ -> return ()

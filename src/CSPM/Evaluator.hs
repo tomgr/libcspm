@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses,
+{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, MultiParamTypeClasses,
     TypeSynonymInstances, UndecidableInstances #-}
 module CSPM.Evaluator (
     evaluateExp, evaluateDecl, evaluateFile,
@@ -9,6 +9,9 @@ module CSPM.Evaluator (
     module CSPM.Evaluator.Values,
     module CSPM.Evaluator.ValueSet,
 
+    #ifdef CSPM_PROFILING
+    dumpProfilingData,
+    #endif
 ) where
 
 import Control.Monad.State
@@ -22,14 +25,12 @@ import CSPM.Evaluator.Environment
 import CSPM.Evaluator.Expr
 import CSPM.Evaluator.File
 import qualified CSPM.Evaluator.Monad as E
-import CSPM.Evaluator.Profiler
+#ifdef CSPM_PROFILING
+import qualified CSPM.Evaluator.Profiler as P
+#endif
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import qualified Util.MonadicPrettyPrint as M
-
-data EvaluatorOptions = EvaluatorOptions {
-        profilerOptions :: ProfilerOptions
-    }
 
 data EvaluationState = EvaluationState {
         analyserState :: A.AnalyserState,
@@ -120,8 +121,10 @@ maybeProcessNameToProcess :: ProcName -> EvaluationMonad (Maybe Proc)
 --        else return Nothing
 maybeProcessNameToProcess _ = return Nothing
 
-profilingData :: EvaluationMonad ProfilingData
-profilingData = runEvaluator getProfilingData
+#ifdef CSPM_PROFILING
+dumpProfilingData :: IO ()
+dumpProfilingData = P.dumpProfilingData
+#endif
 
 instance  M.MonadicPrettyPrintable E.EvaluationMonad a => 
         M.MonadicPrettyPrintable EvaluationMonad a where

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, IncoherentInstances,
+{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, IncoherentInstances,
     MultiParamTypeClasses, OverlappingInstances, TypeSynonymInstances,
     UndecidableInstances #-}
 -- | This module provides the main high-level interface to the library 
@@ -98,7 +98,10 @@ module CSPM (
     desugarFile, desugarInteractiveStmt, desugarExpression,
     -- * Evaluator API
     bindFile, bindDeclaration,
-    evaluateExpression, maybeProcessNameToProcess, profilingData,
+    evaluateExpression, maybeProcessNameToProcess,
+    #ifdef CSPM_PROFILING
+    dumpProfilingData,
+    #endif
     -- * Shortcuts
     stringToValue,
     -- * Low-Level API
@@ -375,10 +378,6 @@ bindFile m = runEvaluatorInCurrentState $ EV.evaluateFile m
 evaluateExpression :: CSPMMonad m => TCExp -> m Value
 evaluateExpression e = runEvaluatorInCurrentState $ EV.evaluateExp e
 
--- | Obtains the profiling data that the evaluator has produced so far.
-profilingData :: CSPMMonad m => m EV.ProfilingData
-profilingData = runEvaluatorInCurrentState EV.profilingData
-
 -- | Given a process name, attempts to convert the name into a process. This
 -- is only possible for top-level function applications.
 maybeProcessNameToProcess :: CSPMMonad m => EV.ProcName -> m (Maybe EV.Proc)
@@ -391,6 +390,12 @@ stringToValue :: CSPMMonad m => Type -> String -> m Value
 stringToValue typ str =
     parseExpression str >>= renameExpression >>= 
     ensureExpressionIsOfType typ >>= desugarExpression >>= evaluateExpression
+
+#ifdef CSPM_PROFILING
+-- | Dumps any profiling data that has been computed to stdout/stderr.
+dumpProfilingData :: CSPMMonad m => m ()
+dumpProfilingData = liftIO $ EV.dumpProfilingData
+#endif
 
 -- | Return the version of libcspm that is being used.
 getLibCSPMVersion :: Version

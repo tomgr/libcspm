@@ -36,8 +36,6 @@ builtInFunctions :: AnalyserMonad (EvaluationMonad [(Name, Value)])
 builtInFunctions = do
     builtinFrames <- mapM (createBuiltinFunctionFrame . name) (builtins True)
 
-    return $! do
-    registerCall <- maybeRegisterCall
     let
         frameMap = M.fromList $ map
                         (\ f -> (builtinFunctionFrameFunctionName f, f))
@@ -239,24 +237,6 @@ builtInFunctions = do
             ("mapLookup", cspm_mapLookup)
             ]
 
-        mkLocatedFunction (s, f) =
-            let
-                n = builtInName s
-                frameInfo = frameForBuiltin s
-                outerFid = instantiateBuiltinFrameWithArguments frameInfo []
-                innerFid loc = instantiateBuiltinFrameWithArguments frameInfo [[VLoc loc]]
-                outerFn [VLoc loc] = return $ VFunction (innerFid loc) $
-                    \ vs -> registerCall n (f loc vs)
-            in return $! (n, VFunction outerFid outerFn)
-
-        mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)
-        mkMonadicFunc (s, f) = do
-            let n = builtInName s
-                frameInfo = frameForBuiltin s
-                fid = instantiateBuiltinFrameWithArguments frameInfo []
-                f' vs = registerCall n (f vs)
-            return $! (n, VFunction fid f')
-
         procs = [
             ("STOP", csp_stop),
             ("SKIP", csp_skip),
@@ -327,6 +307,26 @@ builtInFunctions = do
         
         mkConstant (s, v) = return (builtInName s, v)
 
+        mkLocatedFunction (s, f) = do
+            let n = builtInName s
+                frameInfo = frameForBuiltin s
+                outerFid = instantiateBuiltinFrameWithArguments frameInfo []
+                innerFid loc = instantiateBuiltinFrameWithArguments frameInfo [[VLoc loc]]
+            innerFn <- profile frameInfo $ \ loc args -> f loc args
+            let outerFn [VLoc loc] = return $ VFunction (innerFid loc) $ innerFn loc
+            return $! (n, VFunction outerFid outerFn)
+
+        mkFunc (s, f) = mkMonadicFunc (s, \vs -> return $ f vs)
+
+        mkMonadicFunc :: (B.ByteString, [Value] -> EvaluationMonad Value) ->
+            AnalyserMonad (Name, Value)
+        mkMonadicFunc (s, f) = do
+            let n = builtInName s
+                frameInfo = frameForBuiltin s
+                fid = instantiateBuiltinFrameWithArguments frameInfo []
+            fn <- profile frameInfo $ \ args -> f args
+            return $! (n, VFunction fid fn)
+
         evaluateProcOperator pop [p] = VProc $ 
             -- We defer matching of the arguments here to allow definitions like
             -- P = normal(P) to be evaluated. This allows the compiler to
@@ -340,10 +340,12 @@ builtInFunctions = do
             ++ map (\ (n, po) -> (n, evaluateProcOperator po)) proc_operators
             ++ other_funcs ++ map_funcs)
     fs2 <- mapM mkMonadicFunc monadic_funcs
-    fs3 <- mapM mkProc procs
-    fs4 <- mapM mkConstant constants
     fs5 <- mapM mkLocatedFunction locatedFunctions
-    return $! fs1++fs2++fs3++fs4++fs5
+    return $! do
+        -- There is no need to profile the builtin constants, as they are free
+        fs3 <- mapM mkProc procs
+        fs4 <- mapM mkConstant constants
+        return $! fs1++fs2++fs3++fs4++fs5
 
 injectBuiltInFunctions :: EvaluationMonad a -> AnalyserMonad (EvaluationMonad a)
 injectBuiltInFunctions prog = do

@@ -1,0 +1,40 @@
+Name: profiler
+License: BSD3
+License-File: LICENSE.txt
+Copyright: (c) 2015 University of Oxford
+Author: Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com>
+Maintainer: Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com>
+Bug-reports: https://github.com/tomgr/libcspm/issues
+Homepage: https://github.com/tomgr/libcspm
+Category: Concurrency
+Build-type: Simple
+Cabal-version: >=1.9.2
+Synopsis: A profiler for CSPM.
+Version: 1.0.0
+
+Source-Repository head
+    type:     git
+    location: git://github.com/tomgr/libcspm.git
+    subdir:   cspmchecker
+
+Source-repository this
+    type:     git
+    location: git://github.com/tomgr/libcspm.git
+    subdir:   cspmchecker
+    tag: release-1.0.0
+  
+Executable cspmprofiler
+    Main-is: Main.hs
+    
+    Extensions: DoAndIfThenElse
+
+    Build-depends: 
+        base >= 4 && < 5,
+        containers >= 0.5 && < 0.6, 
+        filepath >= 1.2,
+        mtl >= 2.0,
+        directory >= 1.0,
+        process >= 1.2 && < 1.3,
+        temporary >= 1.2 && < 1.3
+    
+    Hs-Source-Dirs: src

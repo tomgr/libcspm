@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE CPP, TypeSynonymInstances, FlexibleInstances #-}
 module CSPM.Evaluator.DeclBind (
     bindDecls, 
 ) where
@@ -58,7 +58,7 @@ bindDecl (an @(An loc _ (FunBind n ms _))) = do
 
         collectArgs :: FrameInformation -> Int -> AnalyserMonad (
             [[Value]] -> EvaluationMonad Value)
-        collectArgs _ 0 = do
+        collectArgs frameInfo 0 = do
             let
                 tryMatches [] = return $! \ _ argGroups -> throwError $ 
                     funBindPatternMatchFailureMessage loc n argGroups
@@ -80,7 +80,7 @@ bindDecl (an @(An loc _ (FunBind n ms _))) = do
                             Nothing -> rest args argGroups
                             Just binds -> addScopeAndBind binds e
             ms <- tryMatches matches
-            return $! \ ass -> do
+            profile frameInfo $ \ ass -> do
                 let argGroups = reverse ass
                     args = concat argGroups
                 ms args argGroups
@@ -97,28 +97,54 @@ bindDecl (an@(An _ _ (PatBind p exp _))) = do
     binder <- bind p
     createFunctionFrame n [] exp $! \ frameInfo -> do
         e <- eval exp
-        case getType exp of
-            TProc -> return $! return $! [(n, noSave $! do
+#ifdef CSPM_PROFILING
+        -- Be careful with the following - it's a bit fragile with respect to
+        -- generating the correct profiles. Note the abcense of noSave. Whilst
+        -- this will increase memory usage, it's essential for generating the
+        -- correct profiles (for reasons that are entirely unclear).
+        let err v = patternMatchFailureMessage (loc an) p v
+        computeVal <- profile frameInfo $ \ err ->
+            case getType exp of
+                TProc -> do
+                    procName <- makeProcessName frameInfo
+                    v <- e
+                    case binder v of
+                        Just [(_, v)] -> 
+                            let VProc p = v
+                            in return $! VProc $! PProcCall procName p
+                        Nothing -> throwError (err v)
+                _ -> do
+                    v <- e
+                    case binder v of
+                        Just [(_, v)] -> return v
+                        Nothing -> throwError (err v)
+        return $! return [(n, computeVal err)]
+#else
+        computeVal <- case getType exp of
+            TProc -> return $ noSave $ do
                 procName <- makeProcessName frameInfo
                 v <- e
                 case binder v of
                     Just [(_, v)] -> 
                         let VProc p = v
                         in return $! VProc $! PProcCall procName p
-                    Nothing -> throwError $! patternMatchFailureMessage (loc an) p v)]
-            _ -> return $! return $! [(n, do
+                    Nothing -> throwError $! patternMatchFailureMessage (loc an) p v
+            _ -> return $ do
                 v <- e
                 case binder v of
                     Just [(_, v)] -> return v
-                    Nothing -> throwError $! patternMatchFailureMessage (loc an) p v)]
+                    Nothing -> throwError $! patternMatchFailureMessage (loc an) p v
+        return $! return $! [(n, computeVal)]
+#endif
 bindDecl (an@(An _ _ (Channel ns me _))) = do
     let
         mkChan :: Name -> AnalyserMonad (Name, EvaluationMonad Value)
-        mkChan n = do
+        mkChan n = createFunctionFrame n [] ([]::[TCExp]) $! \ frameInfo -> do
             fs <- case me of
                 Just e -> do
                     e <- eval e
-                    return $! e >>= evalTypeExprToList n
+                    fn <- profile frameInfo $! \ n -> e >>= evalTypeExprToList n
+                    return $ fn n
                 Nothing -> return $! return []
             return $! (n, do
                     fields <- fs
@@ -139,14 +165,16 @@ bindDecl (an@(An _ _ (Channel ns me _))) = do
     return $ do
         -- We bind to events here, and this is picked up in bindDecls
         return $ (builtInName "Events", eventSetValue) : cs
-bindDecl (an@(An _ _ (DataType n cs))) = do
+bindDecl (an@(An _ _ (DataType n cs))) =
+    createFunctionFrame n [] ([]::[TCExp]) $! \ frameInfo -> do
     let
         mkDataTypeClause :: TCDataTypeClause -> AnalyserMonad (Name, EvaluationMonad Value)
         mkDataTypeClause (An _ _ (DataTypeClause nc me _)) = do
             fs <- case me of
                 Just e -> do
                     e <- eval e
-                    return $! e >>= evalTypeExprToList nc
+                    fn <- profile frameInfo $! \ n -> e >>= evalTypeExprToList nc
+                    return $ fn nc
                 Nothing -> return $! return []
             return (nc, do
                 vss <- fs
@@ -168,7 +196,8 @@ bindDecl (an@(An _ _ (DataType n cs))) = do
                     return $ VSet (infiniteUnions vs)
     cs <- mapM mkDataTypeClause cs
     return $! return $! (n, computeSetOfValues):cs
-bindDecl (an@(An _ _ (SubType n cs))) = do
+bindDecl (an@(An _ _ (SubType n cs))) =
+    createFunctionFrame n [] ([]::[TCExp]) $! \ frameInfo -> do
     let
         analyseSetOfValues :: TCDataTypeClause -> AnalyserMonad (EvaluationMonad ValueSet)
         analyseSetOfValues (An _ _ (DataTypeClause nc me _)) = do
@@ -177,29 +206,31 @@ bindDecl (an@(An _ _ (SubType n cs))) = do
                     e <- eval e
                     return $! e >>= evalTypeExprToList nc
                 Nothing -> return $! return []
-            return $! do
+            fn <- profile frameInfo $! \ nc -> do
                 fs <- fs
                 let s = cartesianProduct CartDot (fromList [VDataType nc] : fs)
                 vs <- mapM productionsSet (toList s)
                 return (infiniteUnions vs)
+            return $ fn nc
 
     cs <- mapM analyseSetOfValues cs
     let calculateSet = do
             vs <- sequence cs
             return $ VSet (infiniteUnions vs)
     return $! return $! [(n, calculateSet)]
-bindDecl (an@(An _ _ (NameType n e _))) = do
+bindDecl (an@(An _ _ (NameType n e _))) =
+    createFunctionFrame n [] ([]::[TCExp]) $! \ frameInfo -> do
     e <- eval e
-    let calculateSet = do
-        v <- e
-        sets <- evalTypeExprToList n v
-        -- If we only have one set then this is not a cartesian product, this is
-        -- just introducing another name (see TPC P543 and
-        -- evaluator/should_pass/nametypes.csp).
-        case sets of
-            [s] -> return $ VSet s
-            _ -> return $ VSet $ cartesianProduct CartDot sets
-    return $ return $ [(n, calculateSet)]
+    calculateSet <- profile frameInfo $! \ nc -> do
+            v <- e
+            sets <- evalTypeExprToList n v
+            -- If we only have one set then this is not a cartesian product,
+            -- this is just introducing another name (see TPC P543 and
+            -- evaluator/should_pass/nametypes.csp).
+            case sets of
+                [s] -> return $ VSet s
+                _ -> return $ VSet $ cartesianProduct CartDot sets
+    return $ return $ [(n, calculateSet n)]
 bindDecl (an@(An _ _ (TimedSection (Just tn) f ds))) = do
     fnName <- mkFreshInternalName
     f <- case f of

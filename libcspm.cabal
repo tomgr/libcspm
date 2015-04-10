@@ -82,6 +82,7 @@ Library
         CSPM.Evaluator.PatBind,
         CSPM.Evaluator.PrefixExpr,
         CSPM.Evaluator.Profiler,
+        CSPM.Evaluator.ProfilerThunks,
         CSPM.Evaluator.Values,
         CSPM.Evaluator.ValueSet,
         CSPM.Evaluator.ValuePrettyPrinter,
