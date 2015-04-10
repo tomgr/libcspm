@@ -5,13 +5,10 @@ module CSPM.Evaluator (
     maybeProcessNameToProcess,
     
     initEvaluator, runFromStateToState,
-    EvaluatorOptions(..), defaultEvaluatorOptions,
-    ProfilerOptions(..), defaultProfilerOptions,
     EvaluationMonad, runEvaluator, EvaluationState,
     module CSPM.Evaluator.Values,
     module CSPM.Evaluator.ValueSet,
 
-    ProfilingData(..), profilingData,
 ) where
 
 import Control.Monad.State
@@ -41,11 +38,6 @@ data EvaluationState = EvaluationState {
 
 type EvaluationMonad = StateT EvaluationState IO
 
-defaultEvaluatorOptions :: EvaluatorOptions
-defaultEvaluatorOptions = EvaluatorOptions {
-        profilerOptions = defaultProfilerOptions
-    }
-
 runAnalyser :: A.AnalyserMonad a -> EvaluationMonad a
 runAnalyser prog = do
     anSt <- gets analyserState
@@ -63,14 +55,10 @@ runFromStateToState :: EvaluationState -> EvaluationMonad a ->
 runFromStateToState st anProg = runStateT anProg st
 
 -- | The environment to use initially. 
-initEvaluator :: EvaluatorOptions -> IO EvaluationState
-initEvaluator options = do
-    analyserState <- A.initialAnalyserState (isActive (profilerOptions options))
-    profilerState <- initialProfilerState (profilerOptions options)
-    let initialEvState = E.EvaluationState {
-                E.environment = new,
-                E.profilerState = profilerState
-            }
+initEvaluator :: IO EvaluationState
+initEvaluator = do
+    analyserState <- A.initialAnalyserState
+    let initialEvState = new
         initialState = EvaluationState {
                 analyserState = analyserState,
                 evaluatorState = initialEvState

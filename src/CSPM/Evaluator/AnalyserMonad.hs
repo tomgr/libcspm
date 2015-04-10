@@ -2,7 +2,6 @@ module CSPM.Evaluator.AnalyserMonad (
     AnalyserState, initialAnalyserState,
     AnalyserMonad, runAnalyser, getState,
     withinTimedSection, maybeTimed,
-    isProfilerActive,
 
     DataTypeInformation(..), DataTypeConstructor(..), FieldSet(..),
     dataTypeForName, addDataTypes, channelInformationForName,
@@ -36,7 +35,6 @@ import Util.Monad
 data AnalyserState = AnalyserState {
         timedSectionTockName :: Maybe Name,
         timedSectionFunctionName :: Maybe Name,
-        profilerActive :: Bool,
         registeredDataTypes :: M.Map Name DataTypeInformation,
         parentFrame :: Maybe FrameInformation,
         -- | For each non-top-level bound name, the set of variables that were
@@ -54,15 +52,11 @@ data AnalyserState = AnalyserState {
         relevantVarMap :: M.Map Name [Name]
     }
 
-isProfilerActive :: AnalyserMonad Bool
-isProfilerActive = gets profilerActive
-
-initialAnalyserState :: Bool -> IO AnalyserState
-initialAnalyserState profilerActive = do
+initialAnalyserState :: IO AnalyserState
+initialAnalyserState = do
     return $ AnalyserState {
         timedSectionFunctionName = Nothing,
         timedSectionTockName = Nothing,
-        profilerActive = profilerActive,
         registeredDataTypes = M.empty,
         parentFrame = Nothing,
         relevantVarMap = M.empty

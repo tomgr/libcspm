@@ -72,8 +72,6 @@
 module CSPM (
     -- * CSPM Monad
     CSPMSession, newCSPMSession,
-    EV.ProfilerOptions(..), EV.defaultProfilerOptions,
-    EV.EvaluatorOptions(..), EV.defaultEvaluatorOptions,
     CSPMMonad(..),
     withSession,
     -- ** A basic implementation of the monad
@@ -151,13 +149,13 @@ data CSPMSession = CSPMSession {
     }
 
 -- | Create a new 'CSPMSession'.
-newCSPMSession :: MonadIO m => EV.EvaluatorOptions -> m CSPMSession
-newCSPMSession profilerOptions = do
+newCSPMSession :: MonadIO m => m CSPMSession
+newCSPMSession = do
     -- Get the type checker environment with the built in functions already
     -- injected
     rnState <- liftIO $ RN.initRenamer
     tcState <- liftIO $ TC.initTypeChecker
-    evState <- liftIO $ EV.initEvaluator profilerOptions
+    evState <- liftIO $ EV.initEvaluator
     return $ CSPMSession rnState tcState evState
 
 -- | The CSPMMonad is the main monad in which all functions must be called.
