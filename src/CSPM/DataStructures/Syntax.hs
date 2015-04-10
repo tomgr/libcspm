@@ -64,7 +64,6 @@ import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Types
 import Util.Annotated
-import Util.Exception
 
 -- Declarations may bind multiple names
 type AnCSPMFile id = Annotated () (CSPMFile id)

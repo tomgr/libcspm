@@ -73,7 +73,8 @@ bindDecl (an @(An loc _ (FunBind n ms _))) = do
                                 return $ VProc $ PProcCall procName p
                             _ -> return $! e
                     rest <- tryMatches ms
-                    binder <- bindAll (concat pss)
+                    let ps = concat pss
+                    binder <- bindAll ps
                     return $! \ args argGroups -> do
                         case binder args of
                             Nothing -> rest args argGroups

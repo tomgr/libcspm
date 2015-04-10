@@ -81,7 +81,6 @@ Library
         CSPM.Evaluator.Monad,
         CSPM.Evaluator.PatBind,
         CSPM.Evaluator.PrefixExpr,
-        CSPM.Evaluator.ProcessValues,
         CSPM.Evaluator.Profiler,
         CSPM.Evaluator.Values,
         CSPM.Evaluator.ValueSet,

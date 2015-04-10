@@ -11,7 +11,6 @@ import System.FilePath
 import System.IO
 
 import CSPM
-import CSPM.Evaluator.ProcessValues
 import CSPM.Evaluator.ValuePrettyPrinter
 import Monad
 import Util.Annotated
