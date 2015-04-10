@@ -8,6 +8,7 @@ module CSPM.Evaluator.ValuePrettyPrinter (
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Identity
+import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
 import CSPM.Evaluator.AnalyserMonad
@@ -17,6 +18,7 @@ import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import CSPM.PrettyPrinter
 import CSPM.Prelude
+import qualified Data.ByteString as B
 import qualified Data.Foldable as F
 import qualified Data.Map as Mp
 import Data.List (partition)
@@ -186,10 +188,12 @@ instance (Applicative m, Monad m,
                 M.angles (M.list $ mapM ppPat xs)
                 M.<> case me of
                         Just (middle, ends) ->
-                            ppPat middle
+                            M.char '^'
+                            M.<> ppPat middle
                             M.<> case ends of
                                     [] -> M.empty
-                                    _ -> M.angles (M.list $ mapM ppPat ends)
+                                    _ -> M.char '^' M.<>
+                                            M.angles (M.list $ mapM ppPat ends)
                         Nothing -> M.empty
             ppPat (An _ _ (PCompDot xs _)) = M.dotSep $! mapM ppPat xs
             ppPat (An _ _ (PDoublePattern p1 p2)) =
@@ -250,56 +254,125 @@ instance (Applicative m, Monad m,
                             M.parens (M.list (mapM M.prettyPrint as))) args)
 
     prettyPrintBrief (InstantiatedFrame _ frame freeVarValues args) =
-        M.text "<frame>"
+        let
+            freeVarNames = frameFreeVars frame
 
-    --prettyPrint (SFunctionBind _ n args Nothing) =
-    --    M.prettyPrint n
-    --    M.<> M.hcat (mapM (\as -> M.parens (M.list (mapM M.prettyPrint as))) args)
-    --prettyPrint (SFunctionBind h n args (Just pn)) =
-    --    M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (SFunctionBind h n args Nothing)
-    --prettyPrint (SVariableBind _ args Nothing) =
-    --    M.text "ANNON" M.<> (M.parens (M.list (mapM M.prettyPrint args)))
-    --prettyPrint (SVariableBind h args (Just pn)) =
-    --    M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (SVariableBind h args Nothing)
+            varMap :: Mp.Map Name Value
+            varMap = Mp.fromList (zip freeVarNames freeVarValues)
 
-    --prettyPrintBrief (SFunctionBind _ n args Nothing) =
-    --    let
-    --        spaceThreashold = 15
+            ppPat :: TCPat -> m Doc
+            ppPat (An _ _ (PCompList xs me _)) =
+                M.angles (M.list $ mapM ppPat xs)
+                M.<> case me of
+                        Just (middle, ends) ->
+                            ppPat middle
+                            M.<> case ends of
+                                    [] -> M.empty
+                                    _ -> M.angles (M.list $ mapM ppPat ends)
+                        Nothing -> M.empty
+            ppPat (An _ _ (PCompDot xs _)) = M.dotSep $! mapM ppPat xs
+            ppPat (An _ _ (PDoublePattern p1 p2)) =
+                -- TODO: select whichever binds more
+                ppPat p1
+            ppPat (An _ _ (PLit x)) = return $ prettyPrint x
+            ppPat (An _ _ (PParen p)) = ppPat p
+            ppPat (An _ _ (PTuple xs)) = M.parens (M.list $ mapM ppPat xs)
+            ppPat (An _ _ (PSet xs)) = M.braces (M.list $ mapM ppPat xs)
+            ppPat (An _ _ (PVar x)) | isNameDataConstructor x = M.prettyPrint x
+            ppPat (An _ _ (PVar x)) =
+                case Mp.lookup x varMap of
+                    Just v -> M.prettyPrintBrief v
+                    Nothing -> M.char '_'
+            ppPat (An _ _ PWildCard) = M.char '_'
 
-    --        spaceCost :: Value -> Int
-    --        spaceCost (VInt _) = 1
-    --        spaceCost (VChar _) = 1
-    --        spaceCost (VBool _) = 1
-    --        spaceCost (VTuple arr) = 2 + length vs + sum (map spaceCost vs)
-    --            where vs = F.toList arr 
-    --        spaceCost (VDot vs) = length vs + sum (map spaceCost vs)
-    --        spaceCost (VChannel n) = length (show (prettyPrint n))
-    --        spaceCost (VDataType n) = length (show (prettyPrint n))
-    --        spaceCost (VList vs) = 2 + length vs + sum (map spaceCost vs)
-    --        spaceCost (VSet s) = 2 + length vs + sum (map spaceCost vs)
-    --            where vs = toList s
-    --        spaceCost (VMap m) =
-    --                2 + sum (map spaceCost (map fst vs ++ map snd vs))
-    --            where vs = Mp.toList m
-    --        spaceCost (VFunction _ _) = spaceThreashold
-    --        spaceCost (VProc _) = spaceThreashold
-    --        spaceCost (VThunk _) = spaceThreashold
-            
-    --        smallPP :: (Applicative m, Monad m, M.MonadicPrettyPrintable m Value)
-    --            => Value -> m Doc
-    --        smallPP v | spaceCost v < spaceThreashold = M.prettyPrintBrief v
-    --        smallPP _ = M.ellipsis
-    --    in M.prettyPrintBrief n M.<> M.hcat (mapM (\as ->
-    --            if length as >= spaceThreashold then M.ellipsis
-    --            else M.parens $ M.list $ mapM smallPP as) args)
-    --prettyPrintBrief (SFunctionBind h n args (Just pn)) =
-    --    M.prettyPrintBrief pn M.<> M.text "::"
-    --    M.<> M.prettyPrintBrief (SFunctionBind h n args Nothing)
-    --prettyPrintBrief (SVariableBind _ args Nothing) =
-    --    M.text "ANNON" M.<> (M.parens (M.list (mapM M.prettyPrintBrief args)))
-    --prettyPrintBrief (SVariableBind h args (Just pn)) =
-    --    M.prettyPrintBrief pn M.<> M.text "::"
-    --    M.<> M.prettyPrintBrief (SVariableBind h args Nothing)
+            spaceThreashold = 15
+
+            spaceCost :: Value -> Int
+            spaceCost (VInt _) = 1
+            spaceCost (VChar _) = 1
+            spaceCost (VBool _) = 1
+            spaceCost (VTuple arr) = 2 + length vs + sum (map spaceCost vs)
+                where vs = F.toList arr 
+            spaceCost (VDot vs) = length vs + sum (map spaceCost vs)
+            spaceCost (VChannel n) = length (show (prettyPrint n))
+            spaceCost (VDataType n) = length (show (prettyPrint n))
+            spaceCost (VList vs) = 2 + length vs + sum (map spaceCost vs)
+            spaceCost (VSet s) = 2 + length vs + sum (map spaceCost vs)
+                where vs = toList s
+            spaceCost (VMap m) =
+                    2 + sum (map spaceCost (map fst vs ++ map snd vs))
+                where vs = Mp.toList m
+            spaceCost (VFunction _ _) = spaceThreashold
+            spaceCost (VProc _) = spaceThreashold
+            spaceCost (VThunk _) = spaceThreashold
+
+            patSpaceCost :: TCPat -> Int
+            patSpaceCost (An _ _ (PCompList xs me _)) =
+                2+sum (map patSpaceCost xs)
+                + case me of
+                        Just (middle, ends) ->
+                            1 + patSpaceCost middle + 1 + 2 + 
+                            sum (map patSpaceCost ends)
+                        Nothing -> 0
+            patSpaceCost (An _ _ (PCompDot xs _)) = sum (map patSpaceCost xs)
+            patSpaceCost (An _ _ (PDoublePattern p1 p2)) = patSpaceCost p1
+            patSpaceCost (An _ _ (PLit (String s))) = B.length s
+            patSpaceCost (An _ _ (PParen p)) = patSpaceCost p
+            patSpaceCost (An _ _ (PTuple xs)) =
+                2 + length xs + sum (map patSpaceCost xs)
+            patSpaceCost (An _ _ (PSet xs)) =
+                2 + length xs + sum (map patSpaceCost xs)
+            patSpaceCost (An _ _ (PVar x)) | isNameDataConstructor x =
+                length (show x)
+            patSpaceCost (An _ _ (PVar x)) =
+                case Mp.lookup x varMap of
+                    Just v -> spaceCost v
+                    Nothing -> 1
+            patSpaceCost (An _ _ PWildCard) = 1
+
+            ppSmallValue v | spaceCost v > spaceThreashold = M.ellipsis
+            ppSmallValue v = M.prettyPrint v
+            ppSmallPat p | patSpaceCost p > spaceThreashold = M.ellipsis
+            ppSmallPat p = ppPat p
+
+            ppFrame :: FrameInformation -> m Doc
+            ppFrame frame@(BuiltinFunctionFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> M.prettyPrintBrief (builtinFunctionFrameFunctionName frame)
+            ppFrame frame@(FunctionFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> M.prettyPrintBrief (functionFrameFunctionName frame)
+                M.<> case functionFramePatterns frame of
+                        [] -> M.empty
+                        args -> M.hcat (mapM (\ as ->
+                            if length as > spaceThreashold `div` 2 then M.ellipsis
+                            else M.parens (M.list (mapM ppSmallPat as))) args)
+            ppFrame frame@(LambdaFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> M.parens (
+                    M.char '\\'
+                    M.<> M.list (mapM ppPat (lambdaFramePatterns frame))
+                    M.<+> M.char '@'
+                    M.<+> M.ellipsis
+                )
+            ppFrame frame@(PartiallyAppliedFunctionFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> (M.prettyPrintBrief
+                        (partiallyAppliedFunctionFrameFunctionName frame))
+            ppFrame frame@(VariableFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> M.text "ANNON"
+                M.<> M.parens (M.list (mapM ppPat (variableFramePatterns frame)))
+
+            ppParentFrame Nothing = M.empty
+            ppParentFrame (Just frame) = ppFrame frame M.<> M.text "::"
+        in
+            ppFrame frame
+            M.<> case args of
+                    [] -> M.empty
+                    _ -> M.hcat (mapM (\ as ->
+                            if length as > spaceThreashold `div` 2 then M.ellipsis
+                            else M.parens (M.list (mapM ppSmallValue as))) args)
 
 instance (Applicative m, Monad m,
         M.MonadicPrettyPrintable m EventSet,
