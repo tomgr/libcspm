@@ -391,11 +391,7 @@ stringToValue typ str =
 
 -- | Dumps any profiling data that has been computed to stdout/stderr.
 dumpProfilingData :: CSPMMonad m => m ()
-#ifdef CSPM_PROFILING
 dumpProfilingData = liftIO $ EV.dumpProfilingData
-#else
-dumpProfilingData = panic "Not compiled in profiling mode."
-#endif
 
 -- | Return the version of libcspm that is being used.
 getLibCSPMVersion :: Version

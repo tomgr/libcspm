@@ -9,9 +9,7 @@ module CSPM.Evaluator (
     module CSPM.Evaluator.Values,
     module CSPM.Evaluator.ValueSet,
 
-    #ifdef CSPM_PROFILING
     dumpProfilingData,
-    #endif
 ) where
 
 import Control.Monad.State
@@ -121,9 +119,12 @@ maybeProcessNameToProcess :: ProcName -> EvaluationMonad (Maybe Proc)
 --        else return Nothing
 maybeProcessNameToProcess _ = return Nothing
 
-#ifdef CSPM_PROFILING
 dumpProfilingData :: IO ()
+
+#ifdef CSPM_PROFILING
 dumpProfilingData = P.dumpProfilingData
+#else
+dumpProfilingData = panic "Profiling not supported in this build."
 #endif
 
 instance  M.MonadicPrettyPrintable E.EvaluationMonad a => 
