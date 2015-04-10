@@ -13,6 +13,7 @@ module CSPM.Evaluator (
 ) where
 
 import Control.Monad.State
+import qualified Data.Foldable as F
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
@@ -25,10 +26,15 @@ import CSPM.Evaluator.File
 import qualified CSPM.Evaluator.Monad as E
 #ifdef CSPM_PROFILING
 import qualified CSPM.Evaluator.Profiler as P
+#else
+import Util.Exception
 #endif
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
+import Util.Annotated
 import qualified Util.MonadicPrettyPrint as M
+
+import qualified Data.Map as Mp
 
 data EvaluationState = EvaluationState {
         analyserState :: A.AnalyserState,
@@ -95,28 +101,60 @@ addToEnvironment bs = do
             E.addScopeAndBindM nds E.getState
     modify (\st -> st { evaluatorState = evSt' })
 
+
+checkArgument (VInt i) = True
+checkArgument (VChar c) = True
+checkArgument (VBool b) = True
+checkArgument (VTuple vs) = F.and $ fmap checkArgument vs
+checkArgument (VList vs) = F.and $ fmap checkArgument vs
+checkArgument (VSet s) = F.and $ fmap checkArgument (toList s)
+checkArgument (VDot vs) = F.and $ fmap checkArgument vs
+checkArgument (VChannel n) = True
+checkArgument (VDataType n) = True
+checkArgument (VFunction id _) = False
+checkArgument (VProc p) = False
+
+combineMaybe :: [Maybe a] -> Maybe [a]
+combineMaybe [] = Just []
+combineMaybe (Nothing : _) = Nothing
+combineMaybe (Just x : xs) =
+    case combineMaybe xs of
+        Nothing -> Nothing
+        Just xs -> Just (x:xs)
+
 -- | Attempts to convert a process name to a process, if possible.
 maybeProcessNameToProcess :: ProcName -> EvaluationMonad (Maybe Proc)
--- TODO
---maybeProcessNameToProcess (pn@(ProcName (SFunctionBind _ fn [args] Nothing))) =
---    runEvaluator $ do
---        -- Evaluate the function again
---        VFunction _ func <- lookupVar fn
---        let checkArgument (VInt i) = True
---            checkArgument (VChar c) = True
---            checkArgument (VBool b) = True
---            checkArgument (VTuple vs) = F.and $ fmap checkArgument vs
---            checkArgument (VList vs) = F.and $ fmap checkArgument vs
---            checkArgument (VSet s) = F.and $ fmap checkArgument (toList s)
---            checkArgument (VDot vs) = F.and $ fmap checkArgument vs
---            checkArgument (VChannel n) = True
---            checkArgument (VDataType n) = True
---            checkArgument (VFunction id _) = False
---            checkArgument (VProc p) = False
---        if and (map checkArgument args) then do
---            v <- func args
---            return $ Just $ PProcCall pn (let VProc p = v in p)
---        else return Nothing
+maybeProcessNameToProcess pn@(ProcName
+        (InstantiatedFrame _ frame@(A.BuiltinFunctionFrame {}) _ [args])) =
+    runEvaluator $ do
+        maybeFunc <- maybeLookupVar (A.builtinFunctionFrameFunctionName frame)
+        case maybeFunc of
+            Nothing -> return Nothing
+            Just (VFunction _ func) ->
+                if and (map checkArgument args) then do
+                    v <- func args
+                    return $ Just $ PProcCall pn (let VProc p = v in p)
+                else return $ Nothing
+maybeProcessNameToProcess pn@(ProcName
+        (InstantiatedFrame _ frame@(A.FunctionFrame {
+                A.functionFramePatterns = [pats] 
+            }) fvs [])) = runEvaluator $ do
+
+    maybeFunc <- maybeLookupVar (A.functionFrameFunctionName frame)
+    case maybeFunc of
+        Nothing -> return Nothing
+        Just (VFunction _ func) -> do
+            let m = Mp.fromList $ zip (A.functionFrameFreeVars frame) fvs
+                reassembleArgument (An _ _ (PVar n)) | isNameDataConstructor n =
+                    Nothing
+                reassembleArgument (An _ _ (PVar n)) = Mp.lookup n m
+            case combineMaybe $ map reassembleArgument pats of
+                Just args -> 
+                    if and (map checkArgument args) then do
+                        v <- func args
+                        return $ Just $ PProcCall pn (let VProc p = v in p)
+                    else return Nothing
+                Nothing -> return Nothing
 maybeProcessNameToProcess _ = return Nothing
 
 dumpProfilingData :: IO ()

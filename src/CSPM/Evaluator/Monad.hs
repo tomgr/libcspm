@@ -37,6 +37,11 @@ lookupVarMaybeThunk n = do
     return $ lookup env n
 {-# INLINE lookupVarMaybeThunk #-}
 
+maybeLookupVarMaybeThunk :: Name -> EvaluationMonad (Maybe Value)
+maybeLookupVarMaybeThunk n = do
+    env <- getEnvironment
+    return $ maybeLookup env n
+
 -- | Implements non-recursive lets.
 addScopeAndBind :: [(Name, Value)] -> EvaluationMonad a -> EvaluationMonad a
 #ifndef CSPM_PROFILING

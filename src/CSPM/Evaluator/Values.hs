@@ -6,7 +6,7 @@ module CSPM.Evaluator.Values (
     instantiateFrameWithArguments, instantiateBuiltinFrameWithArguments,
 
     valueEventToEvent, createFunction,
-    noSave, maybeSave, removeThunk, lookupVar,
+    noSave, maybeSave, removeThunk, lookupVar, maybeLookupVar,
     tupleFromList,
     trimValueForProcessName,
     module Data.Array,
@@ -145,6 +145,13 @@ removeThunk v = return v
 
 lookupVar :: Name -> EvaluationMonad Value
 lookupVar n = lookupVarMaybeThunk n >>= removeThunk
+
+maybeLookupVar :: Name -> EvaluationMonad (Maybe Value)
+maybeLookupVar n = do
+    v <- maybeLookupVarMaybeThunk n
+    case v of
+        Just v -> removeThunk v >>= return . Just
+        Nothing -> return Nothing
 
 instance (Ix i, Hashable a) => Hashable (Array i a) where
     hashWithSalt s arr = F.foldr hashWithSalt s (fmap hash arr)
