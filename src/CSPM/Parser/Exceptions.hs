@@ -92,8 +92,8 @@ definitionSpanFileError :: PExp -> PExp -> SrcSpan -> ErrorMessage
 definitionSpanFileError left right errLoc = mkErrorMessage errLoc $
     text "The definition:"
     $$ tabIndent (prettyPrint left <+> char '=' <+> prettyPrint right)
-    $$ text "starts in the file" <+> text (srcSpanFile (loc left))
-    $$ text "but ends in the file" <+> text (srcSpanFile (loc right))
+    $$ text "starts in the file" <+> bytestring (srcSpanFile (loc left))
+    $$ text "but ends in the file" <+> bytestring (srcSpanFile (loc right))
         <> char '.'
 
 looksLikeRTFErrorMessage :: FilePath -> ErrorMessage

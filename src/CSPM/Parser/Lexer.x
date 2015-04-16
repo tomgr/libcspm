@@ -1,8 +1,10 @@
 {
 {-# OPTIONS_GHC -fno-warn-unused-imports -fno-warn-unused-binds #-}
+{-# LANGUAGE OverloadedStrings #-}
 module CSPM.Parser.Lexer where
 
-import Data.ByteString.Internal (c2w)
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Internal as B (c2w, w2c)
 import Data.Word
 
 import CSPM.Parser.Exceptions
@@ -59,7 +61,7 @@ tokens :-
     <sem_prop>@nl"[VD]"         { tok (TModel RevivalsDivergences) }
     <sem_prop>@nl"[R]"          { tok (TModel Refusals) }
     <sem_prop>@nl"[RD]"         { tok (TModel RefusalsDivergences) }
-    <sem_prop>@nl"["$alpha+"]"  { stok (TStringOption . tail . lstrip . init) }
+    <sem_prop>@nl"["$alpha+"]"  { stok (TStringOption . B.tail . lstrip . B.init) }
     <sem_prop>@spaces"]:"       { begin 0 }
     <sem_prop>@spaces"]"        { begin 0 }
 
@@ -80,8 +82,7 @@ tokens :-
     <assert>""/@notnot          { begin 0 }
     <assert>@nl"{-"             { nestedComment }
 
-    <0>"print ".*$              { stok (\ s ->
-                                    TPrint (drop (length "print ") s))}
+    <0>"print ".*$              { stok (TPrint . B.drop (length ("print " :: [Char]))) }
 
     <0>@white_no_nl             { skip }
 
@@ -192,8 +193,8 @@ tokens :-
     <0>"#"@nl                   { soakTok THash }
 
     -- 'Wildcards'
-    <0>$alpha+$alphanum*$prime* { stok (\ s -> TIdent s) }
-    <0>@nl$digit+               { stok (\ s -> TInteger (read s)) }
+    <0>$alpha+$alphanum*$prime* { stok TIdent }
+    <0>@nl$digit+               { stok (TInteger . read . map B.w2c . B.unpack) }
     <0>@nl\'                    { lexChar }
     <0>@nl\"                    { lexString }
 
@@ -203,21 +204,19 @@ tokens :-
     <0>@nltok                   { tok TNewLine }
 
 {
-wschars :: String
-wschars = " \t\r\n"
+wschars :: [Word8]
+wschars = map B.c2w [' ', '\t', '\r', '\n']
 
-strip :: String -> String
+strip :: B.ByteString -> B.ByteString
 strip = lstrip . rstrip
 
 -- | Same as 'strip', but applies only to the left side of the string.
-lstrip :: String -> String
-lstrip s = case s of
-    [] -> []
-    (x:xs) -> if elem x wschars then lstrip xs else s
+lstrip :: B.ByteString -> B.ByteString
+lstrip = B.dropWhile (`elem` wschars)
 
 -- | Same as 'strip', but applies only to the right side of the string.
-rstrip :: String -> String
-rstrip = reverse . lstrip . reverse
+rstrip :: B.ByteString -> B.ByteString
+rstrip = B.reverse . lstrip . B.reverse
 
 openseq token inp len = 
     do
@@ -243,29 +242,29 @@ lexString _ _ = do
     let
         startLoc = filePositionToSrcLoc fname pos
 
-        accumulate :: String -> AlexInput -> ParseMonad LToken
+        accumulate :: [Word8] -> AlexInput -> ParseMonad LToken
         accumulate s st  = do
-            case alexGetChar' st of
-                (c, st) -> do
-                    case c of
+            case alexGetByte' st of
+                (c, st) ->
+                    case B.w2c c of
                         '\n' -> raiseLexicalError st
                         '"' -> do
                             let endLoc = currentFilePosition st
                             setParserState st
                             return $! L (makeLineSpan startLoc endLoc)
-                                (TString (reverse s))
+                                (TString (B.pack (reverse s)))
                         '\\' ->
                             -- Escaped string
-                            case alexGetChar' st of
+                            case alexGetByte' st of
                                 (c, st) ->
-                                    case c of
+                                    case B.w2c c of
                                         '\n' -> raiseLexicalError st
-                                        'r' -> accumulate ('\r':s) st
-                                        'n' -> accumulate ('\n':s) st
-                                        't' -> accumulate ('\t':s) st
-                                        _ -> accumulate ('\"':s) st
-                        c -> accumulate (c:s) st
-    accumulate "" st
+                                        'r' -> accumulate (B.c2w '\r':s) st
+                                        'n' -> accumulate (B.c2w '\n':s) st
+                                        't' -> accumulate (B.c2w '\t':s) st
+                                        _ -> accumulate (B.c2w '\"':s) st
+                        c -> accumulate (B.c2w c:s) st
+    accumulate [] st
 
 lexChar :: AlexInput -> Int -> ParseMonad LToken
 lexChar _ _ = do
@@ -274,16 +273,16 @@ lexChar _ _ = do
 
         -- Consumes the closing '
         checkClosing st c =
-            case alexGetChar' st of
-                ('\'', st) -> do
-                    let endLoc = currentFilePosition st
-                    setParserState st
+            let (closing, st') = alexGetByte' st
+            in if B.w2c closing == '\'' then do
+                    let endLoc = currentFilePosition st'
+                    setParserState st'
                     return $! L (makeLineSpan startLoc endLoc) (TChar c)
-                _ -> raiseLexicalError st
+                else raiseLexicalError st'
 
-    case alexGetChar' st of
+    case alexGetByte' st of
         (c, st) -> do
-            case c of
+            case B.w2c c of
                 '\n' -> raiseLexicalError st
                 '\\' ->
                     let (c, st') = lexCharSubtitution st
@@ -292,8 +291,8 @@ lexChar _ _ = do
 
 lexCharSubtitution :: AlexInput -> (Char, AlexInput)
 lexCharSubtitution st =
-    case alexGetChar' st of
-        (c, st) -> (sub c, st)
+    case alexGetByte' st of
+        (c, st) -> (sub (B.w2c c), st)
     where
         sub 'r' = '\r'
         sub 'n' = '\n'
@@ -323,19 +322,20 @@ tok t (ParserState { fileStack = fps:_ }) len =
                             fileName = f }) = fps
 tok _ _ _ = panic "tok: invalid state"
 
-stok :: (String -> Token) -> AlexInput -> Int -> ParseMonad LToken
+stok :: (B.ByteString -> Token) -> AlexInput -> Int -> ParseMonad LToken
 stok f (st @ ParserState { fileStack = stk }) len =
-    tok (f (filter (\c -> not (elem c ['\r','\n'])) (takeChars len stk))) st len
+    tok (f (takeChars len stk)) st len
+    -- (filter (\c -> not (elem c ['\r','\n']))
 
 skip :: AlexInput -> Int -> ParseMonad LToken
 skip _ _ = getNextToken
 
-takeChars :: Int -> [FileParserState] -> String
+takeChars :: Int -> [FileParserState] -> B.ByteString
 takeChars 0 _ = ""
-takeChars len (FileParserState {input = [] }:stk) = takeChars len stk
-takeChars len (fps@(FileParserState {input = (c:cs) }):stk) = 
-    c:(takeChars (len-1) (fps {input = cs}:stk))
-takeChars _ _ = panic "takeChars: invalid input"
+takeChars len (FileParserState { input = input }:stk) =
+    if B.length input < len then
+        panic "takeChars: invalid input"
+    else B.take len input
 
 nestedComment :: AlexInput -> Int -> ParseMonad LToken
 nestedComment _ _ = do
@@ -343,22 +343,22 @@ nestedComment _ _ = do
     let 
         startLoc = currentFilePosition st
         getChar st =
-            alexGetCharWithErrorMessage (commentNotClosedErrorMessage startLoc) st
+            alexGetByteWithErrorMessage (commentNotClosedErrorMessage startLoc) st
 
         go :: Int -> AlexInput -> ParseMonad LToken
         go 0 st = do setParserState st; getNextToken
         go n st = do
             case getChar st of
                 (c, st) -> do
-                    case c of
-                        '-' -> do
-                            case getChar st of
-                                ('\125',st) -> go (n-1) st
-                                (_,st)      -> go n st
-                        '\123' -> do
-                            case getChar st of
-                                ('-',st) -> go (n+1) st
-                                (_,st)   -> go n st
+                    case B.w2c c of
+                        '-' ->
+                            let (w, st') = getChar st
+                            in if B.w2c w == '\125' then go (n-1) st'
+                                else go n st'
+                        '\123' ->
+                            let (w, st') = getChar st
+                            in if B.w2c w == '-' then go (n+1) st'
+                                else go n st'
                         _ -> go n st
     go 1 st
 
@@ -368,8 +368,14 @@ switchInput st len = do
         fileName = fname, 
         tokenizerPos = pos } <- getTopFileParserState
     let
-        str = takeChars len (fileStack st)
-        quotedFname = strip (drop (length "include") str)
+        str :: String
+        str = map B.w2c $ B.unpack $ takeChars len (fileStack st)
+
+        strip = lstrip . rstrip
+        lstrip = dropWhile (`elem` (map B.w2c wschars))
+        rstrip = reverse . lstrip . reverse
+
+        quotedFname = strip (drop (length ("include" :: [Char])) str)
         
         hasStartQuote ('\"':_) = True
         hasStartQuote _ = False
@@ -402,35 +408,29 @@ alexInputPrevChar :: AlexInput -> Char
 alexInputPrevChar (ParserState { fileStack = fps:_ }) = previousChar fps
 alexInputPrevChar _ = panic "alexInputPrevChar: invalid state - no previous char"
 
--- For compatibility with Alex 3
-alexGetByte :: AlexInput -> Maybe (Word8,AlexInput)
-alexGetByte inp = 
-    case alexGetChar inp of 
-        Nothing -> Nothing
-        Just (c, inp') -> 
-            -- Truncate the char to the first byte
-            Just (c2w c, inp')
-    
-alexGetChar :: AlexInput -> Maybe (Char,AlexInput)
-alexGetChar (ParserState { fileStack = [] }) = Nothing
-alexGetChar (st @ (ParserState { fileStack = fps:fpss })) = gc fps
+alexGetByte :: AlexInput -> Maybe (Word8, AlexInput)
+alexGetByte (ParserState { fileStack = [] }) = Nothing
+alexGetByte (st @ (ParserState { fileStack = fps:fpss })) = gc fps
     where
-        gc (FileParserState { input = [] }) = 
-            alexGetChar (st { fileStack = fpss })
-        gc (fps @ (FileParserState { tokenizerPos = p, input = (c:s) })) =
-                p' `seq` Just (c, st')
+        gc (FileParserState { input = input }) | B.null input = 
+            alexGetByte (st { fileStack = fpss })
+        gc (fps @ (FileParserState { tokenizerPos = p, input = input })) =
+                c `seq` p' `seq` fps' `seq` st' `seq` Just (c, st')
             where
-                p' = movePos p c
-                fps' = fps { input = s, tokenizerPos = p', previousChar = c }
+                Just (c, s) = B.uncons input
+                p' = movePos p (B.w2c c)
+                fps' = fps { input = s, tokenizerPos = p',
+                            previousChar = B.w2c c
+                        }
                 st' = st { fileStack = fps':fpss }
 
-alexGetChar' :: AlexInput -> (Char, AlexInput)
-alexGetChar' st =
-    alexGetCharWithErrorMessage (lexicalErrorMessage (currentFilePosition st)) st
+alexGetByte' :: AlexInput -> (Word8, AlexInput)
+alexGetByte' st =
+    alexGetByteWithErrorMessage (lexicalErrorMessage (currentFilePosition st)) st
 
-alexGetCharWithErrorMessage :: ErrorMessage -> AlexInput -> (Char, AlexInput)
-alexGetCharWithErrorMessage msg st =
-    case alexGetChar st of
+alexGetByteWithErrorMessage :: ErrorMessage -> AlexInput -> (Word8, AlexInput)
+alexGetByteWithErrorMessage msg st =
+    case alexGetByte st of
         Just t -> t
         Nothing -> throwSourceError [msg]
 
@@ -440,7 +440,7 @@ getNextToken = do
         input = input,
         currentStartCode = sc } <- getTopFileParserState
     st <- getParserState
-    if length (fileStack st) > 1 && input == [] then do
+    if length (fileStack st) > 1 && B.null input then do
         -- Switch input back
         setParserState (st { fileStack = tail (fileStack st) })
         -- Insert a newline to stop expressions spanning files

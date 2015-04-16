@@ -44,10 +44,10 @@ initTypeChecker = runTypeChecker newTypeInferenceState $ do
     local [] getState
 
 typeCheckExpect :: (Compressable a, TC.TypeCheckable a Type) => Type -> a -> TypeCheckMonad a
-typeCheckExpect t exp = TC.typeCheckExpect exp t >> mcompress exp
+typeCheckExpect t exp = TC.typeCheckExpect exp t >> liftIO (mcompress exp)
 
 typeCheck :: (Compressable a, TC.TypeCheckable a b) => a -> TypeCheckMonad a
-typeCheck exp = TC.typeCheck exp >> mcompress exp
+typeCheck exp = TC.typeCheck exp >> liftIO (mcompress exp)
 
 typeOfExp :: TCExp -> TypeCheckMonad Type
 typeOfExp exp = do

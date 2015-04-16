@@ -2,14 +2,16 @@
 module CSPM.Desugar (Desugarable(..), runDesugar) where
 
 import Control.Monad.State
+import qualified Data.ByteString.Char8 as B
 import Data.List (nub, sort)
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
-import Data.Tuple (swap)
+import qualified Data.Set as S
 
+import CSPM.DataStructures.FreeVars
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
+import CSPM.DataStructures.Syntax hiding (timedSectionTockName)
 import CSPM.DataStructures.Types
 import CSPM.PrettyPrinter
 import CSPM.Prelude
@@ -18,32 +20,9 @@ import Util.Exception
 import Util.Monad
 import Util.PrettyPrint hiding (($$))
 
-class FreeVars a where
-    freeVars :: a -> [Name]
-
-instance FreeVars a => FreeVars (Annotated b a) where
-    freeVars (An loc _ inner) = freeVars inner
-
-instance FreeVars (Pat Name) where
-    freeVars (PConcat p1 p2) = freeVars p1++freeVars p2
-    freeVars (PCompList p1 p2 _) = concatMap freeVars p1 ++ 
-        case p2 of
-            Just (p2, ps) -> freeVars p2 ++ concatMap freeVars ps
-            Nothing -> []
-    freeVars (PCompDot ps _) = concatMap freeVars ps
-    freeVars (PDotApp p1 p2) = freeVars p1++freeVars p2
-    freeVars (PDoublePattern p1 p2) = freeVars p1++freeVars p2
-    freeVars (PList ps) = concatMap freeVars ps
-    freeVars (PLit l) = []
-    freeVars (PParen p) = freeVars p
-    freeVars (PSet ps) = concatMap freeVars ps
-    freeVars (PTuple ps) = concatMap freeVars ps
-    freeVars (PVar n) | isNameDataConstructor n = []
-    freeVars (PVar n) = [n]
-    freeVars (PWildCard) = []
-
 data DesugarState = DesugarState {
         inTimedSection :: Bool,
+        timedSectionTockName :: Maybe Name,
         currentLoc :: SrcSpan,
         variableSubstitution :: M.Map Name Name,
         parentSubstitutionForModules :: M.Map Name (M.Map Name Name)
@@ -53,19 +32,30 @@ type DesugarMonad = StateT DesugarState IO
 
 runDesugar :: MonadIO m => DesugarMonad a -> m a
 runDesugar prog = liftIO $
-    runStateT prog (DesugarState False Unknown M.empty M.empty) >>= return . fst
+    runStateT prog (DesugarState False Nothing Unknown M.empty M.empty)
+    >>= return . fst
 
-maybeTimedSection :: DesugarMonad a -> DesugarMonad a -> DesugarMonad a
+maybeTimedSection :: DesugarMonad a -> (Name -> DesugarMonad a) -> DesugarMonad a
 maybeTimedSection nonTimed timed = do
     b <- gets inTimedSection
-    if b then timed else nonTimed
+    if b then do
+        Just tn <- gets timedSectionTockName
+        timed tn
+    else nonTimed
 
-timedSection :: DesugarMonad a -> DesugarMonad a
-timedSection prog = do
+timedSection :: Name -> DesugarMonad a -> DesugarMonad a
+timedSection tockName prog = do
     inTimed <- gets inTimedSection
-    modify (\st -> st { inTimedSection = True })
+    oldTockName <- gets timedSectionTockName
+    modify (\st -> st {
+            inTimedSection = True,
+            timedSectionTockName = Just tockName
+        })
     a <- prog
-    modify (\st -> st { inTimedSection = inTimed })
+    modify (\st -> st {
+            inTimedSection = inTimed,
+            timedSectionTockName = oldTockName
+        })
     return a
 
 addParentModuleSubstitution :: Name -> M.Map Name Name -> DesugarMonad ()
@@ -113,7 +103,7 @@ instance Desugarable a => Desugarable (Maybe a) where
     desugar Nothing = return Nothing
     desugar (Just a) = desugar a >>= return . Just
 
-instance Desugarable a => Desugarable (Annotated (Maybe Type, PType) a) where
+instance Desugarable a => Desugarable (Annotated (Type, PType) a) where
     desugar (An l (t, pt) i) = do
         modify (\ st -> st { currentLoc = l })
         x <- desugar i
@@ -147,10 +137,8 @@ desugarDecl (an@(An x y (PatBind p e ta))) = do
         st -> do
             -- We are binding multiple things and thus need to make an extractor
             nameToBindTo <- mkFreshInternalName
-            let typeOf n = case [ts | (n', ts) <- st, n' == n] of
-                                [ts] -> ts
-                                [] -> panic $! "Could not find the type of "++show n
-                expToBindTo = An Unknown dummyAnnotation (Var nameToBindTo)
+            let typeOf n = head [ts | (n', ts) <- st, n' == n]
+                expToBindTo = An Unknown (annotation e') (Var nameToBindTo)
                 mkExtractorPat' n (An a b p) = An a b (mkExtractorPat n p) 
                 mkExtractorPat n (PCompList p1 p2 pold) =
                     PCompList (map (mkExtractorPat' n) p1) (
@@ -171,15 +159,14 @@ desugarDecl (an@(An x y (PatBind p e ta))) = do
 
                 newPSymTableThunk = panic "new psymbole table evaluated"
                 mkExtractor n = An (loc an)
-                    (Just [(n, typeOf n)], newPSymTableThunk) 
+                    ([(n, typeOf n)], newPSymTableThunk) 
                     (PatBind (mkExtractorPat' n p') expToBindTo Nothing)
                 -- TODO: calculate the correct ForAll
-                etype = ForAll (panic "incorrect polymorphism") (getType e')
+                etype = ForAll (nub (sort (concat [ts | (_, ForAll ts _) <- st]))) (getType e')
                 newPat = An (loc an)
-                    (Just [(nameToBindTo, etype)], newPSymTableThunk)
-                    (PatBind (An Unknown dummyAnnotation (PVar nameToBindTo)) e'
-                        Nothing)
-                extractors = map mkExtractor (freeVars p')
+                    ([(nameToBindTo, etype)], newPSymTableThunk)
+                    (PatBind (An Unknown (annotation e') (PVar nameToBindTo)) e' Nothing)
+                extractors = map mkExtractor (boundNames p')
             return $ newPat : extractors
 desugarDecl (An _ _ (Module n [] ds1 ds2)) = do
     -- We flatten here if there are no arguments (the renamer has
@@ -191,11 +178,10 @@ desugarDecl (d@(An _ _ (ModuleInstance nax nt args nm (Just mod)))) = do
     -- these in the bodies of ds1 and ds2, and then binding them using patterns.
     parentSub <- parentModuleSubstitution nt
     let An _ _ (Module _ pats ds1 ds2) = mod
-        fvs = nub (sort (concatMap freeVars pats))
+        fvs = nub (sort (concatMap boundNames pats))
     freshVars <- replicateM (length fvs) mkFreshInternalName
-    let sub = composeSubstitutions parentSub
-                (M.fromList $ zip fvs freshVars ++ swappedNm)
-        swappedNm = map swap nm
+    let sub = composeSubstitutions parentSub $!
+                M.union nm (M.fromList (zip fvs freshVars))
     mapM_ (\ ad -> case unAnnotate ad of
         Module mName _ _ _ ->
             case M.lookup mName sub of
@@ -224,12 +210,12 @@ desugarDecl (d@(An _ _ (ModuleInstance nax nt args nm (Just mod)))) = do
 
             makePatBind :: TCPat -> TCExp -> TCDecl
             makePatBind p e =
-                let fvs = freeVars p
+                let fvs = boundNames p
                     nts = extractTypes p (getType e)
                     symTable = [(fromJust (M.lookup n sub), ForAll [] t)
                                     | (n, t) <- nts, n `elem` fvs]
                 in An (loc p)
-                    (Just symTable, panic "New symbol table evaluated")
+                    (symTable, panic "New symbol table evaluated")
                     (PatBind p e Nothing)
             patBinds = zipWith makePatBind pats args
         desugarDecls $ patBinds ++ ds1 ++ ds2
@@ -249,9 +235,10 @@ desugarDecl (An x y d) = do
             DataType n cs -> return DataType $$ substituteName n $$ desugar cs
             SubType n cs -> return SubType $$ substituteName n $$ desugar cs
             NameType n e ta -> return NameType $$ substituteName n $$ desugar e $$ return ta
-            TimedSection (Just n) f ds ->
-                return TimedSection $$ (substituteName n >>= return . Just) $$
-                    desugar f $$ timedSection (desugarDecls ds)
+            TimedSection (Just n) f ds -> do
+                tn <- substituteName n
+                return TimedSection $$ (return $ Just tn) $$
+                    desugar f $$ timedSection tn (desugarDecls ds)
             PrintStatement s -> return $ PrintStatement s
     return [An x y d']
 
@@ -261,24 +248,23 @@ makeAliasDefinition n = do
     if n' == n then return []
     else do
         let newPSymTableThunk = panic "new psymbol table evaluated"
-            typeOf n = typeScheme (builtInWithName n)
+            typs@(ForAll _ typ) = typeScheme (builtInWithName n)
         return [
             An Unknown
-                (Just [(n', typeOf n)], newPSymTableThunk)
+                ([(n', typs)], newPSymTableThunk)
                 (PatBind
-                    (An Unknown dummyAnnotation (PVar n'))
-                    (An Unknown dummyAnnotation (Var n))
+                    (An Unknown (typ, dummyAnnotation) (PVar n'))
+                    (An Unknown (typ, dummyAnnotation) (Var n))
                     Nothing)
             ]
 
 desugarDecls :: [TCDecl] -> DesugarMonad [TCDecl]
 desugarDecls ds = do
-    let substituteSymbolTable (d@(An _ (Nothing, _) _)) = return d
-        substituteSymbolTable (An x (Just st, y) d) = do
+    let substituteSymbolTable (An x (st, y) d) = do
             st <- mapM (\ (n, t) -> do
                 n <- substituteName n
                 return $! (n, t)) st
-            return $ An x (Just st, y) d
+            return $ An x (st, y) d
     ds <- mapM substituteSymbolTable ds
     concatMapM desugarDecl ds
 
@@ -302,7 +288,12 @@ instance Desugarable (DataTypeClause Name) where
         return DataTypeClause $$ substituteName n $$ desugar me $$ return ta
 
 instance Desugarable (Match Name) where
-    desugar (Match pss e) = return Match $$ desugar pss $$ desugar e
+    desugar (Match pss e) = do
+        pss <- desugar pss
+        e <- desugar e
+        let usedVars = S.fromList $ freeVars e
+            pss' = map (map (restrictPatternsToVars usedVars)) pss
+        return $! Match pss' e
 
 instance Desugarable (Exp Name) where
     desugar (App e es) = return App $$ desugar e $$ desugar es
@@ -313,17 +304,37 @@ instance Desugarable (Exp Name) where
     desugar (Concat e1 e2) = return Concat $$ desugar e1 $$ desugar e2
     desugar (DotApp e1 e2) = return DotApp $$ desugar e1 $$ desugar e2
     desugar (If e1 e2 e3) = return If $$ desugar e1 $$ desugar e2 $$ desugar e3
-    desugar (Lambda p e) = return Lambda $$ desugar p $$ desugar e
-    desugar (Let ds e) = return Let $$ desugarDecls ds $$ desugar e
+    desugar (Lambda p e) = do
+        p <- desugar p
+        e <- desugar e
+        let fvs = S.fromList $ freeVars e
+        return $! Lambda (map (restrictPatternsToVars fvs) p) e
+    desugar (Let ds e) = do
+        ds <- desugarDecls ds
+        e <- desugar e
+        -- Remove unused let bindings 
+        let usedVars = S.fromList $ freeVars ds ++ freeVars e
+            ds' = filter (\ d -> or (map (\n -> S.member n usedVars) (boundNames d))) ds
+        case ds' of
+            [] -> return $! unAnnotate e
+            _ -> return $! Let ds' e
     desugar (Lit l) = return Lit $$ desugar l
     desugar (List es) = return List $$ desugar es
-    desugar (ListComp es stmts) = return ListComp $$ desugar es $$ desugar stmts
+    desugar (ListComp es stmts) = do
+        es <- desugar es
+        stmts <- desugar stmts
+        return $! ListComp es (restrictStatements es stmts)
     desugar (ListEnumFrom e) = return ListEnumFrom $$ desugar e
     desugar (ListEnumFromTo e1 e2) = return ListEnumFromTo $$ desugar e1 $$ desugar e2
-    desugar (ListEnumFromComp e stmts) =
-        return ListEnumFromComp $$ desugar e $$ desugar stmts
-    desugar (ListEnumFromToComp e1 e2 stmts) =
-        return ListEnumFromToComp $$ desugar e1 $$ desugar e2 $$ desugar stmts
+    desugar (ListEnumFromComp e stmts) = do
+        e <- desugar e
+        stmts <- desugar stmts
+        return $! ListEnumFromComp e (restrictStatements e stmts)
+    desugar (ListEnumFromToComp e1 e2 stmts) = do
+        e1 <- desugar e1
+        e2 <- desugar e2
+        stmts <- desugar stmts
+        return $! ListEnumFromToComp e1 e2 (restrictStatements [e1, e2] stmts)
     desugar (ListLength e) = return ListLength $$ desugar e
     desugar (Map kvs) = return Map $$ desugar kvs
     desugar (MathsBinaryOp op e1 e2) = 
@@ -331,20 +342,56 @@ instance Desugarable (Exp Name) where
     desugar (MathsUnaryOp op e) = return (MathsUnaryOp op) $$ desugar e
     desugar (Paren e) = desugar e >>= return . unAnnotate
     desugar (Set es) = return Set $$ desugar es
-    desugar (SetComp es stmts) = return SetComp $$ desugar es $$ desugar stmts
+    desugar (SetComp es stmts) = do
+        es <- desugar es
+        stmts <- desugar stmts
+        return $! SetComp es (restrictStatements es stmts)
     desugar (SetEnum es) = return SetEnum $$ desugar es
-    desugar (SetEnumComp es stmts) = return SetEnumComp $$ desugar es $$ desugar stmts
+    desugar (SetEnumComp es stmts) = do
+        es <- desugar es
+        stmts <- desugar stmts
+        return $! SetEnumComp es (restrictStatements es stmts)
     desugar (SetEnumFrom e) = return SetEnumFrom $$ desugar e
     desugar (SetEnumFromTo e1 e2) = return SetEnumFromTo $$ desugar e1 $$ desugar e2
-    desugar (SetEnumFromComp e stmts) =
-        return SetEnumFromComp $$ desugar e $$ desugar stmts
-    desugar (SetEnumFromToComp e1 e2 stmts) =
-        return SetEnumFromToComp $$ desugar e1 $$ desugar e2 $$ desugar stmts
+    desugar (SetEnumFromComp e stmts) = do
+        e <- desugar e
+        stmts <- desugar stmts
+        return $! SetEnumFromComp e (restrictStatements e stmts)
+    desugar (SetEnumFromToComp e1 e2 stmts) = do
+        e1 <- desugar e1
+        e2 <- desugar e2
+        stmts <- desugar stmts
+        return $! SetEnumFromToComp e1 e2 (restrictStatements [e1, e2] stmts)
     desugar (Tuple es) = return Tuple $$ desugar es
+    desugar (Var n) | n == builtInName "timed_priority" =
+        maybeTimedSection (return $ Var n)
+            (\ tn -> do
+                tock <- mkVar tn TEvent
+                mkApplication (builtInName "timed_priority")
+                    (TFunction [TEvent] (TFunction [TProc] TProc)) [tock])
+    desugar (Var n) | n == builtInName "WAIT" =
+        maybeTimedSection (return $ Var n)
+            (\ tn -> do
+                tock <- mkVar tn TEvent
+                mkApplication (builtInName "WAIT")
+                    (TFunction [TEvent] (TFunction [TInt] TProc)) [tock])
     desugar (Var n) | n == builtInName "STOP" =
-        maybeTimedSection (return $ Var n) (mkApplication "TSTOP" [])
+        maybeTimedSection (return $ Var n)
+            (\ tn -> do
+                tock <- mkVar tn TEvent
+                mkApplication (builtInName "TSTOP")
+                    (TFunction [TEvent] TProc) [tock])
     desugar (Var n) | n == builtInName "SKIP" =
-        maybeTimedSection (return $ Var n) (mkApplication "TSKIP" [])
+        maybeTimedSection
+            (return $ Var n)
+            (\ tn -> do
+                tock <- mkVar tn TEvent
+                mkApplication (builtInName "TSKIP")
+                    (TFunction [TEvent] TProc) [tock])
+    desugar (Var n) | S.member n locatedBuiltins = do
+        loc <- gets currentLoc
+        lit <- mkLit (Loc loc)
+        mkApplication n (error "TODO") [lit]
     desugar (Var n) = substituteName n >>= return . Var
 
     desugar (AlphaParallel e1 e2 e3 e4) =
@@ -363,21 +410,38 @@ instance Desugarable (Exp Name) where
         maybeTimedSection
             (return LinkParallel $$ desugar e1 $$ desugar ties $$ desugar stmts
                 $$ desugar e2)
-            (gets currentLoc >>= \ loc ->
+            (\ _ -> do
+                loc <- gets currentLoc
                 throwSourceError [linkedParallelTimedSectionError loc])
     desugar (Prefix e1 fs e2) = do
-        dp <- return Prefix $$ desugar e1 $$ desugar fs $$ desugar e2
+        e1 <- desugar e1
+        fs <- desugar fs
+        e2 <- desugar e2
+
+        -- Restrict patterns
+        let namesToLeave = S.fromList $ freeVars fs ++ freeVars e2
+            restrictField (An a b (Input p e)) =
+                An a b (Input (restrictPatternsToVars namesToLeave p) e)
+            restrictField (An a b (NonDetInput p e)) =
+                An a b (NonDetInput (restrictPatternsToVars namesToLeave p) e)
+            restrictField (An a b (Output e)) = (An a b (Output e))
+
+            dp = Prefix e1 (map restrictField fs) e2
         maybeTimedSection
             (return dp)
-            (do
+            (\ _ -> do
                 n <- mkFreshInternalName
                 srcSpan <- gets currentLoc
                 ptype <- freshPType
                 setPType ptype TProc
-                return $ TimedPrefix n (An srcSpan (Just TProc, ptype) dp))
+                return $ TimedPrefix n (An srcSpan (TProc, ptype) dp))
     desugar (Project e1 e2) = return Project $$ desugar e1 $$ desugar e2
-    desugar (Rename e1 ties stmts) =
-        return Rename $$ desugar e1 $$ desugar ties $$ desugar stmts
+    desugar (Rename e1 ties stmts) = do
+        e1 <- desugar e1
+        ties <- desugar ties
+        stmts <- desugar stmts
+        let fvs = S.fromList $ freeVars e1 ++ freeVars (map fst ties++map snd ties)
+        return $! Rename e1 ties (restrictStatementsToVars fvs stmts)
     desugar (SequentialComp e1 e2) = return SequentialComp $$ desugar e1 $$ desugar e2
     desugar (SlidingChoice e1 e2) = return SlidingChoice $$ desugar e1 $$ desugar e2
     desugar (SynchronisingExternalChoice e1 e2 e3) =
@@ -385,33 +449,58 @@ instance Desugarable (Exp Name) where
     desugar (SynchronisingInterrupt e1 e2 e3) =
         return SynchronisingInterrupt $$ desugar e1 $$ desugar e2 $$ desugar e3
     
-    desugar (ReplicatedAlphaParallel stmts e1 e2) =
-        return ReplicatedAlphaParallel $$ desugar stmts $$ desugar e1 $$ desugar e2
-    desugar (ReplicatedInterleave stmts e) =
-        return ReplicatedInterleave $$ desugar stmts $$ desugar e
-    desugar (ReplicatedExternalChoice stmts e) =
-        return ReplicatedExternalChoice $$ desugar stmts $$ desugar e
-    desugar (ReplicatedInternalChoice stmts e) =
-        return ReplicatedInternalChoice $$ desugar stmts $$ desugar e
-    desugar (ReplicatedParallel stmts e1 e2) =
-        return ReplicatedParallel $$ desugar stmts $$ desugar e1 $$ desugar e2
+    desugar (ReplicatedAlphaParallel stmts e1 e2) = do
+        e1 <- desugar e1
+        e2 <- desugar e2
+        stmts <- desugar stmts
+        return $! ReplicatedAlphaParallel (restrictStatements [e1, e2] stmts) e1 e2
+    desugar (ReplicatedInterleave stmts e) = do
+        e <- desugar e
+        stmts <- desugar stmts
+        return $! ReplicatedInterleave (restrictStatements e stmts) e
+    desugar (ReplicatedExternalChoice stmts e) = do
+        e <- desugar e
+        stmts <- desugar stmts
+        return $! ReplicatedExternalChoice (restrictStatements e stmts) e
+    desugar (ReplicatedInternalChoice stmts e) = do
+        e <- desugar e
+        stmts <- desugar stmts
+        return $! ReplicatedInternalChoice (restrictStatements e stmts) e
+    desugar (ReplicatedParallel e1 stmts e2) = do
+        e1 <- desugar e1
+        stmts <- desugar stmts
+        e2 <- desugar e2
+        return $! ReplicatedParallel e1 (restrictStatements [e1, e2] stmts) e2
     desugar (ReplicatedLinkParallel ties tiesStmts stmts e) =
         maybeTimedSection
-            (return ReplicatedLinkParallel $$ desugar ties $$ desugar tiesStmts
-                $$ desugar stmts $$ desugar e)
-            (gets currentLoc >>= \ loc ->
+            (do
+                ties <- desugar ties
+                tiesStmts <- desugar tiesStmts
+                stmts <- desugar stmts
+                e <- desugar e
+                let es = concatMap (\ (a,b) -> [a,b]) ties
+                    stmts' = restrictStatements es stmts
+                return $! ReplicatedLinkParallel ties tiesStmts stmts' e)
+            (\ _ -> do
+                loc <- gets currentLoc
                 throwSourceError [linkedParallelTimedSectionError loc])
-    desugar (ReplicatedSequentialComp stmts e) =
-        return ReplicatedSequentialComp $$ desugar stmts $$ desugar e
-    desugar (ReplicatedSynchronisingExternalChoice e1 stmts e2) =
-        return ReplicatedSynchronisingExternalChoice $$ desugar e1 $$ desugar stmts $$ desugar e2
+    desugar (ReplicatedSequentialComp stmts e) = do
+        e <- desugar e
+        stmts <- desugar stmts
+        return $! ReplicatedSequentialComp (restrictStatements e stmts) e
+    desugar (ReplicatedSynchronisingExternalChoice e1 stmts e2) = do
+        e1 <- desugar e1
+        stmts <- desugar stmts
+        e2 <- desugar e2
+        return $! ReplicatedSynchronisingExternalChoice e1
+            (restrictStatements [e1, e2] stmts) e2
     
 instance Desugarable (Field Name) where
     desugar (Output e) = return Output $$ desugar e
     desugar (Input p e) = return Input $$ desugar p $$ desugar e
     desugar (NonDetInput p e) =
         maybeTimedSection (return NonDetInput $$ desugar p $$ desugar e)
-            (do
+            (\ _ -> do
                 loc <- gets currentLoc
                 throwSourceError [nondetFieldTimedSectionError loc])
 
@@ -456,7 +545,7 @@ instance Desugarable (Pat Name) where
     desugar (PDoublePattern p1 p2) =
         return PDoublePattern $$ desugar p1 $$ desugar p2
     desugar (PLit (String s)) = return $
-        PCompList (map (\ c -> An Unknown () (PLit (Char c))) s)
+        PCompList (map (\ c -> An Unknown (TSeq TChar, dummyAnnotation) (PLit (Char c))) (B.unpack s))
             Nothing (PLit (String s))
     desugar (PLit l) = return PLit $$ desugar l
     -- We don't remove the Paren as people may pretty print a desugared
@@ -494,6 +583,48 @@ instance Desugarable Type where
     desugar TChar = return TChar
     desugar TExtendableEmptyDotList = return TExtendableEmptyDotList
 
+-- | Restricts any patterns in the statements to the free variables of the
+-- given expression. This function will also look for free vars inside the
+-- statments themselves.
+restrictStatements :: FreeVars a => a -> [TCStmt] -> [TCStmt]
+restrictStatements x = restrictStatementsToVars (S.fromList $ freeVars x)
+
+-- | Restricts any patterns in the statements to the given set of variables.
+-- This function will also look for free vars inside the statments themselves.
+restrictStatementsToVars :: S.Set Name -> [TCStmt] -> [TCStmt]
+restrictStatementsToVars ns stmts =
+    let
+        vars = S.union ns (S.fromList $ freeVars stmts)
+        restrictStmt (An a b (Qualifier e)) = An a b (Qualifier e)
+        restrictStmt (An a b (Generator p e)) =
+            An a b (Generator (restrictPatternsToVars vars p) e)
+    in map restrictStmt stmts
+
+-- | Takes a pattern and replaces any variables that are not used by wildcard
+-- patterns.
+restrictPatternsToVars :: S.Set Name -> TCPat -> TCPat
+restrictPatternsToVars ns =
+    let
+        restrict (An a b x) = An a b (restrict' x)
+        restrict' (PConcat p1 p2) =
+            PConcat (restrict p1) (restrict p2)
+        restrict' (PCompList p1 Nothing p) =
+            PCompList (map restrict p1) Nothing p
+        restrict' (PCompList p1 (Just (p2, ps)) p) =
+            PCompList (map restrict p1) (Just (restrict p2, map restrict ps)) p
+        restrict' (PCompDot ps p) = PCompDot (map restrict ps) p
+        restrict' (PDoublePattern p1 p2) =
+            PDoublePattern (restrict p1) (restrict p2)
+        restrict' (PLit l) = PLit l
+        restrict' (PParen p) = PParen (restrict p)
+        restrict'(PSet ps) = PSet (map restrict ps)
+        restrict' (PTuple ps) = PTuple (map restrict ps)
+        restrict' (PVar n) | nameIsConstructor n = PVar n
+        restrict' (PVar n) | S.member n ns = PVar n
+        restrict' (PVar _) = PWildCard
+        restrict' PWildCard = PWildCard
+    in restrict
+
 invalidSetPatternMessage :: Pat Name -> SrcSpan -> ErrorMessage
 invalidSetPatternMessage pat loc = mkErrorMessage loc $
     text "The pattern" <+> prettyPrint pat <+> 
@@ -507,9 +638,25 @@ nondetFieldTimedSectionError :: SrcSpan -> ErrorMessage
 nondetFieldTimedSectionError loc = mkErrorMessage loc $
     text "A non-deterministic input (i.e. $) is not allowed in a timed section."
 
-mkApplication :: String -> [AnExp Name] -> DesugarMonad (Exp Name)
-mkApplication fn args = do
+mkApplication :: Name -> Type -> [AnExp Name] -> DesugarMonad (Exp Name)
+mkApplication fn fnTyp args = do
     srcSpan <- gets currentLoc
     ptype <- freshPType
-    setPType ptype TProc
-    return $ App (An srcSpan (Just TProc, ptype) (Var (builtInName fn))) args
+    setPType ptype fnTyp
+    var <- mkVar fn fnTyp
+    return $ App var args
+
+mkLit :: Literal -> DesugarMonad TCExp
+mkLit l = do
+    srcSpan <- gets currentLoc
+    let typ = error "typ"
+    ptype <- freshPType
+    setPType ptype typ
+    return $ An srcSpan (typ, ptype) (Lit l)
+
+mkVar :: Name -> Type -> DesugarMonad TCExp
+mkVar n typ = do
+    srcSpan <- gets currentLoc
+    ptype <- freshPType
+    setPType ptype typ
+    return $ An srcSpan (typ, ptype) (Var n)

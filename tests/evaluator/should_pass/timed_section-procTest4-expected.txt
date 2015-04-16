@@ -1,6 +1,4 @@
-STOP::tock = tock -> STOP::tock
-
-S = STOP::tock [+{a, tock}+] STOP::tock
+S = STOP(tock) [+{a, tock}+] STOP(tock)
 
 procTest4 = S
 

@@ -1,0 +1,19 @@
+test1(v) =
+    let
+        (x1, _) = v
+        (x2, _) = x1
+        P = if x2 then SKIP else STOP
+    within P
+
+-- test2(v) =
+--     let
+--         (x1, _) = v
+--         (x2, _) = x1
+--     within
+--         let
+--             P = if x2 then SKIP else STOP
+--         within P
+
+procTest1 = 
+    test1(((true, 0), 0))
+    [] test1(((false, 0), 0))

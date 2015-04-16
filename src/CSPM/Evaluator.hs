@@ -1,102 +1,170 @@
+{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, MultiParamTypeClasses,
+    TypeSynonymInstances, UndecidableInstances #-}
 module CSPM.Evaluator (
     evaluateExp, evaluateDecl, evaluateFile,
-    addToEnvironment, maybeProcessNameToProcess,
+    maybeProcessNameToProcess,
     
     initEvaluator, runFromStateToState,
-    EvaluatorOptions(..), defaultEvaluatorOptions,
-    ProfilerOptions(..), defaultProfilerOptions,
     EvaluationMonad, runEvaluator, EvaluationState,
-    module CSPM.Evaluator.ProcessValues,
     module CSPM.Evaluator.Values,
     module CSPM.Evaluator.ValueSet,
 
-    ProfilingData(..), profilingData,
+    dumpProfilingData,
 ) where
+
+import Control.Monad.State
+import qualified Data.Foldable as F
 
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
+import qualified CSPM.Evaluator.AnalyserMonad as A
 import CSPM.Evaluator.BuiltInFunctions
 import CSPM.Evaluator.DeclBind
 import CSPM.Evaluator.Environment
 import CSPM.Evaluator.Expr
 import CSPM.Evaluator.File
-import CSPM.Evaluator.Monad
-import CSPM.Evaluator.ProcessValues
-import CSPM.Evaluator.Profiler
+import qualified CSPM.Evaluator.Monad as E
+#ifdef CSPM_PROFILING
+import qualified CSPM.Evaluator.Profiler as P
+#else
+import Util.Exception
+#endif
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
-import qualified Data.Foldable as F
 import Util.Annotated
+import qualified Util.MonadicPrettyPrint as M
 
-data EvaluatorOptions = EvaluatorOptions {
-        runtimeRangeChecks :: Bool,
-        profilerOptions :: ProfilerOptions
+import qualified Data.Map as Mp
+
+data EvaluationState = EvaluationState {
+        analyserState :: A.AnalyserState,
+        evaluatorState :: E.EvaluationState
     }
 
-defaultEvaluatorOptions :: EvaluatorOptions
-defaultEvaluatorOptions = EvaluatorOptions {
-        runtimeRangeChecks = True,
-        profilerOptions = defaultProfilerOptions
-    }
+type EvaluationMonad = StateT EvaluationState IO
+
+runAnalyser :: A.AnalyserMonad a -> EvaluationMonad a
+runAnalyser prog = do
+    anSt <- gets analyserState
+    (a, anSt') <- liftIO $ A.runAnalyser anSt prog
+    modify (\st -> st { analyserState = anSt' })
+    return a
+
+runEvaluator :: E.EvaluationMonad a -> EvaluationMonad a
+runEvaluator prog = do
+    evSt <- gets evaluatorState
+    return $! E.runEvaluator evSt prog
 
 runFromStateToState :: EvaluationState -> EvaluationMonad a -> 
-    (a, EvaluationState)
-runFromStateToState st prog = runEvaluator st $ do
-    r <- prog
-    s <- getState
-    return (r, s)
+    IO (a, EvaluationState)
+runFromStateToState st anProg = runStateT anProg st
 
--- | The environment to use initially. This uses the IO monad as 
--- the EvaluationMonad cannot be used without a valid environment.
-initEvaluator :: EvaluatorOptions -> IO EvaluationState
-initEvaluator options = do
-    profilerState <- initialProfilerState (profilerOptions options)
-    let initialState = EvaluationState {
-                environment = new,
-                CSPM.Evaluator.Monad.parentScopeIdentifier = Nothing,
-                currentExpressionLocation = Unknown,
-                timedSection = Nothing,
-                profilerState = profilerState,
-                doRuntimeRangeChecks = runtimeRangeChecks options
+-- | The environment to use initially. 
+initEvaluator :: IO EvaluationState
+initEvaluator = do
+    analyserState <- A.initialAnalyserState
+    let initialEvState = new
+        initialState = EvaluationState {
+                analyserState = analyserState,
+                evaluatorState = initialEvState
             }
-    return $! runEvaluator initialState (injectBuiltInFunctions getState)
+
+    (_, st) <- runFromStateToState initialState $! do
+        injector <- runAnalyser (injectBuiltInFunctions E.getState)
+        evSt' <- runEvaluator injector
+        modify (\ st -> st { evaluatorState = evSt' })
+    return st
 
 evaluateExp :: TCExp -> EvaluationMonad Value
-evaluateExp e = eval e
+evaluateExp e = do
+    e <- runAnalyser (eval e)
+    runEvaluator e
 
--- | Evaluates the declaration but doesn't add it to the current environment.
-evaluateDecl :: TCDecl -> EvaluationMonad [(Name, EvaluationMonad Value)]
-evaluateDecl d = bindDecls [d]
+-- | Evaluates the declaration and adds it to the current environment.
+evaluateDecl :: TCDecl -> EvaluationMonad ()
+evaluateDecl d = do
+    ms <- runAnalyser (bindDecls [d])
+    addToEnvironment ms
 
--- | Evaluates the declaration but doesn't add it to the current environment.
-evaluateFile :: TCCSPMFile -> EvaluationMonad [(Name, EvaluationMonad Value)]
-evaluateFile ms = bindFile ms
+-- | Evaluates the declaration and adds it to the current environment.
+evaluateFile :: TCCSPMFile -> EvaluationMonad ()
+evaluateFile ms = do
+    ms <- runAnalyser (bindFile ms)
+    addToEnvironment ms
 
-addToEnvironment :: [(Name, EvaluationMonad Value)] ->
-    EvaluationMonad EvaluationState
-addToEnvironment bs = addScopeAndBindM bs getState
+addToEnvironment :: E.EvaluationMonad [(Name, E.EvaluationMonad Value)] ->
+    EvaluationMonad ()
+addToEnvironment bs = do
+    evSt <- gets evaluatorState
+    let evSt' = E.runEvaluator evSt $ do
+            nds <- bs
+            E.addScopeAndBindM nds E.getState
+    modify (\st -> st { evaluatorState = evSt' })
+
+
+checkArgument (VInt i) = True
+checkArgument (VChar c) = True
+checkArgument (VBool b) = True
+checkArgument (VTuple vs) = F.and $ fmap checkArgument vs
+checkArgument (VList vs) = F.and $ fmap checkArgument vs
+checkArgument (VSet s) = F.and $ fmap checkArgument (toList s)
+checkArgument (VDot vs) = F.and $ fmap checkArgument vs
+checkArgument (VChannel n) = True
+checkArgument (VDataType n) = True
+checkArgument (VFunction id _) = False
+checkArgument (VProc p) = False
+
+combineMaybe :: [Maybe a] -> Maybe [a]
+combineMaybe [] = Just []
+combineMaybe (Nothing : _) = Nothing
+combineMaybe (Just x : xs) =
+    case combineMaybe xs of
+        Nothing -> Nothing
+        Just xs -> Just (x:xs)
 
 -- | Attempts to convert a process name to a process, if possible.
-maybeProcessNameToProcess :: ProcName -> EvaluationMonad (Maybe UProc)
-maybeProcessNameToProcess (pn@(ProcName (SFunctionBind _ fn [args] Nothing))) = do
-    -- Evaluate the function again
-    VFunction _ func <- lookupVar fn
-    let checkArgument (VInt i) = True
-        checkArgument (VChar c) = True
-        checkArgument (VBool b) = True
-        checkArgument (VTuple vs) = F.and $ fmap checkArgument vs
-        checkArgument (VList vs) = F.and $ fmap checkArgument vs
-        checkArgument (VSet s) = F.and $ fmap checkArgument (toList s)
-        checkArgument (VDot vs) = F.and $ fmap checkArgument vs
-        checkArgument (VChannel n) = True
-        checkArgument (VDataType n) = True
-        checkArgument (VFunction id _) = False
-        checkArgument (VProc p) = False
-    if and (map checkArgument args) then do
-        v <- func args
-        return $ Just $ PProcCall pn (let VProc p = v in p)
-    else return Nothing
+maybeProcessNameToProcess :: ProcName -> EvaluationMonad (Maybe Proc)
+maybeProcessNameToProcess pn@(ProcName
+        (InstantiatedFrame _ frame@(A.BuiltinFunctionFrame {}) _ [args])) =
+    runEvaluator $ do
+        maybeFunc <- maybeLookupVar (A.builtinFunctionFrameFunctionName frame)
+        case maybeFunc of
+            Nothing -> return Nothing
+            Just (VFunction _ func) ->
+                if and (map checkArgument args) then do
+                    v <- func args
+                    return $ Just $ PProcCall pn (let VProc p = v in p)
+                else return $ Nothing
+maybeProcessNameToProcess pn@(ProcName
+        (InstantiatedFrame _ frame@(A.FunctionFrame {
+                A.functionFramePatterns = [pats] 
+            }) fvs [])) = runEvaluator $ do
+
+    maybeFunc <- maybeLookupVar (A.functionFrameFunctionName frame)
+    case maybeFunc of
+        Nothing -> return Nothing
+        Just (VFunction _ func) -> do
+            let m = Mp.fromList $ zip (A.functionFrameFreeVars frame) fvs
+                reassembleArgument (An _ _ (PVar n)) | isNameDataConstructor n =
+                    Nothing
+                reassembleArgument (An _ _ (PVar n)) = Mp.lookup n m
+            case combineMaybe $ map reassembleArgument pats of
+                Just args -> 
+                    if and (map checkArgument args) then do
+                        v <- func args
+                        return $ Just $ PProcCall pn (let VProc p = v in p)
+                    else return Nothing
+                Nothing -> return Nothing
 maybeProcessNameToProcess _ = return Nothing
 
-profilingData :: EvaluationMonad ProfilingData
-profilingData = getProfilingData
+dumpProfilingData :: IO ()
+
+#ifdef CSPM_PROFILING
+dumpProfilingData = P.dumpProfilingData
+#else
+dumpProfilingData = panic "Profiling not supported in this build."
+#endif
+
+instance  M.MonadicPrettyPrintable E.EvaluationMonad a => 
+        M.MonadicPrettyPrintable EvaluationMonad a where
+    prettyPrint = runEvaluator . M.prettyPrint

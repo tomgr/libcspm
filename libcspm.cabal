@@ -48,12 +48,13 @@ Library
         containers >= 0.5 && < 0.6, 
         deepseq >= 1.3 && < 1.4,
         directory >= 1.2 && < 1.3,
+        ghc-prim >= 0.3 && < 0.5,
         filepath >= 1.3 && < 1.4, 
         hashable >= 1.2 && < 1.3,
-        hashtables >= 1.1 && < 1.2,
-        mtl >= 2.1 && < 2.2, 
+        hashtables >= 1.1 && < 1.3,
+        mtl >= 2.1 && < 2.3,
         pretty >= 1.1 && < 1.2,
-        text >= 1.1 && < 1.2,
+        text >= 1.1 && < 1.3,
         value-supply >= 0.6 && < 0.7
 
     Build-Tools: alex >= 3.1.3, happy >= 1.19.3
@@ -68,7 +69,9 @@ Library
         CSPM.DataStructures.Types,
         CSPM.Desugar,
         CSPM.Evaluator,
+        CSPM.Evaluator.AnalyserMonad,
         CSPM.Evaluator.BuiltInFunctions,
+        CSPM.Evaluator.DataTypeAnalyser,
         CSPM.Evaluator.DeclBind,
         CSPM.Evaluator.DeepSeq,
         CSPM.Evaluator.Dot,
@@ -78,8 +81,9 @@ Library
         CSPM.Evaluator.File,
         CSPM.Evaluator.Monad,
         CSPM.Evaluator.PatBind,
-        CSPM.Evaluator.ProcessValues,
+        CSPM.Evaluator.PrefixExpr,
         CSPM.Evaluator.Profiler,
+        CSPM.Evaluator.ProfilerThunks,
         CSPM.Evaluator.Values,
         CSPM.Evaluator.ValueSet,
         CSPM.Evaluator.ValuePrettyPrinter,
@@ -117,10 +121,10 @@ Library
         Util.Monad,
         Util.MonadicPrettyPrint,
         Util.MonadicPrettyPrintInternal,
-        Util.PartialFunctions,
         Util.Precedence,
         Util.Prelude,
-        Util.PrettyPrint
+        Util.PrettyPrint,
+        Util.UnsafePointerEquality
     
     Other-Modules:
         Paths_libcspm
@@ -135,7 +139,7 @@ Library
     
     Hs-Source-Dirs: src
     
-    Extensions: DoAndIfThenElse
+    Extensions: DoAndIfThenElse, OverloadedStrings
 
 Test-Suite libcspm_tests
     Type: exitcode-stdio-1.0

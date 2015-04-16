@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, IncoherentInstances,
-    MultiParamTypeClasses, TypeSynonymInstances, UndecidableInstances #-}
+    MultiParamTypeClasses, ScopedTypeVariables, TypeSynonymInstances,
+    UndecidableInstances #-}
 module CSPM.Evaluator.ValuePrettyPrinter (
     prettyPrintAllRequiredProcesses,
 ) where
@@ -7,19 +8,21 @@ module CSPM.Evaluator.ValuePrettyPrinter (
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Identity
+import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
+import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Monad
-import CSPM.Evaluator.ProcessValues
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import CSPM.PrettyPrinter
 import CSPM.Prelude
+import qualified Data.ByteString as B
 import qualified Data.Foldable as F
 import qualified Data.Map as Mp
-import qualified Data.Sequence as S
 import Data.List (partition)
+import Util.Annotated
 import Util.Precedence
 import Util.PrettyPrint
 import qualified Util.MonadicPrettyPrint as M
@@ -33,7 +36,7 @@ instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m TCExp where
 instance PrettyPrintable Event where
     prettyPrint = runIdentity . M.prettyPrint
 
-instance PrettyPrintable (S.Seq Event) where
+instance PrettyPrintable EventSet where
     prettyPrint = runIdentity . M.prettyPrint
 
 instance PrettyPrintable ProcName where
@@ -45,15 +48,13 @@ instance PrettyPrintable Value where
 instance PrettyPrintable ValueSet where
     prettyPrint = runIdentity . M.prettyPrint
 
-instance PrettyPrintable UnCompiledProc where
+instance PrettyPrintable Proc where
     prettyPrint = runIdentity . M.prettyPrint
 
-instance (F.Foldable seq, M.MonadicPrettyPrintable Identity ev,
-            M.MonadicPrettyPrintable Identity evs) =>
-        PrettyPrintable (ProcOperator seq ev evs) where
+instance PrettyPrintable ProcOperator where
     prettyPrint = runIdentity . M.prettyPrint
 
-instance PrettyPrintable ScopeIdentifier where
+instance PrettyPrintable InstantiatedFrame where
     prettyPrint = runIdentity . M.prettyPrint
 
 instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
@@ -66,9 +67,10 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
     prettyPrintBrief Tick = M.char '✓'
     prettyPrintBrief (UserEvent v) = M.prettyPrintBrief v
 
-instance (Applicative m, F.Foldable seq, Monad m, M.MonadicPrettyPrintable m ev,
-            M.MonadicPrettyPrintable m evs) =>
-        M.MonadicPrettyPrintable m (ProcOperator seq ev evs) where
+instance (Applicative m, Monad m,
+             M.MonadicPrettyPrintable m EventSet,
+            M.MonadicPrettyPrintable m Value) =>
+        M.MonadicPrettyPrintable m ProcOperator where
     prettyPrint (Chase True) = M.text "chase"
     prettyPrint (Chase False) = M.text "chase_no_cache"
     prettyPrint DelayBisim = M.text "dbisim"
@@ -155,25 +157,134 @@ instance (F.Foldable f) => M.MonadicPrettyPrintable EvaluationMonad (f Event) wh
 instance (F.Foldable f) => M.MonadicPrettyPrintable Identity (f Event) where
     prettyPrint evs = M.braces (M.list (mapM M.prettyPrint (F.toList evs)))
 
-instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
+instance (Applicative m, Monad m,
+            M.MonadicPrettyPrintable m EventSet,
+            M.MonadicPrettyPrintable m TCExp,
+            M.MonadicPrettyPrintable m Proc,
+            M.MonadicPrettyPrintable m ProcOperator,
+            M.MonadicPrettyPrintable m ValueSet,
+            M.MonadicPrettyPrintable m Value) =>
         M.MonadicPrettyPrintable m ProcName where
     prettyPrint (ProcName s) = M.prettyPrint s
     prettyPrintBrief (ProcName s) = M.prettyPrintBrief s
 
-instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
-        M.MonadicPrettyPrintable m ScopeIdentifier where
-    prettyPrint (SFunctionBind _ n args Nothing) =
-        M.prettyPrint n
-        M.<> M.hcat (mapM (\as -> M.parens (M.list (mapM M.prettyPrint as))) args)
-    prettyPrint (SFunctionBind h n args (Just pn)) =
-        M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (SFunctionBind h n args Nothing)
-    prettyPrint (SVariableBind _ args Nothing) =
-        M.text "ANNON" M.<> (M.parens (M.list (mapM M.prettyPrint args)))
-    prettyPrint (SVariableBind h args (Just pn)) =
-        M.prettyPrint pn M.<> M.text "::" M.<> M.prettyPrint (SVariableBind h args Nothing)
-
-    prettyPrintBrief (SFunctionBind _ n args Nothing) =
+instance (Applicative m, Monad m,
+        M.MonadicPrettyPrintable m EventSet,
+        M.MonadicPrettyPrintable m TCExp,
+        M.MonadicPrettyPrintable m Proc,
+        M.MonadicPrettyPrintable m ProcOperator,
+        M.MonadicPrettyPrintable m ValueSet,
+        M.MonadicPrettyPrintable m Value) =>
+        M.MonadicPrettyPrintable m InstantiatedFrame where
+    prettyPrint (InstantiatedFrame _ frame freeVarValues args) =
         let
+            freeVarNames = frameFreeVars frame
+
+            varMap :: Mp.Map Name Value
+            varMap = Mp.fromList (zip freeVarNames freeVarValues)
+
+            ppPat :: TCPat -> m Doc
+            ppPat (An _ _ (PCompList xs me _)) =
+                M.angles (M.list $ mapM ppPat xs)
+                M.<> case me of
+                        Just (middle, ends) ->
+                            M.char '^'
+                            M.<> ppPat middle
+                            M.<> case ends of
+                                    [] -> M.empty
+                                    _ -> M.char '^' M.<>
+                                            M.angles (M.list $ mapM ppPat ends)
+                        Nothing -> M.empty
+            ppPat (An _ _ (PCompDot xs _)) = M.dotSep $! mapM ppPat xs
+            ppPat (An _ _ (PDoublePattern p1 p2)) =
+                -- TODO: select whichever binds more
+                ppPat p1
+            ppPat (An _ _ (PLit x)) = return $ prettyPrint x
+            ppPat (An _ _ (PParen p)) = ppPat p
+            ppPat (An _ _ (PTuple xs)) = M.parens (M.list $ mapM ppPat xs)
+            ppPat (An _ _ (PSet xs)) = M.braces (M.list $ mapM ppPat xs)
+            ppPat (An _ _ (PVar x)) | isNameDataConstructor x = M.prettyPrint x
+            ppPat (An _ _ (PVar x)) =
+                case Mp.lookup x varMap of
+                    Just v -> M.prettyPrint v
+                    Nothing -> M.char '_'
+            ppPat (An _ _ PWildCard) = M.char '_'
+
+            ppFrame :: FrameInformation -> m Doc
+            ppFrame frame@(BuiltinFunctionFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> M.prettyPrint (builtinFunctionFrameFunctionName frame)
+            ppFrame frame@(FunctionFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> M.prettyPrint (functionFrameFunctionName frame)
+                M.<> case functionFramePatterns frame of
+                        [] -> M.empty
+                        args -> M.hcat (mapM (\ as -> M.parens (M.list (mapM ppPat as))) args)
+            ppFrame frame@(LambdaFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> M.parens (
+                    M.char '\\'
+                    M.<> M.list (mapM ppPat (lambdaFramePatterns frame))
+                    M.<+> M.char '@'
+                    M.<+> return (prettyPrint (lambdaFrameExpression frame))
+                )
+            ppFrame frame@(PartiallyAppliedFunctionFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> (return $ prettyPrint
+                        (partiallyAppliedFunctionFrameFunctionName frame))
+            ppFrame frame@(VariableFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> M.text "ANNON"
+                M.<> M.parens (M.list (mapM ppPat (variableFramePatterns frame)))
+
+            ppParentFrame Nothing = M.empty
+            ppParentFrame (Just frame) = ppFrame frame M.<> M.text "::"
+
+            ppTopMostFrame frame@(LambdaFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> M.parens (return $ prettyPrint
+                        (Lambda (lambdaFramePatterns frame)
+                            (lambdaFrameExpression frame)))
+            ppTopMostFrame frame = ppFrame frame
+        in
+            ppTopMostFrame frame
+            M.<> case args of
+                    [] -> M.empty
+                    _ -> M.hcat (mapM (\ as ->
+                            M.parens (M.list (mapM M.prettyPrint as))) args)
+
+    prettyPrintBrief (InstantiatedFrame _ frame freeVarValues args) =
+        let
+            freeVarNames = frameFreeVars frame
+
+            varMap :: Mp.Map Name Value
+            varMap = Mp.fromList (zip freeVarNames freeVarValues)
+
+            ppPat :: TCPat -> m Doc
+            ppPat (An _ _ (PCompList xs me _)) =
+                M.angles (M.list $ mapM ppPat xs)
+                M.<> case me of
+                        Just (middle, ends) ->
+                            ppPat middle
+                            M.<> case ends of
+                                    [] -> M.empty
+                                    _ -> M.angles (M.list $ mapM ppPat ends)
+                        Nothing -> M.empty
+            ppPat (An _ _ (PCompDot xs _)) = M.dotSep $! mapM ppPat xs
+            ppPat (An _ _ (PDoublePattern p1 p2)) =
+                -- TODO: select whichever binds more
+                ppPat p1
+            ppPat (An _ _ (PLit x)) = return $ prettyPrint x
+            ppPat (An _ _ (PParen p)) = ppPat p
+            ppPat (An _ _ (PTuple xs)) = M.parens (M.list $ mapM ppPat xs)
+            ppPat (An _ _ (PSet xs)) = M.braces (M.list $ mapM ppPat xs)
+            ppPat (An _ _ (PVar x)) | isNameDataConstructor x = M.prettyPrint x
+            ppPat (An _ _ (PVar x)) =
+                case Mp.lookup x varMap of
+                    Just v -> M.prettyPrintBrief v
+                    Nothing -> M.char '_'
+            ppPat (An _ _ PWildCard) = M.char '_'
+
             spaceThreashold = 15
 
             spaceCost :: Value -> Int
@@ -194,26 +305,79 @@ instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
             spaceCost (VFunction _ _) = spaceThreashold
             spaceCost (VProc _) = spaceThreashold
             spaceCost (VThunk _) = spaceThreashold
-            
-            smallPP :: (Applicative m, Monad m, M.MonadicPrettyPrintable m Value)
-                => Value -> m Doc
-            smallPP v | spaceCost v < spaceThreashold = M.prettyPrintBrief v
-            smallPP _ = M.ellipsis
-        in M.prettyPrintBrief n M.<> M.hcat (mapM (\as ->
-                if length as >= spaceThreashold then M.ellipsis
-                else M.parens $ M.list $ mapM smallPP as) args)
-    prettyPrintBrief (SFunctionBind h n args (Just pn)) =
-        M.prettyPrintBrief pn M.<> M.text "::"
-        M.<> M.prettyPrintBrief (SFunctionBind h n args Nothing)
-    prettyPrintBrief (SVariableBind _ args Nothing) =
-        M.text "ANNON" M.<> (M.parens (M.list (mapM M.prettyPrintBrief args)))
-    prettyPrintBrief (SVariableBind h args (Just pn)) =
-        M.prettyPrintBrief pn M.<> M.text "::"
-        M.<> M.prettyPrintBrief (SVariableBind h args Nothing)
 
-instance (Applicative m, F.Foldable seq, Functor seq, Monad m, 
-            M.MonadicPrettyPrintable m ev, M.MonadicPrettyPrintable m evs) => 
-        M.MonadicPrettyPrintable m (CSPOperator seq ev evs (seq (ev,ev))) where
+            patSpaceCost :: TCPat -> Int
+            patSpaceCost (An _ _ (PCompList xs me _)) =
+                2+sum (map patSpaceCost xs)
+                + case me of
+                        Just (middle, ends) ->
+                            1 + patSpaceCost middle + 1 + 2 + 
+                            sum (map patSpaceCost ends)
+                        Nothing -> 0
+            patSpaceCost (An _ _ (PCompDot xs _)) = sum (map patSpaceCost xs)
+            patSpaceCost (An _ _ (PDoublePattern p1 p2)) = patSpaceCost p1
+            patSpaceCost (An _ _ (PLit (String s))) = B.length s
+            patSpaceCost (An _ _ (PParen p)) = patSpaceCost p
+            patSpaceCost (An _ _ (PTuple xs)) =
+                2 + length xs + sum (map patSpaceCost xs)
+            patSpaceCost (An _ _ (PSet xs)) =
+                2 + length xs + sum (map patSpaceCost xs)
+            patSpaceCost (An _ _ (PVar x)) | isNameDataConstructor x =
+                length (show x)
+            patSpaceCost (An _ _ (PVar x)) =
+                case Mp.lookup x varMap of
+                    Just v -> spaceCost v
+                    Nothing -> 1
+            patSpaceCost (An _ _ PWildCard) = 1
+
+            ppSmallValue v | spaceCost v > spaceThreashold = M.ellipsis
+            ppSmallValue v = M.prettyPrint v
+            ppSmallPat p | patSpaceCost p > spaceThreashold = M.ellipsis
+            ppSmallPat p = ppPat p
+
+            ppFrame :: FrameInformation -> m Doc
+            ppFrame frame@(BuiltinFunctionFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> M.prettyPrintBrief (builtinFunctionFrameFunctionName frame)
+            ppFrame frame@(FunctionFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> M.prettyPrintBrief (functionFrameFunctionName frame)
+                M.<> case functionFramePatterns frame of
+                        [] -> M.empty
+                        args -> M.hcat (mapM (\ as ->
+                            if length as > spaceThreashold `div` 2 then M.ellipsis
+                            else M.parens (M.list (mapM ppSmallPat as))) args)
+            ppFrame frame@(LambdaFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> M.parens (
+                    M.char '\\'
+                    M.<> M.list (mapM ppPat (lambdaFramePatterns frame))
+                    M.<+> M.char '@'
+                    M.<+> M.ellipsis
+                )
+            ppFrame frame@(PartiallyAppliedFunctionFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> (M.prettyPrintBrief
+                        (partiallyAppliedFunctionFrameFunctionName frame))
+            ppFrame frame@(VariableFrame {}) =
+                ppParentFrame (frameParent frame)
+                M.<> M.text "ANNON"
+                M.<> M.parens (M.list (mapM ppPat (variableFramePatterns frame)))
+
+            ppParentFrame Nothing = M.empty
+            ppParentFrame (Just frame) = ppFrame frame M.<> M.text "::"
+        in
+            ppFrame frame
+            M.<> case args of
+                    [] -> M.empty
+                    _ -> M.hcat (mapM (\ as ->
+                            if length as > spaceThreashold `div` 2 then M.ellipsis
+                            else M.parens (M.list (mapM ppSmallValue as))) args)
+
+instance (Applicative m, Monad m,
+        M.MonadicPrettyPrintable m EventSet,
+        M.MonadicPrettyPrintable m ValueSet) => 
+        M.MonadicPrettyPrintable m CSPOperator where
     prettyPrintBrief (PAlphaParallel _) = M.text "[ || ]"
     prettyPrintBrief (PChaos _) = M.text "CHAOS"
     prettyPrintBrief (PException _) = M.text "[| |>"
@@ -226,6 +390,7 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
     prettyPrintBrief (PLinkParallel _) = M.text "[ <-> ]"
     prettyPrintBrief (POperator op) = M.prettyPrintBrief op
     prettyPrintBrief (PPrefix _) = M.text "->"
+    prettyPrintBrief (PPrefixEventSet _) = M.text "->"
     prettyPrintBrief (PProject _) = M.text "|\\"
     prettyPrintBrief (PRename _) = M.text "[[ ]]"
     prettyPrintBrief (PRun _) = M.text "RUN"
@@ -264,6 +429,9 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
     prettyPrint (POperator op) = 
         M.text "Compression using" M.<+> M.prettyPrint op
     prettyPrint (PPrefix ev) = M.text "Prefix" M.<+> M.prettyPrint ev
+    prettyPrint (PPrefixEventSet a) =
+        M.text "Prefix events:"
+        M.$$ M.tabIndent (M.prettyPrint a)
     prettyPrint (PProject a) =
         M.text "Projecting event set:"
         M.$$ M.tabIndent (M.prettyPrint a)
@@ -285,7 +453,7 @@ instance (Applicative m, F.Foldable seq, Functor seq, Monad m,
         M.text "Synchronising interrupt, synchronising on:"
         M.$$ M.tabIndent (M.prettyPrint evs)
 
-instance Precedence (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
+instance Precedence Proc where
     precedence (PUnaryOp (PHide _) _) = 10
     precedence (PUnaryOp (PProject _) _) = 10
     precedence (POp PInterleave _) = 9
@@ -301,6 +469,7 @@ instance Precedence (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
     precedence (PBinaryOp PSlidingChoice _ _) = 4
     precedence (PBinaryOp PSequentialComp _ _) = 3
     precedence (PUnaryOp (PPrefix _) _) = 2
+    precedence (PUnaryOp (PPrefixEventSet _) _) = 2
     precedence (PUnaryOp (PRename _) _) = 1
 
     precedence (PProcCall _ _) = 0
@@ -308,14 +477,8 @@ instance Precedence (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
     precedence (POp (PChaos _) _) = 0
     precedence (POp (PRun _) _) = 0
 
-ppBinaryOp, ppBriefBinaryOp ::
-    (F.Foldable seq, Functor seq, M.MonadicPrettyPrintable m pn,
-        M.MonadicPrettyPrintable m ev, M.MonadicPrettyPrintable m evs) => 
-    Proc seq CSPOperator pn ev evs (seq (ev,ev)) ->
-    m Doc ->
-    Proc seq CSPOperator pn ev evs (seq (ev,ev)) -> 
-    Proc seq CSPOperator pn ev evs (seq (ev,ev)) ->
-    m Doc
+ppBinaryOp, ppBriefBinaryOp :: (M.MonadicPrettyPrintable m Proc) => 
+    Proc -> m Doc -> Proc -> Proc -> m Doc
 ppBriefBinaryOp op opd p1 p2 =
     M.sep (sequence [M.prettyPrintBriefPrec (precedence op) p1,
         opd M.<+> M.prettyPrintBriefPrec (precedence op) p2])
@@ -329,11 +492,11 @@ maybeNull' :: (Applicative m, F.Foldable s, Monad m) => s a -> m Doc -> m Doc
 maybeNull' s _ | null (F.toList s) = M.text "SKIP"
 maybeNull' _ d = d
 
-instance 
-    (F.Foldable seq, Functor seq, M.MonadicPrettyPrintable m pn,
-        M.MonadicPrettyPrintable m ev, M.MonadicPrettyPrintable m evs) => 
-        M.MonadicPrettyPrintable m 
-            (Proc seq CSPOperator pn ev evs (seq (ev,ev))) where
+instance
+    (M.MonadicPrettyPrintable m EventSet,
+        M.MonadicPrettyPrintable m ValueSet) =>
+        M.MonadicPrettyPrintable m Proc
+    where
 
     prettyPrint (op@(POp (PAlphaParallel as) ps)) = maybeNull' ps $ 
         case length (F.toList as) of
@@ -391,6 +554,9 @@ instance
     prettyPrint (op@(PUnaryOp (POperator cop) p)) = 
         ppOperatorWithArg cop (M.prettyPrint p)
     prettyPrint (op@(PUnaryOp (PPrefix e) p)) =
+        M.prettyPrint e M.<+> M.text "->"
+        M.<+> M.prettyPrintPrec op p
+    prettyPrint (op@(PUnaryOp (PPrefixEventSet e) p)) =
         M.prettyPrint e M.<+> M.text "->"
         M.<+> M.prettyPrintPrec op p
     prettyPrint (op@(PUnaryOp (PProject a) p)) =
@@ -457,6 +623,8 @@ instance
         ppBriefOperatorWithArg cop (M.prettyPrintBriefPrec 100 p)
     prettyPrintBrief (op@(PUnaryOp (PPrefix e) p)) =
         M.prettyPrintBrief e M.<+> M.text "->" M.<+> M.ellipsis
+    prettyPrintBrief (op@(PUnaryOp (PPrefixEventSet e) p)) =
+        M.braces M.ellipsis M.<+> M.text "->" M.<+> M.ellipsis
         --M.<+> M.prettyPrintBriefPrec (precedence op) p
     prettyPrintBrief (op@(PUnaryOp (PProject a) p)) =
         M.prettyPrintBriefPrec (precedence op) p
@@ -479,9 +647,10 @@ instance
 
 instance (Applicative m, Monad m,
         M.MonadicPrettyPrintable m TCExp,
-        M.MonadicPrettyPrintable m UProc,
-        M.MonadicPrettyPrintable m UProcOperator,
-        M.MonadicPrettyPrintable m ValueSet) =>
+        M.MonadicPrettyPrintable m Proc,
+        M.MonadicPrettyPrintable m ProcOperator,
+        M.MonadicPrettyPrintable m ValueSet,
+        M.MonadicPrettyPrintable m EventSet) =>
         M.MonadicPrettyPrintable m Value where
     prettyPrint (VInt i) = M.int i
     prettyPrint (VChar c) = M.quotes (M.char c)
@@ -500,21 +669,7 @@ instance (Applicative m, Monad m,
             (\ (k,v) -> M.prettyPrint k M.<+> M.text "=>" M.<+> M.prettyPrint v)
             (Mp.toList m))
         M.<+> M.text "|)"
-    prettyPrint (VFunction (FBuiltInFunction _ n args) _) =
-        M.prettyPrint n M.<> case args of
-                            [] -> M.empty
-                            _ -> M.parens (M.list (mapM M.prettyPrint args))
-    prettyPrint (VFunction (FLambda _ e Nothing) _) = M.prettyPrint e
-    prettyPrint (VFunction (FLambda _ e (Just p)) _) =
-        M.prettyPrint p M.<> M.text "::" M.<> M.parens (M.prettyPrint e)
-    prettyPrint (VFunction (FMatchBind _ n args parent) _) =
-        (case parent of
-            Just pid -> M.prettyPrint pid M.<> M.text "::"
-            Nothing -> M.empty
-        ) M.<> M.prettyPrint n M.<>
-        case args of
-            [] -> M.empty
-            _ -> M.hcat (mapM (\ as -> M.parens (M.list (mapM M.prettyPrint as))) args)
+    prettyPrint (VFunction fid _) = M.prettyPrint fid
     prettyPrint (VProc p) = M.prettyPrint p
     prettyPrint (VThunk th) = M.text "<thunk>"
 
@@ -540,6 +695,8 @@ instance M.MonadicPrettyPrintable EvaluationMonad ValueSet where
     prettyPrint (CompositeSet ss) =
         M.text "Union" M.<> M.parens (M.braces (M.list (mapM M.prettyPrint (F.toList ss))))
     prettyPrint (Powerset vs) = M.text "Set" M.<> M.parens (M.prettyPrint vs)
+    prettyPrint (s@(AllMaps ks vs)) =
+        M.braces (M.list (mapM M.prettyPrint (toList s)))
     prettyPrint s = do
         -- Try and compress
         mvs <- compressIntoEnumeratedSet s
@@ -572,15 +729,15 @@ instance M.MonadicPrettyPrintable Identity ValueSet where
         M.braces (M.list (mapM M.prettyPrint (toList s)))
 
 -- | Pretty prints the given process and all processes that it depends upon.
-prettyPrintAllRequiredProcesses ::
-    (F.Foldable seq, PrettyPrintable (Proc seq op ProcName ev evs evm)) => 
-    Proc seq op ProcName ev evs evm -> Doc
+prettyPrintAllRequiredProcesses :: Proc -> Doc
 prettyPrintAllRequiredProcesses p =
     let
         (pInit, namedPs') = splitProcIntoComponents p
         stopName = head [name b | b <- builtins False, stringName b == "STOP"]
-        namedPs =
-            filter (\ (ProcName s, _) -> scopeFunctionName s /= stopName) namedPs'
+        isStop (InstantiatedFrame _ frame@(BuiltinFunctionFrame {}) _ _) =
+            builtinFunctionFrameFunctionName frame == stopName
+        isStop _ = False
+        namedPs = filter (\ (ProcName s, _) -> not (isStop s)) namedPs'
         ppNamedProc (n,p) =
             hang (prettyPrint n <+> char '=') tabWidth (prettyPrint p)
     in vcat (punctuate (char '\n') ((map ppNamedProc namedPs)++[prettyPrint pInit]))

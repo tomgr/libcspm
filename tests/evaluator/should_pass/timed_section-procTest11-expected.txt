@@ -1,10 +1,10 @@
 SKIP = ✓ -> STOP
 
-SKIP::tock = tock -> SKIP::tock [] SKIP
+SKIP(tock) = tock -> SKIP(tock) [] SKIP
 
-WAIT(5)::tock = tock -> tock -> tock -> tock -> tock -> SKIP::tock
+WAIT(tock)(5) = tock -> tock -> tock -> tock -> tock -> SKIP(tock)
 
-waitN = WAIT(5)::tock ; waitN
+waitN = WAIT(tock)(5) ; waitN
 
 procTest11 = waitN
 

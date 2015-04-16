@@ -11,9 +11,11 @@ module Util.MonadicPrettyPrint(
     speakNth,
     punctuateFront,
     ellipsis,
+    bytestring,
 ) where
 
 import Control.Applicative hiding (empty)
+import qualified Data.ByteString.Char8 as B
 import Numeric
 import Util.MonadicPrettyPrintInternal
 import Util.Precedence
@@ -131,3 +133,6 @@ punctuateFront sep dsm = dsm >>= \ds ->
 
 ellipsis :: (Applicative m, Monad m) => m Doc
 ellipsis = char '…'
+
+bytestring :: (Applicative m, Monad m) => B.ByteString -> m Doc
+bytestring = text . B.unpack

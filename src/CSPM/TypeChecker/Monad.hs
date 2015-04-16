@@ -350,7 +350,7 @@ tryAndRecover retainErrors prog handler = tryM prog >>= \x ->
 -- *************************************************************************
 -- Type Operations
 -- *************************************************************************
-readTypeRef :: TypeVarRef -> TypeCheckMonad (Either (TypeVar, [Constraint]) Type)
+readTypeRef :: MonadIO m => TypeVarRef -> m (Either (TypeVar, [Constraint]) Type)
 readTypeRef (TypeVarRef tv cs ioref) = do
     mtyp <- readPType ioref
     case mtyp of
@@ -358,7 +358,7 @@ readTypeRef (TypeVarRef tv cs ioref) = do
         Nothing -> return (Left (tv, cs))
 readTypeRef (RigidTypeVarRef tv cs _) = return $ Left (tv, cs)
 
-writeTypeRef :: TypeVarRef -> Type -> TypeCheckMonad ()
+writeTypeRef :: MonadIO m => TypeVarRef -> Type -> m ()
 writeTypeRef (TypeVarRef tv cs ioref) t = setPType ioref t
 
 getSymbolInformation :: Name -> TypeCheckMonad Env.SymbolInformation
@@ -418,7 +418,7 @@ replacementForDeprecatedName n = do
     return $ Env.deprecationReplacement symb
 
 -- | Apply compress to the type of a type scheme.
-compressTypeScheme :: TypeScheme -> TypeCheckMonad TypeScheme
+compressTypeScheme :: MonadIO m => TypeScheme -> m TypeScheme
 compressTypeScheme (ForAll ts t) = 
     do
         t' <- compress t
@@ -426,12 +426,15 @@ compressTypeScheme (ForAll ts t) =
 
 -- | Takes a type and compresses the type by reading all type variables and
 -- if they point to another type, it returns that type instead.
-compress :: Type -> TypeCheckMonad Type
+compress :: MonadIO m => Type -> m Type
 compress (tr @ (TVar typeRef)) = do
     res <- readTypeRef typeRef
     case res of
         Left tv -> return tr
-        Right t -> compress t
+        Right t -> do
+            t' <- compress t
+            writeTypeRef typeRef t'
+            return t'
 compress (TFunction targs tr) = do
     targs' <- mapM compress targs
     tr' <- compress tr
@@ -507,14 +510,14 @@ canonicalNameOfInstanceName n = do
                 Just n -> n
                 Nothing -> panic "Could not find canonical name for instance"
 
-addModuleInstanceMap :: [(Name, Name)] -> TypeCheckMonad ()
-addModuleInstanceMap ns = 
+addModuleInstanceMap :: M.Map Name Name -> TypeCheckMonad ()
+addModuleInstanceMap nm = 
     modify (\ st -> st {
         moduleInstanceNameSubstitution =
             let oldMap = moduleInstanceNameSubstitution st
-                newMap = M.fromList $! map (\ (new, old) ->
-                                case M.lookup old oldMap of
-                                    Just old -> (new, old)
-                                    Nothing -> (new, old)) ns
+                newMap = M.fromList $! map (\ (old, new) ->
+                            case M.lookup old oldMap of
+                                Just old -> (new, old)
+                                Nothing -> (new, old)) (M.toList nm)
             in M.union newMap oldMap
     })

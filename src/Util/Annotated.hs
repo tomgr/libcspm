@@ -1,7 +1,9 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances #-}
 module Util.Annotated where
 
+import qualified Data.ByteString as B
 import Data.Hashable
+import GHC.Generics (Generic)
 import Prelude
 import Util.Exception
 import Util.Prelude
@@ -9,9 +11,9 @@ import Util.PrettyPrint
 
 data SrcLoc = 
     SrcLoc {
-        srcLocFile :: String,
-        srcLocLine :: !Int,
-        srcLocCol :: !Int
+        srcLocFile :: !B.ByteString,
+        srcLocLine :: {-# UNPACK #-} !Int,
+        srcLocCol :: {-# UNPACK #-} !Int
     }
     | NoLoc
     deriving Eq
@@ -28,27 +30,29 @@ instance Ord SrcLoc where
 -- From GHC
 data SrcSpan = 
     SrcSpanOneLine { 
-        srcSpanFile :: String,
-        srcSpanLine :: !Int,
-        srcSpanSCol :: !Int,
-        srcSpanECol :: !Int
+        srcSpanFile :: !B.ByteString,
+        srcSpanLine :: {-# UNPACK #-} !Int,
+        srcSpanSCol :: {-# UNPACK #-} !Int,
+        srcSpanECol :: {-# UNPACK #-} !Int
     }
     | SrcSpanMultiLine { 
-        srcSpanFile :: String,
-        srcSpanSLine :: !Int,
-        srcSpanSCol :: !Int,
-        srcSpanELine :: !Int,
-        srcSpanECol :: !Int
+        srcSpanFile :: !B.ByteString,
+        srcSpanSLine :: {-# UNPACK #-} !Int,
+        srcSpanSCol :: {-# UNPACK #-} !Int,
+        srcSpanELine :: {-# UNPACK #-} !Int,
+        srcSpanECol :: {-# UNPACK #-} !Int
     }
     | SrcSpanPoint { 
-        srcSpanFile :: String,
-        srcSpanLine :: !Int,
-        srcSpanCol :: !Int
+        srcSpanFile :: !B.ByteString,
+        srcSpanLine :: {-# UNPACK #-} !Int,
+        srcSpanCol :: {-# UNPACK #-} !Int
     }
     | Unknown
     -- | A builtin thing
     | BuiltIn
-    deriving Eq
+    deriving (Eq, Generic)
+
+instance Hashable SrcSpan
     
 srcSpanStart :: SrcSpan -> SrcLoc
 srcSpanStart (SrcSpanOneLine f l sc _) = SrcLoc f l sc
@@ -75,13 +79,13 @@ instance Show SrcSpan where
 
 instance PrettyPrintable SrcSpan where
     prettyPrint (SrcSpanOneLine f sline scol1 ecol1) = 
-        text f <> colon <> int sline <> colon <> int scol1 <> char '-' <> int ecol1
+        bytestring f <> colon <> int sline <> colon <> int scol1 <> char '-' <> int ecol1
     prettyPrint (SrcSpanMultiLine f sline scol eline ecol) = 
-        text f <> colon <> int sline <> colon <> int scol
+        bytestring f <> colon <> int sline <> colon <> int scol
                         <> char '-' 
                         <> int eline <> colon <> int ecol
     prettyPrint (SrcSpanPoint f sline scol) = 
-        text f <> colon <> int sline <> colon <> int scol
+        bytestring f <> colon <> int sline <> colon <> int scol
     prettyPrint Unknown = text "<unknown location>"
     prettyPrint BuiltIn = text "<built-in>"
     

@@ -12,6 +12,7 @@ where
 
 -- i.e.: cpp -P src/CSPM/Parser/Parser.ppy > src/CSPM/Parser/Parser.y && happy --ghc --coerce --array src/CSPM/Parser/Parser.y && rm src/CSPM/Parser/Parser.y
 
+import qualified Data.ByteString.Char8 as B
 import Data.Char
 import Data.List (groupBy, nub, sort, sortBy, (\\))
 import qualified Data.Map as M
@@ -984,7 +985,7 @@ happyReduction_36 (happy_x_5 `HappyStk`
 	case happyOut18 happy_x_5 of { happy_var_5 -> 
 	happyIn15
 		 (annotate2List happy_var_1 happy_var_5 (ModuleInstance (unLoc happy_var_2)
-                                                    (unLoc happy_var_4) happy_var_5 [] Nothing)
+                                                    (unLoc happy_var_4) happy_var_5 M.empty Nothing)
 	) `HappyStk` happyRest}}}}
 
 happyReduce_37 = happyReduce 4# 9# happyReduction_37
@@ -998,7 +999,7 @@ happyReduction_37 (happy_x_4 `HappyStk`
 	case happyOut27 happy_x_4 of { happy_var_4 -> 
 	happyIn15
 		 (annotate2 happy_var_1 happy_var_4 (ModuleInstance (unLoc happy_var_2)
-                                                    (unLoc happy_var_4) [] [] Nothing)
+                                                    (unLoc happy_var_4) [] M.empty Nothing)
 	) `HappyStk` happyRest}}}
 
 happyReduce_38 = happySpecReduce_1  9# happyReduction_38
@@ -1385,7 +1386,7 @@ happyReduction_81 happy_x_3
 	 =  case happyOut34 happy_x_1 of { happy_var_1 -> 
 	case happyOut34 happy_x_3 of { happy_var_3 -> 
 	happyIn34
-		 (annotate2 happy_var_1 happy_var_3 (STDot happy_var_1 happy_var_3)
+		 (makeSTDot happy_var_1 happy_var_3
 	)}}
 
 happyReduce_82 = happySpecReduce_3  28# happyReduction_82
@@ -1576,7 +1577,7 @@ happyReduction_103 (happy_x_1 `HappyStk`
 	( do
                                         t <- freshPType
                                         let An l _ e = happy_var_1
-                                        return $ An l (Nothing, t) e)}
+                                        return $ An l (typeThunk, t) e)}
 	) (\r -> happyReturn (happyIn46 r))
 
 happyReduce_104 = happySpecReduce_1  41# happyReduction_104
@@ -1611,7 +1612,7 @@ happyReduction_107 happy_x_3
 	 =  case happyOut46 happy_x_1 of { happy_var_1 -> 
 	case happyOut46 happy_x_3 of { happy_var_3 -> 
 	happyIn47
-		 (annotate2 happy_var_1 happy_var_3 (DotApp happy_var_1 happy_var_3)
+		 (makeDotApp happy_var_1 happy_var_3
 	)}}
 
 happyReduce_108 = happyReduce 4# 41# happyReduction_108
@@ -2854,13 +2855,13 @@ combineDecls ((An loc1 b (FunBind n ms Nothing)):
         (An (combineSpans loc1 loc2) b (FunBind n (ms++ms1) Nothing)):ds
 combineDecls (d:ds) = d:combineDecls ds
 
-constraintForName :: SrcSpan -> String -> Constraint
+constraintForName :: SrcSpan -> B.ByteString -> Constraint
 constraintForName _ "Eq" = CEq
 constraintForName _ "Ord" = COrd
 constraintForName _ "Inputable" = CInputable
 constraintForName _ "Set" = CSet
 constraintForName _ "Yieldable" = CYieldable
-constraintForName loc s = throwSourceError [unknownConstraintError s loc]
+constraintForName loc s = throwSourceError [unknownConstraintError (B.unpack s) loc]
 
 attachTypeAnnotations :: [PDecl] -> [PDecl]
 attachTypeAnnotations ds =
@@ -2968,8 +2969,8 @@ convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) =
     in do
         symbTable <- freshPSymbolTable
         case lhsexp of
-            App f args  -> return $ An span (Nothing, symbTable) (convFunBind lhsexp)
-            _           -> return $ An span (Nothing, symbTable) (convPatBind lhs)
+            App f args  -> return $ An span (symbolTableThunk, symbTable) (convFunBind lhsexp)
+            _           -> return $ An span (symbolTableThunk, symbTable) (convPatBind lhs)
 
 -- | Throws an error if a declaration that is not allowed inside a let 
 -- expression is found.
@@ -3195,7 +3196,7 @@ convPat (anExp@ (An a b exp)) =
             PDoublePattern (convPat e1) (convPat e2)
         trans x = throwSourceError [invalidPatternErrorMessage anExp]
     in
-        An a () (trans exp)
+        An a b (trans exp)
 
 checkModelOptions :: [PModelOption] -> [PModelOption]
 checkModelOptions options =
@@ -3215,6 +3216,25 @@ checkModelOptions options =
         case nonTrivialGroups of
             [] -> options
             g:_ -> throwSourceError [duplicateModelOptionsError g]
+
+stripParen :: PExp -> PExp
+stripParen (An _ _ (Paren e)) = stripParen e
+stripParen e = e
+
+makeDotApp :: PExp -> PExp -> PExp
+makeDotApp e1 e3 =
+    case stripParen e1 of
+        An _ typ (DotApp e1 e2) -> annotate2 e1 right $ DotApp e1 right
+            where
+                An loc _ rightP = annotate2 e2 e3 $ DotApp e2 e3
+                right = An loc typ rightP
+        _ -> annotate2 e1 e3 (DotApp e1 e3)
+
+makeSTDot :: PSType -> PSType -> PSType
+makeSTDot (An loc typ (STDot e1 e2)) e3 = annotate2 e1 right $ STDot e1 right
+    where right = annotate2 e2 e3 $ STDot e2 e3
+makeSTDot e1 e2 = annotate2 e1 e2 (STDot e1 e2)
+
 
 -- Helper function to get the contents of tokens
 getInt (L _ (TInteger x)) = x
@@ -3255,11 +3275,14 @@ annotate2Lista ::
     (Locatable t1, Locatable t2, Locatable t3) => [t1 a] -> t2 b -> c -> t3 c
 annotate2Lista t1 t2 b = annotate2 (last t1) t2 b
 
+symbolTableThunk = panic "Symbol table not typechecked yet"
+typeThunk = panic "Type not typechecked yet"
+
 annotateWithSymbolTable 
-    :: Annotated (Maybe SymbolTable, PSymbolTable) a -> ParseMonad (Annotated (Maybe SymbolTable, PSymbolTable) a)
+    :: Annotated (SymbolTable, PSymbolTable) a -> ParseMonad (Annotated (SymbolTable, PSymbolTable) a)
 annotateWithSymbolTable (An l _ a) = do
     symbTable <- freshPSymbolTable
-    return $ An l (Nothing, symbTable) a
+    return $ An l (symbolTableThunk, symbTable) a
 
 liftLoc :: (Locatable t1, Locatable t2) => t1 a -> b -> t2 b
 liftLoc t1 b = mkLoc (getLoc t1) b
@@ -3269,9 +3292,9 @@ parseError tok = throwSourceError [parseErrorMessage tok]
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 {-# LINE 1 "<built-in>" #-}
+{-# LINE 1 "<command-line>" #-}
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 -- Id: GenericTemplate.hs,v 1.26 2005/01/14 14:47:22 simonmar Exp 
-
 
 {-# LINE 13 "templates/GenericTemplate.hs" #-}
 
@@ -3289,7 +3312,6 @@ parseError tok = throwSourceError [parseErrorMessage tok]
 #define GTE(n,m) (n Happy_GHC_Exts.>=# m)
 #define EQ(n,m) (n Happy_GHC_Exts.==# m)
 #endif
-
 {-# LINE 46 "templates/GenericTemplate.hs" #-}
 
 
@@ -3299,20 +3321,11 @@ data Happy_IntList = HappyCons Happy_GHC_Exts.Int# Happy_IntList
 
 
 
-
 {-# LINE 67 "templates/GenericTemplate.hs" #-}
-
 
 {-# LINE 77 "templates/GenericTemplate.hs" #-}
 
-
-
-
-
-
-
-
-
+{-# LINE 86 "templates/GenericTemplate.hs" #-}
 
 infixr 9 `HappyStk`
 data HappyStk a = HappyStk a (HappyStk a)
@@ -3340,7 +3353,7 @@ happyAccept j tk st sts (HappyStk ans _) =
 
 happyDoAction i tk st
         = {- nothing -}
-          
+
 
           case action of
                 0#           -> {- nothing -}
@@ -3348,11 +3361,11 @@ happyDoAction i tk st
                 -1#          -> {- nothing -}
                                      happyAccept i tk st
                 n | LT(n,(0# :: Happy_GHC_Exts.Int#)) -> {- nothing -}
-                                                   
+
                                                    (happyReduceArr Happy_Data_Array.! rule) i tk st
                                                    where rule = (Happy_GHC_Exts.I# ((Happy_GHC_Exts.negateInt# ((n Happy_GHC_Exts.+# (1# :: Happy_GHC_Exts.Int#))))))
                 n                 -> {- nothing -}
-                                     
+
 
                                      happyShift new_state i tk st
                                      where new_state = (n Happy_GHC_Exts.-# (1# :: Happy_GHC_Exts.Int#))
@@ -3385,7 +3398,6 @@ data HappyAddr = HappyA# Happy_GHC_Exts.Addr#
 
 -----------------------------------------------------------------------------
 -- HappyState data type (not arrays)
-
 
 {-# LINE 170 "templates/GenericTemplate.hs" #-}
 
@@ -3551,4 +3563,3 @@ happyDontSeq a b = b
 {-# NOINLINE happyFail #-}
 
 -- end of Happy Template.
-

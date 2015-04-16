@@ -1,8 +1,8 @@
 SKIP = ✓ -> STOP
 
-SKIP::tock = tock -> SKIP::tock [] SKIP
+SKIP(tock) = tock -> SKIP(tock) [] SKIP
 
-repSeqComp = SKIP::tock
+repSeqComp = SKIP(tock)
 
 procTest10 = repSeqComp
 

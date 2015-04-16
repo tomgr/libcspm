@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, ScopedTypeVariables #-}
+{-# LANGUAGE CPP, OverloadedStrings, ScopedTypeVariables #-}
 module CSPM.Parser.Monad (
     ParseMonad, ParserState(..), 
     FileParserState(..), movePos,
@@ -8,7 +8,7 @@ module CSPM.Parser.Monad (
     addFileContents,
     
     runParser, pushFile, pushFileContents,
-    getTokenizerPos, getFileName, getInput, 
+    getTokenizerPos, getInput, 
     getPreviousChar, getCurrentStartCode, setCurrentStartCode, 
     getSequenceStack, setSequenceStack
 )
@@ -16,14 +16,12 @@ where
 
 import Control.Exception
 import Control.Monad.State
-import Data.List (stripPrefix)
+import qualified Data.ByteString.Char8 as B
 import qualified Data.Map as M
-import GHC.IO.Encoding
 #if __GLASGOW_HASKELL__ < 705
 import Prelude hiding (catch)
 #endif
 import System.FilePath
-import System.IO
 
 import CSPM.Parser.Exceptions
 import Util.Annotated
@@ -45,7 +43,7 @@ data FilePosition = FilePosition !Int !Int !Int
 startPos :: FilePosition
 startPos = FilePosition 0 1 1
 
-filePositionToSrcLoc :: String -> FilePosition -> SrcSpan
+filePositionToSrcLoc :: B.ByteString -> FilePosition -> SrcSpan
 filePositionToSrcLoc filePath (FilePosition _ line col) = 
     SrcSpanPoint filePath line col
     
@@ -64,14 +62,14 @@ data ParserState = ParserState {
         fileStack :: ![FileParserState],
         -- | The list of files that have been loaded so far
         loadedFiles :: [String],
-        fileContents :: M.Map String String
+        fileContents :: M.Map String B.ByteString
     }
     deriving Show
 
 data FileParserState = FileParserState {
         tokenizerPos :: !FilePosition,
-        fileName :: !String,
-        input :: String,
+        fileName :: !B.ByteString,
+        input :: !B.ByteString,
         previousChar :: !Char,
         currentStartCode :: !Int, -- current startcode
         
@@ -97,7 +95,7 @@ getParserState = gets id
 setParserState :: ParserState -> ParseMonad ()
 setParserState st = modify (\ _ -> st)
 
-addFileContents :: String -> String -> ParseMonad ()
+addFileContents :: String -> B.ByteString -> ParseMonad ()
 addFileContents fname contents = modify (\ st -> st {
         fileContents = M.insert fname contents (fileContents st)
     })
@@ -107,14 +105,6 @@ modifyTopFileParserState stf =
     modify (\ st -> let fs:fss = fileStack st in 
                         st { fileStack = (stf fs):fss })
 
--- | Strictly reads a file using the specified encoding
-strictReadFileWithEncoding :: String -> TextEncoding -> IO String
-strictReadFileWithEncoding filename enc = do
-    f <- openFile filename ReadMode
-    hSetEncoding f enc
-    x <- hGetContents f
-    length x `seq` return x
-
 pushFile :: String -> ParseMonad a -> ParseMonad a
 pushFile fname prog = do
     dirname <- gets rootDir     
@@ -123,40 +113,27 @@ pushFile fname prog = do
     str <- case M.lookup filename fileContentsMap of
             Just contents -> return contents
             Nothing -> liftIO $
-                -- Try reading the file using UTF8, but fallback to ASCII if
-                -- this fails
-                catch (strictReadFileWithEncoding filename utf8)
+                catch (B.readFile filename)
                     (\ (_ :: IOException) ->
-                        catch (strictReadFileWithEncoding filename char8)
-                            (\ (_ :: IOException) ->    
-                                throwSourceError [fileAccessErrorMessage filename]
-                            )
+                        throwSourceError [fileAccessErrorMessage filename]
                     )
-    when (stripPrefix "{\\rtf1" str /= Nothing) $
+    when (B.isPrefixOf "{\\rtf1" str) $
         throwSourceError [looksLikeRTFErrorMessage filename]
     modify (\st -> st { loadedFiles = filename:loadedFiles st })
-    -- We add an extra newline since all files should be newline terminated
-    pushFileContents filename (str++"\n")
+    pushFileContents filename (B.snoc str '\n')
     x <- prog
     return x
 
-pushFileContents :: String -> String -> ParseMonad ()
+pushFileContents :: String -> B.ByteString -> ParseMonad ()
 pushFileContents filename input = 
-    modify (\ st -> let
-            -- We add an extra space on the end of the file contents to allow
-            -- the right contexts used in the lexer to still work even at the
-            -- end of the file.
-            fs = FileParserState startPos filename (input++" ") '\n' 0 [0]
-        in
-            st { fileStack = fs:(fileStack st) })
+    modify (\ st ->
+        let fs = FileParserState startPos (B.pack filename) input '\n' 0 [0]
+        in st { fileStack = fs:(fileStack st) })
 
 getTokenizerPos :: ParseMonad FilePosition
 getTokenizerPos = getTopFileParserState >>= (return . tokenizerPos)
 
-getFileName :: ParseMonad String
-getFileName = getTopFileParserState >>= (return . fileName)
-
-getInput :: ParseMonad String
+getInput :: ParseMonad B.ByteString
 getInput = getTopFileParserState >>= (return . input)
 
 getPreviousChar :: ParseMonad Char

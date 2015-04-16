@@ -3,9 +3,11 @@ module CSPM.DataStructures.FreeVars (
     BoundNames(..), FreeVars(..)
 ) where
 
+import Data.List
+import qualified Data.Map as M
+
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
-import Data.List
 import Util.Annotated
 import Util.Exception
 
@@ -28,7 +30,7 @@ instance BoundNames (Decl Name) where
     boundNames (Assert _) = []
     boundNames (Module n args ds1 ds2) = [n]
     boundNames (TimedSection _ _ ds) = boundNames ds
-    boundNames (ModuleInstance _ _ _ nm _) = map fst nm
+    boundNames (ModuleInstance _ _ _ nm _) = M.elems nm
     boundNames (PrintStatement _) = []
 
 instance BoundNames (DataTypeClause Name) where
@@ -175,6 +177,7 @@ instance FreeVars (Exp Name) where
             fvfields = boundNames fields
             fvse = nub (depsfields++depse)
         in fvse \\ fvfields
+    freeVars' (TimedPrefix e1 e2) = freeVars' e2
     freeVars' (Project e1 e2) = freeVars' [e1, e2]
     freeVars' (Rename e1 renames stmts) =
         let

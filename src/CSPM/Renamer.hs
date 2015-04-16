@@ -1,10 +1,7 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances, FunctionalDependencies,
+    ExistentialQuantification, RankNTypes,
+    OverloadedStrings, TypeSynonymInstances, MultiParamTypeClasses,
+    UndecidableInstances #-}
 -- | Renames all variables to unique Names, in the process converting all
 -- UnRenamedName into Name. This simplifies many subsequent phases as every
 -- name is guaranteed to be unique so flat maps may be used, rather than
@@ -21,6 +18,7 @@ module CSPM.Renamer (
 )  where
 
 import Control.Monad.State
+import qualified Data.ByteString.Char8 as B
 import Data.List
 import qualified Data.Map as M
 import Data.Maybe (fromJust, isJust,isNothing)
@@ -35,7 +33,6 @@ import Util.Exception
 import Util.FuzzyLookup
 import qualified Util.HierarchicalMap as HM
 import Util.Monad
-import Util.PartialFunctions
 import Util.PrettyPrint hiding (($$))
 import qualified Util.PrettyPrint as P
 
@@ -484,7 +481,7 @@ reAnnotate (An a b _) m = do
     v <- m
     return $ An a b v
 
-timedNames :: [String]
+timedNames :: [B.ByteString]
 timedNames = ["timed_priority", "WAIT"]
 
 joinName :: UnRenamedName -> UnRenamedName -> UnRenamedName
@@ -548,7 +545,7 @@ renameDeclarations topLevel ds prog = do
                     hideBoundNames ns1 []
                     return $ (ns, [])
                 return $ (UnQual nm):ns
-            ModuleInstance (UnQual nm) nt args [] _ -> do
+            ModuleInstance (UnQual nm) nt args _ _ -> do
                 mntarget <- lookupName nt True
                 when (isNothing mntarget) $ do
                     msg <- varNotInScopeMessage nt True
@@ -610,7 +607,7 @@ renameDeclarations topLevel ds prog = do
                     return (ns, [])
                 return ns
             TimedSection _ _ ds -> concatMapM insertLabels ds
-            ModuleInstance (UnQual mn) nt args [] _ -> do
+            ModuleInstance (UnQual mn) nt args _ _ -> do
                 Just n <- lookupName (UnQual mn) True
                 minfo <- informationForModule (loc ad) nt
                 (ns, []) <- prefixNamesFromScope False mn $ addModuleContext mn $ do
@@ -795,7 +792,7 @@ renameDeclarations topLevel ds prog = do
                     let m = Module n' args' privDs' pubDs'
                     addBoundModuleRenamedVersion n' $ reAnnotatePure pd m
                     return m
-            ModuleInstance (UnQual mn) nt args [] _ -> do
+            ModuleInstance (UnQual mn) nt args _ _ -> do
                 n' <- renameModuleVar (UnQual mn)
                 nt' <- renameModuleVar nt
                 args' <- resetModuleContext $ mapM (addScope . rename) args
@@ -804,16 +801,16 @@ renameDeclarations topLevel ds prog = do
                     nm1 <- mapM (\ rn -> do
                             Just old <- lookupMaybeHiddenName (joinName nt rn) False
                             Just new <- lookupMaybeHiddenName rn False
-                            return (new, old)
+                            return (old, new)
                         ) (publicBoundNames minfo ++ privateBoundNames minfo ++
                             publicBoundLabels minfo ++ privateBoundLabels minfo)
                     nm2 <- mapM (\ rn -> do
                             Just old <- lookupMaybeHiddenName (joinName nt rn) True
                             Just new <- lookupMaybeHiddenName rn True
-                            return (new, old)
+                            return (old, new)
                         ) (publicBoundModules minfo ++ privateBoundModules minfo)
-                    return $ ModuleInstance n' nt' args' (nm1 ++ nm2)
-                        (renamedDeclaration minfo)
+                    return $ ModuleInstance n' nt' args'
+                        (M.fromList (nm1 ++ nm2)) (renamedDeclaration minfo)
             TimedSection Nothing f ds -> do
                 f' <- addScope $ rename f
                 tock <- renameVarRHS (UnQual (OccName "tock"))
@@ -1374,7 +1371,8 @@ duplicatedDefinitionsMessage ns = duplicatedDefinitionsMessage' $
     let
         names = map fst ns
         dupNames = (map head . filter (\ g -> length g > 1) . group . sort) names
-    in [(n, applyRelation ns n) | n <- dupNames]
+        locationsOf n = [loc | (n', loc) <- ns, n == n']
+    in [(n, locationsOf n) | n <- dupNames]
 
 duplicatedDefinitionsMessage' :: [(UnRenamedName, [SrcSpan])] -> [Error]
 duplicatedDefinitionsMessage' nlocs = 
@@ -1424,7 +1422,7 @@ varNotInScopeMessage n isModule = do
         suggestions = fuzzyLookup (show $ prettyPrint n) availablePp
 
         availableTransExtern = if isModule then [] else
-            [(stringName b, b) | b <- builtins True,
+            [(B.unpack $ stringName b, b) | b <- builtins True,
                 isTransparent b || isExternal b]
         builtinSuggestions = fuzzyLookup (show $ prettyPrint n) availableTransExtern
     return $

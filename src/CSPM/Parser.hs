@@ -53,6 +53,7 @@ module CSPM.Parser (
 ) 
 where
 
+import qualified Data.ByteString.Char8 as B
 import System.FilePath
 
 import CSPM.DataStructures.Syntax
@@ -62,12 +63,12 @@ import CSPM.Parser.Parser
 -- | Parse as string as an 'PInteractiveStmt'.
 parseInteractiveStmt :: String -> ParseMonad PInteractiveStmt
 parseInteractiveStmt str =
-    pushFileContents "<interactive>" str >> parseInteractiveStmt_
+    pushFileContents "<interactive>" (B.pack str) >> parseInteractiveStmt_
 
 -- | Parses a string as an 'PExp'.
 parseExpression :: String -> ParseMonad PExp
 parseExpression str = 
-    pushFileContents "<interactive>" str >> parseExpression_
+    pushFileContents "<interactive>" (B.pack str) >> parseExpression_
 
 -- | Parse the given file, returning the parsed 'PModule's.
 parseFile :: String -> ParseMonad PCSPMFile
@@ -76,9 +77,10 @@ parseFile fname = pushFile fname parseFile_
 -- | Parse a string, as though it were an entire file, returning the parsed
 -- 'PModule's.
 parseStringAsFile :: String -> ParseMonad PCSPMFile
-parseStringAsFile str = pushFileContents "<interactive>" str >> parseFile_
+parseStringAsFile str =
+    pushFileContents "<interactive>" (B.pack str) >> parseFile_
 
-parseStringsAsFile :: String -> [(String, String)] -> ParseMonad PCSPMFile
+parseStringsAsFile :: String -> [(String, B.ByteString)] -> ParseMonad PCSPMFile
 parseStringsAsFile rootFile files = do
     mapM_ (\ (f, c) -> addFileContents f c) files
     parseFile rootFile

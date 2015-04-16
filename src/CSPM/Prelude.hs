@@ -1,16 +1,20 @@
 -- | This module contains all the builtin definitions for the input CSPM
 -- language.
+{-# LANGUAGE OverloadedStrings #-}
 module CSPM.Prelude (
     BuiltIn(..),
     builtins,
     builtInName,
     builtInWithName,
     transparentFunctionForOccName,
-    externalFunctionForOccName
+    externalFunctionForOccName,
+    locatedBuiltins,
 ) 
 where
 
+import qualified Data.ByteString.Char8 as B
 import qualified Data.Map as M
+import qualified Data.Set as S
 import System.IO.Unsafe
 
 import CSPM.DataStructures.Names
@@ -20,7 +24,7 @@ import Util.Exception
 data BuiltIn = 
     BuiltIn {
         name :: Name,
-        stringName :: String,
+        stringName :: B.ByteString,
         isDeprecated :: Bool,
         deprecatedReplacement :: Maybe Name,
         typeScheme :: TypeScheme,
@@ -53,6 +57,17 @@ externalFunctionForOccName :: OccName -> Maybe BuiltIn
 externalFunctionForOccName (OccName s) =
     let bs = [b | b <- allBuiltins, isExternal b, stringName b == s] in
     if bs == [] then Nothing else Just (head bs)
+
+locatedBuiltins :: S.Set Name
+locatedBuiltins = S.fromList $ map builtInName [
+        "head",
+        "tail",
+        "error",
+        "mapLookup",
+        "prioritise",
+        "prioritise_nocache",
+        "prioritisepo"
+    ]
 
 allBuiltins :: [BuiltIn]
 allBuiltins = unsafePerformIO makeBuiltins
@@ -96,15 +111,16 @@ makeBuiltins = do
 
         cspm_STOP = ("STOP", TProc)
         cspm_SKIP = ("SKIP", TProc)
+        cspm_DIV = ("DIV", TProc)
         cspm_CHAOS = ("CHAOS", TFunction [TSet TEvent] TProc)
         cspm_RUN = ("RUN", TFunction [TSet TEvent] TProc)
         csp_tskip = ("TSKIP", TFunction [] TProc)
         csp_tstop = ("TSTOP", TFunction [] TProc)
         csp_wait = ("WAIT", TFunction [TInt] TProc)
 
-        builtInProcs :: [(String, Type)]
+        builtInProcs :: [(B.ByteString, Type)]
         builtInProcs = [cspm_STOP, cspm_SKIP, cspm_CHAOS, cspm_RUN, csp_tstop,
-            csp_tskip, csp_wait]
+            csp_tskip, csp_wait, cspm_DIV]
 
         cspm_Int = ("Int", TSet TInt)
         cspm_Bool = ("Bool", TSet TBool)
@@ -116,7 +132,7 @@ makeBuiltins = do
         cspm_True = ("True", TBool)
         cspm_False = ("False", TBool)        
 
-        typeConstructors :: [(String, Type)]
+        typeConstructors :: [(B.ByteString, Type)]
         typeConstructors = [cspm_Int, cspm_Bool, cspm_Proc, cspm_Events, 
             cspm_Char, cspm_true, cspm_false, cspm_True, cspm_False]
 
@@ -135,18 +151,18 @@ makeBuiltins = do
         cspm_mapDelete k v = ("mapDelete", TFunction [TMap k v, k] (TMap k v))
         cspm_Map k v = ("Map", TFunction [TSet k, TSet v] (TSet (TMap k v)))
 
-        mapFunctions :: [Type -> Type -> (String, Type)]
+        mapFunctions :: [Type -> Type -> (B.ByteString, Type)]
         mapFunctions = [cspm_emptyMap, cspm_mapFromList, cspm_mapLookup,
             cspm_mapMember, cspm_mapToList, cspm_mapUpdate,
             cspm_mapUpdateMultiple, cspm_mapDelete]
 
-        externalAndTransparentFunctions :: [(String, Type)]
+        externalAndTransparentFunctions :: [(B.ByteString, Type)]
         externalAndTransparentFunctions = [
             ("chase", TFunction [TProc] TProc),
             ("chase_nocache", TFunction [TProc] TProc)
             ]
 
-        externalFunctions :: [(String, Type)]
+        externalFunctions :: [(B.ByteString, Type)]
         externalFunctions = [
             ("deter", TFunction [TProc] TProc),
             ("failure_watchdog", TFunction [TProc, TSet TEvent, TEvent] TProc),
@@ -158,7 +174,7 @@ makeBuiltins = do
             ("trace_watchdog", TFunction [TProc, TSet TEvent, TEvent] TProc)
             ]
 
-        complexExternalFunctions :: IO [(String, TypeScheme)]
+        complexExternalFunctions :: IO [(B.ByteString, TypeScheme)]
         complexExternalFunctions = do
             mtransclose <- do
                 fv @ (TVar (TypeVarRef tv _ _)) <- freshTypeVarWithConstraints [CEq]
@@ -186,7 +202,7 @@ makeBuiltins = do
                 ("transpose", transpose)
                 ]
 
-        transparentFunctions :: [(String, Type)]
+        transparentFunctions :: [(B.ByteString, Type)]
         transparentFunctions = [
             ("explicate", TFunction [TProc] TProc),
             ("lazyenumerate", TFunction [TProc] TProc),
@@ -245,16 +261,16 @@ makeBuiltins = do
             let (n, t) = f fv1 fv2
             return (n, ForAll [(tv1, [CSet]), (tv2, [CSet])] t)
 
-        unsafeFunctionNames :: [String]
+        unsafeFunctionNames :: [B.ByteString]
         unsafeFunctionNames = []
 
-        deprecatedNames :: [String]
+        deprecatedNames :: [B.ByteString]
         deprecatedNames = []
 
-        replacementForDeprecatedName :: String -> Maybe String
+        replacementForDeprecatedName :: B.ByteString -> Maybe B.ByteString
         replacementForDeprecatedName _ = Nothing
 
-        makeBuiltIn :: (String, TypeScheme) -> IO BuiltIn
+        makeBuiltIn :: (B.ByteString, TypeScheme) -> IO BuiltIn
         makeBuiltIn (s, ts) = do
             n <- mkWiredInName (UnQual (OccName s)) False
             return $ BuiltIn {

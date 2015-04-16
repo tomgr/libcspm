@@ -1,24 +1,24 @@
-Q::cing({0, 1}) =
-    c.0 -> Q::cing({1}) [] c.1 -> Q::cing({0}) [] a -> Q::cing({0, 1})
+Q::cing({1, 2}) =
+    c.2 -> Q::cing({1}) [] c.1 -> Q::cing({2}) [] a -> Q::cing({1, 2})
 
-Q::cing({0}) = c.0 -> Q::cing({}) [] a -> Q::cing({0})
+Q::cing({2}) = c.2 -> Q::cing({}) [] a -> Q::cing({2})
 
 Q::cing({0, 2}) =
-    c.0 -> Q::cing({2}) [] c.2 -> Q::cing({0}) [] a -> Q::cing({0, 2})
+    c.2 -> Q::cing({0}) [] c.0 -> Q::cing({2}) [] a -> Q::cing({0, 2})
 
 Q::cing({1}) = c.1 -> Q::cing({}) [] a -> Q::cing({1})
 
 Q::cing({}) = b -> Q
 
-Q::cing({2}) = c.2 -> Q::cing({}) [] a -> Q::cing({2})
+Q::cing({0}) = c.0 -> Q::cing({}) [] a -> Q::cing({0})
 
-Q::cing({1, 2}) =
-    c.1 -> Q::cing({2}) [] c.2 -> Q::cing({1}) [] a -> Q::cing({1, 2})
+Q::cing({0, 1}) =
+    c.1 -> Q::cing({0}) [] c.0 -> Q::cing({1}) [] a -> Q::cing({0, 1})
 
 Q::cing({0, 1, 2}) =
-    c.0 -> Q::cing({1, 2})
+    c.2 -> Q::cing({0, 1})
     [] c.1 -> Q::cing({0, 2})
-    [] c.2 -> Q::cing({0, 1})
+    [] c.0 -> Q::cing({1, 2})
     [] a -> Q::cing({0, 1, 2})
 
 Q = Q::cing({0, 1, 2})

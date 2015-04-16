@@ -5,7 +5,7 @@ datatype A = B | C
 channel x : A
 channel c : A.A
 
-DUMP(z) = STOP
+DUMP(z) = if z == z then STOP else STOP
 
 P(z) = x?y -> ( y == z & DUMP(y) )
 Q(z) = c?y?z -> ((y == z) & DUMP(y))

@@ -1,8 +1,11 @@
-recursion(0)::ANNON(1)::P = c.1 -> STOP
+recursion(0)::(\1 @ let P = c.x+y -> STOP within P)::P =
+    c.1 -> STOP
 
-recursion(0)::ANNON(0)::P = c.0 -> STOP
+recursion(0)::(\0 @ let P = c.x+y -> STOP within P)::P =
+    c.0 -> STOP
 
 procTest4 =
-    recursion(0)::ANNON(0)::P ||| recursion(0)::ANNON(1)::P
+    recursion(0)::(\0 @ let P = c.x+y -> STOP within P)::P
+    ||| recursion(0)::(\1 @ let P = c.x+y -> STOP within P)::P
 
 procTest4

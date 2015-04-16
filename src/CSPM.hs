@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, IncoherentInstances,
+{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, IncoherentInstances,
     MultiParamTypeClasses, OverlappingInstances, TypeSynonymInstances,
     UndecidableInstances #-}
 -- | This module provides the main high-level interface to the library 
@@ -72,8 +72,6 @@
 module CSPM (
     -- * CSPM Monad
     CSPMSession, newCSPMSession,
-    EV.ProfilerOptions(..), EV.defaultProfilerOptions,
-    EV.EvaluatorOptions(..), EV.defaultEvaluatorOptions,
     CSPMMonad(..),
     withSession,
     -- ** A basic implementation of the monad
@@ -100,7 +98,8 @@ module CSPM (
     desugarFile, desugarInteractiveStmt, desugarExpression,
     -- * Evaluator API
     bindFile, bindDeclaration,
-    evaluateExpression, maybeProcessNameToProcess, profilingData,
+    evaluateExpression, maybeProcessNameToProcess,
+    dumpProfilingData,
     -- * Shortcuts
     stringToValue,
     -- * Low-Level API
@@ -121,6 +120,7 @@ where
 
 import Control.Applicative
 import Control.Monad.State
+import qualified Data.ByteString as B
 import Data.Version
 import System.FilePath
 
@@ -150,13 +150,13 @@ data CSPMSession = CSPMSession {
     }
 
 -- | Create a new 'CSPMSession'.
-newCSPMSession :: MonadIO m => EV.EvaluatorOptions -> m CSPMSession
-newCSPMSession profilerOptions = do
+newCSPMSession :: MonadIO m => m CSPMSession
+newCSPMSession = do
     -- Get the type checker environment with the built in functions already
     -- injected
     rnState <- liftIO $ RN.initRenamer
     tcState <- liftIO $ TC.initTypeChecker
-    evState <- liftIO $ EV.initEvaluator profilerOptions
+    evState <- liftIO $ EV.initEvaluator
     return $ CSPMSession rnState tcState evState
 
 -- | The CSPMMonad is the main monad in which all functions must be called.
@@ -218,7 +218,7 @@ parseStringAsFile :: CSPMMonad m => String -> m PCSPMFile
 parseStringAsFile str = runParserInCurrentState "" (P.parseStringAsFile str)
 
 -- | Parses the file, with the file contents according to the given map.
-parseStringsAsFile :: CSPMMonad m => String -> [(String, String)] -> m PCSPMFile
+parseStringsAsFile :: CSPMMonad m => String -> [(String, B.ByteString)] -> m PCSPMFile
 parseStringsAsFile rootFile fileContents =
     let (dir, fname) = splitFileName rootFile
         dir' = if dir == "./" then "" else dir
@@ -355,7 +355,7 @@ desugarInteractiveStmt s = DS.runDesugar $ DS.desugar s
 -- | Runs the evaluator in the current state, saving the resulting state.
 runEvaluatorInCurrentState :: CSPMMonad m => EV.EvaluationMonad a -> m a
 runEvaluatorInCurrentState p = withSession $ \s -> do
-    let (a, st) = EV.runFromStateToState (evState s) p
+    (a, st) <- liftIO $ EV.runFromStateToState (evState s) p
     modifySession (\s -> s { evState = st })
     return a
 
@@ -364,37 +364,23 @@ runEvaluatorInCurrentState p = withSession $ \s -> do
 -- | Takes a declaration and adds it to the current environment. Requires the
 -- declaration to be desugared.
 bindDeclaration :: CSPMMonad m => TCDecl -> m ()
-bindDeclaration d = withSession $ \s -> do
-    evSt <- runEvaluatorInCurrentState (do
-        ds <- EV.evaluateDecl d
-        EV.addToEnvironment ds)
-    modifySession (\s -> s { evState = evSt })
+bindDeclaration d = runEvaluatorInCurrentState $ EV.evaluateDecl d
  
 -- | Binds all the declarations that are in a particular file. Requires the
 -- file to be desugared.
 bindFile :: CSPMMonad m => TCCSPMFile -> m ()
-bindFile m = do
-    -- Bind
-    evSt <- runEvaluatorInCurrentState $ do
-        ds <- EV.evaluateFile m
-        EV.addToEnvironment ds
-    modifySession (\s -> s { evState = evSt })
-    return ()
+bindFile m = runEvaluatorInCurrentState $ EV.evaluateFile m
  
 -- | Evaluates the expression in the current context. Requires the expression
 -- to be desugared.
 evaluateExpression :: CSPMMonad m => TCExp -> m Value
-evaluateExpression e = runEvaluatorInCurrentState (EV.evaluateExp e)
-
--- | Obtains the profiling data that the evaluator has produced so far.
-profilingData :: CSPMMonad m => m EV.ProfilingData
-profilingData = runEvaluatorInCurrentState EV.profilingData
+evaluateExpression e = runEvaluatorInCurrentState $ EV.evaluateExp e
 
 -- | Given a process name, attempts to convert the name into a process. This
 -- is only possible for top-level function applications.
-maybeProcessNameToProcess :: CSPMMonad m => EV.ProcName -> m (Maybe EV.UProc)
+maybeProcessNameToProcess :: CSPMMonad m => EV.ProcName -> m (Maybe EV.Proc)
 maybeProcessNameToProcess pn =
-    runEvaluatorInCurrentState (EV.maybeProcessNameToProcess pn)
+    runEvaluatorInCurrentState $ EV.maybeProcessNameToProcess pn
 
 -- | Takes an expression string and a type and evaluates the expression,
 -- providing the expression is of the correct type.
@@ -402,6 +388,10 @@ stringToValue :: CSPMMonad m => Type -> String -> m Value
 stringToValue typ str =
     parseExpression str >>= renameExpression >>= 
     ensureExpressionIsOfType typ >>= desugarExpression >>= evaluateExpression
+
+-- | Dumps any profiling data that has been computed to stdout/stderr.
+dumpProfilingData :: CSPMMonad m => m ()
+dumpProfilingData = liftIO $ EV.dumpProfilingData
 
 -- | Return the version of libcspm that is being used.
 getLibCSPMVersion :: Version

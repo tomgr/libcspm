@@ -57,18 +57,20 @@ module CSPM.DataStructures.Syntax (
     getType, getSymbolTable,
 ) where
 
+import qualified Data.ByteString as B
+import qualified Data.Map as M
+
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Types
 import Util.Annotated
-import Util.Exception
 
 -- Declarations may bind multiple names
 type AnCSPMFile id = Annotated () (CSPMFile id)
-type AnDecl id = Annotated (Maybe SymbolTable, PSymbolTable) (Decl id)
+type AnDecl id = Annotated (SymbolTable, PSymbolTable) (Decl id)
 type AnMatch id = Annotated () (Match id)
-type AnPat id = Annotated () (Pat id)
-type AnExp id = Annotated (Maybe Type, PType) (Exp id)
+type AnPat id = Annotated (Type, PType) (Pat id)
+type AnExp id = Annotated (Type, PType) (Exp id)
 type AnField id = Annotated () (Field id)
 type AnStmt id = Annotated () (Stmt id)
 type AnDataTypeClause id = Annotated () (DataTypeClause id)
@@ -79,15 +81,11 @@ type AnSTypeConstraint id = Annotated () (STypeConstraint id)
 type AnSType id = Annotated () (SType id)
 type AnModelOption id = Annotated () (ModelOption id)
 
-getType :: Annotated (Maybe Type, PType) a -> Type
-getType an = case fst (annotation an) of
-    Just t -> t
-    Nothing -> panic "Cannot get the type of something that is not typechecked"
+getType :: Annotated (Type, PType) a -> Type
+getType an = fst (annotation an)
 
-getSymbolTable :: Annotated (Maybe SymbolTable, PSymbolTable) a -> SymbolTable
-getSymbolTable an = case fst (annotation an) of
-    Just t -> t
-    Nothing -> panic "Cannot get the symbol table of something that is not typechecked"
+getSymbolTable :: Annotated (SymbolTable, PSymbolTable) a -> SymbolTable
+getSymbolTable an = fst (annotation an)
 
 type PCSPMFile = AnCSPMFile UnRenamedName
 type PDecl = AnDecl UnRenamedName
@@ -138,7 +136,7 @@ allAssertionsInFile (An _ _ (CSPMFile ds)) =
         assertionsInDecl _ = []
     in concatMap assertionsInDecl' ds
 
-allPrintStatementsInFile :: AnCSPMFile a -> [Located String]
+allPrintStatementsInFile :: AnCSPMFile a -> [Located B.ByteString]
 allPrintStatementsInFile (An _ _ (CSPMFile ds)) =
     let
         printStatementsInDecl (An loc _ (PrintStatement s)) = [L loc s]
@@ -196,7 +194,8 @@ data Exp id =
         concatLeftList :: AnExp id,
         concatRightList :: AnExp id
     }
-    -- | Dot operator application, e.g. @c.x@.
+    -- | Dot operator application, e.g. @c.x@. The left argument is NEVER a
+    -- DotApp.
     | DotApp {
         dotAppLeftArgument :: AnExp id,
         dotAppRighArgument :: AnExp id
@@ -582,14 +581,14 @@ data Decl id =
         moduleInstanceOf :: id,
         -- | The arguments of the module that this is an instance of.
         moduleInstanceOfArguments :: [AnExp id],
-        -- | Map from name of this module to name of inner module.
-        moduleInstanceNameMap :: [(id, id)],
+        -- | Map from name of inner module to name of this module.
+        moduleInstanceNameMap :: M.Map id id,
         -- | The module that this is an instance of
         moduleInstanceOfDeclaration :: Maybe (AnDecl id)
     }
     -- | A print statement, e.g. @print x@.
     | PrintStatement {
-        printStatement :: String
+        printStatement :: B.ByteString
     }
     deriving (Eq, Ord, Show)
 
@@ -627,7 +626,7 @@ data ModelOption id =
     -- | Apply tau-priority over the set of events when deciding this assertion.
     TauPriority (AnExp id)
     -- | Apply partial order reduction when deciding this assertion
-    | PartialOrderReduce (Maybe String)
+    | PartialOrderReduce (Maybe B.ByteString)
     deriving (Eq, Ord, Show)
         
 data SemanticProperty = 
@@ -681,7 +680,8 @@ data Pat id =
         pConcatLeftPat :: AnPat id,
         pConcatRightPat :: AnPat id
     }
-    -- | The dot of two patterns, e.g. @p1.p2@.
+    -- | The dot of two patterns, e.g. @p1.p2@. The left pattern is NEVER a
+    -- PDotApp.
     | PDotApp {
         pDotLeftPat :: AnPat id,
         pDotRightPat :: AnPat id

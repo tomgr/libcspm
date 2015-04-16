@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module CSPM.Evaluator.Monad where
 
 import Control.Monad.Reader
@@ -5,22 +6,10 @@ import Prelude hiding (lookup)
 
 import CSPM.DataStructures.Names
 import CSPM.Evaluator.Environment
-import CSPM.Evaluator.ProcessValues
-import {-# SOURCE #-} CSPM.Evaluator.Profiler
 import {-# SOURCE #-} CSPM.Evaluator.Values
-import Util.Annotated
 import Util.Exception
 
-data EvaluationState = 
-    EvaluationState {
-        environment :: Environment,
-        parentScopeIdentifier :: Maybe ScopeIdentifier,
-        currentExpressionLocation :: SrcSpan,
-        timedSection :: Maybe (Event -> Int, Name),
-        profilerState :: ProfilerState,
-        doRuntimeRangeChecks :: Bool
-    }
-  
+type EvaluationState = Environment
 type EvaluationMonad = Reader EvaluationState
 
 gets :: (EvaluationState -> a) -> EvaluationMonad a
@@ -37,7 +26,7 @@ getState = gets id
 {-# INLINE getState #-}
 
 getEnvironment :: EvaluationMonad Environment
-getEnvironment = gets environment
+getEnvironment = gets id
 {-# INLINE getEnvironment #-}
 
 lookupVarMaybeThunk :: Name -> EvaluationMonad Value
@@ -48,56 +37,35 @@ lookupVarMaybeThunk n = do
     return $ lookup env n
 {-# INLINE lookupVarMaybeThunk #-}
 
+maybeLookupVarMaybeThunk :: Name -> EvaluationMonad (Maybe Value)
+maybeLookupVarMaybeThunk n = do
+    env <- getEnvironment
+    return $ maybeLookup env n
+
 -- | Implements non-recursive lets.
 addScopeAndBind :: [(Name, Value)] -> EvaluationMonad a -> EvaluationMonad a
+#ifndef CSPM_PROFILING
 addScopeAndBind [] prog = prog
+#endif
 addScopeAndBind bs prog =
-    modify (\ st -> st { environment = newLayerAndBind (environment st) bs }) prog
+    modify (\ st -> newLayerAndBind st bs) prog
 
 -- | Implements recursive lets.
 addScopeAndBindM :: [(Name, EvaluationMonad Value)] -> EvaluationMonad a -> EvaluationMonad a
+#ifndef CSPM_PROFILING
 addScopeAndBindM [] prog = prog
+#endif
 addScopeAndBindM binds prog = do
     st <- getState
     let
-        env' = newLayerAndBind (environment st) bs
-        st' = st { environment = env' }
+        env' = newLayerAndBind st bs
+        st' = env'
         bs = [(n, runEvaluator st' v) | (n, v) <- binds]
     modify (\_ -> st') prog
 
 throwError :: ErrorMessage -> a
 throwError err = throwSourceError [err]
 
-getParentScopeIdentifier :: EvaluationMonad (Maybe ScopeIdentifier)
-getParentScopeIdentifier = gets parentScopeIdentifier
-
-updateParentScopeIdentifier :: ScopeIdentifier -> EvaluationMonad a -> EvaluationMonad a
-updateParentScopeIdentifier pn prog =
-    modify (\ st -> st { parentScopeIdentifier = Just pn }) prog
-
-setCurrentExpressionLocation :: SrcSpan -> EvaluationMonad a -> EvaluationMonad a
-setCurrentExpressionLocation sp prog =
-    modify (\ st -> st { currentExpressionLocation = sp }) prog
-
-getCurrentExpressionLocation :: EvaluationMonad SrcSpan
-getCurrentExpressionLocation = gets currentExpressionLocation
-
-throwError' :: (SrcSpan -> Maybe ScopeIdentifier -> ErrorMessage) -> EvaluationMonad a
-throwError' f = do
-    loc <- gets currentExpressionLocation
-    stk <- gets parentScopeIdentifier
-    throwError (f loc stk)
-
-setTimedCSP :: Name -> (Event -> Int) -> EvaluationMonad a -> EvaluationMonad a
-setTimedCSP tock func prog =
-    modify (\ st -> st { timedSection = Just (func, tock) }) prog
-
-maybeTimedCSP ::
-    EvaluationMonad a ->
-    (Name -> (Event -> Int) -> EvaluationMonad a) ->
-    EvaluationMonad a
-maybeTimedCSP nonTimedProg timedProg = do
-    mfunc <- gets timedSection
-    case mfunc of
-        Nothing -> nonTimedProg
-        Just (f, tock) -> timedProg tock f
+-- TOOD: sort out stack trace
+throwError' :: (Maybe InstantiatedFrame -> ErrorMessage) -> EvaluationMonad a
+throwError' f = throwError (f Nothing)

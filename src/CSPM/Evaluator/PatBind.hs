@@ -1,38 +1,54 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
-module CSPM.Evaluator.PatBind where
+module CSPM.Evaluator.PatBind (
+    bind,
+    bindAll,
+    patternAlwaysMatches,
+) where
 
 import CSPM.DataStructures.Literals
 import CSPM.DataStructures.Names
 import CSPM.DataStructures.Syntax
+import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import Util.Annotated
+import Util.Exception
 
--- Bind :: Pattern, value -> (Matches Pattern, Values to Bind
-class Bindable a where
-    bind :: a -> Value -> (Bool, [(Name, Value)])
+-- | Returns true if the pattern is guaranteed to match any value
+patternAlwaysMatches :: TCPat -> Bool
+patternAlwaysMatches (An _ _ (PWildCard)) = True
+patternAlwaysMatches (An _ _ (PVar n)) | isNameDataConstructor n = False
+patternAlwaysMatches (An _ _ (PVar n)) = True
+patternAlwaysMatches (An _ _ (PTuple ps)) = and (map patternAlwaysMatches ps)
+patternAlwaysMatches (An _ _ (PDoublePattern p1 p2)) =
+    patternAlwaysMatches p1 && patternAlwaysMatches p2
+patternAlwaysMatches _ = False
 
-instance Bindable a => Bindable (Annotated b a) where
-    bind (An _ _ a) v = bind a v
+thenBind :: Maybe [(Name, Value)] -> Maybe [(Name, Value)] -> Maybe [(Name, Value)]
+thenBind Nothing _ = Nothing
+thenBind _ Nothing = Nothing
+thenBind (Just xs) (Just ys) = Just (xs ++ ys)
 
-instance Bindable (Pat Name) where
-    -- We can decompose any PConcat pattern into three patterns representing:
-    -- Begining (of the form PList), middle (either PWildcard or PVar)
-    -- and end (of the form PList), With both begining and end possible empty
-    bind (PCompList ps Nothing _) (VList xs) | length ps == length xs = 
-        bindAll ps xs
-    -- By desugaring the middle is not a PConcat or a PList
-    bind (PCompList starts (Just (middle, ends)) _) (VList xs) =
-        -- Only match if the list contains sufficient items
-        if not (atLeastLength (length starts + length ends) xs) then 
-            (False, [])
+bind :: TCPat -> AnalyserMonad (Value -> Maybe [(Name, Value)])
+-- We can decompose any PConcat pattern into three patterns representing:
+-- Begining (of the form PList), middle (either PWildcard or PVar)
+-- and end (of the form PList), With both begining and end possible empty
+bind (An _ _ (PCompList ps Nothing _)) = do
+    binder <- bindAll ps
+    let required = length ps
+    return $! \ (VList xs) ->
+        if required == length xs then
+            binder xs
         else
-            let
-                (b1, nvs1) = bindAll starts xsStart
-                (b2, nvs2) = bindAll ends xsEnd
-                (b3, nvs3) = bind middle (VList xsMiddle)
-            in (b1 && b2 && b3, nvs1++nvs2++nvs3)
-        where
+            Nothing
+-- By desugaring the middle is not a PConcat or a PList
+bind (An _ _ (PCompList starts (Just (middle, ends)) _)) = do
+    startBinder <- bindAll starts
+    middleBinder <- bind middle
+    endBinder <- bindAll ends
+    let reqLength = length starts + length ends
+    return $! \ (VList xs) -> 
+        let 
             atLeastLength 0 _ = True
             atLeastLength _ [] = False
             atLeastLength n (x:xs) = atLeastLength (n-1) xs
@@ -40,67 +56,93 @@ instance Bindable (Pat Name) where
             (xsMiddle, xsEnd) = 
                 if length ends == 0 then (rest, [])
                 else splitAt (length rest - length ends) rest
-    bind (PCompDot ps _) (VDot vs) =
-        let 
-            -- Matches a compiled dot pattern, given a list of patterns for
-            -- the fields and the values that each field takes.
-            matchCompDot :: [Pat Name] -> [Value] -> (Bool, [(Name, Value)])
-            matchCompDot [] [] = (True, [])
-            matchCompDot (PVar n:ps) (VDot (VDataType n':vfs):vs2) | isNameDataConstructor n = 
-                -- In this case, we are matching within a subfield of the
-                -- current field. Therefore, add all the values that this
-                -- subfield has.
-                if n /= n' then (False, []) 
-                else matchCompDot ps (vfs++vs2)
-            matchCompDot (PVar n:ps) (VDot (VChannel n':vfs):vs2) | isNameDataConstructor n = 
-                if n /= n' then (False, []) 
-                else matchCompDot ps (vfs++vs2)
-            matchCompDot [p] [v] = bind p v
-            matchCompDot [p] vs = bind p (VDot vs)
-            matchCompDot (p:ps) (v:vs) = 
-                let
-                    (b1, nvs1) = bind p v
-                    (b2, nvs2) = matchCompDot ps vs
-                in (b1 && b2, nvs1++nvs2)
-            matchCompDot _ _ = (False, [])
-        in matchCompDot (map unAnnotate ps) vs
-    bind (PDoublePattern p1 p2) v =
-        let
-            (m1, b1) = bind p1 v
-            (m2, b2) = bind p2 v
-        in (m1 && m2, b1++b2)
-    bind (PLit (Int i1)) (VInt i2) | i1 == i2 = (True, [])
-    bind (PLit (Bool b1)) (VBool b2) | b1 == b2 = (True, [])
-    bind (PLit (Char c1)) (VChar c2) | c1 == c2 = (True, [])
-    bind (PSet []) (VSet s) | empty s = (True, [])
-    bind (PSet [p]) (VSet s) = 
-        case singletonValue s of
-            Just v  -> bind p v
-            Nothing -> (False, [])
-    bind (PTuple ps) (VTuple vs) = do
-        -- NB: len ps == len vs by typechecker
-        bindAll ps (elems vs)
-    bind (PVar n) v | isNameDataConstructor n = 
-        case v of
-            VChannel n' -> (n == n', [])
-            VDataType n' -> (n == n', [])
-            -- We have to allow these to enable patterns such as f(J) where
-            -- J has arity 0.
-            VDot [VChannel n'] -> (n == n', [])
-            VDot [VDataType n'] -> (n == n', [])
-            -- We have to allow patterns like `match` J against X.0 in case
-            -- these are in the same data type and a function has two clauses,
-            -- one for each of these cases. e.g.
-            -- f(J) = X
-            -- f(X.0) = X
-            -- as in one clause we match J against VDot [X,0]
-            _ -> (False, [])
-    bind (PVar n) v = (True, [(n, v)])
-    bind PWildCard v = (True, [])
-    bind _ _ = (False, [])
-
-bindAll :: Bindable a => [a] -> [Value] -> (Bool, [(Name, Value)])
-bindAll ps xs =
+        in
+            -- Only match if the list contains sufficient items
+            if not (atLeastLength reqLength xs) then 
+                Nothing
+            else
+                startBinder xsStart
+                `thenBind` middleBinder (VList xsMiddle)
+                `thenBind` endBinder xsEnd
+bind (An _ _ (PCompDot ps _)) = do
     let
-        rs = zipWith bind ps xs
-    in (and (map fst rs), concat (map snd rs))
+        -- Matches a compiled dot pattern, given a list of patterns for
+        -- the fields and the values that each field takes.
+        matchCompDot :: [TCPat] -> AnalyserMonad ([Value] -> Maybe [(Name, Value)])
+        matchCompDot [] = return $! \ xs ->
+            case xs of 
+                [] -> Just []
+                _ -> Nothing
+        matchCompDot [p] = do
+            binder <- bind p 
+            return $! \ vs ->
+                case vs of
+                    [v] -> binder v
+                    _ -> binder (VDot vs)
+        matchCompDot (An _ _ (PVar n):ps) | isNameDataConstructor n = do
+            bindRest <- matchCompDot ps
+            return $! \ v ->
+                case v of
+                    VChannel n' : vs2 | n == n' -> bindRest vs2
+                    VDataType n' : vs2 | n == n' -> bindRest vs2
+                    (VDot (VDataType n':vfs):vs2) | n == n' ->
+                        -- In this case, we are matching within a subfield of the
+                        -- current field. Therefore, add all the values that this
+                        -- subfield has.
+                        bindRest (vfs++vs2)
+                    (VDot (VChannel n':vfs):vs2) | n == n' ->
+                        bindRest (vfs++vs2)
+                    _ -> Nothing
+        matchCompDot (p:ps) = do
+            binder <- bind p
+            bindRest <- matchCompDot ps
+            return $! \ vs ->
+                case vs of
+                    (v:vs) -> binder v `thenBind` bindRest vs
+                    _ -> Nothing
+    binder <- matchCompDot ps
+    return $! \ (VDot xs) -> binder xs
+bind (An _ _ (PDoublePattern p1 p2)) = do
+    bind1 <- bind p1
+    bind2 <- bind p2
+    return $! \ v -> bind1 v `thenBind` bind2 v
+bind (An _ _ (PLit (Int i1))) = return $! \ (VInt i2) -> emptyJust (i1 == i2)
+bind (An _ _ (PLit (Bool b1))) = return $! \ (VBool b2) -> emptyJust (b1 == b2)
+bind (An _ _ (PLit (Char c1))) = return $! \ (VChar c2) -> emptyJust (c1 == c2)
+bind (An _ _ (PSet [])) = return $! \ (VSet s) -> emptyJust (empty s)
+bind (An _ _ (PSet [p])) = do
+    binder <- bind p
+    return $! \ (VSet s) ->
+        case singletonValue s of
+            Just v  -> binder v
+            Nothing -> Nothing
+bind (An _ _ (PTuple ps)) = do
+    binder <- bindAll ps
+    return $! \ (VTuple vs) -> binder (elems vs)
+bind (An _ _ (PVar n)) | isNameDataConstructor n = return $! \ v ->
+    case v of
+        VChannel n' -> emptyJust (n == n')
+        VDataType n' -> emptyJust (n == n')
+        -- We have to allow these to enable patterns such as f(J) where
+        -- J has arity 0.
+        VDot [VChannel n'] -> emptyJust (n == n')
+        VDot [VDataType n'] -> emptyJust (n == n')
+        _ -> Nothing
+bind (An _ _ (PVar n)) = return $! \ v -> Just [(n, v)]
+bind (An _ _ (PWildCard)) = return $! \ _ -> Just []
+bind _ = panic "Unknown pattern"
+
+emptyJust True = Just []
+emptyJust _ = Nothing
+
+bindAll :: [TCPat] -> AnalyserMonad ([Value] -> Maybe [(Name, Value)])
+bindAll ps =
+    let
+        accumulate [] [] bs = Just bs
+        accumulate (p:ps) (x:xs) bs =
+            case p x of
+                Just bs' -> accumulate ps xs (bs' ++ bs)
+                Nothing -> Nothing
+    in do
+        binders <- mapM bind ps
+        return $! \vs -> accumulate binders vs []
