@@ -1,0 +1,6 @@
+assert STOP :[deadlock free] :[static]
+assert STOP :[deadlock free] :[tau priority over]: {} :[static]
+assert STOP :[deadlock free] :[static] :[tau priority over]: {}
+assert STOP [T= STOP :[static]
+assert STOP [T= STOP :[static] :[tau priority over]: {}
+assert STOP [T= STOP :[tau priority over]: {} :[static]

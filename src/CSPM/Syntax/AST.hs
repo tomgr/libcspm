@@ -634,6 +634,8 @@ data ModelOption id =
     TauPriority (AnExp id)
     -- | Apply partial order reduction when deciding this assertion
     | PartialOrderReduce (Maybe B.ByteString)
+    -- | Statically analyse the assertion, possibly with an option.
+    | AnalyseStatically (Maybe B.ByteString)
     deriving (Eq, Ord, Show)
         
 data SemanticProperty id = 

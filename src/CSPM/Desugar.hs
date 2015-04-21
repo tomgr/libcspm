@@ -284,6 +284,7 @@ instance Desugarable Model where
 instance Desugarable (ModelOption Name) where
     desugar (TauPriority e) = return TauPriority $$ desugar e
     desugar (PartialOrderReduce m) = return $ PartialOrderReduce m
+    desugar (AnalyseStatically m) = return $ AnalyseStatically m
 
 instance Desugarable (DataTypeClause Name) where
     desugar (DataTypeClause n me ta) =

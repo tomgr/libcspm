@@ -627,6 +627,7 @@ instance TypeCheckable (ModelOption Name) () where
         typeCheckExpect e (TSet TEvent)
         return ()
     typeCheck' (PartialOrderReduce _) = return ()
+    typeCheck' (AnalyseStatically _) = return ()
 
 instance TypeCheckable (SemanticProperty Name) () where
     errorContext a = Nothing

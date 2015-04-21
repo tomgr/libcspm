@@ -167,6 +167,7 @@ instance Compressable (Assertion a) where
 instance Compressable (ModelOption a) where
     mcompress (TauPriority e) = return TauPriority $$ mcompress e
     mcompress (PartialOrderReduce m) = return $ PartialOrderReduce m
+    mcompress (AnalyseStatically m) = return $ AnalyseStatically m
 
 instance Compressable (DataTypeClause a) where
     mcompress (DataTypeClause n me ta) =

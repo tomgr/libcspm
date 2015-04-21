@@ -105,6 +105,7 @@ import Util.Exception (panic)
     "deterministic"     { L _ TDeterministic }
     "tau priority"      { L _ TTauPriority }
     "partial order reduce" { L _ TPartialOrderReduce }
+    "static"            { L _ TAnalyseStatically }
     string_option_literal { L _ (TStringOption _) }
     refines             { L _ (TRefines _) }
     model               { L _ (TModel _) }
@@ -321,6 +322,8 @@ ModelOption :: { PModelOption }
     "tau priority" CExp                         { AN2 (TauPriority $2) }
     | "partial order reduce" string_option_literal { AN (PartialOrderReduce (Just (getStringOption $2))) }
     | "partial order reduce"                    { AN (PartialOrderReduce Nothing) }
+    | "static" string_option_literal            { AN (AnalyseStatically (Just (getStringOption $2))) }
+    | "static"                                  { AN (AnalyseStatically Nothing) }
 
 DataTypeClause :: { PDataTypeClause }
     :

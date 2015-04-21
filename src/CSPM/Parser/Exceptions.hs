@@ -107,6 +107,7 @@ duplicateModelOptionsError opts = mkErrorMessage (loc (head opts)) $
     <+> case unAnnotate (head opts) of
             TauPriority _ -> text ":[tau priority over]:"
             PartialOrderReduce _ -> text ":[partial order reduce]"
+            AnalyseStatically _ -> text ":[static]"
     <+> text "has been specified several times at:"
     $$ list (map (prettyPrint . loc) opts)
 

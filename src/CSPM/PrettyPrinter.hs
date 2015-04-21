@@ -155,6 +155,9 @@ instance PrettyPrintable id => PrettyPrintable (ModelOption id) where
     prettyPrint (PartialOrderReduce Nothing) = text ":[partial order reduce]"
     prettyPrint (PartialOrderReduce (Just m)) =
         text ":[partial order reduce" <+> bytestring m <+> text "]"
+    prettyPrint (AnalyseStatically Nothing) = text ":[static]"
+    prettyPrint (AnalyseStatically (Just m)) =
+        text ":[static" <+> bytestring m <+> text "]"
 
 instance PrettyPrintable id => PrettyPrintable (SemanticProperty id) where
     prettyPrint DeadlockFreedom = text "deadlock free"

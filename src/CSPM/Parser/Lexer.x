@@ -55,6 +55,7 @@ tokens :-
     <sem_prop>@spaces"deterministic"   { tok TDeterministic }
     <sem_prop>@spaces"has trace"   { tok THasTrace }
     <sem_prop>@spaces"partial order reduce" { tok TPartialOrderReduce }
+    <sem_prop>@spaces"static" { tok TAnalyseStatically }
     <sem_prop>@nl"[T]"          { tok (TModel Traces) }
     <sem_prop>@nl"[F]"          { tok (TModel Failures) }
     <sem_prop>@nl"[FD]"         { tok (TModel FailuresDivergences) }

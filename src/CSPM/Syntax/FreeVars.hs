@@ -268,6 +268,7 @@ instance FreeVars (SemanticProperty Name) where
 instance FreeVars (ModelOption Name) where
     freeVars' (TauPriority e) = freeVars' e
     freeVars' (PartialOrderReduce _) = []
+    freeVars' (AnalyseStatically _) = []
     
 instance FreeVars (Match Name) where
     freeVars' (Match ps e) =

@@ -1053,6 +1053,7 @@ instance Renamable (SemanticProperty UnRenamedName) (SemanticProperty Name) wher
 instance Renamable (ModelOption UnRenamedName) (ModelOption Name) where
     rename (TauPriority e) = return TauPriority $$ rename e
     rename (PartialOrderReduce m) = return $ PartialOrderReduce m
+    rename (AnalyseStatically m) = return $ AnalyseStatically m
 
 instance Renamable (Exp UnRenamedName) (Exp Name) where
     rename (App e es) = return App $$ rename e $$ rename es
