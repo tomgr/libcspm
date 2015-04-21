@@ -89,9 +89,9 @@ doFile opts fp = do
                     mapM_ doExpression (assertionExpressions assertion)
 
             mapM_ doAssertion (allAssertionsInFile fs)
-            #ifdef CSPM_PROFILING
+#ifdef CSPM_PROFILING
             dumpProfilingData
-            #endif
+#endif
         case res of
             Left e -> printError ("\n"++show e)
             Right _ -> return ()
