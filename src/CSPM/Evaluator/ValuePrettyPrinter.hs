@@ -316,6 +316,10 @@ instance (Applicative m, Monad m,
                         Nothing -> 0
             patSpaceCost (An _ _ (PCompDot xs _)) = sum (map patSpaceCost xs)
             patSpaceCost (An _ _ (PDoublePattern p1 p2)) = patSpaceCost p1
+            patSpaceCost (An _ _ (PLit (Int _))) = 1
+            patSpaceCost (An _ _ (PLit (Bool _))) = 1
+            patSpaceCost (An _ _ (PLit (Char _))) = 1
+            patSpaceCost (An _ _ (PLit (Loc _))) = 1
             patSpaceCost (An _ _ (PLit (String s))) = B.length s
             patSpaceCost (An _ _ (PParen p)) = patSpaceCost p
             patSpaceCost (An _ _ (PTuple xs)) =
