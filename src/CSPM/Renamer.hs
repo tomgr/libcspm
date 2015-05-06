@@ -1043,6 +1043,8 @@ instance Renamable (Assertion UnRenamedName) (Assertion Name) where
         return Refinement $$ rename e1 $$ return m $$ rename e2 $$ rename mopts
     rename (PropertyCheck e1 p m mopts) =
         return PropertyCheck $$ rename e1 $$ rename p $$ return m $$ rename mopts
+    rename (SymmetryCheck e1 ns) =
+        return SymmetryCheck $$ rename e1 $$ mapM renameVarRHS ns
         
 instance Renamable (SemanticProperty UnRenamedName) (SemanticProperty Name) where
     rename (HasTrace e) = return HasTrace $$ rename e

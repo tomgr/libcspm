@@ -274,6 +274,8 @@ instance Desugarable (Assertion Name) where
         return Refinement $$ desugar e1 $$ desugar m $$ desugar e2 $$ desugar opts
     desugar (PropertyCheck e p m opts) = 
         return PropertyCheck $$ desugar e $$ desugar p $$ desugar m $$ desugar opts
+    desugar (SymmetryCheck e1 ns) =
+        return SymmetryCheck $$ desugar e1 $$ return ns
     desugar (ASNot a) = return ASNot $$ desugar a
 
 instance Desugarable (SemanticProperty Name) where

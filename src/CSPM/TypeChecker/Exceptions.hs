@@ -12,6 +12,7 @@ module CSPM.TypeChecker.Exceptions (
     illegalModuleInstanceCycleErrorMessage,
     ambiguousDataTypeClauseError,
     ambiguousChannelError,
+    nameIsNotADatatypeMessage,
     ErrorOptions(..), defaultErrorOptions,
 )
 where
@@ -57,6 +58,11 @@ infiniteUnificationMessage t1 t2 vmap =
     let ([ppt1, ppt2], map') = prettyPrintTypesWithMap vmap [t1, t2] in
     (text "Cannot construct the infinite type:" <+> ppt1 <+> equals <+> ppt2,
         map')
+
+nameIsNotADatatypeMessage :: Name -> Type -> Error
+nameIsNotADatatypeMessage name typ = noMap $
+    prettyPrint name <+> text "is not a datatype, but is of type:"
+    $$ tabIndent (prettyPrint typ)
 
 unificationErrorMessage :: Bool -> [(Type, Type)] -> Error
 unificationErrorMessage _ [] _ = panic "Empty unification stack during error"

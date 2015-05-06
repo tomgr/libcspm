@@ -29,6 +29,7 @@ assertionExpressions :: TCAssertion -> [TCExp]
 assertionExpressions (An _ _ (ASNot a)) = assertionExpressions a
 assertionExpressions (An _ _ (Refinement e1 _ e2 _)) = [e1, e2]
 assertionExpressions (An _ _ (PropertyCheck e1 _ _ _)) = [e1]
+assertionExpressions (An _ _ (SymmetryCheck e1 _)) = [e1]
 
 doFile :: Options -> FilePath -> IO ()
 doFile opts fp = do

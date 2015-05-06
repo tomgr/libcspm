@@ -105,6 +105,7 @@ import Util.Exception (panic)
     "deterministic"     { L _ TDeterministic }
     "tau priority"      { L _ TTauPriority }
     "partial order reduce" { L _ TPartialOrderReduce }
+    "symmetric"         { L _ TSymmetric }
     string_option_literal { L _ (TStringOption _) }
     refines             { L _ (TRefines _) }
     model               { L _ (TModel _) }
@@ -298,6 +299,7 @@ Assertion :: { PAssertion }
     | CExp SemanticProperty model OptModelOptionList { AN2L (PropertyCheck $1 (unLoc $2) (Just (getPropModel $3)) $4) }
     | CExp "has trace" AnglesExpList OptModelOptionList { AN2L (PropertyCheck $1 (HasTrace $3) Nothing $4) }
     | CExp "has trace" model AnglesExpList OptModelOptionList { AN2L (PropertyCheck $1 (HasTrace $4) (Just (getPropModel $3)) $5) }
+    | CExp "symmetric" NameCommaList1       { AN2L (SymmetryCheck $1 (map unLoc $3)) }
 
 SemanticProperty :: { Located (SemanticProperty UnRenamedName) }
     :

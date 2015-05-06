@@ -138,6 +138,10 @@ instance PrettyPrintable id => PrettyPrintable (Assertion id) where
         hang (hang (prettyPrint e1) tabWidth
             (colon <> brackets (prettyPrint prop <+> brackets (prettyPrint m))))
             tabWidth (fcat (map prettyPrint opts))
+    prettyPrint (SymmetryCheck e1 ns) =
+        hang (hang (prettyPrint e1) tabWidth
+            (text ":[symmetric]:"))
+            tabWidth (list (map prettyPrint ns))
     prettyPrint (ASNot a) = text "not" <+> prettyPrint a
 
 instance PrettyPrintable Model where

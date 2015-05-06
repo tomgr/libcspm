@@ -630,6 +630,13 @@ instance TypeCheckable (Assertion Name) () where
         ensureIsProc e1
         typeCheck p
         mapM_ typeCheck opts
+    typeCheck' (SymmetryCheck e1 ns) = do
+        typeCheck e1
+        mapM_ (\ n -> do
+            ForAll _ t <- getType n
+            case t of
+                TSet (TDatatype _) -> return ()
+                _ -> raiseMessageAsError (nameIsNotADatatypeMessage n t)) ns
     typeCheck' (Refinement e1 m e2 opts) = do
         ensureIsProc e1
         ensureIsProc e2

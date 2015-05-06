@@ -162,6 +162,8 @@ instance Compressable (Assertion a) where
         Refinement $$ mcompress e1 $$ mcompress m $$ mcompress e2 $$ mcompress opts
     mcompress (PropertyCheck e p m opts) = return 
         PropertyCheck $$ mcompress e $$ mcompress p $$ mcompress m $$ mcompress opts
+    mcompress (SymmetryCheck e ns) = return 
+        SymmetryCheck $$ mcompress e $$ return ns
     mcompress (ASNot a) = return ASNot $$ mcompress a
 
 instance Compressable (ModelOption a) where

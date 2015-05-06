@@ -615,6 +615,10 @@ data Assertion id =
         propertyCheckModel :: Maybe Model,
         propertyCheckModelOptions :: [AnModelOption id]
     }
+    | SymmetryCheck {
+        symmetryCheckExpression :: AnExp id,
+        symmetryCheckTypes :: [id]
+    }
     -- | The negation of an assertion, not currently supported.
     | ASNot (AnAssertion id)
     deriving (Eq, Ord, Show)
