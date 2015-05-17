@@ -34,6 +34,18 @@ import Util.List
 -- matching in BooleanBinaryOp And in case the first value is false.)
 
 eval :: TCExp -> AnalyserMonad (EvaluationMonad Value)
+eval (An _ _ (App (An _ _ (Var n)) [procArg, alphaArg]))
+        | n == builtInName "lazy_compile" = do
+    alpha <- eval alphaArg
+    processFvs <- freeVarsBoundByParentFrames procArg
+    return $! do
+        -- TODO: detect other invalid uses of lazy_compile
+        VSet alpha <- alpha
+        freeVarValues <- mapM (\ n -> do
+            v <- lookupVar n
+            return (n, v)) processFvs
+        let op = LazyCompile (S.valueSetToEventSet alpha)
+        return $ VProc $ PSyntacticOp op freeVarValues [procArg]
 eval (An _ _ (App func args)) = do
     func <- eval func
     args <- mapM eval args

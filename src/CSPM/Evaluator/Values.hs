@@ -15,6 +15,7 @@ module CSPM.Evaluator.Values (
     Event(..), EventSet, eventSetFromList, EventMap,
     -- * Processes
     Proc(..), CSPOperator(..), ProcOperator(..),  ProcName(..),
+    SyntacticOperator(..),
     operator, components, splitProcIntoComponents,
 ) where
 
@@ -338,6 +339,12 @@ data CSPOperator =
 
 instance Hashable CSPOperator
 
+data SyntacticOperator =
+    LazyCompile EventSet
+    deriving (Eq, Generic, Ord)
+
+instance Hashable SyntacticOperator
+
 -- | A compiled process. Note this is an infinite data structure (due to
 -- PProcCall) as this makes compilation easy (we can easily chase
 -- dependencies).
@@ -345,6 +352,7 @@ data Proc =
     PUnaryOp CSPOperator Proc
     | PBinaryOp CSPOperator Proc Proc
     | POp CSPOperator [Proc]
+    | PSyntacticOp SyntacticOperator [(Name, Value)] [TCExp]
     -- | Labels the process this contains. This allows infinite loops to be
     -- spotted.
     | PProcCall ProcName Proc
@@ -355,6 +363,8 @@ instance Eq Proc where
     (PBinaryOp op1 p1 p2) == (PBinaryOp op2 r1 r2) =
         op1 == op2 && p1 == r1 && p2 == r2
     (POp op1 ps1) == (POp op2 ps2) = op1 == op2 && ps1 == ps2
+    (PSyntacticOp op1 nvs1 e1) == (PSyntacticOp op2 nvs2 e2) =
+        op1 == op2 && nvs1 == nvs2 && e1 == e2
     _ == _ = False
 
 instance Hashable Proc where
@@ -364,6 +374,9 @@ instance Hashable Proc where
         s `hashWithSalt` (3 :: Int) `hashWithSalt` op1 `hashWithSalt` p1 `hashWithSalt` p2
     hashWithSalt s (POp op ps) =
         s `hashWithSalt` (4 :: Int) `hashWithSalt` op `hashWithSalt` ps
+    hashWithSalt s (PSyntacticOp op nvs es) =
+        -- Note we do not hash es due to the expense
+        s `hashWithSalt` (5 :: Int) `hashWithSalt` op `hashWithSalt` nvs
 
 instance Ord Proc where
     compare (PProcCall pn1 _) (PProcCall pn2 _) = compare pn1 pn2
@@ -379,6 +392,11 @@ instance Ord Proc where
     compare _ (PBinaryOp _ _ _) = GT
     compare (POp op1 ps1) (POp op2 ps2) =
         compare op1 op2 `thenCmp` compare ps1 ps2
+    compare (POp _ _) _ = LT
+    compare _ (POp _ _) = GT
+    compare (PSyntacticOp op1 nvs1 e1) (PSyntacticOp op2 nvs2 e2) =
+        compare op1 op2 `thenCmp` compare nvs1 nvs2 `thenCmp` compare e1 e2
+
 -- | Gives the operator of a process. If the process is a ProcCall an error is
 -- thrown.
 operator :: Proc -> CSPOperator
@@ -391,6 +409,7 @@ components :: Proc -> [Proc]
 components (PBinaryOp _ p1 p2) = [p1, p2]
 components (POp _ ps) = ps
 components (PUnaryOp _ p1) = [p1]
+components (PSyntacticOp _ _ _) = []
 
 -- | Given a process, returns the initial process and all processes that it
 -- calls.
@@ -409,6 +428,7 @@ splitProcIntoComponents p =
         explore s pns (PProcCall n p) =
             if explored s n then (s, pns)
             else explore (St.insert n s) ((n, p):pns) p
+        explore s pns (PSyntacticOp _ _ _) = (s, pns)
     in (p, snd $ explore St.empty [] p)
 
 
@@ -453,6 +473,8 @@ trimProcess (PBinaryOp op p1 p2) =
     PBinaryOp (trimOperator op) (trimProcess p1) (trimProcess p2)
 trimProcess (POp op ps) =
     POp (trimOperator op) (fmap trimProcess ps)
+trimProcess (PSyntacticOp op nvs e) = PSyntacticOp (trimSyntacticOperator op)
+    (map (\ (n, v) -> (n, trimValueForProcessName v)) nvs) e
 trimProcess (PProcCall pn _) = PProcCall pn errorThunk
 
 trimEvent :: Event -> Event
@@ -485,3 +507,6 @@ trimOperator (PSynchronisingExternalChoice evs) =
     PSynchronisingExternalChoice (fmap trimEvent evs)
 trimOperator (PSynchronisingInterrupt evs) =
     PSynchronisingInterrupt (fmap trimEvent evs)
+
+trimSyntacticOperator :: SyntacticOperator -> SyntacticOperator
+trimSyntacticOperator (LazyCompile e) = LazyCompile e

@@ -4,6 +4,7 @@ module CSPM.TypeChecker.Expr () where
 import Control.Monad
 import Data.List
 
+import CSPM.Prelude (nameIsSyntacticFunction)
 import CSPM.Syntax.FreeVars
 import CSPM.Syntax.Names
 import CSPM.Syntax.AST hiding (getType)
@@ -72,6 +73,14 @@ instance TypeCheckable (Exp Name) Type where
         (hang (text "In the expression:") tabWidth (prettyPrint e),
             freeVars e)
     
+    typeCheck' (App f@(An _ _ (Var n)) args) | nameIsSyntacticFunction n = do
+        targs <- replicateM (length args) freshRegisteredTypeVar
+        tr <- freshRegisteredTypeVar
+        actualFnType <- getType n >>= instantiate
+        setPType (snd (annotation f)) actualFnType
+        unify (TFunction targs tr) actualFnType
+        checkFunctionCall (prettyPrint f) args targs
+        return tr
     typeCheck' (App f args) = do
         targs <- replicateM (length args) freshRegisteredTypeVar
         tr <- freshRegisteredTypeVar
@@ -191,6 +200,8 @@ instance TypeCheckable (Exp Name) Type where
     typeCheck' (Tuple es) = do
         ts <- mapM typeCheck es
         return $ TTuple ts
+    typeCheck' (Var n) | nameIsSyntacticFunction n =
+        raiseMessagesAsError [syntacticFunctionUsedIncorrectly n]
     typeCheck' (Var n) = do
         b <- isDeprecated n
         when b $ do

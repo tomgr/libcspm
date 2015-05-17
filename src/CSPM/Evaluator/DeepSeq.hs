@@ -3,12 +3,16 @@ module CSPM.Evaluator.DeepSeq () where
 
 import Control.DeepSeq
 
+import CSPM.Syntax.Names
 import CSPM.Evaluator.ValueSet
 import CSPM.Evaluator.Values
 
 -- In general, we don't need to worry about errors in names as we strictly
 -- construct them, and strictly insert them everywhere. We also don't need to
 -- worry about errors inside expressions since the desugarer is strict.
+
+instance NFData Name where
+    rnf n = ()
 
 instance NFData InstantiatedFrame where
     rnf (InstantiatedFrame h f vss args) = h `seq` f `seq` rnf vss `seq` rnf args

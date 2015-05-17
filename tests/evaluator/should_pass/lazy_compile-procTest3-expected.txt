@@ -1,0 +1,5 @@
+p(true) = lazy_compile(a.x -> STOP, {a.true}, [x = true])
+
+procTest3 = p(true)
+
+procTest3

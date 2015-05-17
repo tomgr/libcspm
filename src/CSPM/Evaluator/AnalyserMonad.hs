@@ -1,7 +1,7 @@
 module CSPM.Evaluator.AnalyserMonad (
     AnalyserState, initialAnalyserState,
     AnalyserMonad, runAnalyser, getState,
-    withinTimedSection, maybeTimed,
+    withinTimedSection, maybeTimed, freeVarsBoundByParentFrames,
 
     DataTypeInformation(..), DataTypeConstructor(..), FieldSet(..),
     dataTypeForName, addDataTypes, channelInformationForName,
@@ -69,6 +69,11 @@ relevantVars n = do
         case M.lookup n m of
             Just fvs -> fvs
             Nothing -> []
+
+freeVarsBoundByParentFrames :: FreeVars body => body -> AnalyserMonad [Name]
+freeVarsBoundByParentFrames body = do
+    mframe <- gets parentFrame
+    relevantFreeVars mframe ([] :: [TCPat]) body
 
 analyseRelevantVars :: [TCDecl] -> AnalyserMonad a -> AnalyserMonad a
 analyseRelevantVars ds prog = do

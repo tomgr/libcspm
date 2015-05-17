@@ -12,6 +12,7 @@ module CSPM.TypeChecker.Exceptions (
     illegalModuleInstanceCycleErrorMessage,
     ambiguousDataTypeClauseError,
     ambiguousChannelError,
+    syntacticFunctionUsedIncorrectly,
     ErrorOptions(..), defaultErrorOptions,
 )
 where
@@ -233,6 +234,11 @@ ambiguousTypeError headerDoc nameDoc clauseType vmap =
                 text "Field" <+> int n <> colon <+> t
             ) polymorphicFields')),
         vmap'')
+
+syntacticFunctionUsedIncorrectly :: Name -> Error
+syntacticFunctionUsedIncorrectly n = noMap $
+    text "The function" <+> prettyPrint n
+    <+> text "operates on syntax, and thus may only be fully applied."
 
 
 -- | A datatype used to hold which errors and warnings to actually emit.

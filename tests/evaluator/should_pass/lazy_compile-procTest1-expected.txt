@@ -1,0 +1,3 @@
+procTest1 = lazy_compile(STOP, {}, [])
+
+procTest1

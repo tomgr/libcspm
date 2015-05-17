@@ -1,0 +1,11 @@
+transparent lazy_compile
+
+procTest1 = lazy_compile(STOP, {})
+
+channel a : Bool
+
+procTest2 = lazy_compile(a.true -> STOP, {|a|})
+
+p(x) = lazy_compile(a.x -> STOP, {|a.x|})
+
+procTest3 = p(true)

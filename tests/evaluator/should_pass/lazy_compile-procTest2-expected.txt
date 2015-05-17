@@ -1,0 +1,3 @@
+procTest2 = lazy_compile(a.true -> STOP, {a.false, a.true}, [])
+
+procTest2

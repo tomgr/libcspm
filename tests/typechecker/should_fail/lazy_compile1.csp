@@ -1,0 +1,3 @@
+transparent lazy_compile
+
+P = lazy_compile

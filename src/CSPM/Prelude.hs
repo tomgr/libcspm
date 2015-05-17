@@ -9,6 +9,7 @@ module CSPM.Prelude (
     transparentFunctionForOccName,
     externalFunctionForOccName,
     locatedBuiltins,
+    nameIsSyntacticFunction,
 ) 
 where
 
@@ -26,6 +27,7 @@ data BuiltIn =
         name :: Name,
         stringName :: B.ByteString,
         isDeprecated :: Bool,
+        isSyntacticFunction :: Bool,
         deprecatedReplacement :: Maybe Name,
         typeScheme :: TypeScheme,
         isTypeUnsafe :: Bool,
@@ -41,6 +43,12 @@ bMap = M.fromList [(stringName b, name b) | b <- builtins True]
 builtinMap = M.fromList [(name b, b) | b <- builtins True]
 builtInName s = M.findWithDefault (panic "builtin not found") s bMap
 builtInWithName s = M.findWithDefault (panic "builtin not found") s builtinMap
+
+nameIsSyntacticFunction :: Name -> Bool
+nameIsSyntacticFunction n =
+    case M.lookup n builtinMap of
+        Just b -> isSyntacticFunction b
+        Nothing -> False
 
 builtins :: Bool -> [BuiltIn]
 builtins includeHidden = 
@@ -213,7 +221,8 @@ makeBuiltins = do
             ("tau_loop_factor", TFunction [TProc] TProc),
             ("model_compress", TFunction [TProc] TProc),
             ("wbisim", TFunction [TProc] TProc),
-            ("dbisim", TFunction [TProc] TProc)
+            ("dbisim", TFunction [TProc] TProc),
+            ("lazy_compile", TFunction [TProc, TSet TEvent] TProc)
             ]
 
         csp_timed_priority = ("timed_priority", TFunction [TProc] TProc)
@@ -267,6 +276,9 @@ makeBuiltins = do
         deprecatedNames :: [B.ByteString]
         deprecatedNames = []
 
+        syntacticNames :: [B.ByteString]
+        syntacticNames = ["lazy_compile"]
+
         replacementForDeprecatedName :: B.ByteString -> Maybe B.ByteString
         replacementForDeprecatedName _ = Nothing
 
@@ -282,7 +294,8 @@ makeBuiltins = do
                 isHidden = s `elem` hiddenNames,
                 isTypeUnsafe = s `elem` unsafeFunctionNames,
                 isExternal = s `elem` externalNames,
-                isTransparent = s `elem` transparentNames
+                isTransparent = s `elem` transparentNames,
+                isSyntacticFunction = s `elem` syntacticNames
             }
         
         makeReplacements :: [BuiltIn] -> BuiltIn -> IO BuiltIn

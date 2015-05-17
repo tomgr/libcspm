@@ -478,6 +478,7 @@ instance Precedence Proc where
 
     precedence (PProcCall _ _) = 0
     precedence (PUnaryOp (POperator _) _) = 0
+    precedence (PSyntacticOp _ _ _) = 0
     precedence (POp (PChaos _) _) = 0
     precedence (POp (PRun _) _) = 0
 
@@ -587,6 +588,13 @@ instance
     prettyPrint (op@(PBinaryOp (PSynchronisingInterrupt es) p1 p2)) =
         ppBinaryOp op (M.text "/+" M.<+> M.prettyPrint es M.<+> M.text "+\\")
             p1 p2
+    prettyPrint (PSyntacticOp (LazyCompile a) nvs es) =
+        M.text "lazy_compile" M.<> M.parens (
+            return (list (map prettyPrint es))
+            M.<> M.comma M.<+> M.prettyPrint a
+            M.<> M.comma M.<+> M.brackets (M.list (mapM (\ (n, v) ->
+                    M.prettyPrint n M.<+> M.equals M.<+> M.prettyPrint v
+                ) nvs)))
 
     prettyPrintBrief (op@(POp (PAlphaParallel as) ps)) = maybeNull' ps $ 
         if length (F.toList as) == 1 then
@@ -648,6 +656,8 @@ instance
     prettyPrintBrief (op@(PBinaryOp (PSynchronisingInterrupt es) p1 p2)) =
         ppBriefBinaryOp op (M.text "/+…+\\") p1 p2
     prettyPrintBrief (PProcCall n _) = M.prettyPrintBrief n
+    prettyPrintBrief (PSyntacticOp (LazyCompile _) _ _) =
+        M.text "lazy_compile" M.<> M.parens M.ellipsis
 
 instance (Applicative m, Monad m,
         M.MonadicPrettyPrintable m TCExp,
