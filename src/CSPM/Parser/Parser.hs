@@ -18,9 +18,9 @@ import Data.List (groupBy, nub, sort, sortBy, (\\))
 import qualified Data.Map as M
 import Data.Maybe (catMaybes)
 
-import CSPM.Syntax.FreeVars
-import CSPM.Syntax.Names
 import CSPM.Syntax.AST
+import CSPM.Syntax.Literals
+import CSPM.Syntax.Names
 import CSPM.Syntax.Types hiding (TDot, TChar)
 import CSPM.Parser.Exceptions
 import CSPM.Parser.Lexer
@@ -3292,9 +3292,9 @@ parseError tok = throwSourceError [parseErrorMessage tok]
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 {-# LINE 1 "<built-in>" #-}
-{-# LINE 1 "<command-line>" #-}
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 -- Id: GenericTemplate.hs,v 1.26 2005/01/14 14:47:22 simonmar Exp 
+
 
 {-# LINE 13 "templates/GenericTemplate.hs" #-}
 
@@ -3312,6 +3312,7 @@ parseError tok = throwSourceError [parseErrorMessage tok]
 #define GTE(n,m) (n Happy_GHC_Exts.>=# m)
 #define EQ(n,m) (n Happy_GHC_Exts.==# m)
 #endif
+
 {-# LINE 46 "templates/GenericTemplate.hs" #-}
 
 
@@ -3321,11 +3322,20 @@ data Happy_IntList = HappyCons Happy_GHC_Exts.Int# Happy_IntList
 
 
 
+
 {-# LINE 67 "templates/GenericTemplate.hs" #-}
+
 
 {-# LINE 77 "templates/GenericTemplate.hs" #-}
 
-{-# LINE 86 "templates/GenericTemplate.hs" #-}
+
+
+
+
+
+
+
+
 
 infixr 9 `HappyStk`
 data HappyStk a = HappyStk a (HappyStk a)
@@ -3353,7 +3363,7 @@ happyAccept j tk st sts (HappyStk ans _) =
 
 happyDoAction i tk st
         = {- nothing -}
-
+          
 
           case action of
                 0#           -> {- nothing -}
@@ -3361,11 +3371,11 @@ happyDoAction i tk st
                 -1#          -> {- nothing -}
                                      happyAccept i tk st
                 n | LT(n,(0# :: Happy_GHC_Exts.Int#)) -> {- nothing -}
-
+                                                   
                                                    (happyReduceArr Happy_Data_Array.! rule) i tk st
                                                    where rule = (Happy_GHC_Exts.I# ((Happy_GHC_Exts.negateInt# ((n Happy_GHC_Exts.+# (1# :: Happy_GHC_Exts.Int#))))))
                 n                 -> {- nothing -}
-
+                                     
 
                                      happyShift new_state i tk st
                                      where new_state = (n Happy_GHC_Exts.-# (1# :: Happy_GHC_Exts.Int#))
@@ -3398,6 +3408,7 @@ data HappyAddr = HappyA# Happy_GHC_Exts.Addr#
 
 -----------------------------------------------------------------------------
 -- HappyState data type (not arrays)
+
 
 {-# LINE 170 "templates/GenericTemplate.hs" #-}
 
@@ -3563,3 +3574,4 @@ happyDontSeq a b = b
 {-# NOINLINE happyFail #-}
 
 -- end of Happy Template.
+
