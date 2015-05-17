@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses,
     TypeSynonymInstances #-}
-module CSPM.DataStructures.Types (
+module CSPM.Syntax.Types (
     -- * Data Structures
     TypeVar, TypeScheme(..), Constraint(..), Type(..), TypeVarRef(..),
     prettyPrintTypes, isRigid, constraintImpliedBy, reduceConstraints,
@@ -27,7 +27,7 @@ import qualified Data.Map as Mp
 import Data.Supply
 import System.IO.Unsafe
 
-import CSPM.DataStructures.Names
+import CSPM.Syntax.Names
 import qualified Util.MonadicPrettyPrint as M
 import Util.Exception
 import Util.Precedence

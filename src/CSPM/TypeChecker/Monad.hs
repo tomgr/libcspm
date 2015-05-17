@@ -41,8 +41,8 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Prelude hiding (lookup)
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Types
+import CSPM.Syntax.Names
+import CSPM.Syntax.Types
 import qualified CSPM.TypeChecker.Environment as Env
 import CSPM.TypeChecker.Exceptions
 import Util.Annotated

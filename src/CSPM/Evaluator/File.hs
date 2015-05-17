@@ -4,8 +4,8 @@ module CSPM.Evaluator.File (
 ) 
 where
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.DeclBind
 import CSPM.Evaluator.Monad

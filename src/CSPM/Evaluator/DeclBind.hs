@@ -5,9 +5,9 @@ module CSPM.Evaluator.DeclBind (
 
 import Data.List (partition)
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Types
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
+import CSPM.Syntax.Types
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.BuiltInFunctions
 import CSPM.Evaluator.DataTypeAnalyser

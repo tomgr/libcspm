@@ -1,4 +1,4 @@
-module CSPM.DataStructures.Literals (
+module CSPM.Syntax.Literals (
     Literal(..)
 ) where
 

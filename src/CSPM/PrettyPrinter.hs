@@ -4,7 +4,7 @@ module CSPM.PrettyPrinter (
 )
 where
 
-import CSPM.DataStructures.Syntax
+import CSPM.Syntax.AST
 import Util.Annotated
 import Util.PrettyPrint
 

@@ -18,10 +18,10 @@ import Data.List (groupBy, nub, sort, sortBy, (\\))
 import qualified Data.Map as M
 import Data.Maybe (catMaybes)
 
-import CSPM.DataStructures.Literals
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Types hiding (TDot, TChar)
+import CSPM.Syntax.FreeVars
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
+import CSPM.Syntax.Types hiding (TDot, TChar)
 import CSPM.Parser.Exceptions
 import CSPM.Parser.Lexer
 import CSPM.Parser.Monad

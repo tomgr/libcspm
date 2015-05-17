@@ -7,8 +7,8 @@ where
 
 import qualified Data.Map as M
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Types
+import CSPM.Syntax.Names
+import CSPM.Syntax.Types
 
 -- | Make symbol information for the type assuming that the symbol
 -- is not deprecated and its type is not unsafe.

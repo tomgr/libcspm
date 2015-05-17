@@ -1,8 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
 module CSPM.TypeChecker.File where
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
 import CSPM.TypeChecker.Common
 import CSPM.TypeChecker.Decl
 import CSPM.TypeChecker.Monad

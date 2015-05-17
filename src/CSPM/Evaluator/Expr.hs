@@ -10,11 +10,11 @@ import qualified Data.Map as M
 import qualified Data.Set as St
 import qualified Data.Traversable as T
 
-import CSPM.DataStructures.FreeVars
-import CSPM.DataStructures.Literals
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Types
+import CSPM.Syntax.FreeVars
+import CSPM.Syntax.Literals
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
+import CSPM.Syntax.Types
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.BuiltInFunctions
 import CSPM.Evaluator.DeclBind

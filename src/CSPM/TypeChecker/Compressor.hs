@@ -5,9 +5,9 @@ module CSPM.TypeChecker.Compressor(
     Compressable, mcompress
 ) where
 
-import CSPM.DataStructures.Literals
-import CSPM.DataStructures.Types
-import CSPM.DataStructures.Syntax
+import CSPM.Syntax.AST
+import CSPM.Syntax.Literals
+import CSPM.Syntax.Types
 import CSPM.TypeChecker.Monad
 import Util.Annotated
 import Util.Monad

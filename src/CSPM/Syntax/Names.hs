@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses,
     TypeSynonymInstances #-}
 -- | Names used by the evaluator. This is heavily inspired by GHC.
-module CSPM.DataStructures.Names (
+module CSPM.Syntax.Names (
     -- * Data Types
     OccName(..),
     UnRenamedName(..),

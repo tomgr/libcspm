@@ -26,8 +26,9 @@ import qualified Data.Map as M
 import GHC.Generics (Generic)
 import Prelude hiding (lookup)
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Types
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
+import CSPM.Syntax.Types
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Monad
 import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S

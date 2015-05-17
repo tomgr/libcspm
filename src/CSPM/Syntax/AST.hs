@@ -6,7 +6,7 @@
 -- pieces of syntax are annoated with their location in the source code, and
 -- (sometimes) with their type (but only after type checking). This is done 
 -- using the 'Annotated' datatype.
-module CSPM.DataStructures.Syntax (
+module CSPM.Syntax.AST (
     -- * Files
     CSPMFile(..), allAssertionsInFile, allPrintStatementsInFile,
     -- * Declarations
@@ -60,9 +60,9 @@ module CSPM.DataStructures.Syntax (
 import qualified Data.ByteString as B
 import qualified Data.Map as M
 
-import CSPM.DataStructures.Literals
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Types
+import CSPM.Syntax.Literals
+import CSPM.Syntax.Names
+import CSPM.Syntax.Types
 import Util.Annotated
 
 -- Declarations may bind multiple names

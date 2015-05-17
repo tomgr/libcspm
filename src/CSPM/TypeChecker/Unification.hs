@@ -9,8 +9,8 @@ import Data.List (nub, sort)
 import qualified Data.Set as S
 import Prelude
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Types
+import CSPM.Syntax.Names
+import CSPM.Syntax.Types
 import CSPM.TypeChecker.Exceptions
 import CSPM.TypeChecker.Monad
 import Util.Exception

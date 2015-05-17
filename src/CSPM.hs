@@ -8,7 +8,7 @@
 -- the 'CSPMMonad' class on their own custom monad. An example of this is shown
 -- by the basic implementation of the 'CSPM' monad.
 --
--- The main library datatype is exported by 'CSPM.DataStructures.Syntax', which
+-- The main library datatype is exported by 'CSPM.Syntax.AST', which
 -- provides an AST representation of machine CSP. Most of the pieces of syntax,
 -- like expressions ('Exp'), are parametrised by the type of the variables that
 -- it contains. For more information see the comment at the top of the above
@@ -78,11 +78,11 @@ module CSPM (
     CSPM, unCSPM,
     -- * Common Data Types
     -- | Defines the names that are used by machine CSP.
-    module CSPM.DataStructures.Names,
+    module CSPM.Syntax.Names,
     -- | Defines the abstract syntax for machine CSP.
-    module CSPM.DataStructures.Syntax,
+    module CSPM.Syntax.AST,
     -- | Defines the types used by the typechecker.
-    module CSPM.DataStructures.Types,
+    module CSPM.Syntax.Types,
     -- | Defines the values produced by the evaluator.
     module CSPM.Evaluator.Values,
     -- * Parser API
@@ -124,9 +124,9 @@ import qualified Data.ByteString as B
 import Data.Version
 import System.FilePath
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Types
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
+import CSPM.Syntax.Types
 import qualified CSPM.Evaluator as EV
 import CSPM.Evaluator.Values
 import qualified CSPM.Parser as P

@@ -1,10 +1,10 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances #-}
 module CSPM.TypeChecker.Pat () where
 
-import CSPM.DataStructures.FreeVars
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax hiding (getType)
-import CSPM.DataStructures.Types
+import CSPM.Syntax.FreeVars
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST hiding (getType)
+import CSPM.Syntax.Types
 import CSPM.TypeChecker.Common
 import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Unification

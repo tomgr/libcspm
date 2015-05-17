@@ -8,13 +8,13 @@ import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import qualified Data.Set as S
 
-import CSPM.DataStructures.FreeVars
-import CSPM.DataStructures.Literals
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax hiding (timedSectionTockName)
-import CSPM.DataStructures.Types
 import CSPM.PrettyPrinter
 import CSPM.Prelude
+import CSPM.Syntax.AST hiding (timedSectionTockName)
+import CSPM.Syntax.Literals
+import CSPM.Syntax.FreeVars
+import CSPM.Syntax.Names
+import CSPM.Syntax.Types
 import Util.Annotated
 import Util.Exception
 import Util.Monad

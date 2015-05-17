@@ -20,10 +20,10 @@ import Prelude
 import Data.Maybe
 
 import Data.List (intersect, nub, sort)
-import CSPM.DataStructures.FreeVars
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Types
+import CSPM.Syntax.FreeVars
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
+import CSPM.Syntax.Types
 import CSPM.PrettyPrinter
 import Util.Annotated
 import Util.Exception

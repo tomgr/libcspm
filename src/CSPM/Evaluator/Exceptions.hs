@@ -3,8 +3,8 @@ where
 
 import Prelude
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
 import CSPM.PrettyPrinter
 import CSPM.Evaluator.ValuePrettyPrinter ()
 import CSPM.Evaluator.Values

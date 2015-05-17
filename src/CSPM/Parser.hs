@@ -56,7 +56,7 @@ where
 import qualified Data.ByteString.Char8 as B
 import System.FilePath
 
-import CSPM.DataStructures.Syntax
+import CSPM.Syntax.AST
 import CSPM.Parser.Monad
 import CSPM.Parser.Parser
 

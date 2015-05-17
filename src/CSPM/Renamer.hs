@@ -24,8 +24,8 @@ import qualified Data.Map as M
 import Data.Maybe (fromJust, isJust,isNothing)
 import qualified Data.Set as S
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
 import CSPM.Prelude
 import CSPM.PrettyPrinter
 import Util.Annotated

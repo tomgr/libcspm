@@ -22,8 +22,8 @@ module CSPM.Parser.Exceptions (
 )
 where
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
 import CSPM.Parser.Tokens
 import CSPM.PrettyPrinter
 import Util.Annotated

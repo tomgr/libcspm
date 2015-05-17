@@ -6,7 +6,7 @@ module CSPM.Evaluator.Environment (
 import qualified Data.IntMap as M
 import Prelude hiding (lookup)
 
-import CSPM.DataStructures.Names
+import CSPM.Syntax.Names
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import Util.Exception
 

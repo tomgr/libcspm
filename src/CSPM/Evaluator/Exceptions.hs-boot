@@ -2,8 +2,8 @@ module CSPM.Evaluator.Exceptions where
 
 import Prelude
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
 import {-# SOURCE #-} CSPM.Evaluator.Values
 import {-# SOURCE #-} CSPM.Evaluator.ValueSet
 import Util.Annotated

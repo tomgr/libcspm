@@ -5,7 +5,7 @@ where
 
 import qualified Data.ByteString as B
 
-import CSPM.DataStructures.Syntax (Model(..))
+import CSPM.Syntax.AST (Model(..))
 import CSPM.PrettyPrinter
 import Util.Annotated
 import Util.PrettyPrint

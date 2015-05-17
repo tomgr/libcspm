@@ -4,10 +4,10 @@ module CSPM.TypeChecker.Expr () where
 import Control.Monad
 import Data.List
 
-import CSPM.DataStructures.FreeVars
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax hiding (getType)
-import CSPM.DataStructures.Types
+import CSPM.Syntax.FreeVars
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST hiding (getType)
+import CSPM.Syntax.Types
 import CSPM.TypeChecker.Common
 import {-# SOURCE #-} CSPM.TypeChecker.Decl
 import CSPM.TypeChecker.Exceptions

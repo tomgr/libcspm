@@ -12,9 +12,9 @@ module CSPM.TypeChecker (
 
 import Control.Monad.Trans
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax hiding (getType)
-import CSPM.DataStructures.Types
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST hiding (getType)
+import CSPM.Syntax.Types
 import CSPM.TypeChecker.BuiltInFunctions
 import qualified CSPM.TypeChecker.Common as TC
 import CSPM.TypeChecker.Compressor

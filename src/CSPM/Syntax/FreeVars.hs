@@ -1,13 +1,13 @@
 {-# LANGUAGE FlexibleInstances #-}
-module CSPM.DataStructures.FreeVars (
+module CSPM.Syntax.FreeVars (
     BoundNames(..), FreeVars(..)
 ) where
 
 import Data.List
 import qualified Data.Map as M
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
+import CSPM.Syntax.AST
+import CSPM.Syntax.Names
 import Util.Annotated
 import Util.Exception
 

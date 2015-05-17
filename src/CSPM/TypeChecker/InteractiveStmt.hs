@@ -1,8 +1,8 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, TypeSynonymInstances #-}
 module CSPM.TypeChecker.InteractiveStmt where
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
 import CSPM.TypeChecker.Common
 import CSPM.TypeChecker.Decl
 import CSPM.TypeChecker.Expr()

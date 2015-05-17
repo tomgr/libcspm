@@ -5,7 +5,7 @@ module CSPM.Evaluator.Dot (
     compressIntoEnumeratedSet,
 ) where
 
-import CSPM.DataStructures.Names
+import CSPM.Syntax.Names
 import {-# SOURCE #-} CSPM.Evaluator.Exceptions
 import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Values

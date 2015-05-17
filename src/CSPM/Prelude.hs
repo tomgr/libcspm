@@ -17,8 +17,8 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import System.IO.Unsafe
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Types
+import CSPM.Syntax.Names
+import CSPM.Syntax.Types
 import Util.Exception
 
 data BuiltIn = 

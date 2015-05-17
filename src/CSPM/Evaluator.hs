@@ -15,8 +15,8 @@ module CSPM.Evaluator (
 import Control.Monad.State
 import qualified Data.Foldable as F
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
 import qualified CSPM.Evaluator.AnalyserMonad as A
 import CSPM.Evaluator.BuiltInFunctions
 import CSPM.Evaluator.DeclBind

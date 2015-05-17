@@ -13,7 +13,7 @@ import qualified Data.HashTable.ST.Basic as B
 import qualified Data.Set as St
 import qualified Data.Map as M
 
-import CSPM.DataStructures.Names
+import CSPM.Syntax.Names
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Exceptions

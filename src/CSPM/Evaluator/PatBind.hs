@@ -5,12 +5,12 @@ module CSPM.Evaluator.PatBind (
     patternAlwaysMatches,
 ) where
 
-import CSPM.DataStructures.Literals
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
+import CSPM.Syntax.AST
+import CSPM.Syntax.Literals
+import CSPM.Syntax.Names
 import Util.Annotated
 import Util.Exception
 

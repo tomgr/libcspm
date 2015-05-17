@@ -22,10 +22,10 @@ import qualified Data.Set as S
 import Data.Supply
 import System.IO.Unsafe
 
-import CSPM.DataStructures.FreeVars
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax hiding (timedSectionTockName)
-import CSPM.DataStructures.Types
+import CSPM.Syntax.FreeVars
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST hiding (timedSectionTockName)
+import CSPM.Syntax.DataTypeAnalyser
 import CSPM.Prelude
 import qualified Data.Graph.ST as G
 import Util.Exception

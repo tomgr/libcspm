@@ -7,9 +7,6 @@ import qualified Data.Foldable as F
 import Data.Maybe
 import qualified Data.Set as St
 
-import CSPM.DataStructures.FreeVars
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Exceptions
@@ -18,6 +15,9 @@ import CSPM.Evaluator.Monad
 import CSPM.Evaluator.PatBind
 import CSPM.Evaluator.Values
 import qualified CSPM.Evaluator.ValueSet as S
+import CSPM.Syntax.AST
+import CSPM.Syntax.Names
+import CSPM.Syntax.Helpers
 import Util.Annotated
 import Util.Exception
 
