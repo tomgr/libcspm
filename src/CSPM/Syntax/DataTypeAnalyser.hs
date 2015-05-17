@@ -1,20 +1,69 @@
-module CSPM.Evaluator.DataTypeAnalyser (
-    registerDataTypes,
+module CSPM.Syntax.DataTypeAnalyser (
+    DataTypeInformation(..), DataTypeConstructor(..), FieldSet(..),
+    dataTypesForDeclarations,
 ) where
 
 import qualified Data.Map as M
 
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
-import CSPM.DataStructures.Types
-import CSPM.Evaluator.AnalyserMonad
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
+import CSPM.Syntax.Types
 import CSPM.Prelude
 import Util.Annotated
 import Util.Exception
 import Util.Monad
 
-computeDataTypeInformation :: TCDecl -> AnalyserMonad [DataTypeInformation]
-computeDataTypeInformation (An _ _ (DataType dataTypeName clauses)) = do
+data FieldSet =
+    -- | Indicates the field set is deduced by evaluating the given expression.
+    SimpleFieldSet {
+        simpleFieldSetExpression :: TCExp
+    }
+    -- | Represents a more complex field set. The only may to extract the field
+    -- set is to evaluate the given expression, and then decompose the resulting
+    -- valueset into a cartesian product, and then extract the indexed field.
+    | CompoundFieldSet {
+        compoundFieldSetToExtract :: Int,
+        compoundFieldSetExpression :: TCExp
+    }
+    deriving (Eq, Ord, Show)
+
+data DataTypeConstructor = DataTypeConstructor {
+        -- | The name of the constructor.
+        constructorName :: Name,
+        -- | The number of fields of the construtor.
+        constructorFieldCount :: Int,
+        -- | The types of the fields of the construtor.
+        constructorFieldTypes :: [Type],
+        -- | A description of the set of all values allowed for each field.
+        constructorDecomposedFieldSets :: [FieldSet],
+        -- | Indicates if each field set is `trivial` in the sense that it
+        -- permits any value of the appropriate type. For example, in
+        --
+        --  datatype X = Y.Bool.{0..1}
+        --
+        -- The first field (Bool) is trivial, because any boolean is in Bool,
+        -- whereas the second field is not trivial, since there are integers
+        -- that are not in {0,1}.
+        constructorFieldSetIsTrivial :: [Bool]
+    }
+    deriving Show
+
+data DataTypeInformation = DataTypeInformation {
+        dataTypeType :: Type,
+        dataTypeName :: Name,
+        -- | Map from constructor name to constructor.
+        dataTypeConstructors :: M.Map Name DataTypeConstructor
+    }
+    deriving Show
+
+-- | Computes all datatypes that are given in the declarations.
+dataTypesForDeclarations :: [TCDecl] -> [DataTypeInformation]
+dataTypesForDeclarations ds =
+    computeEventsDataType ds
+    ++ concatMap computeDataTypeInformation ds
+
+computeDataTypeInformation :: TCDecl -> [DataTypeInformation]
+computeDataTypeInformation (An _ _ (DataType dataTypeName clauses)) =
     let
         computeDataTypeClauseInformation
                 (An _ _ (DataTypeClause constructorName constructorTypeExpression _)) =
@@ -49,8 +98,7 @@ computeDataTypeInformation (An _ _ (DataType dataTypeName clauses)) = do
             }
 
         dataTypeConstructors = map computeDataTypeClauseInformation clauses
-
-    return [DataTypeInformation {
+    in [DataTypeInformation {
         dataTypeName = dataTypeName,
         dataTypeType =
             if dataTypeName == builtInName "Events" then TEvent
@@ -58,12 +106,12 @@ computeDataTypeInformation (An _ _ (DataType dataTypeName clauses)) = do
         dataTypeConstructors = M.fromList
             [(constructorName c, c) | c <- dataTypeConstructors]
     }]
-computeDataTypeInformation _ = return []
+computeDataTypeInformation _ = []
 
 -- | Converts channel declarations into a datatype declaration called Events.
 -- (They're exactly the same.)
-computeEventsDataType :: [TCDecl] -> AnalyserMonad [DataTypeInformation]
-computeEventsDataType declarations = do
+computeEventsDataType :: [TCDecl] -> [DataTypeInformation]
+computeEventsDataType declarations =
     let
         clauses = concatMap (\ decl ->
                 case decl of
@@ -74,15 +122,7 @@ computeEventsDataType declarations = do
             ) declarations
         dataType = An Unknown (panic "Dummy annotation") $
                     DataType (builtInName "Events") clauses
-    
-    computeDataTypeInformation dataType
-
-registerDataTypes :: [TCDecl] -> AnalyserMonad ()
-registerDataTypes declarations = do
-    datatypes <- concatMapM computeDataTypeInformation declarations
-    eventsDataType <- computeEventsDataType declarations
-    let allDatatypes = eventsDataType ++ datatypes
-    addDataTypes allDatatypes
+    in computeDataTypeInformation dataType
 
 decomposeDataTypeTypeExpression :: TCExp -> [FieldSet]
 decomposeDataTypeTypeExpression (An _ _ (DotApp e1 e2)) =

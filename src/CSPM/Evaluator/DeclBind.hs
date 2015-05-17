@@ -10,7 +10,7 @@ import CSPM.Syntax.AST
 import CSPM.Syntax.Types
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.BuiltInFunctions
-import CSPM.Evaluator.DataTypeAnalyser
+import CSPM.Syntax.DataTypeAnalyser
 import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Exceptions
 import {-# SOURCE #-} CSPM.Evaluator.Expr
@@ -27,7 +27,7 @@ import Util.Monad
 -- the current scope.
 bindDecls :: [TCDecl] -> AnalyserMonad (EvaluationMonad [(Name, EvaluationMonad Value)])
 bindDecls ds = do
-    registerDataTypes ds
+    addDataTypes $ dataTypesForDeclarations ds
     ds' <- mapM bindDecl ds
 
     let eventsName = builtInName "Events"

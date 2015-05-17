@@ -2,7 +2,6 @@
 module CSPM.Evaluator.PatBind (
     bind,
     bindAll,
-    patternAlwaysMatches,
 ) where
 
 import CSPM.Evaluator.AnalyserMonad
@@ -13,16 +12,6 @@ import CSPM.Syntax.Literals
 import CSPM.Syntax.Names
 import Util.Annotated
 import Util.Exception
-
--- | Returns true if the pattern is guaranteed to match any value
-patternAlwaysMatches :: TCPat -> Bool
-patternAlwaysMatches (An _ _ (PWildCard)) = True
-patternAlwaysMatches (An _ _ (PVar n)) | isNameDataConstructor n = False
-patternAlwaysMatches (An _ _ (PVar n)) = True
-patternAlwaysMatches (An _ _ (PTuple ps)) = and (map patternAlwaysMatches ps)
-patternAlwaysMatches (An _ _ (PDoublePattern p1 p2)) =
-    patternAlwaysMatches p1 && patternAlwaysMatches p2
-patternAlwaysMatches _ = False
 
 thenBind :: Maybe [(Name, Value)] -> Maybe [(Name, Value)] -> Maybe [(Name, Value)]
 thenBind Nothing _ = Nothing

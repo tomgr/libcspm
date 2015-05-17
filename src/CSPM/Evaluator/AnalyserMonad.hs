@@ -332,33 +332,6 @@ createLambdaFrame args body prog = do
     modify (\ st -> st { parentFrame = parent })
     return a
 
-data FieldSet =
-    SimpleFieldSet {
-        simpleFieldSetExpression :: TCExp
-    }
-    | CompoundFieldSet {
-        compoundFieldSetToExtract :: Int,
-        compoundFieldSetExpression :: TCExp
-    }
-    deriving (Eq, Ord, Show)
-
-data DataTypeConstructor = DataTypeConstructor {
-        constructorName :: Name,
-        constructorFieldCount :: Int,
-        constructorFieldTypes :: [Type],
-        constructorDecomposedFieldSets :: [FieldSet],
-        constructorFieldSetIsTrivial :: [Bool]
-    }
-    deriving Show
-
-data DataTypeInformation = DataTypeInformation {
-        dataTypeType :: Type,
-        dataTypeName :: Name,
-        -- | Map from constructor name to constructor.
-        dataTypeConstructors :: M.Map Name DataTypeConstructor
-    }
-    deriving Show
-
 channelInformationForName :: Name -> AnalyserMonad DataTypeConstructor
 channelInformationForName name = do
     dc <- dataTypeForName (builtInName "Events")

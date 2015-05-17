@@ -5,7 +5,6 @@ module CSPM.Evaluator.PrefixExpr (
 
 import qualified Data.Foldable as F
 import Data.Maybe
-import qualified Data.Set as St
 
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Dot
@@ -20,28 +19,6 @@ import CSPM.Syntax.Names
 import CSPM.Syntax.Helpers
 import Util.Annotated
 import Util.Exception
-
--- | Returns true if the field binds no values.
-fieldBindsNoValues :: TCField -> Bool
-fieldBindsNoValues (An _ _ (Input (An _ _ PWildCard) _)) = True
-fieldBindsNoValues (An _ _ (Output _)) = True
-fieldBindsNoValues (An _ _ (NonDetInput (An _ _ PWildCard) _)) = True
-fieldBindsNoValues _ = False
-
--- | True iff a field is guaranteed to match any proposed value. This is true
--- for fields such as ?x or !x, but not of ?0:... etc.
-fieldAlwaysMatches :: TCField -> Bool
-fieldAlwaysMatches (An _ _ (Input p _)) = patternAlwaysMatches p
-fieldAlwaysMatches (An _ _ (Output _)) = True
-fieldAlwaysMatches (An _ _ (NonDetInput p _)) = patternAlwaysMatches p
-
--- | True iff the variables bound by the field are not used by other fields
--- For example, it would be true on ?x?y, but false on ?x?y:f(x).
-fieldsAreIndependent :: [TCField] -> Bool
-fieldsAreIndependent fields =
-        and (map (not . flip St.member fvs) (boundNames fields))
-    where
-        fvs = St.fromList (freeVars fields)
 
 -- | Returns true if the field is a nondeterministic input.
 isNonDet :: TCField -> Bool

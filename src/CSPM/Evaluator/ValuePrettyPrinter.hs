@@ -8,9 +8,9 @@ module CSPM.Evaluator.ValuePrettyPrinter (
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Identity
-import CSPM.DataStructures.Literals
-import CSPM.DataStructures.Names
-import CSPM.DataStructures.Syntax
+import CSPM.Syntax.Literals
+import CSPM.Syntax.Names
+import CSPM.Syntax.AST
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Monad
