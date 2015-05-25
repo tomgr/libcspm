@@ -260,12 +260,13 @@ makeAliasDefinition n = do
 
 desugarDecls :: [TCDecl] -> DesugarMonad [TCDecl]
 desugarDecls ds = do
-    let substituteSymbolTable (An x (st, y) d) = do
+    let desugarSymbolTable (An x (st, y) d) = do
             st <- mapM (\ (n, t) -> do
                 n <- substituteName n
+                t <- desugar t
                 return $! (n, t)) st
             return $ An x (st, y) d
-    ds <- mapM substituteSymbolTable ds
+    ds <- mapM desugarSymbolTable ds
     concatMapM desugarDecl ds
 
 instance Desugarable (Assertion Name) where
@@ -565,6 +566,12 @@ instance Desugarable (Pat Name) where
 
 instance Desugarable Literal where
     desugar l = return l
+
+instance Desugarable TypeScheme where
+    desugar (ForAll cs t) = do
+        t <- desugar t
+        let cs' = map (\ (a, b) -> (typeVar a, b)) (collectConstraints t)
+        return $! ForAll cs' t
 
 instance Desugarable Type where
     desugar (TVar tvref) = return $ TVar tvref
