@@ -1,0 +1,5 @@
+InfRec'(0) = STOP
+
+procTest3 = InfRec'(0)
+
+procTest3

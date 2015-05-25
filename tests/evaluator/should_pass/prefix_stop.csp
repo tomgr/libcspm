@@ -1,0 +1,16 @@
+channel tock
+channel c : Bool
+
+Timed {
+    procTest1A = c?_:{} -> STOP
+}
+
+procTest1 = procTest1A
+
+InfRec(x) = c?_:{} -> InfRec(x+1)
+
+procTest2 = InfRec(0)
+
+InfRec'(x) = c?y:{} -> InfRec(x+(if y then 0 else 1)+1)
+
+procTest3 = InfRec'(0)

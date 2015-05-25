@@ -286,6 +286,7 @@ eval (An _ _ (TimedPrefix n e)) =
                         let UserEvent ev' = ev
                         VInt tockCount <- eventFunc [ev']
                         return $! PUnaryOp (PPrefix ev) (makeTocker tockName tockCount p)
+                    addTocker p = return p
                 p' <- addTocker p
                 let
                     tocker = PUnaryOp (PPrefix (tock tockName)) procCall

@@ -7,6 +7,7 @@ import qualified Data.Foldable as F
 import Data.Maybe
 
 import CSPM.Evaluator.AnalyserMonad
+import CSPM.Evaluator.BuiltInFunctions
 import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Exceptions
 import {-# SOURCE #-} CSPM.Evaluator.Expr
@@ -323,5 +324,11 @@ evalFieldsNoBranching fs e2 = do
         evs <- computeEvents ev
         VProc p <- computeProc
         case F.toList evs of
+            [] -> stop
             [ev] -> return $ PUnaryOp (PPrefix (valueEventToEvent ev)) p
             _ -> return $ PUnaryOp (PPrefixEventSet (fmap valueEventToEvent evs)) p
+
+stop :: EvaluationMonad Proc
+stop = do
+    VProc p <- lookupVar (builtInName "STOP")
+    return p
