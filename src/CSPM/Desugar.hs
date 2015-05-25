@@ -478,9 +478,11 @@ instance Desugarable (Exp Name) where
                 tiesStmts <- desugar tiesStmts
                 stmts <- desugar stmts
                 e <- desugar e
-                let es = concatMap (\ (a,b) -> [a,b]) ties
-                    stmts' = restrictStatements es stmts
-                return $! ReplicatedLinkParallel ties tiesStmts stmts' e)
+                let tiesEs = concatMap (\ (a,b) -> [a,b]) ties
+                    tiesStmts' = restrictStatements tiesEs tiesStmts
+                    allVars = freeVars tiesEs ++ freeVars tiesStmts ++ freeVars e
+                    stmts' = restrictStatementsToVars (S.fromList allVars) stmts
+                return $! ReplicatedLinkParallel ties tiesStmts' stmts' e)
             (\ _ -> do
                 loc <- gets currentLoc
                 throwSourceError [linkedParallelTimedSectionError loc])

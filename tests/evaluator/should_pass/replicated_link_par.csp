@@ -1,0 +1,6 @@
+channel a,b : {0..1}.{0..1}
+
+P(0) = STOP
+P(1) = SKIP
+
+procTest1 = [a.0.j <-> b.0.j | j <- {i}] i <- <0..1> @ P(i)

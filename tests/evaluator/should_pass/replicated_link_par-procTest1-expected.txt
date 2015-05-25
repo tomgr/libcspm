@@ -1,0 +1,9 @@
+SKIP = ✓ -> STOP
+
+P(1) = SKIP
+
+P(0) = STOP
+
+procTest1 = P(0) [a.0.0 <-> b.0.0] P(1)
+
+procTest1
