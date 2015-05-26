@@ -314,8 +314,8 @@ combineTypeLists as ((TDot b1 b2):bs) = do
 -- If one type list has just one component left then this must be equal
 -- to the dotted type of the other.
 combineTypeLists (a:as) [b] = do
-    -- IMPORTANT: The expected type is b
-    t <- unify b (foldr1 TDot (a:as))
+    -- IMPORTANT: The expected type is a:as
+    t <- unify (foldr1 TDot (a:as)) b
     return [t]
 combineTypeLists [a] (b:bs) = do
     -- IMPORTANT The expected type is a

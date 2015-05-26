@@ -1,0 +1,5 @@
+datatype T = A.Int
+
+f(x.y.z) = (x,y,z)
+
+x = f(A.1.A)
