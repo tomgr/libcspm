@@ -604,7 +604,7 @@ data Assertion id =
     -- @assert P :[deadlock free [F]]@.
     | PropertyCheck {
         propertyCheckProcess :: AnExp id,
-        propertyCheckProperty :: SemanticProperty,
+        propertyCheckProperty :: SemanticProperty id,
         propertyCheckModel :: Maybe Model,
         propertyCheckModelOptions :: [AnModelOption id]
     }
@@ -629,10 +629,11 @@ data ModelOption id =
     | PartialOrderReduce (Maybe B.ByteString)
     deriving (Eq, Ord, Show)
         
-data SemanticProperty = 
+data SemanticProperty id = 
     DeadlockFreedom
-    | Deterministic     
+    | Deterministic
     | LivelockFreedom
+    | HasTrace [AnExp id]
     deriving (Eq, Ord, Show)
     
 -- | The clause of a datatype, e.g. if a datatype declaration was:

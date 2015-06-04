@@ -276,7 +276,8 @@ instance Desugarable (Assertion Name) where
         return PropertyCheck $$ desugar e $$ desugar p $$ desugar m $$ desugar opts
     desugar (ASNot a) = return ASNot $$ desugar a
 
-instance Desugarable SemanticProperty where
+instance Desugarable (SemanticProperty Name) where
+    desugar (HasTrace evs) = return HasTrace $$ desugar evs
     desugar e = return e
 instance Desugarable Model where
     desugar m = return m

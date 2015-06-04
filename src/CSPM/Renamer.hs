@@ -1042,7 +1042,13 @@ instance Renamable (Assertion UnRenamedName) (Assertion Name) where
     rename (Refinement e1 m e2 mopts) = 
         return Refinement $$ rename e1 $$ return m $$ rename e2 $$ rename mopts
     rename (PropertyCheck e1 p m mopts) =
-        return PropertyCheck $$ rename e1 $$ return p $$ return m $$ rename mopts
+        return PropertyCheck $$ rename e1 $$ rename p $$ return m $$ rename mopts
+        
+instance Renamable (SemanticProperty UnRenamedName) (SemanticProperty Name) where
+    rename (HasTrace e) = return HasTrace $$ rename e
+    rename DeadlockFreedom = return DeadlockFreedom
+    rename LivelockFreedom = return LivelockFreedom
+    rename Deterministic = return Deterministic
 
 instance Renamable (ModelOption UnRenamedName) (ModelOption Name) where
     rename (TauPriority e) = return TauPriority $$ rename e

@@ -202,8 +202,9 @@ instance Compressable (Pat a) where
     mcompress (PVar n) = return (PVar n)
     mcompress (PWildCard) = return PWildCard
 
-instance Compressable SemanticProperty where
-    mcompress l = return l
+instance Compressable (SemanticProperty a) where
+    mcompress (HasTrace evs) = return HasTrace $$ mcompress evs
+    mcompress e = return e
 instance Compressable Model where
     mcompress l = return l
 instance Compressable Literal where

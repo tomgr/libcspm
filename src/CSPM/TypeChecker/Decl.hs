@@ -608,6 +608,7 @@ instance TypeCheckable (Assertion Name) () where
         (hang (text "In the assertion" <> colon) tabWidth (prettyPrint a), [])
     typeCheck' (PropertyCheck e1 p m opts) = do
         ensureIsProc e1
+        typeCheck p
         mapM_ typeCheck opts
     typeCheck' (Refinement e1 m e2 opts) = do
         ensureIsProc e1
@@ -625,6 +626,11 @@ instance TypeCheckable (ModelOption Name) () where
         typeCheckExpect e (TSet TEvent)
         return ()
     typeCheck' (PartialOrderReduce _) = return ()
+
+instance TypeCheckable (SemanticProperty Name) () where
+    errorContext a = Nothing
+    typeCheck' (HasTrace es) = mapM_ (\ e -> typeCheckExpect e TEvent) es
+    typeCheck' _ = return ()
 
 instance TypeCheckable TCDataTypeClause (Name, [Type]) where
     errorContext an = Nothing

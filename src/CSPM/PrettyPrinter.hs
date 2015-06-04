@@ -120,6 +120,16 @@ instance PrettyPrintable id => PrettyPrintable (Assertion id) where
         hang (hang (prettyPrint e1) tabWidth
                 (char '[' <> prettyPrint m <> char '=' <+> prettyPrint e2))
             tabWidth (fcat (map prettyPrint opts))
+    prettyPrint (PropertyCheck e1 (HasTrace evs) Nothing opts) =
+        hang (hang (prettyPrint e1) tabWidth
+            (text ":[" <> text "has trace" <> text "]:"
+                <+> angles (list (map prettyPrint evs))))
+            tabWidth (fcat (map prettyPrint opts))
+    prettyPrint (PropertyCheck e1 (HasTrace evs) (Just m) opts) =
+        hang (hang (prettyPrint e1) tabWidth
+            (colon <> brackets (text "has trace" <+> brackets (prettyPrint m))
+                <+> angles (list (map prettyPrint evs))))
+            tabWidth (fcat (map prettyPrint opts))
     prettyPrint (PropertyCheck e1 prop Nothing opts) =
         hang (hang (prettyPrint e1) tabWidth
             (text ":[" <> prettyPrint prop <> text "]"))
@@ -146,10 +156,11 @@ instance PrettyPrintable id => PrettyPrintable (ModelOption id) where
     prettyPrint (PartialOrderReduce (Just m)) =
         text ":[partial order reduce" <+> bytestring m <+> text "]"
 
-instance PrettyPrintable SemanticProperty where
+instance PrettyPrintable id => PrettyPrintable (SemanticProperty id) where
     prettyPrint DeadlockFreedom = text "deadlock free"
     prettyPrint Deterministic = text "deterministic"
     prettyPrint LivelockFreedom = text "divergence free"
+    prettyPrint (HasTrace _) = text "has trace"
 
 instance PrettyPrintable id => PrettyPrintable (DataTypeClause id) where
     prettyPrint (DataTypeClause n me _) = prettyPrint n

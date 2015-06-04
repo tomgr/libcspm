@@ -257,9 +257,13 @@ instance FreeVars (Decl Name) where
 
 instance FreeVars (Assertion Name) where
     freeVars' (Refinement e1 m e2 opts) = freeVars [e1, e2] ++ freeVars opts
-    freeVars' (PropertyCheck e1 p m opts) = freeVars [e1] ++ freeVars opts
+    freeVars' (PropertyCheck e1 p m opts) = freeVars e1 ++ freeVars p ++ freeVars opts
     freeVars' (ASNot a) = freeVars a
 
+instance FreeVars (SemanticProperty Name) where
+    freeVars' (HasTrace es) = freeVars' es
+    freeVars' _ = []
+    
 instance FreeVars (ModelOption Name) where
     freeVars' (TauPriority e) = freeVars' e
     freeVars' (PartialOrderReduce _) = []

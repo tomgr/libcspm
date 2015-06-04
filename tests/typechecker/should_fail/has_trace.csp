@@ -1,0 +1,4 @@
+channel a
+channel b : Int
+
+assert STOP :[has trace] <a, b>

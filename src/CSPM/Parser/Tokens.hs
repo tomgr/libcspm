@@ -29,6 +29,7 @@ data Token =
     | TDivergenceFree
     | TLivelockFree
     | TDeterministic
+    | THasTrace
 
     | TNewLine
     | TDefineEqual
@@ -156,6 +157,7 @@ instance PrettyPrintable Token where
     prettyPrint TDivergenceFree = text "divergence free"
     prettyPrint TLivelockFree = text "livelock free"
     prettyPrint TDeterministic = text "deterministic"
+    prettyPrint THasTrace = text "has trace"
 
     prettyPrint TNewLine = text "<newline>"
     prettyPrint TDefineEqual = char '='
