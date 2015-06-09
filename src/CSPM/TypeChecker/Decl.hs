@@ -389,9 +389,10 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                     fv <- freshRegisteredTypeVar
                     unify (TDotable fv TEvent) valueType
                     typeCheckExpect e (foldr1 TDot (map TSet tfs))
-            -- Events must be comparable for equality.
-            ensureHasConstraint CEq t
+            t <- evaluateDots t
             valueType <- evalTypeExpression t
+            -- Events must be comparable for equality.
+            valueType <- ensureHasConstraints [CEq, CComplete] valueType
             typeToDotList valueType
         let t = foldr TDotable TEvent dotList
         mapM (\ n -> do
@@ -644,7 +645,9 @@ instance TypeCheckable (DataTypeClause Name) (Name, [Type]) where
         return (n', [])
     typeCheck' (DataTypeClause n' (Just e) _) = do
         t <- typeCheck e
+        t <- evaluateDots t
         valueType <- evalTypeExpression t
+        valueType <- ensureHasConstraint CComplete valueType
         dotList <- typeToDotList valueType
         return (n', dotList)
 
