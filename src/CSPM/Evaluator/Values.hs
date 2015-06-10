@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric, GeneralizedNewtypeDeriving #-}
 module CSPM.Evaluator.Values (
     Value(..),  compareValues,
+    trueValue, falseValue, makeBoolValue,
 
     InstantiatedFrame(..), makeProcessName, procName, instantiateFrame,
     instantiateFrameWithArguments, instantiateBuiltinFrameWithArguments,
@@ -57,6 +58,14 @@ data Value =
     | VProc Proc
     | VLoc SrcSpan
     | VThunk (EvaluationMonad Value)
+
+trueValue, falseValue :: Value
+trueValue = VBool True
+falseValue = VBool False
+
+makeBoolValue :: Bool -> Value
+makeBoolValue True = trueValue
+makeBoolValue False = falseValue
 
 -- | A disambiguator between different occurences of either processes or
 -- functions. This works by storing the values that are bound (i.e. the free
@@ -428,10 +437,10 @@ trimInstantiatedFrame (InstantiatedFrame h n vss args) =
         (map (map trimValueForProcessName) args)
 
 trimValueForProcessName :: Value -> Value
-trimValueForProcessName (VInt i) = VInt i
-trimValueForProcessName (VChar c) = VChar c
-trimValueForProcessName (VBool b) = VBool b
-trimValueForProcessName (VLoc l) = VLoc l
+trimValueForProcessName v@(VInt _) = v
+trimValueForProcessName v@(VChar _) = v
+trimValueForProcessName v@(VBool _) = v
+trimValueForProcessName v@(VLoc _) = v
 trimValueForProcessName (VTuple vs) = VTuple (fmap trimValueForProcessName vs)
 trimValueForProcessName (VList vs) = VList (map trimValueForProcessName vs)
 trimValueForProcessName (VSet s) =
@@ -440,8 +449,8 @@ trimValueForProcessName (VMap m) = VMap $ M.fromList $
     map (\ (v1, v2) -> (trimValueForProcessName v1, trimValueForProcessName v2))
         (M.toList m)
 trimValueForProcessName (VDot vs) = VDot $ map trimValueForProcessName vs
-trimValueForProcessName (VChannel n) = VChannel n
-trimValueForProcessName (VDataType n) = VDataType n
+trimValueForProcessName v@(VChannel n) = v
+trimValueForProcessName v@(VDataType n) = v
 trimValueForProcessName (VFunction id _) =
     VFunction (trimInstantiatedFrame id) errorThunk
 trimValueForProcessName (VProc p) = VProc (trimProcess p)

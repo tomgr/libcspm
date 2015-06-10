@@ -52,9 +52,9 @@ builtInFunctions = do
         cspm_Union [VSet s] = S.unions (map (\ (VSet s) -> s) (S.toList s))
         cspm_Inter [VSet s] = 
             S.intersections (map (\ (VSet s) -> s) (S.toList s))
-        cspm_member [v, VSet s] = VBool $ S.member v s
+        cspm_member [v, VSet s] = makeBoolValue $ S.member v s
         cspm_card [VSet s] = VInt $ fromIntegral $ S.card s
-        cspm_empty [VSet s] = VBool $ S.empty s
+        cspm_empty [VSet s] = makeBoolValue $ S.empty s
         cspm_set [VList xs] = S.fromList xs
         cspm_Set [VSet s] = S.powerset s
         -- | Set of all sequences over s
@@ -84,8 +84,8 @@ builtInFunctions = do
                 Nothing -> throwError' $ keyNotInDomainOfMapMessage loc
         cspm_mapMember [VMap m, k] =
             case M.lookup k m of
-                Just v -> VBool True
-                Nothing -> VBool False
+                Just v -> trueValue
+                Nothing -> falseValue
         cspm_mapToList [VMap m] = VList $
             [VTuple (listArray (0,1) [k, v]) | (k, v) <- M.toList m]
         cspm_mapUpdate [VMap m, k, v] = VMap $ M.insert k v m
@@ -104,13 +104,13 @@ builtInFunctions = do
             ]
         
         cspm_length [VList xs] = VInt $ length xs
-        cspm_null [VList xs] = VBool $ null xs
+        cspm_null [VList xs] = makeBoolValue $ null xs
         cspm_head loc [VList []] = throwError' $ headEmptyListMessage loc
         cspm_head _ [VList (x:xs)] = return x
         cspm_tail loc [VList []] = throwError' $ tailEmptyListMessage loc
         cspm_tail _ [VList (x:xs)] = return $ VList xs
         cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
-        cspm_elem [v, VList vs] = VBool $ v `elem` vs
+        cspm_elem [v, VList vs] = makeBoolValue $ v `elem` vs
         csp_chaos_frame = frameForBuiltin "CHAOS"
         csp_chaos [VSet a] = VProc chaosCall
             where
@@ -286,10 +286,10 @@ builtInFunctions = do
 
         mkProc (s, p) = return (builtInName s, VProc p)
         
-        cspm_true = ("true", VBool True)
-        cspm_false = ("false", VBool False)
-        cspm_True = ("True", VBool True)
-        cspm_False = ("False", VBool False)
+        cspm_true = ("true", trueValue)
+        cspm_false = ("false", falseValue)
+        cspm_True = ("True", trueValue)
+        cspm_False = ("False", falseValue)
         
         cspm_Bool = ("Bool", VSet (S.fromList [snd cspm_true, snd cspm_false]))
         cspm_Int = ("Int", VSet S.Integers)
