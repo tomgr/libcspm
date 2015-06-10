@@ -28,7 +28,7 @@ isNonDet _ = False
 
 -- | Converts a pattern to its constituent fields.
 patToFields :: TCPat -> [TCPat]
-patToFields (An _ _ (PCompDot ps _)) = ps
+patToFields (An _ _ (PCompDot ps _)) = concatMap patToFields ps
 patToFields (An _ _ (PDoublePattern p1 p2)) = panic "double prefix pat not implemented"
     -- patToFields p1
 patToFields p = [p]
@@ -107,6 +107,13 @@ evalInputField2 loc isLastField p evalRest =
             
 
 evalPrefix :: TCExp -> AnalyserMonad (EvaluationMonad Value)
+evalPrefix (An _ _ (Prefix e1 [] e2)) = do
+    e1 <- eval e1
+    e2 <- eval e2
+    return $! do
+        ev <- e1
+        VProc p <- e2
+        return $! VProc $ PUnaryOp (PPrefix (valueEventToEvent ev)) p
 evalPrefix (An _ _ (Prefix e1 fs e2)) = do
     let
         evalNonDetFields :: [TCField] -> AnalyserMonad (
