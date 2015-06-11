@@ -27,12 +27,11 @@ import qualified Data.Map as M
 import GHC.Generics (Generic)
 import Prelude hiding (lookup)
 
-import CSPM.Syntax.Names
-import CSPM.Syntax.AST
-import CSPM.Syntax.Types
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Monad
 import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
+import CSPM.Syntax.Names
+import CSPM.Syntax.Types
 import Util.Annotated
 import Util.Exception
 import Util.Prelude

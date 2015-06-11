@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 -- | A wrapper around the types and functions from "Data.Graph" to make programming with them less painful. Also
 -- implements some extra useful goodies such as 'successors' and 'sccGraph', and improves the documentation of
 -- the behaviour of some functions.

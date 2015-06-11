@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 module CSPM.Desugar (Desugarable(..), runDesugar) where
 
 import Control.Monad.State

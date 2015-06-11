@@ -1,6 +1,5 @@
 {-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, IncoherentInstances,
-    MultiParamTypeClasses, OverlappingInstances, TypeSynonymInstances,
-    UndecidableInstances #-}
+    MultiParamTypeClasses, TypeSynonymInstances, UndecidableInstances #-}
 -- | This module provides the main high-level interface to the library 
 -- functionality. It does this through a monadic interface, mainly due to the
 -- fact that several of the components require the use of the IO monad. It is
@@ -118,7 +117,6 @@ module CSPM (
 )
 where
 
-import Control.Applicative
 import Control.Monad.State
 import qualified Data.ByteString as B
 import Data.Version
@@ -397,7 +395,7 @@ dumpProfilingData = liftIO $ EV.dumpProfilingData
 getLibCSPMVersion :: Version
 getLibCSPMVersion = version
 
-instance (Applicative m, CSPMMonad m,
+instance {-# OVERLAPPABLE #-} (Applicative m, CSPMMonad m,
             M.MonadicPrettyPrintable EV.EvaluationMonad a) => 
         M.MonadicPrettyPrintable m a where
     prettyPrint = runEvaluatorInCurrentState . M.prettyPrint
