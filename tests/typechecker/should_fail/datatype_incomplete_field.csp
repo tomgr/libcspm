@@ -1,0 +1,3 @@
+datatype A = B.Bool
+
+datatype X = Y.{B}

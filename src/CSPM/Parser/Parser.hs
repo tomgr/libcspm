@@ -2905,7 +2905,7 @@ combineDecls (d:ds) = d:combineDecls ds
 constraintForName :: SrcSpan -> B.ByteString -> Constraint
 constraintForName _ "Eq" = CEq
 constraintForName _ "Ord" = COrd
-constraintForName _ "Inputable" = CInputable
+constraintForName _ "Complete" = CComplete
 constraintForName _ "Set" = CSet
 constraintForName _ "Yieldable" = CYieldable
 constraintForName loc s = throwSourceError [unknownConstraintError (B.unpack s) loc]

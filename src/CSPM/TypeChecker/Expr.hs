@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances #-}
 module CSPM.TypeChecker.Expr () where
 
 import Control.Monad
@@ -359,13 +359,13 @@ typeCheckField field tc =
             tp <- addErrorContext errCtxt (do
                     tp <- typeCheck p
                     unify (TSet tp) t
-                    ensureHasConstraint CInputable tp
+                    ensureHasConstraint CComplete tp
                     return tp)
             tc tp
         chkInputNoSet p = do
             t <- addErrorContext errCtxt $ do
                     t <- typeCheck p
-                    ensureHasConstraint CInputable t
+                    ensureHasConstraint CComplete t
             tc t
         check (NonDetInput p (Just e)) = checkInput p e
         check (Input p (Just e)) = checkInput p e

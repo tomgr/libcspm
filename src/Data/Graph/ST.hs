@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns, FlexibleContexts #-}
 -- | Graph algorithms in the ST monad.
 module Data.Graph.ST (
     Graph, newGraph, newGraphNoDupeNodes,

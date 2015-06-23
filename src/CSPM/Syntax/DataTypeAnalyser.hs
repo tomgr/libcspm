@@ -11,7 +11,6 @@ import CSPM.Syntax.Types
 import CSPM.Prelude
 import Util.Annotated
 import Util.Exception
-import Util.Monad
 
 data FieldSet =
     -- | Indicates the field set is deduced by evaluating the given expression.
