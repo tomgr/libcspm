@@ -351,7 +351,7 @@ data Exp id =
     -- | External choice, e.g. @P [] Q@.
     | ExternalChoice {
         extChoiceLeftProcess :: AnExp id,
-        extChoiceRightOperator :: AnExp id
+        extChoiceRightProcess :: AnExp id
     }
     -- | Generalised parallel, e.g. @P [| A |] Q@.
     | GenParallel {

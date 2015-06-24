@@ -426,7 +426,7 @@ splitProcIntoComponents p =
 -- for the purposes of pretty printing etc, in an attempt to save memory.
 --
 -- The main thing that happens is that VFunctions have their function removed,
--- and PProcCalls have there inner process removed.
+-- and PProcCalls have their inner process removed.
 
 errorThunk = panic "Trimmed value function evaluated"
 
