@@ -187,9 +187,9 @@ eval (An loc _ (MathsBinaryOp op e1 e2)) = do
             Divide -> \ i1 i2 -> do
                 case i2 of
                     0 -> throwError $ divideByZeroMessage loc Nothing
-                    _ -> return $ VInt (i1 `quot` i2)
+                    _ -> return $ VInt (i1 `div` i2)
             Minus -> \ i1 i2 -> return $ VInt (i1 - i2)
-            Mod -> \ i1 i2 -> return $ VInt (i1 `rem` i2)
+            Mod -> \ i1 i2 -> return $ VInt (i1 `mod` i2)
             Plus -> \ i1 i2 -> return $ VInt (i1 + i2)
             Times -> \ i1 i2 -> return $ VInt (i1 * i2)
     return $! do
