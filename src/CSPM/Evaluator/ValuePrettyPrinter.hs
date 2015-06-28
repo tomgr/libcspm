@@ -5,7 +5,6 @@ module CSPM.Evaluator.ValuePrettyPrinter (
     prettyPrintAllRequiredProcesses,
 ) where
 
-import Control.Applicative
 import Control.Monad
 import Control.Monad.Identity
 import CSPM.Syntax.Literals
