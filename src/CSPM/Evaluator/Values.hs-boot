@@ -11,5 +11,3 @@ data InstantiatedFrame
 instance Eq InstantiatedFrame
 instance Hashable InstantiatedFrame
 instance Ord InstantiatedFrame
-
-trimValueForProcessName :: Value -> Value
