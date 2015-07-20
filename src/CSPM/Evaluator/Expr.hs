@@ -34,6 +34,13 @@ import Util.List
 -- matching in BooleanBinaryOp And in case the first value is false.)
 
 eval :: TCExp -> AnalyserMonad (EvaluationMonad Value)
+eval (An an loc (LocatedApp func args)) = do
+    func <- eval func
+    args <- mapM eval args
+    return $! do
+        vs <- sequence args
+        VFunction _ f <- func
+        f vs
 eval (An _ _ (App func args)) = do
     func <- eval func
     args <- mapM eval args

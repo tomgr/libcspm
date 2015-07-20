@@ -505,6 +505,13 @@ data Exp id =
         -- | The original Prefix clause (it MUST be a regular Prefix).
         timedPrefixOriginalPrefix :: AnExp id
     }
+    -- | Represents a located application, and only appears after desugaring.
+    | LocatedApp {
+        -- | The function.
+        appFunction :: AnExp id,
+        -- | The arguments applied to the function
+        appArguments :: [AnExp id]
+    }
     
     deriving (Eq, Ord, Show)
 
