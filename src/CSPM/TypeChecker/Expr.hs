@@ -15,7 +15,6 @@ import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Pat()
 import CSPM.TypeChecker.Unification
 import Util.Annotated
-import Util.List
 import Util.PrettyPrint
 
 checkFunctionCall :: Doc -> [TCExp] -> [Type] -> TypeCheckMonad ()
@@ -264,9 +263,6 @@ instance TypeCheckable (Exp Name) Type where
         let 
             fvsByField = map (\f -> (f, boundNames f)) fields
             fvs = concatMap snd fvsByField
-        -- Throw an error if a name is defined multiple times
-        when (not (noDups fvs)) (panic "Dupes found in prefix after renaming.")
-
         t1 <- typeCheck e1
         let 
             tcfs [] tsfields = do

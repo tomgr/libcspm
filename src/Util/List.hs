@@ -1,18 +1,11 @@
 module Util.List where
 
-import Data.List
-
 -- | Removes all duplicates, assuming the list is sorted.
 sortedNub :: Eq a => [a] -> [a]
 sortedNub [] = []
 sortedNub [x] = [x]
 sortedNub (x:y:xs) | x == y = sortedNub (x:xs)
 sortedNub (x:xs) = x : sortedNub xs
-
--- TODO: speed up
--- | Returns true iff the list has no duplicates.
-noDups :: Eq a => [a] -> Bool
-noDups xs = nub xs == xs
 
 -- | Replaces the last item in a list. Assumes the list is non empty.
 replaceLast :: [a] -> a -> [a]
