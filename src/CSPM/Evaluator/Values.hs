@@ -9,7 +9,6 @@ module CSPM.Evaluator.Values (
     valueEventToEvent, createFunction,
     noSave, maybeSave, removeThunk, lookupVar, maybeLookupVar,
     tupleFromList,
-    trimValueForProcessName,
     module Data.Array,
 
     -- * Events
@@ -418,78 +417,3 @@ splitProcIntoComponents p =
             if explored s n then (s, pns)
             else explore (St.insert n s) ((n, p):pns) p
     in (p, snd $ explore St.empty [] p)
-
-
--- Trimming support
---
--- Trimming removes values from the value representation that are not required
--- for the purposes of pretty printing etc, in an attempt to save memory.
---
--- The main thing that happens is that VFunctions have their function removed,
--- and PProcCalls have their inner process removed.
-
-errorThunk = panic "Trimmed value function evaluated"
-
-trimInstantiatedFrame :: InstantiatedFrame -> InstantiatedFrame
-trimInstantiatedFrame (InstantiatedFrame h n vss args) =
-    InstantiatedFrame h n (map trimValueForProcessName vss)
-        (map (map trimValueForProcessName) args)
-
-trimValueForProcessName :: Value -> Value
-trimValueForProcessName v@(VInt _) = v
-trimValueForProcessName v@(VChar _) = v
-trimValueForProcessName v@(VBool _) = v
-trimValueForProcessName v@(VLoc _) = v
-trimValueForProcessName (VTuple vs) = VTuple (fmap trimValueForProcessName vs)
-trimValueForProcessName (VList vs) = VList (map trimValueForProcessName vs)
-trimValueForProcessName (VSet s) =
-    VSet $ S.fromList $ map trimValueForProcessName $ S.toList s
-trimValueForProcessName (VMap m) = VMap $ M.fromList $
-    map (\ (v1, v2) -> (trimValueForProcessName v1, trimValueForProcessName v2))
-        (M.toList m)
-trimValueForProcessName (VDot vs) = VDot $ map trimValueForProcessName vs
-trimValueForProcessName v@(VChannel n) = v
-trimValueForProcessName v@(VDataType n) = v
-trimValueForProcessName (VFunction id _) =
-    VFunction (trimInstantiatedFrame id) errorThunk
-trimValueForProcessName (VProc p) = VProc (trimProcess p)
-
-trimProcess :: Proc -> Proc
-trimProcess (PUnaryOp op p1) =
-    PUnaryOp (trimOperator op) (trimProcess p1)
-trimProcess (PBinaryOp op p1 p2) =
-    PBinaryOp (trimOperator op) (trimProcess p1) (trimProcess p2)
-trimProcess (POp op ps) =
-    POp (trimOperator op) (fmap trimProcess ps)
-trimProcess (PProcCall pn _) = PProcCall pn errorThunk
-
-trimEvent :: Event -> Event
-trimEvent Tau = Tau
-trimEvent Tick = Tick
-trimEvent (UserEvent v) = UserEvent (trimValueForProcessName v)
-
-trimOperator :: CSPOperator -> CSPOperator
-trimOperator (PAlphaParallel s) = PAlphaParallel (fmap (fmap trimEvent) s)
-trimOperator (PChaos s) = PChaos (fmap trimEvent s)
-trimOperator (PException s) = PException (fmap trimEvent s)
-trimOperator PExternalChoice = PExternalChoice
-trimOperator (PGenParallel evs) = PGenParallel (fmap trimEvent evs)
-trimOperator (PHide evs) = PHide (fmap trimEvent evs)
-trimOperator PInternalChoice = PInternalChoice
-trimOperator PInterrupt = PInterrupt
-trimOperator PInterleave = PInterleave
-trimOperator (PLinkParallel evm) =
-    PLinkParallel (fmap (\(ev,ev') -> (trimEvent ev, trimEvent ev')) evm)
-trimOperator (POperator op) = POperator op
-trimOperator (PPrefix ev) = PPrefix (trimEvent ev)
-trimOperator (PPrefixEventSet evs) = PPrefixEventSet (fmap trimEvent evs)
-trimOperator (PProject evs) = PProject (fmap trimEvent evs)
-trimOperator (PRename evm) = 
-    PRename (fmap (\(ev,ev') -> (trimEvent ev, trimEvent ev')) evm)
-trimOperator (PRun s) = PRun (fmap trimEvent s)
-trimOperator PSequentialComp = PSequentialComp
-trimOperator PSlidingChoice = PSlidingChoice
-trimOperator (PSynchronisingExternalChoice evs) =
-    PSynchronisingExternalChoice (fmap trimEvent evs)
-trimOperator (PSynchronisingInterrupt evs) =
-    PSynchronisingInterrupt (fmap trimEvent evs)
