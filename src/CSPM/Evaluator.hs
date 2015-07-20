@@ -31,10 +31,12 @@ import Util.Exception
 #endif
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
+import CSPM.Prelude
 import Util.Annotated
 import qualified Util.MonadicPrettyPrint as M
 
 import qualified Data.Map as Mp
+import qualified Data.Set as S
 
 data EvaluationState = EvaluationState {
         analyserState :: A.AnalyserState,
@@ -127,6 +129,9 @@ maybeProcessNameToProcess :: ProcName -> EvaluationMonad (Maybe Proc)
 maybeProcessNameToProcess pn@(ProcName
         (InstantiatedFrame _ frame@(A.BuiltinFunctionFrame {}) _ [args])) =
     runEvaluator $ do
+        if S.member (A.builtinFunctionFrameFunctionName frame) locatedBuiltins then
+            return Nothing
+        else do
         maybeFunc <- maybeLookupVar (A.builtinFunctionFrameFunctionName frame)
         case maybeFunc of
             Nothing -> return Nothing
