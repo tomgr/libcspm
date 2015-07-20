@@ -1,0 +1,5 @@
+channel c, d : Bool
+channel explode
+
+procTest1 = BUFFER(2, {(c.x, d.x) | x <- Bool})
+procTest2 = WEAK_BUFFER(2, explode, {(c.x, d.x) | x <- Bool})

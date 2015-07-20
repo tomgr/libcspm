@@ -136,6 +136,40 @@ builtInFunctions = do
             let pn = builtinProcName csp_loop_frame [[VProc p]]
                 procCall = PProcCall pn (PBinaryOp PSequentialComp p procCall)
             in VProc procCall
+    
+        checkBufferBound loc cap p | cap <= 0 = throwError $ bufferCapacityInsufficient cap loc Nothing
+        checkBufferBound _ _ p = p
+            
+        checkForAmbiguousBufferEvents loc evs p = 
+            case firstDuplicate $ sort evs of
+                Nothing -> return p
+                Just ev -> throwError $ bufferEventAmbiguous (UserEvent ev) loc Nothing
+        csp_refusing_buffer_frame = frameForBuiltin "BUFFER"
+        csp_refusing_buffer loc [VInt bound, VSet pairs] =
+                checkBufferBound loc bound $
+                checkForAmbiguousBufferEvents loc (concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs])
+                    (VProc bufferCall)
+            where
+                bufferCall = PProcCall n p
+                -- | We convert the set into an explicit set as this makes
+                -- comparisons faster than leaving it as a set represented as
+                -- (for instance) a CompositeSet of CartProduct sets.
+                n = builtinProcName csp_refusing_buffer_frame [[VInt bound, VSet pairs]]
+                events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
+                p = POp (PBuffer WhenFullRefuseInputs bound events) []
+        csp_exploding_buffer_frame = frameForBuiltin "WEAK_BUFFER"
+        csp_exploding_buffer loc [VInt bound, explode, VSet pairs] =
+                checkBufferBound loc bound $
+                checkForAmbiguousBufferEvents loc (explode : concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs])
+                    (VProc bufferCall)
+            where
+                bufferCall = PProcCall n p
+                -- | We convert the set into an explicit set as this makes
+                -- comparisons faster than leaving it as a set represented as
+                -- (for instance) a CompositeSet of CartProduct sets.
+                n = builtinProcName csp_exploding_buffer_frame [[VInt bound, explode, VSet pairs]]
+                events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
+                p = POp (PBuffer (WhenFullExplode (UserEvent explode)) bound events) []
 
         cspm_extensions [v] = do
             exs <- extensions v
@@ -234,7 +268,8 @@ builtInFunctions = do
             ("prioritise", csp_prioritise True),
             ("prioritise_nocache", csp_prioritise False),
             ("prioritisepo", csp_prioritise_partialorder),
-            ("mapLookup", cspm_mapLookup)
+            ("mapLookup", cspm_mapLookup),
+            ("WEAK_BUFFER", csp_exploding_buffer), ("BUFFER", csp_refusing_buffer)
             ]
 
         procs = [

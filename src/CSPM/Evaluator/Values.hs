@@ -15,6 +15,7 @@ module CSPM.Evaluator.Values (
     Event(..), EventSet, eventSetFromList, EventMap,
     -- * Processes
     Proc(..), CSPOperator(..), ProcOperator(..),  ProcName(..),
+    BufferFullMode(..),
     operator, components, splitProcIntoComponents,
 ) where
 
@@ -317,8 +318,16 @@ data ProcOperator =
 
 instance Hashable ProcOperator
 
+data BufferFullMode =
+    WhenFullRefuseInputs
+    | WhenFullExplode Event
+    deriving (Eq, Generic, Ord)
+
+instance Hashable BufferFullMode    
+
 data CSPOperator =
     PAlphaParallel [EventSet]
+    | PBuffer BufferFullMode Int EventMap
     | PChaos EventSet
     | PException EventSet
     | PExternalChoice

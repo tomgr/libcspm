@@ -177,3 +177,14 @@ linkParallelAmbiguous event loc scid = mkErrorMessage loc $
     text "The event:" <+> prettyPrint event
     $$ text "was erroneously mentioned several times in a linked-parallel expression;"
     $$ text "each event may appear at most once."
+
+bufferEventAmbiguous :: Event -> SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
+bufferEventAmbiguous event loc scid = mkErrorMessage loc $
+    text "The event:" <+> prettyPrint event
+    $$ text "was erroneously mentioned several times in call to a buffer;"
+    $$ text "each event may appear as either an input event, an output event, or (in the case of"
+    $$ text "an exploding buffer) an explosion event."
+
+bufferCapacityInsufficient :: Int -> SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
+bufferCapacityInsufficient cap loc scid = mkErrorMessage loc $
+    text "The supplied buffer capacity" <+> int cap <+> text "was insufficient; it must be at least 1."

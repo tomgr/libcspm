@@ -66,7 +66,9 @@ locatedBuiltins = S.fromList $ map builtInName [
         "mapLookup",
         "prioritise",
         "prioritise_nocache",
-        "prioritisepo"
+        "prioritisepo",
+        "BUFFER",
+        "WEAK_BUFFER"
     ]
 
 allBuiltins :: [BuiltIn]
@@ -117,10 +119,12 @@ makeBuiltins = do
         csp_tskip = ("TSKIP", TFunction [] TProc)
         csp_tstop = ("TSTOP", TFunction [] TProc)
         csp_wait = ("WAIT", TFunction [TInt] TProc)
+        cspm_refusing_buffer = ("BUFFER", TFunction [TInt, TSet (TTuple [TEvent, TEvent])] TProc)
+        cspm_exploding_buffer = ("WEAK_BUFFER", TFunction [TInt, TEvent, TSet (TTuple [TEvent, TEvent])] TProc)
 
         builtInProcs :: [(B.ByteString, Type)]
         builtInProcs = [cspm_STOP, cspm_SKIP, cspm_CHAOS, cspm_RUN, csp_tstop,
-            csp_tskip, csp_wait, cspm_DIV]
+            csp_tskip, csp_wait, cspm_DIV, cspm_refusing_buffer, cspm_exploding_buffer]
 
         cspm_Int = ("Int", TSet TInt)
         cspm_Bool = ("Bool", TSet TBool)
