@@ -171,3 +171,9 @@ prioritisePartialOrderEventsMissing allEvents missingEvents loc scid = mkErrorMe
     $$ text "appear in the partial order, or in the set of maximal events, but are"
     $$ text "not in the set of all prioritised events:"
     $$ tabIndent (list (map prettyPrint allEvents))
+
+linkParallelAmbiguous :: Event -> SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
+linkParallelAmbiguous event loc scid = mkErrorMessage loc $
+    text "The event:" <+> prettyPrint event
+    $$ text "was erroneously mentioned several times in a linked-parallel expression;"
+    $$ text "each event may appear at most once."

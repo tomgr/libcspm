@@ -1,0 +1,5 @@
+channel c, d : Bool
+
+procTest1 = STOP [c.true <-> d.true, c.true <-> d.false] STOP
+
+assert procTest1 :[deadlock free]

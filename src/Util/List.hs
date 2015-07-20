@@ -15,3 +15,11 @@ replaceLast _ _ = error "Unsupported call to replaceLast"
 
 cartesianProduct :: [[a]] -> [[a]]
 cartesianProduct vss = sequence vss
+
+-- | Returns the first duplicate if in the given sorted list.
+firstDuplicate :: Eq a => [a] -> Maybe a
+firstDuplicate [] = Nothing
+firstDuplicate [_] = Nothing
+firstDuplicate (x:y:xs) =
+    if x == y then Just x
+    else firstDuplicate (y:xs)

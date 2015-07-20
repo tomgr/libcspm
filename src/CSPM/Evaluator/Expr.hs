@@ -385,7 +385,7 @@ eval (An _ _ (Interleave e1 e2)) = do
         VProc p1 <- e1
         VProc p2 <- e2
         return $ VProc $ POp op [p1, p2]
-eval (An _ _ (LinkParallel e1 ties stmts e2)) = do
+eval (An loc _ (LinkParallel e1 ties stmts e2)) = do
     e1 <- eval e1
     ties <- evalTies stmts ties
     e2 <- eval e2
@@ -393,7 +393,9 @@ eval (An _ _ (LinkParallel e1 ties stmts e2)) = do
         VProc p1 <- e1
         VProc p2 <- e2
         ts <- ties
-        return $ VProc $ PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
+        case firstDuplicate $ sort $ concat [[ev1, ev2] | (ev1, ev2) <- ts] of
+            Nothing -> return $ VProc $ PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
+            Just ev -> throwError $ linkParallelAmbiguous ev loc Nothing
 eval (An _ _ (Project e1 e2)) = do
     e1 <- eval e1
     e2 <- eval e2
