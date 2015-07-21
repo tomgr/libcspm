@@ -400,9 +400,11 @@ eval (An loc _ (LinkParallel e1 ties stmts e2)) = do
         VProc p1 <- e1
         VProc p2 <- e2
         ts <- ties
-        case firstDuplicate $ sort $ concat [[ev1, ev2] | (ev1, ev2) <- ts] of
-            Nothing -> return $ VProc $ PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
-            Just ev -> throwError $ linkParallelAmbiguous ev loc Nothing
+        let (lefts, rights) = unzip ts
+            check evs p = case firstDuplicate $ sort evs of
+                            Just ev -> throwError $ linkParallelAmbiguous ev loc Nothing
+                            Nothing -> p
+        check lefts $ check rights $ return $ VProc $ PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
 eval (An _ _ (Project e1 e2)) = do
     e1 <- eval e1
     e2 <- eval e2
@@ -500,7 +502,11 @@ eval (An loc _ e'@(ReplicatedLinkParallel ties tiesStmts stmts e)) = do
         return $! do
             ts <- ties
             p <- e
-            return (ts, p)
+            let (lefts, rights) = unzip ts
+                check evs p = case firstDuplicate $ sort evs of
+                                Just ev -> throwError $ linkParallelAmbiguous ev loc Nothing
+                                Nothing -> p
+            check lefts $ check rights $ return (ts, p)
         ]
     let mkLinkPar [(_, p)] = p
         mkLinkPar ((ts, p1):ps) =
