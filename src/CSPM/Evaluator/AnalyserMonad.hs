@@ -1,7 +1,10 @@
+{-# LANGUAGE FlexibleContexts #-}
 module CSPM.Evaluator.AnalyserMonad (
     AnalyserState, initialAnalyserState,
     AnalyserMonad, runAnalyser, getState,
-    withinTimedSection, maybeTimed, shouldRecordStackTraces,
+    withinTimedSection, maybeTimed,
+    shouldRecordStackTraces,
+    freeVarsBoundByParentFrames,
 
     DataTypeInformation(..), DataTypeConstructor(..), FieldSet(..),
     dataTypeForName, addDataTypes, channelInformationForName,
@@ -10,6 +13,9 @@ module CSPM.Evaluator.AnalyserMonad (
     createBuiltinFunctionFrame, createVariableFrame', createLambdaFrame,
     createPartiallyAppliedFunctionFrame, frameParent, frameFreeVars,
     analyseRelevantVars,
+
+    shouldTrackVariables,
+    selectVariablesToTrack,
 ) where
 
 import Control.Monad.ST
@@ -18,16 +24,20 @@ import Data.List (sort)
 import Data.Hashable
 import Data.IORef
 import qualified Data.Map as M
+import Data.Maybe (fromJust)
 import qualified Data.Set as S
 import Data.Supply
 import System.IO.Unsafe
 
-import CSPM.Syntax.FreeVars
-import CSPM.Syntax.Names
 import CSPM.Syntax.AST hiding (timedSectionTockName)
 import CSPM.Syntax.DataTypeAnalyser
+import CSPM.Syntax.FreeVars
+import CSPM.Syntax.Names
+import CSPM.Syntax.Types
+import CSPM.Syntax.Visitor
 import CSPM.Prelude
 import qualified Data.Graph.ST as G
+import Util.Annotated
 import Util.Exception
 import Util.List
 import Util.Monad
@@ -50,22 +60,54 @@ data AnalyserState = AnalyserState {
         -- Then the relevant vars for q include x, because q depends on p, which
         -- depends on x.
         relevantVarMap :: M.Map Name [Name],
-        recordStackTraces :: Bool
+        recordStackTraces :: Bool,
+        -- | Should variable values be tracked for process evaluation.
+        trackVariables :: Bool,
+        -- | A function that decides, if trackVariables is true, which variables
+        -- should be tracked. The first argument is the name of the enclosing
+        -- definition, if any. The second argument is the list of all the
+        -- relevant free vars, and their corresponding types
+        variablesToTrackFunction :: Maybe (Maybe Name -> [(Name, Type)] -> [Name])
     }
 
-initialAnalyserState :: Bool -> IO AnalyserState
-initialAnalyserState recordStackTraces = do
+initialAnalyserState ::
+    Bool
+    -> Bool
+    -> Maybe (Maybe Name -> [(Name, Type)] -> [Name])
+    -> IO AnalyserState
+initialAnalyserState recordStackTraces trackVariables trackerFn = do
     return $ AnalyserState {
         timedSectionFunctionName = Nothing,
         timedSectionTockName = Nothing,
         registeredDataTypes = M.empty,
         parentFrame = Nothing,
         relevantVarMap = M.empty,
-        recordStackTraces = recordStackTraces
+        recordStackTraces = recordStackTraces,
+        trackVariables = trackVariables,
+        variablesToTrackFunction = trackerFn
     }
 
 shouldRecordStackTraces :: AnalyserMonad Bool
 shouldRecordStackTraces = gets recordStackTraces
+
+shouldTrackVariables :: AnalyserMonad Bool
+shouldTrackVariables = gets trackVariables
+
+selectVariablesToTrack :: FreeVars body => body -> AnalyserMonad [Name]
+selectVariablesToTrack body = do
+    fvs <- freeVarsBoundByParentFrames body
+    Just fn <- gets variablesToTrackFunction
+    currentParentFrame <- gets parentFrame
+    let enclosingName (Just (FunctionFrame { functionFrameFunctionName = n })) =
+            Just n
+        enclosingName (Just f) = enclosingName (frameParent f)
+        enclosingName Nothing = Nothing
+
+        typMap = case currentParentFrame of
+                    Nothing -> M.empty
+                    Just f -> typeMapForFrame f
+        nvMap = [(fv, fromJust $ M.lookup fv typMap) | fv <- fvs]
+    return $ fn (enclosingName currentParentFrame) nvMap
 
 relevantVars :: Name -> AnalyserMonad [Name]
 relevantVars n = do
@@ -74,6 +116,13 @@ relevantVars n = do
         case M.lookup n m of
             Just fvs -> fvs
             Nothing -> []
+
+-- | The set of all variables that are relevant to the given body, and were
+-- bound by a parent frame.
+freeVarsBoundByParentFrames :: FreeVars body => body -> AnalyserMonad [Name]
+freeVarsBoundByParentFrames body = do
+    mframe <- gets parentFrame
+    relevantFreeVars mframe ([] :: [TCPat]) body
 
 analyseRelevantVars :: [TCDecl] -> AnalyserMonad a -> AnalyserMonad a
 analyseRelevantVars ds prog = do
@@ -98,11 +147,6 @@ analyseRelevantVars ds prog = do
                     return $! M.fromList $! map makeRelevant $!
                         filter (isBoundByDecl . fst) transitiveDeps
         newMap = M.union oldMap tcMap
-    --liftIO $ putStrLn $ show ds
-    --liftIO $ putStrLn $ show boundVars
-    --liftIO $ putStrLn $ show freeVarMap
-    --liftIO $ putStrLn $ show tcMap
-    --liftIO $ putStrLn ""
     modify (\ st -> st { relevantVarMap = newMap })
     a <- prog
     modify (\ st -> st { relevantVarMap = oldMap })
@@ -151,6 +195,7 @@ data FrameInformation =
             functionFramePatterns :: [[TCPat]],
             -- | The list of arguments this process name template has.
             functionFrameBoundNames :: [Name],
+            functionFrameBoundNameTypes :: M.Map Name Type,
             -- | The list of free variables the process depends on. This should
             -- not include names bound in the top scope of the program.
             functionFrameFreeVars :: [Name],
@@ -169,6 +214,7 @@ data FrameInformation =
             lambdaFramePatterns :: [TCPat],
             -- | The list of arguments this process name template has.
             lambdaFrameBoundNames :: [Name],
+            lambdaFrameBoundNameTypes :: M.Map Name Type,
             -- | The list of free variables the process depends on. This should
             -- not include names bound in the top scope of the program.
             lambdaFrameFreeVars :: [Name],
@@ -188,6 +234,7 @@ data FrameInformation =
         -- prefix expression.
         | VariableFrame {
             variableFrameBoundNames :: [Name],
+            variableFrameBoundNameTypes :: M.Map Name Type,
             variableFramePatterns :: [TCPat],
             frameId :: !Int,
             variableFrameParent :: Maybe FrameInformation
@@ -217,12 +264,6 @@ frameFreeVars (PartiallyAppliedFunctionFrame {
     }) = fvs
 frameFreeVars _ = []
 
-frameBoundNames :: FrameInformation -> [Name]
-frameBoundNames (FunctionFrame { functionFrameBoundNames = ns }) = ns
-frameBoundNames (LambdaFrame { lambdaFrameBoundNames = ns }) = ns
-frameBoundNames (VariableFrame { variableFrameBoundNames = ns }) = ns
-frameBoundNames _ = []
-
 frameUniqueSupply :: IORef (Supply Int)
 frameUniqueSupply = unsafePerformIO $ do
     s <- newNumSupply
@@ -247,6 +288,22 @@ varsBoundByFrame finfo = frameBoundNames finfo ++
     case frameParent finfo of
         Nothing -> []
         Just finfo -> varsBoundByFrame finfo
+    where
+        frameBoundNames :: FrameInformation -> [Name]
+        frameBoundNames (FunctionFrame { functionFrameBoundNames = ns }) = ns
+        frameBoundNames (LambdaFrame { lambdaFrameBoundNames = ns }) = ns
+        frameBoundNames (VariableFrame { variableFrameBoundNames = ns }) = ns
+        frameBoundNames _ = []
+
+typeMapForFrame :: FrameInformation -> M.Map Name Type
+typeMapForFrame finfo =
+    case frameParent finfo of
+        Nothing -> typeMap finfo
+        Just parent -> M.union (typeMap finfo) (typeMapForFrame parent)
+    where
+        typeMap (FunctionFrame { functionFrameBoundNameTypes = ns }) = ns
+        typeMap (LambdaFrame { lambdaFrameBoundNameTypes = ns }) = ns
+        typeMap (VariableFrame { variableFrameBoundNameTypes = ns }) = ns
 
 relevantFreeVars :: (BoundNames args, FreeVars body) =>
     Maybe FrameInformation -> args -> body -> AnalyserMonad [Name]
@@ -272,10 +329,12 @@ createFunctionFrame n args body prog = do
     nid <- takeFrameUnique
     parent <- gets parentFrame
     relevant <- relevantFreeVars parent args body
-    let frame = FunctionFrame {
+    let (boundNames, boundNameTypes) = findBoundVariables args
+        frame = FunctionFrame {
                 functionFrameFunctionName = n,
                 functionFramePatterns = args,
-                functionFrameBoundNames = boundNames args,
+                functionFrameBoundNames = boundNames,
+                functionFrameBoundNameTypes = boundNameTypes,
                 functionFrameFreeVars = relevant,
                 frameId = nid,
                 functionFrameParent = parent
@@ -307,8 +366,10 @@ createVariableFrame ::
 createVariableFrame args prog = do
     nid <- takeFrameUnique
     parent <- gets parentFrame
-    let frame = VariableFrame {
-                variableFrameBoundNames = boundNames args,
+    let (boundNames, boundNameTypes) = findBoundVariables args
+        frame = VariableFrame {
+                variableFrameBoundNames = boundNames,
+                variableFrameBoundNameTypes = boundNameTypes,
                 variableFramePatterns = args,
                 frameId = nid,
                 variableFrameParent = parent
@@ -324,9 +385,11 @@ createLambdaFrame args body prog = do
     nid <- takeFrameUnique
     parent <- gets parentFrame
     relevant <- relevantFreeVars parent ([] :: [TCPat]) body
-    let frame = LambdaFrame {
+    let (boundNames, boundNameTypes) = findBoundVariables args
+        frame = LambdaFrame {
                 lambdaFramePatterns = args,
-                lambdaFrameBoundNames = boundNames args,
+                lambdaFrameBoundNames = boundNames,
+                lambdaFrameBoundNameTypes = boundNameTypes,
                 lambdaFrameFreeVars = relevant,
                 lambdaFrameExpression = body,
                 frameId = nid,
@@ -357,3 +420,17 @@ addDataTypes newDataTypes = do
     modify (\ st -> st { registeredDataTypes =
             foldr (\ c -> M.insert (dataTypeName c) c) oldDataTypes newDataTypes
         })
+
+findBoundVariables :: Visitable a (State [(Name, Type)]) => a ->
+    ([Name], M.Map Name Type)
+findBoundVariables a =
+    let
+        visitPat (An loc (typ, _) (PVar n)) _ = modify (\ st -> (n, typ) : st)
+        visitPat _ prog = prog
+
+        visitor = defaultVisitor {
+                visitPat = visitPat
+            }
+
+        nts = execState (visit visitor a) []
+    in (map fst nts, M.fromList nts)

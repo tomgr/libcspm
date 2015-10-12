@@ -13,7 +13,9 @@ import qualified Data.HashTable.ST.Basic as B
 import qualified Data.Set as St
 import qualified Data.Map as M
 
+import CSPM.Syntax.Constructors
 import CSPM.Syntax.Names
+import CSPM.Syntax.Types
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Dot
 import CSPM.Evaluator.Exceptions
@@ -35,6 +37,7 @@ builtinProcName f vss = procName (instantiateBuiltinFrameWithArguments f vss)
 builtInFunctions :: AnalyserMonad (EvaluationMonad [(Name, Value)])
 builtInFunctions = do
     builtinFrames <- mapM (createBuiltinFunctionFrame . name) (builtins True)
+    trackVariables <- shouldTrackVariables
 
     let
         frameMap = M.fromList $ map
@@ -110,6 +113,7 @@ builtInFunctions = do
         cspm_tail _ [VList (x:xs)] = return $ VList xs
         cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
         cspm_elem [v, VList vs] = makeBoolValue $ v `elem` vs
+
         csp_chaos_frame = frameForBuiltin "CHAOS"
         csp_chaos [VSet a] = VProc chaosCall
             where
@@ -261,15 +265,13 @@ builtInFunctions = do
             ("length", cspm_length), ("null", cspm_null), 
             ("elem", cspm_elem),
             ("member", cspm_member), ("card", cspm_card),
-            ("empty", cspm_empty), ("CHAOS", csp_chaos),
-            ("RUN", csp_run),
-            ("loop", csp_loop), ("relational_image", cspm_relational_image),
+            ("empty", cspm_empty), 
+            ("relational_image", cspm_relational_image),
             ("relational_inverse_image", cspm_relational_inverse_image),
             ("transpose", cspm_transpose), ("show", cspm_show),
             ("failure_watchdog", csp_failure_watchdog),
             ("trace_watchdog", csp_trace_watchdog),
-            ("TSTOP", csp_tstop), ("TSKIP", csp_tskip),
-            ("WAIT", csp_wait), ("timed_priority", csp_timed_priority)
+            ("timed_priority", csp_timed_priority)
             ]
 
         -- | Functions that require a monadic context.
@@ -293,50 +295,253 @@ builtInFunctions = do
             ("SKIP", csp_skip),
             ("DIV", csp_div)
             ]
-        
+    
         csp_skip_id = builtinProcName (frameForBuiltin "SKIP") []
         csp_stop_id = builtinProcName (frameForBuiltin "STOP") []
         csp_div_id = builtinProcName (frameForBuiltin "DIV") []
-        csp_stop = PProcCall csp_stop_id (POp PExternalChoice [])
-        csp_skip =
-            PProcCall csp_skip_id (PUnaryOp (PPrefix Tick) csp_stop)
-        csp_div = PProcCall csp_div_id (POp PInternalChoice [csp_div])
-
-        csp_tstop [tockVal@(VDot [VChannel tn])] =
+        
+        csp_stop = 
+            if trackVariables then do
+                syntacticState <- takeNextSyntacticState (mkVar (builtInName "STOP") TProc)
+                let annotation = PVariableAnnotation syntacticState []
+                return $ PProcCall csp_stop_id (PUnaryOp annotation (POp PExternalChoice []))
+            else return $ PProcCall csp_stop_id (POp PExternalChoice [])
+        
+        csp_skip csp_stop =
+            if trackVariables then do
+                syntacticState <- takeNextSyntacticState (mkVar (builtInName "SKIP") TProc)
+                let annotation = PVariableAnnotation syntacticState []
+                return $ PProcCall csp_skip_id (PUnaryOp annotation (PUnaryOp (PPrefix Tick) csp_stop))
+            else return $ PProcCall csp_skip_id (PUnaryOp (PPrefix Tick) csp_stop)
+        
+        csp_div =
+            if trackVariables then do
+                syntacticState <- takeNextSyntacticState (mkVar (builtInName "DIV") TProc)
+                let annotation = PVariableAnnotation syntacticState []
+                return $ let csp_div = PProcCall csp_div_id (PUnaryOp annotation (POp PInternalChoice [csp_div])) in csp_div
+            else return $ let csp_div = PProcCall csp_div_id (POp PInternalChoice [csp_div]) in csp_div
+        
+        makeUnaryTracker :: B.ByteString -> (Value -> Proc) -> AnalyserMonad (Value -> Proc)
+        makeUnaryTracker procName p | trackVariables = do
+            syntacticState <- takeNextSyntacticState (mkVar (builtInName procName) TProc)
+            arg <- mkFreshInternalName
+            return $ \ argValue -> 
+                let annotation = PVariableAnnotation syntacticState [(arg, argValue)]
+                in PUnaryOp annotation (p argValue)
+        makeUnaryTracker _ p = return p
+        
+        csp_chaos_frame = frameForBuiltin "CHAOS"
+        csp_chaos =
             let
-                pid = builtinProcName (frameForBuiltin "STOP") [[VChannel tn]]
-                proc = PUnaryOp (PPrefix (UserEvent tockVal)) pc
-                pc = PProcCall pid proc
-            in VProc pc
+                chaosName compactedAlpha = builtinProcName csp_chaos_frame [[compactedAlpha]]
+                chaosProc (VSet compactedAlpha) = POp (PChaos (S.valueSetToEventSet compactedAlpha)) []
+                
+                csp_chaos mkProc [VSet alphabet] =
+                    -- | We convert the set into an explicit set as this makes
+                    -- comparisons faster than leaving it as a set represented as
+                    -- (for instance) a CompositeSet of CartProduct sets.
+                    let compactedAlpha = VSet $ S.fromList $ S.toList alphabet
+                    in VProc (PProcCall (chaosName compactedAlpha) (mkProc compactedAlpha))
+            in do
+                track <- makeUnaryTracker "CHAOS" chaosProc
+                return $ csp_chaos track
 
-        csp_tskip [tockVal] =
+        csp_run_frame = frameForBuiltin "RUN"
+        csp_run =
             let
-                VDot [VChannel tn] = tockVal
-                pid = builtinProcName (frameForBuiltin "SKIP")  [[VChannel tn]]
-                proc = PUnaryOp (PPrefix (UserEvent tockVal)) pc
-                pc = PProcCall pid $ POp PExternalChoice [proc, csp_skip]
-            in VProc pc
+                runName compactedAlpha = builtinProcName csp_run_frame [[compactedAlpha]]
+                runProc (VSet compactedAlpha) = POp (PRun (S.valueSetToEventSet compactedAlpha)) []
+                
+                csp_run mkProc [VSet alphabet] =
+                    -- | We convert the set into an explicit set as this makes
+                    -- comparisons faster than leaving it as a set represented as
+                    -- (for instance) a CompositeSet of CartProduct sets.
+                    let compactedAlpha = VSet $ S.fromList $ S.toList alphabet
+                    in VProc (PProcCall (runName compactedAlpha) (mkProc compactedAlpha))
+            in do
+                track <- makeUnaryTracker "RUN" runProc
+                return $ csp_run track
+            
+        checkBufferBound loc cap p | cap <= 0 = throwError $ bufferCapacityInsufficient cap loc Nothing
+        checkBufferBound _ _ p = p
+            
+        checkForAmbiguousBufferEvents loc evs p = 
+            case firstDuplicate $ sort evs of
+                Nothing -> return p
+                Just ev -> throwError $ bufferEventAmbiguous (UserEvent ev) loc Nothing
+        csp_refusing_buffer_frame = frameForBuiltin "BUFFER"
+        csp_refusing_buffer =
+            let
+                innerFnId loc = instantiateBuiltinFrameWithArguments csp_refusing_buffer_frame [[VLoc loc]]
+        
+                bufferName bound pairs = builtinProcName csp_refusing_buffer_frame [[bound, pairs]]
+                bufferProc loc (VInt bound) (VSet pairs) =
+                    checkBufferBound loc bound $
+                    checkForAmbiguousBufferEvents loc (concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs]) $
+                        let events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
+                        in POp (PBuffer WhenFullRefuseInputs bound events) []
+            
+                csp_refusing_buffer mkProc loc [bound, pairs] = do
+                    p <- mkProc loc bound pairs
+                    return $ VProc $ PProcCall (bufferName bound pairs) p
+            in if trackVariables then do
+                syntacticState <- takeNextSyntacticState (mkVar (builtInName "BUFFER") TProc)
+                arg1 <- mkFreshInternalName
+                arg2 <- mkFreshInternalName
+                let mkWithAnnotation loc bound events = do
+                        p <- bufferProc loc bound events
+                        return $ PUnaryOp (PVariableAnnotation syntacticState [(arg1, bound), (arg2, events)]) p
+                return $ \ [VLoc loc] -> VFunction (innerFnId loc) (csp_refusing_buffer mkWithAnnotation loc)
+            else
+                return $ \ [VLoc loc] -> VFunction (innerFnId loc) (csp_refusing_buffer bufferProc loc)
+        
+        csp_exploding_buffer_frame = frameForBuiltin "WEAK_BUFFER"
+        csp_exploding_buffer =
+            let
+                innerFnId loc = instantiateBuiltinFrameWithArguments csp_exploding_buffer_frame [[VLoc loc]]
+        
+                bufferName bound explode pairs = builtinProcName csp_exploding_buffer_frame [[bound, explode, pairs]]
+                bufferProc loc (VInt bound) explode (VSet pairs) =
+                    checkBufferBound loc bound $
+                    checkForAmbiguousBufferEvents loc (concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs]) $
+                        let events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
+                        in POp (PBuffer (WhenFullExplode (UserEvent explode)) bound events) []
+            
+                csp_exploding_buffer mkProc loc [bound, explode, pairs] = do
+                    p <- mkProc loc bound explode pairs
+                    return $ VProc $ PProcCall (bufferName bound explode pairs) p
+            in if trackVariables then do
+                syntacticState <- takeNextSyntacticState (mkVar (builtInName "BUFFER") TProc)
+                arg1 <- mkFreshInternalName
+                arg2 <- mkFreshInternalName
+                arg3 <- mkFreshInternalName
+                let mkWithAnnotation loc bound explode events = do
+                        p <- bufferProc loc bound explode events
+                        let vars = [(arg1, bound), (arg2, explode), (arg3, events)]
+                        return $ PUnaryOp (PVariableAnnotation syntacticState vars) p
+                return $ \ [VLoc loc] -> VFunction (innerFnId loc) (csp_exploding_buffer mkWithAnnotation loc)
+            else
+                return $ \ [VLoc loc] -> VFunction (innerFnId loc) (csp_exploding_buffer bufferProc loc)
+            
+        -- csp_exploding_buffer_frame = frameForBuiltin "WEAK_BUFFER"
+        -- csp_exploding_buffer loc [VInt bound, explode, VSet pairs] = panic "not implemented"
+        --         checkBufferBound loc bound $
+        --         checkForAmbiguousBufferEvents loc (explode : concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs])
+        --             (VProc bufferCall)
+        --     where
+        --         bufferCall = PProcCall n p
+        --         -- | We convert the set into an explicit set as this makes
+        --         -- comparisons faster than leaving it as a set represented as
+        --         -- (for instance) a CompositeSet of CartProduct sets.
+        --         n = builtinProcName csp_exploding_buffer_frame [[VInt bound, explode, VSet pairs]]
+        --         events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
+        --         p = POp (PBuffer (WhenFullExplode (UserEvent explode)) bound events) []
+
+        csp_tstop =
+            if trackVariables then do
+            syntacticState <- takeNextSyntacticState (mkVar (builtInName "TSKIP") TProc)
+            arg <- mkFreshInternalName
+            return $ \ [tockVal@(VDot [VChannel tn])] ->
+                let annotation = PVariableAnnotation syntacticState [(arg, tockVal)]
+                    pid = builtinProcName (frameForBuiltin "STOP") [[VChannel tn]]
+                    proc = PUnaryOp annotation $ PUnaryOp (PPrefix (UserEvent tockVal)) pc
+                    pc = PProcCall pid proc
+                in VProc pc
+            else return $ \ [tockVal@(VDot [VChannel tn])] ->
+                let pid = builtinProcName (frameForBuiltin "STOP") [[VChannel tn]]
+                    proc = PUnaryOp (PPrefix (UserEvent tockVal)) pc
+                    pc = PProcCall pid proc
+                in VProc pc
+
+        csp_tskip csp_skip =
+            if trackVariables then do
+                syntacticState <- takeNextSyntacticState (mkVar (builtInName "TSKIP") TProc)
+                arg <- mkFreshInternalName
+                return $ \ [tockVal] -> 
+                    let annotation = PVariableAnnotation syntacticState [(arg, tockVal)]
+                        VDot [VChannel tn] = tockVal
+                        pid = builtinProcName (frameForBuiltin "SKIP")  [[VChannel tn]]
+                        tockProc = PUnaryOp (PPrefix (UserEvent tockVal)) pc
+                        pc = PProcCall pid $ PUnaryOp annotation (POp PExternalChoice [tockProc, csp_skip])
+                    in VProc pc
+            else return $ \ [tockVal] ->
+                let
+                    VDot [VChannel tn] = tockVal
+                    pid = builtinProcName (frameForBuiltin "SKIP")  [[VChannel tn]]
+                    proc = PUnaryOp (PPrefix (UserEvent tockVal)) pc
+                    pc = PProcCall pid $ POp PExternalChoice [proc, csp_skip]
+                in VProc pc
 
         csp_wait_frame = frameForBuiltin "WAIT"
-        csp_wait [tockVal] =
-            let
-                VDot [VChannel tn] = tockVal
-                VProc tskip = csp_tskip [tockVal]
-
-                mkTocker 0 = tskip
-                mkTocker n =
-                    PUnaryOp (PPrefix (UserEvent tockVal)) (mkTocker (n-1))
-
-                waiterId = instantiateBuiltinFrameWithArguments csp_wait_frame
-                                [[tockVal]]
-                waiter [VInt tocks] =
-                    let
-                        pid = builtinProcName csp_wait_frame [[tockVal], [VInt tocks]]
-                    in VProc $ PProcCall pid $ mkTocker tocks
-            in VFunction waiterId (return . waiter)
-
-        mkProc (s, p) = return (builtInName s, VProc p)
+        csp_wait csp_tskip = do
+            let waiterId tockVal = instantiateBuiltinFrameWithArguments csp_wait_frame [[tockVal]]
+                waiterPid tockVal tocks = builtinProcName csp_wait_frame [[tockVal], [VInt tocks]]
+                
+            if trackVariables then do
+                syntacticState <- takeNextSyntacticState (mkVar (builtInName "WAIT") TProc)
+                arg1 <- mkFreshInternalName
+                arg2 <- mkFreshInternalName
+                return $ \ [tockVal] ->
+                    let VDot [VChannel tn] = tockVal
+                        VProc tskip = csp_tskip [tockVal]
+                        waiter 0 = tskip
+                        waiter tocks =
+                            let annotation = PVariableAnnotation syntacticState [(arg1, tockVal), (arg2, VInt tocks)]
+                            in PProcCall (waiterPid tockVal tocks) $ PUnaryOp annotation $
+                                PUnaryOp (PPrefix (UserEvent tockVal)) (waiter (tocks - 1))
+                        waiterFunc [VInt tocks] = VProc $ waiter tocks
+                    in VFunction (waiterId tockVal) (return . waiterFunc)
+            else return $ \ [tockVal] ->
+                let VDot [VChannel tn] = tockVal
+                    VProc tskip = csp_tskip [tockVal]
+                    waiter 0 = tskip
+                    waiter tocks =
+                        PProcCall (waiterPid tockVal tocks) $ 
+                        PUnaryOp (PPrefix (UserEvent tockVal)) (waiter (tocks - 1))
+                    waiterFunc [VInt tocks] = VProc $ waiter tocks
+                in VFunction (waiterId tockVal) (return . waiterFunc)
         
+        csp_loop_frame = frameForBuiltin "loop"
+        csp_loop = 
+            if trackVariables then do
+                syntacticState <- takeNextSyntacticState (mkVar (builtInName "loop") TProc)
+                arg <- mkFreshInternalName
+                return $ \ [VProc p] -> 
+                    let annotation = PVariableAnnotation syntacticState [(arg, VProc p)]
+                        pn = builtinProcName csp_loop_frame [[VProc p]]
+                        procCall = PProcCall pn (PUnaryOp annotation (PBinaryOp PSequentialComp p procCall))
+                    in VProc procCall
+            else return $ \ [VProc p] ->
+                let pn = builtinProcName csp_loop_frame [[VProc p]]
+                    procCall = PProcCall pn (PBinaryOp PSequentialComp p procCall)
+                in VProc procCall
+
+        procs :: AnalyserMonad [(Name, Value)]
+        procs = do
+            csp_stop <- csp_stop
+            csp_skip <- csp_skip csp_stop
+            csp_div <- csp_div
+            csp_chaos <- csp_chaos
+            csp_run <- csp_run
+            csp_tstop <- csp_tstop
+            csp_tskip <- csp_tskip csp_skip
+            csp_wait <- csp_wait csp_tskip
+            csp_loop <- csp_loop
+            csp_refusing_buffer <- csp_refusing_buffer
+            csp_exploding_buffer <- csp_exploding_buffer
+            let constants = map (\ (s, p) -> (builtInName s, VProc p)) [
+                    ("STOP", csp_stop), ("SKIP", csp_skip), ("DIV", csp_div)
+                    ]
+            funcs <- mapM mkFunc [
+                    ("CHAOS", csp_chaos), ("RUN", csp_run),
+                    ("TSTOP", csp_tstop), ("TSKIP", csp_tskip),
+                    ("WAIT", csp_wait), ("loop", csp_loop),
+                    ("WEAK_BUFFER", csp_exploding_buffer), 
+                    ("BUFFER", csp_refusing_buffer)
+                
+                ]
+            return $ constants++funcs
+
         cspm_true = ("true", trueValue)
         cspm_false = ("false", falseValue)
         cspm_True = ("True", trueValue)
@@ -392,9 +597,9 @@ builtInFunctions = do
             ++ other_funcs ++ map_funcs)
     fs2 <- mapM mkMonadicFunc monadic_funcs
     fs5 <- mapM mkLocatedFunction locatedFunctions
+    fs3 <- procs
     return $! do
         -- There is no need to profile the builtin constants, as they are free
-        fs3 <- mapM mkProc procs
         fs4 <- mapM mkConstant constants
         return $! fs1++fs2++fs3++fs4++fs5
 

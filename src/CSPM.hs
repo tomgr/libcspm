@@ -102,6 +102,7 @@ module CSPM (
     -- * Desugarer API
     desugarFile, desugarInteractiveStmt, desugarExpression,
     -- * Evaluator API
+    reinitialiseEvaluator,
     bindFile, bindDeclaration,
     evaluateExpression, maybeProcessNameToProcess,
     dumpProfilingData,

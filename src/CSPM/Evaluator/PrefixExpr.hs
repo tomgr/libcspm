@@ -106,15 +106,16 @@ evalInputField2 loc isLastField p evalRest =
         return $! \ evBase -> computeField evBase []
             
 
-evalPrefix :: TCExp -> AnalyserMonad (EvaluationMonad Value)
+evalPrefix :: TCExp -> AnalyserMonad (EvaluationMonad Proc)
 evalPrefix (An _ _ (Prefix e1 [] e2)) = do
     e1 <- eval e1
-    e2 <- eval e2
+    e2 <- evalProc e2
     return $! do
         ev <- e1
-        VProc p <- e2
-        return $! VProc $ PUnaryOp (PPrefix (valueEventToEvent ev)) p
-evalPrefix (An _ _ (Prefix e1 fs e2)) = do
+        p <- e2
+        return $! PUnaryOp (PPrefix (valueEventToEvent ev)) p
+
+evalPrefix prefix@(An _ _ (Prefix e1 fs e2)) = do
     let
         evalNonDetFields :: [TCField] -> AnalyserMonad (
             Value -> EvaluationMonad [Proc])
@@ -136,18 +137,36 @@ evalPrefix (An _ _ (Prefix e1 fs e2)) = do
                 if null ps then
                     throwError' $ replicatedInternalChoiceOverEmptySetMessage' p
                 else return ps
-        evalNonDetFields fs = do
-            rest <- evalFields fs
-            return $! \evBase -> do
-                ps <- rest evBase
-                return $! [POp PExternalChoice ps]
+        evalNonDetFields remaining = do
+            b <- shouldTrackVariables
+            if not b then do
+                rest <- evalFields remaining
+                return $! \evBase -> do
+                    ps <- rest evBase
+                    return $! [POp PExternalChoice ps]
+            else do
+                let taken = length fs - length remaining
+                    fs' = drop taken fs
+                if taken > 0 then do
+                    boundVar <- mkFreshInternalName
+                    annotate <- makeAnnotater (prefix { inner = Prefix e1 fs' e2 })
+                    rest <- evalFields remaining
+                    return $! \evBase -> do
+                        ps <- rest evBase
+                        p <- annotate [(boundVar, evBase)] $ POp PExternalChoice ps
+                        return $! [p]
+                else do
+                    rest <- evalFields remaining
+                    return $! \evBase -> do
+                        ps <- rest evBase
+                        return [POp PExternalChoice ps]
 
         evalFields :: [TCField] -> AnalyserMonad (
             Value -> EvaluationMonad [Proc])
         evalFields [] = do
-            e2 <- eval e2
+            e2 <- evalProc e2
             return $! \ ev -> do
-                VProc p <- e2
+                p <- e2
                 return $! [PUnaryOp (PPrefix (valueEventToEvent ev)) p]
         evalFields (An loc _ (Output e):fs) = do
             e <- eval e
@@ -191,18 +210,16 @@ evalPrefix (An _ _ (Prefix e1 fs e2)) = do
                 computeProc <- evalFieldsNoBranching fs e2
                 return $! do
                     ev <- e1
-                    p <- computeProc ev
-                    return $ VProc p
+                    computeProc ev
             else do
                 e1 <- eval e1
                 computeProc <- evalNonDetFields fs
                 return $! do
                     ev <- e1
                     ps <- computeProc ev
-                    let p = case F.toList ps of
-                                [p] -> p
-                                _ -> POp PInternalChoice ps
-                    return $ VProc p
+                    return $! case F.toList ps of
+                        [p] -> p
+                        _ -> POp PInternalChoice ps
 
 
     fallback
@@ -326,10 +343,10 @@ evalFieldsNoBranching fs e2 = do
             return $! evalField
 
     computeEvents <- evalFields fs
-    computeProc <- eval e2
+    computeProc <- evalProc e2
     return $! \ ev -> do
         evs <- computeEvents ev
-        VProc p <- computeProc
+        p <- computeProc
         case F.toList evs of
             [] -> stop
             [ev] -> return $ PUnaryOp (PPrefix (valueEventToEvent ev)) p

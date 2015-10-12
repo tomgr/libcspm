@@ -33,6 +33,7 @@ import Util.Exception
 import CSPM.Evaluator.Values
 import CSPM.Evaluator.ValueSet
 import CSPM.Prelude
+import CSPM.Syntax.Types
 import Util.Annotated
 import qualified Util.MonadicPrettyPrint as M
 
@@ -41,11 +42,15 @@ import qualified Data.Set as S
 
 data EvaluatorOptions = EvaluatorOptions {
         recordStackTraces :: Bool
+        trackVariables :: Bool,
+        variablesToTrackFunction :: Maybe (Maybe Name -> [(Name, Type)] -> [Name])
     }
 
 defaultEvaluatorOptions :: EvaluatorOptions
 defaultEvaluatorOptions = EvaluatorOptions {
         recordStackTraces = False
+        trackVariables = False,
+        variablesToTrackFunction = Nothing
     }
 
 data EvaluationState = EvaluationState {
@@ -74,7 +79,10 @@ runFromStateToState st anProg = runStateT anProg st
 -- | The environment to use initially. 
 initEvaluator :: EvaluatorOptions -> IO EvaluationState
 initEvaluator evOptions = do
-    analyserState <- A.initialAnalyserState (recordStackTraces evOptions)
+    analyserState <- A.initialAnalyserState
+        (recordStackTraces evOptions)
+        (trackVariables evOptions)
+        (variablesToTrackFunction evOptions)
     let initialEvState = new
         initialState = EvaluationState {
                 analyserState = analyserState,
@@ -113,7 +121,7 @@ addToEnvironment bs = do
             E.addScopeAndBindM nds E.getState
     modify (\st -> st { evaluatorState = evSt' })
 
-
+checkArgument :: Value -> Bool
 checkArgument (VInt i) = True
 checkArgument (VChar c) = True
 checkArgument (VBool b) = True

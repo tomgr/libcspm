@@ -33,7 +33,7 @@ assertionExpressions (An _ _ (SymmetryCheck e1 _)) = [e1]
 
 doFile :: Options -> FilePath -> IO ()
 doFile opts fp = do
-    session <- newCSPMSession defaultEvaluatorOptions
+    session <- newCSPMSession (evaluatorOptions opts)
     unCSPM session $ do 
         liftIO $ putStrLn $ "Exploring "++fp
         res <- tryM $ convertExceptionsToPanics $ do
@@ -105,7 +105,8 @@ data Options = Options {
         recursive :: Bool,
         help :: Bool,
         printVersion :: Bool,
-        cspmOptions :: CSPM.Options
+        cspmOptions :: CSPM.Options,
+        evaluatorOptions :: CSPM.EvaluatorOptions
     }
 
 defaultOptions :: Options
@@ -113,7 +114,8 @@ defaultOptions = Options {
         recursive = False, 
         help = False,
         printVersion = False,
-        cspmOptions = CSPM.defaultOptions
+        cspmOptions = CSPM.defaultOptions,
+        evaluatorOptions = CSPM.defaultEvaluatorOptions
     }
 
 options :: [OptDescr (Options -> Options)]

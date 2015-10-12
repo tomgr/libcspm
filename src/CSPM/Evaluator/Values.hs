@@ -18,11 +18,17 @@ module CSPM.Evaluator.Values (
     Proc(..), CSPOperator(..), ProcOperator(..),  ProcName(..),
     BufferMode(..),
     operator, components, splitProcIntoComponents,
+
+    SyntacticState(..), takeNextSyntacticState,
 ) where
 
+import Control.Monad.Trans
 import Data.Array
 import qualified Data.Foldable as F
 import Data.Hashable
+import Data.IORef
+import Data.Supply
+import System.IO.Unsafe
 import qualified Data.Set as St
 import qualified Data.Map as M
 import GHC.Generics (Generic)
@@ -33,6 +39,7 @@ import CSPM.Evaluator.Monad
 import CSPM.Evaluator.Environment
 import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
 import {-# SOURCE #-} CSPM.Evaluator.ValuePrettyPrinter
+import CSPM.Syntax.AST (TCExp)
 import CSPM.Syntax.Names
 import CSPM.Syntax.Types
 import Util.Annotated
@@ -343,6 +350,31 @@ data BufferMode =
 
 instance Hashable BufferMode    
 
+data SyntacticState = SyntacticState {
+        syntacticStateId :: {-# UNPACK #-} !Int,
+        expression :: TCExp
+    }
+    
+instance Eq SyntacticState where
+    s1 == s2 = syntacticStateId s1 == syntacticStateId s2
+instance Hashable SyntacticState where
+    hashWithSalt salt s = hashWithSalt salt (syntacticStateId s) 
+instance Ord SyntacticState where
+    compare s1 s2 = compare (syntacticStateId s1) (syntacticStateId s2)
+instance Show SyntacticState where
+    show s = show (syntacticStateId s)
+
+syntacticStateUniqueSupply :: IORef (Supply Int)
+syntacticStateUniqueSupply = unsafePerformIO $ do
+    s <- newNumSupply
+    newIORef s
+{-# NOINLINE syntacticStateUniqueSupply #-}
+
+takeNextSyntacticState :: MonadIO m => TCExp -> m SyntacticState
+takeNextSyntacticState exp = do
+    s <- liftIO $ atomicModifyIORef syntacticStateUniqueSupply split2
+    return $! SyntacticState (supplyValue s) exp
+
 data CSPOperator =
     PAlphaParallel [EventSet]
     | PBuffer BufferMode Int EventMap
@@ -368,6 +400,7 @@ data CSPOperator =
     | PSlidingChoice
     | PSynchronisingExternalChoice EventSet
     | PSynchronisingInterrupt EventSet
+    | PVariableAnnotation SyntacticState [(Name, Value)]
     deriving (Eq, Generic, Ord)
 
 instance Hashable CSPOperator
@@ -385,6 +418,9 @@ data Proc =
 
 instance Eq Proc where
     (PProcCall pn1 _) == (PProcCall pn2 _) = pn1 == pn2
+    -- Ignore variable annotation for equality purposes as they are superfluous
+    (PUnaryOp (PVariableAnnotation _ _) p1) == (PUnaryOp (PVariableAnnotation _ _) p2) =
+        p1 == p2
     (PUnaryOp op1 p1) == (PUnaryOp op2 p2) = op1 == op2 && p1 == p2
     (PBinaryOp op1 p1 p2) == (PBinaryOp op2 r1 r2) =
         op1 == op2 && p1 == r1 && p2 == r2
@@ -393,6 +429,8 @@ instance Eq Proc where
 
 instance Hashable Proc where
     hashWithSalt s (PProcCall pn1 _) = s `hashWithSalt` (1 :: Int) `hashWithSalt` pn1
+    -- See Eq instance above
+    hashWithSalt s (PUnaryOp (PVariableAnnotation _ _) p1) = hashWithSalt s p1
     hashWithSalt s (PUnaryOp op1 p1) = s `hashWithSalt` (2 :: Int) `hashWithSalt` op1 `hashWithSalt` p1
     hashWithSalt s (PBinaryOp op1 p1 p2) =
         s `hashWithSalt` (3 :: Int) `hashWithSalt` op1 `hashWithSalt` p1 `hashWithSalt` p2
@@ -403,6 +441,9 @@ instance Ord Proc where
     compare (PProcCall pn1 _) (PProcCall pn2 _) = compare pn1 pn2
     compare (PProcCall _ _) _ = LT
     compare _ (PProcCall _ _) = GT
+    -- See Eq instance above
+    compare (PUnaryOp (PVariableAnnotation _ _) p1) (PUnaryOp (PVariableAnnotation _ _) p2) =
+        compare p1 p2
     compare (PUnaryOp op1 p1) (PUnaryOp op2 p2) =
         compare op1 op2 `thenCmp` compare p1 p2
     compare (PUnaryOp _ _) _ = LT
@@ -413,6 +454,7 @@ instance Ord Proc where
     compare _ (PBinaryOp _ _ _) = GT
     compare (POp op1 ps1) (POp op2 ps2) =
         compare op1 op2 `thenCmp` compare ps1 ps2
+
 -- | Gives the operator of a process. If the process is a ProcCall an error is
 -- thrown.
 operator :: Proc -> CSPOperator

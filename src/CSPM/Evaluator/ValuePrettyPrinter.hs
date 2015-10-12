@@ -60,6 +60,9 @@ instance PrettyPrintable ProcOperator where
 instance PrettyPrintable InstantiatedFrame where
     prettyPrint = runIdentity . M.prettyPrint
 
+instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m SyntacticState where
+    prettyPrint = M.text . show
+
 instance (Applicative m, Monad m, M.MonadicPrettyPrintable m Value) =>
         M.MonadicPrettyPrintable m Event where
     prettyPrint Tau = M.char 'τ'
@@ -415,6 +418,7 @@ instance (Applicative m, Monad m,
     prettyPrintBrief PSlidingChoice = M.text "[>"
     prettyPrintBrief (PSynchronisingExternalChoice _) = M.text "[+ +]"
     prettyPrintBrief (PSynchronisingInterrupt _) = M.text "/+ +\\"
+    prettyPrintBrief (PVariableAnnotation _ _) = M.text "VAR"
 
     prettyPrint (PAlphaParallel as) =
         M.text "Alphabetised parallel with process alphabets:"
@@ -481,6 +485,12 @@ instance (Applicative m, Monad m,
     prettyPrint (PSynchronisingInterrupt evs) =
         M.text "Synchronising interrupt, synchronising on:"
         M.$$ M.tabIndent (M.prettyPrint evs)
+    prettyPrint (PVariableAnnotation st nm) =
+        M.text "Variable annotation, for syntactic state"
+        M.<+> M.prettyPrint st
+        M.<+> M.text "with variable values:"
+        M.$$ M.tabIndent (M.vcat (mapM (\ (n, v) ->
+            M.prettyPrint n M.<> M.colon M.<+> M.prettyPrint v) nm))
 
 instance Precedence Proc where
     precedence (PUnaryOp (PHide _) _) = 10
@@ -506,6 +516,7 @@ instance Precedence Proc where
     precedence (POp (PChaos _) _) = 0
     precedence (POp (PRun _) _) = 0
     precedence (POp (PBuffer {}) _) = 0
+    precedence (PUnaryOp (PVariableAnnotation _ _) p) = precedence p
 
 ppBinaryOp, ppBriefBinaryOp :: (M.MonadicPrettyPrintable m Proc) => 
     Proc -> m Doc -> Proc -> Proc -> m Doc
@@ -631,7 +642,8 @@ instance
     prettyPrint (op@(PBinaryOp (PSynchronisingInterrupt es) p1 p2)) =
         ppBinaryOp op (M.text "/+" M.<+> M.prettyPrint es M.<+> M.text "+\\")
             p1 p2
-
+    prettyPrint (PUnaryOp (PVariableAnnotation _ _) p) = M.prettyPrint p
+        
     prettyPrintBrief (op@(POp (PAlphaParallel as) ps)) = maybeNull' ps $ 
         if length (F.toList as) == 1 then
             let [p] = F.toList ps in
@@ -699,6 +711,8 @@ instance
                 mapM (M.prettyPrintBriefPrec (precedence op)) ps')
     prettyPrintBrief (op@(PBinaryOp (PSynchronisingInterrupt es) p1 p2)) =
         ppBriefBinaryOp op (M.text "/+…+\\") p1 p2
+    prettyPrintBrief (PUnaryOp (PVariableAnnotation _ _) p) =
+        M.prettyPrintBrief p
     prettyPrintBrief (PProcCall n _) = M.prettyPrintBrief n
 
 instance (Applicative m, Monad m,

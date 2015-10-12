@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances, RecordWildCards #-}
 module CSPM.Evaluator.Expr (
-    eval,
+    eval, evalProc,
+    makeAnnotater,
 ) where
 
 import qualified Data.ByteString.Char8 as B
@@ -283,13 +284,46 @@ eval (An _ _ (Var n)) | isNameDataConstructor n = return $ do
     return dc
 eval (An _ _ (Var n)) = return $! lookupVar n
 
-eval (an@(An _ _ (Prefix e1 fs e2))) = evalPrefix an
-eval (An _ _ (TimedPrefix n e)) =
+eval exp = do
+    exp <- evalProc exp
+    return $! do
+        p <- exp
+        return $! VProc p
+
+makeAnnotater :: TCExp -> AnalyserMonad ([(Name, Value)] -> Proc -> EvaluationMonad Proc)
+makeAnnotater e = do
+    syntacticState <- takeNextSyntacticState e
+    trackedVars <- selectVariablesToTrack e
+    return $! \ extraNameVars p -> do
+        case p of
+            PProcCall {} -> return p
+            PUnaryOp (POperator {}) _ -> return p
+            PUnaryOp (PVariableAnnotation {}) _ -> return p
+            _ -> do
+                nvs <- mapM (\ n -> do
+                    v <- lookupVar n
+                    return (n, v)) trackedVars
+                return $! PUnaryOp (PVariableAnnotation syntacticState (extraNameVars++nvs)) p
+
+evalProc :: TCExp -> AnalyserMonad (EvaluationMonad Proc)
+evalProc e = do
+    b <- shouldTrackVariables
+    if not b then evalProc' e
+    else do
+        annotate <- makeAnnotater e
+        p <- evalProc' e
+        return $! do
+            p <- p
+            annotate [] p
+
+evalProc' :: TCExp -> AnalyserMonad (EvaluationMonad Proc)
+evalProc' (an@(An _ _ (Prefix e1 fs e2))) = evalPrefix an
+evalProc' (An _ _ (TimedPrefix n e)) =
     maybeTimed (panic "Timed prefix in non-timed section") $ \ tockName fnName -> do
         createFunctionFrame n [] e $! \frameInfo -> do
-            e <- eval e
+            e <- evalProc e
             return $ do
-                VProc p <- e
+                p <- e
                 pn <- makeProcessName frameInfo
                 VFunction _ eventFunc <- lookupVar fnName
                 let addTocker (POp PExternalChoice ps) = do
@@ -308,29 +342,28 @@ eval (An _ _ (TimedPrefix n e)) =
                     tocker = PUnaryOp (PPrefix (tock tockName)) procCall
                     mainProc = POp PExternalChoice [tocker, p']
                     procCall = PProcCall pn mainProc
-                return $ VProc procCall
-
-eval (An _ _ (AlphaParallel e1 e2 e3 e4)) = do
-    e1 <- eval e1
+                return procCall
+evalProc' (An _ _ (AlphaParallel e1 e2 e3 e4)) = do
+    e1 <- evalProc e1
     e2 <- timedCSPSyncSet $ eval e2
     e3 <- timedCSPSyncSet $ eval e3
-    e4 <- eval e4
+    e4 <- evalProc e4
     return $! do
-        VProc p1 <- e1
-        VProc p2 <- e4
+        p1 <- e1
+        p2 <- e4
         VSet a1 <- e2
         VSet a2 <- e3
-        return $ VProc $ POp (PAlphaParallel 
+        return $ POp (PAlphaParallel 
                 [S.valueSetToEventSet a1, S.valueSetToEventSet a2])
                 [p1, p2]
-eval (An _ _ (Exception e1 e2 e3)) = do
-    e1 <- eval e1
+evalProc' (An _ _ (Exception e1 e2 e3)) = do
+    e1 <- evalProc e1
     e2 <- eval e2
-    e3 <- eval e3
+    e3 <- evalProc e3
     return $! do
-        VProc p1 <- e1
+        p1 <- e1
         VSet a <- e2
-        VProc p2 <- e3
+        p2 <- e3
         return $ VProc $ PBinaryOp (PException (S.valueSetToEventSet a)) p1 p2
 eval (An _ _ (ExternalChoice e1 e2)) = do
     stop <- maybeTimed
@@ -353,153 +386,154 @@ eval (An _ _ (ExternalChoice e1 e2)) = do
         reduce (PProcCall (ProcName pn) _ : ps) ps' | isStop pn = reduce ps ps'
         reduce (p : ps) ps' = reduce ps (p:ps')
         
-        unProc (VProc p) = p
-        
-    e1 <- eval e1
-    e2 <- mapM eval (collectExternals e2)
+    e1 <- evalProc e1
+    e2 <- mapM evalProc (collectExternals e2)
     op <- maybeTimed
-        (return $ VProc . POp PExternalChoice)
-        (\ tn _ -> return $ VProc . POp (PSynchronisingExternalChoice (tockSet tn)))
+        (return $ POp PExternalChoice)
+        (\ tn _ -> return $ POp (PSynchronisingExternalChoice (tockSet tn)))
     return $! do
         VProc p1 <- e1
         ps <- sequence e2
-        ps' <- reduce (p1 : map unProc ps) []
+        ps' <- reduce (p1 : ps) []
         return $! op $ reverse ps'
-eval (An _ _ (GenParallel e1 e2 e3)) = do
-    e1 <- eval e1
+evalProc' (An _ _ (GenParallel e1 e2 e3)) = do
+    e1 <- evalProc e1
     e2 <- timedCSPSyncSet $ eval e2
-    e3 <- eval e3
+    e3 <- evalProc e3
     return $! do
-        VProc p1 <- e1
+        p1 <- e1
         VSet a <- e2
-        VProc p2 <- e3
-        return $ VProc $ POp (PGenParallel (S.valueSetToEventSet a)) [p1, p2]
-eval (An _ _ (GuardedExp guard proc)) = do
+        p2 <- e3
+        return $ POp (PGenParallel (S.valueSetToEventSet a)) [p1, p2]
+evalProc' (An _ _ (GuardedExp guard proc)) = do
     guard <- eval guard
-    proc <- eval proc
+    proc <- evalProc proc
     stop <- maybeTimed
-        (return $! lookupVar (builtInName "STOP"))
+        (return $! do
+            VProc p <- lookupVar (builtInName "STOP")
+            return p)
         (\ tn _ -> return $! do
             VFunction _ fn <- lookupVar (builtInName "TSTOP")
-            fn [tockValue tn])
+            VProc p <- fn [tockValue tn]
+            return p)
     return $! do
         VBool b <- guard
         if b then proc
         else stop
-eval (An _ _ (Hiding e1 e2)) = do
-    e1 <- eval e1
+evalProc' (An _ _ (Hiding e1 e2)) = do
+    e1 <- evalProc e1
     e2 <- eval e2
     return $! do
-        VProc p <- e1
+        p <- e1
         VSet s <- e2
-        if S.empty s then return $ VProc p
-        else return $ VProc $ PUnaryOp (PHide (S.valueSetToEventSet s)) p
-eval (An _ _ (InternalChoice e1 e2)) = do
-    e1 <- eval e1
-    e2 <- eval e2
+        if S.empty s then return p
+        else return $ PUnaryOp (PHide (S.valueSetToEventSet s)) p
+evalProc' (An _ _ (InternalChoice e1 e2)) = do
+    e1 <- evalProc e1
+    e2 <- evalProc e2
     return $! do
-        VProc p1 <- e1
-        VProc p2 <- e2
-        return $ VProc $ POp PInternalChoice [p1, p2]
-eval (An _ _ (Interrupt e1 e2)) = do
-    e1 <- eval e1
-    e2 <- eval e2
+        p1 <- e1
+        p2 <- e2
+        return $ POp PInternalChoice [p1, p2]
+evalProc' (An _ _ (Interrupt e1 e2)) = do
+    e1 <- evalProc e1
+    e2 <- evalProc e2
     op <- maybeTimed
         (return PInterrupt)
         (\ tn _ -> return $ PSynchronisingInterrupt (tockSet tn))
     return $! do
-        VProc p1 <- e1
-        VProc p2 <- e2
-        return $! VProc $ PBinaryOp op p1 p2
-eval (An _ _ (Interleave e1 e2)) = do
-    e1 <- eval e1
-    e2 <- eval e2
+        p1 <- e1
+        p2 <- e2
+        return $ PBinaryOp op p1 p2
+evalProc' (An _ _ (Interleave e1 e2)) = do
+    e1 <- evalProc e1
+    e2 <- evalProc e2
     op <- maybeTimed
         (return PInterleave)
         (\ tn _ -> return $ PGenParallel (tockSet tn))
     return $! do
-        VProc p1 <- e1
-        VProc p2 <- e2
-        return $ VProc $ POp op [p1, p2]
-eval (An loc _ (LinkParallel e1 ties stmts e2)) = do
-    e1 <- eval e1
+        p1 <- e1
+        p2 <- e2
+        return $ POp op [p1, p2]
+evalProc' (An loc _ (LinkParallel e1 ties stmts e2)) = do
+    e1 <- evalProc e1
     ties <- evalTies stmts ties
-    e2 <- eval e2
+    e2 <- evalProc e2
     return $! do
-        VProc p1 <- e1
-        VProc p2 <- e2
+        p1 <- e1
+        p2 <- e2
         ts <- ties
         let (lefts, rights) = unzip ts
             check evs p = case firstDuplicate $ sort evs of
                             Just ev -> throwError' $ linkParallelAmbiguous ev loc
                             Nothing -> p
-        check lefts $ check rights $ return $ VProc $ PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
-eval (An _ _ (Project e1 e2)) = do
-    e1 <- eval e1
+        check lefts $ check rights $ return $ PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
+evalProc' (An _ _ (Project e1 e2)) = do
+    e1 <- evalProc e1
     e2 <- eval e2
     return $! do
-        VProc p <- e1
+        p <- e1
         VSet s <- e2
-        return $ VProc $ PUnaryOp (PProject (S.valueSetToEventSet s)) p
-eval (An _ _ (Rename e1 ties stmts)) = do
-    e1 <- eval e1
+        return $ PUnaryOp (PProject (S.valueSetToEventSet s)) p
+evalProc' (An _ _ (Rename e1 ties stmts)) = do
+    e1 <- evalProc e1
     ties <- evalTies stmts ties
     return $! do
-        VProc p1 <- e1
+        p1 <- e1
         ts <- ties
         case ts of
-            [] -> return $! VProc p1
-            _ -> return $! VProc $! PUnaryOp (PRename (removeDuplicateTies ts)) p1
-eval (An _ _ (SequentialComp e1 e2)) = do
-    e1 <- eval e1
-    e2 <- eval e2
+            [] -> return p1
+            _ -> return $ PUnaryOp (PRename (removeDuplicateTies ts)) p1
+evalProc' (An _ _ (SequentialComp e1 e2)) = do
+    e1 <- evalProc e1
+    e2 <- evalProc e2
     return $! do
-        VProc p1 <- e1
-        VProc p2 <- e2
-        return $ VProc $ PBinaryOp PSequentialComp p1 p2
-eval (An _ _ (SlidingChoice e1 e2)) = do
-    e1 <- eval e1
-    e2 <- eval e2
+        p1 <- e1
+        p2 <- e2
+        return $ PBinaryOp PSequentialComp p1 p2
+evalProc' (An _ _ (SlidingChoice e1 e2)) = do
+    e1 <- evalProc e1
+    e2 <- evalProc e2
     return $! do
-        VProc p1 <- e1
-        VProc p2 <- e2
-        return $ VProc $ PBinaryOp PSlidingChoice p1 p2
-eval (An _ _ (SynchronisingExternalChoice e1 e2 e3)) = do
-    e1 <- eval e1
+        p1 <- e1
+        p2 <- e2
+        return $ PBinaryOp PSlidingChoice p1 p2
+evalProc' (An _ _ (SynchronisingExternalChoice e1 e2 e3)) = do
+    e1 <- evalProc e1
     e2 <- timedCSPSyncSet $ eval e2
-    e3 <- eval e3
+    e3 <- evalProc e3
     return $! do
-        VProc p1 <- e1
+        p1 <- e1
         VSet a <- e2
-        VProc p2 <- e3
-        return $ VProc $ POp
+        p2 <- e3
+        return $ POp
             (PSynchronisingExternalChoice (S.valueSetToEventSet a))
             [p1, p2]
-eval (An _ _ (SynchronisingInterrupt e1 e2 e3)) = do
-    e1 <- eval e1
+evalProc' (An _ _ (SynchronisingInterrupt e1 e2 e3)) = do
+    e1 <- evalProc e1
     e2 <- timedCSPSyncSet $ eval e2
-    e3 <- eval e3
+    e3 <- evalProc e3
     return $! do
-        VProc p1 <- e1
+        p1 <- e1
         VSet a <- e2
-        VProc p2 <- e3
-        return $ VProc $
+        p2 <- e3
+        return $
             PBinaryOp (PSynchronisingInterrupt (S.valueSetToEventSet a)) p1 p2
 
-eval (An _ _ (ReplicatedAlphaParallel stmts e1 e2)) = do
+evalProc' (An _ _ (ReplicatedAlphaParallel stmts e1 e2)) = do
     stmts <- evalStmts (\(VSet s) -> S.toList s) stmts [do
         e1 <- timedCSPSyncSet $ eval e1
-        e2 <- eval e2
+        e2 <- evalProc e2
         return $! do
             VSet s <- e1
-            VProc p <- e2
+            p <- e2
             return (S.valueSetToEventSet s, p)]
     tstop <- maybeTSTOP
     return $! do
         aps <- stmts
         let (as, ps) = unzip aps
-        tstop ps $! return $! VProc $! POp (PAlphaParallel as) ps
-eval (An _ _ (ReplicatedExternalChoice stmts e)) = do
+        tstop ps $! return $! POp (PAlphaParallel as) ps
+evalProc' (An _ _ (ReplicatedExternalChoice stmts e)) = do
     stmts <- evalStmts (\(VSet s) -> S.toList s) stmts [evalProc e]
     tstop <- maybeTSTOP
     op <- maybeTimed
@@ -507,8 +541,8 @@ eval (An _ _ (ReplicatedExternalChoice stmts e)) = do
         (\ tn _ -> return $ PSynchronisingExternalChoice (tockSet tn))
     return $! do
         ps <- stmts
-        tstop ps (return $! VProc $! POp op $! ps)
-eval (An _ _ (ReplicatedInterleave stmts e)) = do
+        tstop ps (return $! POp op $! ps)
+evalProc' (An _ _ (ReplicatedInterleave stmts e)) = do
     stmts <- evalStmts (\(VSet s) -> S.toList s) stmts [evalProc e]
     tstop <- maybeTSTOP
     op <- maybeTimed
@@ -516,15 +550,15 @@ eval (An _ _ (ReplicatedInterleave stmts e)) = do
         (\tn _ -> return $ PGenParallel (tockSet tn))
     return $! do
         ps <- stmts
-        tstop ps (return $! VProc $! POp op $! ps)
-eval (e'@(An _ _ (ReplicatedInternalChoice stmts e))) = do
+        tstop ps (return $! POp op $! ps)
+evalProc' (e'@(An _ _ (ReplicatedInternalChoice stmts e))) = do
     stmts <- evalStmts (\(VSet s) -> S.toList s) stmts [evalProc e]
     return $! do
         ps <- stmts
         case ps of
             [] -> throwError' $ replicatedInternalChoiceOverEmptySetMessage e'
-            _ ->return $! VProc $! POp PInternalChoice $! ps
-eval (An loc _ e'@(ReplicatedLinkParallel ties tiesStmts stmts e)) = do
+            _ ->return $! POp PInternalChoice $! ps
+evalProc' (An loc _ e'@(ReplicatedLinkParallel ties tiesStmts stmts e)) = do
     stmts <- evalStmts (\(VList vs) -> vs) stmts [do
         ties <- evalTies tiesStmts ties
         e <- evalProc e
@@ -544,45 +578,43 @@ eval (An loc _ e'@(ReplicatedLinkParallel ties tiesStmts stmts e)) = do
         tsps <- stmts
         case tsps of
             [] -> throwError' $ replicatedLinkParallelOverEmptySeqMessage e' loc
-            _ -> return $! VProc $! mkLinkPar tsps
-eval (An _ _ (ReplicatedParallel e1 stmts e2)) = do
+            _ -> return $! mkLinkPar tsps
+evalProc' (An _ _ (ReplicatedParallel e1 stmts e2)) = do
     e1 <- timedCSPSyncSet $ eval e1
     stmts <- evalStmts (\(VSet s) -> S.toList s) stmts [evalProc e2]
     tstop <- maybeTSTOP
     return $! do
         VSet s <- e1
         ps <- stmts
-        tstop ps $ return $ VProc $ POp (PGenParallel (S.valueSetToEventSet s))
-            (ps)
-eval (An _ _ (ReplicatedSequentialComp stmts e)) = do
+        tstop ps $ return $ POp (PGenParallel (S.valueSetToEventSet s)) ps
+evalProc' (An _ _ (ReplicatedSequentialComp stmts e)) = do
     stmts <- evalStmts (\(VList vs) -> vs) stmts [evalProc e]
     skip <- maybeTimed
-        (return $ lookupVar (builtInName "SKIP"))
+        (return $ do
+            VProc p <- lookupVar (builtInName "SKIP")
+            return p)
         (\tn _ -> return $ tSKIP tn)
     return $! do
         ps <- stmts
         case ps of
             [] -> skip
-            _ -> return $ VProc $ foldr1 (PBinaryOp PSequentialComp) ps
-eval (An _ _ (ReplicatedSynchronisingExternalChoice e1 stmts e2)) = do
+            _ -> return $ foldr1 (PBinaryOp PSequentialComp) ps
+evalProc' (An _ _ (ReplicatedSynchronisingExternalChoice e1 stmts e2)) = do
     e1 <- timedCSPSyncSet $ eval e1
     stmts <- evalStmts (\(VSet s) -> S.toList s) stmts [evalProc e2]
     tstop <- maybeTSTOP
     return $! do    
         VSet a <- e1
         ps <- stmts
-        tstop ps $ return $ VProc $ POp
-            (PSynchronisingExternalChoice (S.valueSetToEventSet a))
-            (ps)
+        tstop ps $ return $ POp
+            (PSynchronisingExternalChoice (S.valueSetToEventSet a)) ps
 
-eval e = panic ("No clause to eval "++show e)
-
-evalProc :: TCExp -> AnalyserMonad (EvaluationMonad Proc)
-evalProc e = do
-    prog <- eval e
+evalProc' e = do
+    e <- eval e
     return $! do
-        VProc p <- prog
+        VProc p <- e
         return p
+    --return p --panic ("No clause to eval "++show e)
 
 removeDuplicateTies :: [(Event, Event)] -> [(Event, Event)]
 removeDuplicateTies = sortedNub . sort
@@ -711,18 +743,19 @@ timedCSPSyncSet prog = do
             VSet a <- prog
             return $ VSet (S.union set a)
         
-tSTOP :: Name -> EvaluationMonad Value
+tSTOP :: Name -> EvaluationMonad Proc
 tSTOP tockName = do
     VFunction _ tstop <- lookupVar (builtInName "TSTOP")
-    tstop [tockValue tockName]
+    VProc p <- tstop [tockValue tockName]
+    return p
 
-tSKIP :: Name -> EvaluationMonad Value
+tSKIP :: Name -> EvaluationMonad Proc
 tSKIP tockName = do
     VFunction _ tskip <- lookupVar (builtInName "TSKIP")
-    tskip [tockValue tockName]
+    VProc p <- tskip [tockValue tockName]
+    return p
 
-maybeTSTOP :: AnalyserMonad
-    ([a] -> EvaluationMonad Value -> EvaluationMonad Value)
+maybeTSTOP :: AnalyserMonad ([a] -> EvaluationMonad Proc -> EvaluationMonad Proc)
 maybeTSTOP =
     maybeTimed
         (return $ \ _ prog -> prog)
