@@ -1,0 +1,5 @@
+datatype T1 = C1 | C2
+datatype T2 = X1 | X2
+
+id(x) = x
+assert T1 :[symmetric]: diff(T1, {| id |})

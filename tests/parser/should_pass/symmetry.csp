@@ -1,2 +1,5 @@
 assert P :[symmetric]: T
 assert P :[symmetric]: T, Q
+assert P :[symmetric]: diff(T, {| c_1, c_2 |})
+assert P :[symmetric]: diff(T, {| c_1, c_2 |}), T2
+assert P :[symmetric]: diff(T, {| c_1, c_2 |}), diff(T2, {| c_1, c_2 |})

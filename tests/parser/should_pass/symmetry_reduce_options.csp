@@ -1,0 +1,13 @@
+assert STOP :[deadlock free] :[symmetry reduce]
+assert STOP :[deadlock free] :[tau priority over]: {} :[symmetry reduce]
+assert STOP :[deadlock free] :[symmetry reduce] :[tau priority over]: {}
+assert STOP [T= STOP :[symmetry reduce]
+assert STOP [T= STOP :[symmetry reduce] :[tau priority over]: {}
+assert STOP [T= STOP :[tau priority over]: {} :[symmetry reduce]
+
+assert STOP [T= STOP :[tau priority over]: {} :[symmetry reduce]
+assert STOP [T= STOP :[tau priority over]: {} :[symmetry reduce]
+assert STOP [T= STOP :[tau priority over]: {} :[symmetry reduce]
+
+
+assert STOP :[deadlock free] :[symmetry reduce]: T, S, diff(X, {| Y |})

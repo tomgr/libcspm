@@ -2,7 +2,15 @@ SKIP = ✓ -> STOP
 
 SKIP(tock) = tock -> SKIP(tock) [] SKIP
 
-WAIT(tock)(5) = tock -> tock -> tock -> tock -> tock -> SKIP(tock)
+WAIT(tock)(1) = tock -> SKIP(tock)
+
+WAIT(tock)(2) = tock -> WAIT(tock)(1)
+
+WAIT(tock)(3) = tock -> WAIT(tock)(2)
+
+WAIT(tock)(4) = tock -> WAIT(tock)(3)
+
+WAIT(tock)(5) = tock -> WAIT(tock)(4)
 
 waitN'() = WAIT(tock)(5) ; waitN'()
 

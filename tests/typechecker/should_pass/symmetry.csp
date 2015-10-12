@@ -1,2 +1,3 @@
 datatype T = X
 assert STOP :[symmetric]: T
+assert STOP :[symmetric]: diff(T, {| X |})

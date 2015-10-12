@@ -1,0 +1,40 @@
+datatype S = S1 | S2
+
+module M
+exports
+    datatype T = T1 | T2
+    f(T1) = T2
+endmodule
+
+assert M::T :[symmetric]: M::T
+assert not M::f :[symmetric]: M::T
+
+
+module M1(S1)
+exports
+    
+    f(x) = x
+endmodule
+
+instance I1 = M1(S1)
+
+assert not I1::f :[symmetric]: S
+
+module M2(x)
+exports
+    f(x) = x
+endmodule
+
+instance I2 = M2(S1)
+
+assert not I2::f :[symmetric]: S
+
+module M3(x)
+exports
+    f(x) = seq(x)
+endmodule
+
+instance I3 = M3(0)
+
+assert I3::f :[symmetric]: S
+assert not I3::f(S) :[symmetric]: S

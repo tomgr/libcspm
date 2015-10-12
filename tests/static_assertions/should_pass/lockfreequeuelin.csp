@@ -1,0 +1,340 @@
+-- Identities of nodes
+datatype NodeIDType = Null | N0 | N1 | N2 -- | N3 --  | N4 -- | N5
+NodeID = diff(NodeIDType, {Null}) -- real nodes
+headNodeID = N0 -- id of initial header node
+
+-- Data values
+datatype T = A | B -- | C
+
+-- Thread identities
+datatype ThreadID = T0 | T1 -- | T2
+
+-- initilise node to hold value
+channel initNode : ThreadID . NodeIDType . T
+
+-- get the value field
+channel getValue : ThreadID . NodeIDType . T
+
+-- get the next field
+channel getNext : ThreadID . NodeIDType . NodeIDType
+
+-- CAS on the next field.
+channel CASnext : ThreadID . NodeIDType . NodeIDType . NodeIDType . Bool
+
+-- Garbage collect a set of nodes
+channel GCNodes : Set(NodeID)
+
+-- All sets of references including n
+refSetsIncluding :: (NodeIDType) -> {{NodeIDType}}
+refSetsIncluding(n) = { S | S <- Set(NodeIDType), member(n, S) }
+
+-- All sets of nodes including me
+nodeSetsIncluding :: (NodeIDType) -> {{NodeIDType}}
+nodeSetsIncluding(me) = {S | S <- Set(NodeID), member(me, S)}
+
+-- A node process, with identity me, currently free
+FreeNode :: (NodeIDType) -> Proc
+FreeNode(me) = initNode?_!me?value -> Node(me, value, Null)
+
+-- A node process, identity me, holding datum value and next pointer next
+Node :: (NodeIDType, T, NodeIDType) -> Proc
+Node(me, value, next) =
+  getValue?_!me.value -> Node(me, value, next)
+  []
+  getNext?_!me.next -> Node(me, value, next)
+  []
+  CASnext?_!me?expected?new!(expected==next) ->
+    Node(me, value, if expected==next then new else next)
+  []
+  GCNodes?S:nodeSetsIncluding(me) -> FreeNode(me)
+
+-- Initial state of node with identity me
+InitNode(me) = if me==headNodeID then Node(me, A, Null) else FreeNode(me)
+
+alphaNode(me) =
+  union(
+    {| initNode.t.me, getValue.t.me, getNext.t.me, CASnext.t.me |
+         t <- ThreadID |},
+    {| GCNodes.S | S <- nodeSetsIncluding(me) |}
+  )
+
+AllNodes = || id : NodeID @ [alphaNode(id)] InitNode(id)
+
+--------- An AtomicReference to a Node
+
+-- The IDs of such atomic references
+datatype AtomicRefID = Head | Tail
+
+-- Get the node from an atomic reference.
+channel getNode : ThreadID . AtomicRefID . NodeIDType
+
+-- Do a CAS on the atomic reference
+channel CAS : ThreadID . AtomicRefID . NodeIDType . NodeIDType . Bool
+
+-- An atomic reference to node
+AtomicRefNode :: (AtomicRefID, NodeIDType) -> Proc
+AtomicRefNode(me, node) =
+  getNode?_!me.node -> AtomicRefNode(me, node)
+  []
+  CAS?_!me?expected?new!(expected==node) ->
+    AtomicRefNode(me, if expected==node then new else node)
+
+HeadAR = AtomicRefNode(Head, headNodeID)
+TailAR = AtomicRefNode(Tail, headNodeID)
+
+AllARs = HeadAR ||| TailAR
+
+--------- An enqueuing thread
+
+-- events to signal the start or end of operations
+channel beginEnqueue, endEnqueue, endEnqueueFull,
+  endDequeue : ThreadID . T
+channel beginDequeue, endDequeueEmpty : ThreadID
+
+-- events of t signalling the end of an operation
+endEvents(t) =
+  {| endEnqueue.t, endEnqueueFull.t, endDequeue.t, endDequeueEmpty.t |}
+
+-- releasing a set of references
+channel releaseRefs : ThreadID . Set(NodeIDType)
+
+-- Event indicating that there is no free node
+channel noFreeNode : ThreadID
+
+Enqueue :: (ThreadID, T) -> Proc
+Enqueue(me, value) =
+  initNode.me?node!value -> Enqueue'(me, value, node)
+  []
+  noFreeNode.me -> endEnqueueFull.me.value -> Thread(me)
+
+Enqueue' :: (ThreadID, T, NodeIDType) -> Proc
+Enqueue'(me, value, node) =
+  getNode.me.Tail?myTail -> getNext.me.myTail?next ->
+  getNode.me.Tail?myTail' ->
+  if myTail==myTail' then -- in case it's been changed (optimization)
+    if next==Null then
+      CASnext.me.myTail.Null.node?result ->
+      if result then -- enqueue succeeded, so advance tail
+        CAS.me.Tail.myTail.node?_ -> endEnqueue.me.value -> Thread(me)
+      else -- CASnext failed; retry
+        releaseRefs.me.{myTail,myTail',next} -> Enqueue'(me, value, node)
+    else -- next!=Null, try to advance tail
+      CAS.me.Tail.myTail.next?_ ->
+      releaseRefs.me.{myTail,myTail',next} -> Enqueue'(me, value, node)
+  else -- Tail changed; retry
+    releaseRefs.me.{myTail,myTail',next} -> Enqueue'(me, value, node)
+
+--------- A dequeuing thread
+
+Dequeue :: (ThreadID) -> Proc
+Dequeue(me) =
+  getNode.me.Head?myHead -> getNode.me.Tail?myTail ->
+  getNext.me.myHead?next -> getNode.me.Head?myHead' ->
+  if myHead==myHead' then -- in case it's been changed (optimization)
+    if myHead==myTail then
+      if next==Null then endDequeueEmpty.me -> Thread(me) -- empty queue
+      else -- new item partially enqueued
+        CAS.me.Tail.myTail.next?_ -> -- try to advance tail; retry
+        releaseRefs.me.{myHead,myHead',myTail,next} -> Dequeue(me)
+    else -- non-empty queue; try to remove node from queue
+      CAS.me.Head.myHead.next?result ->
+      if result then
+        getValue.me.next?value -> endDequeue.me.value -> Thread(me)
+      else -- next.value already taken; retry
+        releaseRefs.me.{myHead,myHead',myTail,next} -> Dequeue(me)
+  else -- Head changed; retry
+    releaseRefs.me.{myHead,myHead',myTail,next} -> Dequeue(me)
+
+--------- A thread, which enqueues or dequeues.
+
+Thread(me) =
+  beginEnqueue.me?value -> Enqueue(me, value)
+  []
+  beginDequeue.me -> Dequeue(me)
+
+AllThreads = ||| id : ThreadID @ Thread(id)
+
+--------- Garbage collection
+
+channel err
+
+div = let p = err -> p within p \ {err}
+
+Assert :: (Bool) -> (Proc) -> Proc
+Assert(b)(P) = if b then P else div
+
+-- GC0(n) represents a garbage collector or node n that is currently
+-- deallocated.
+
+GC0(n) =
+  initNode?t!n?_ -> GC1(n, {t}, Null, false)
+  []
+  [] t : ThreadID, e : endEvents(t) @ e -> GC0(n)
+  []
+  GCNodes ? S: diff(Set(NodeID), nodeSetsIncluding(n)) -> GC0(n)
+
+--  getNext?t?_!n -> GC0(n)
+--  []
+--  getNode?t?_!n ->  GC0(n)
+--  []
+
+-- GC1(n, threads, pred, isHead) represents a garbage collector for node n
+-- that is currently in-use.  The argument threads holds the IDs of threads
+-- that currently have a reference to n; the argument pred records the
+-- (unique) node that has a reference to n, or is Null if there is no such;
+-- the argument isHead records whether n is currently in Head.
+
+GC1 :: (NodeIDType, {ThreadID}, NodeIDType, Bool) -> Proc
+GC1(n, threads, pred, isHead) =
+  CASnext?_?p!Null!n.true ->  -- n added to list after p
+    Assert(pred==Null and not isHead)(GC1(n, threads, p, false))
+  []
+  CAS?_!Head?_!n!true -> -- n is now Head
+    Assert(not isHead)(GC1(n, threads, pred, true))
+  []
+  CAS?_!Head.n?_!true -> -- n no longer Head
+    Assert(isHead)(GC1(n, threads, pred, false))
+  []
+  getNode?t?_!n -> -- t gets a reference to n from an atomic reference
+    GC1(n, union(threads,{t}), pred, isHead)
+  []
+  getNext?t?_!n -> -- t gets a reference to n from a next reference
+    GC1(n, union(threads,{t}), pred, isHead)
+  []
+  ([] t : ThreadID, e : endEvents(t) @ -- t ends an operation
+     e -> GC1(n, diff(threads, {t}), pred, isHead)
+  )
+  []
+  releaseRefs?t?S:refSetsIncluding(n) -> -- t releases reference to n
+    Assert(member(t,threads))(GC1(n, diff(threads, {t}), pred, isHead))
+  []
+  threads=={} and not isHead & (
+    -- n is released, together with S, including pred (if non-Null)
+    let Ss = if pred==Null then nodeSetsIncluding(n)
+             else { S | S <- nodeSetsIncluding(n), member(pred, S) }
+    within GCNodes?S:Ss -> GC0(n) )
+  []
+  GCNodes ? S: diff(Set(NodeID), nodeSetsIncluding(n)) -> (
+    if member(pred, S) then GC1(n, threads, Null, isHead)
+    else GC1(n, threads, pred, isHead)
+  )
+  []
+  noFreeNode?_ -> GC1(n, threads, pred, isHead)
+
+-- Garbage collector for node n
+
+GC(n) = if n==headNodeID then GC1(n, {}, Null, true) else GC0(n)
+
+-- Alphabet of this GC component
+
+AlphaGC(n) = Union({
+  {| CASnext.t.n1.Null.n.true, CAS.t.Head.n1.n.true, CAS.t.Head.n.n1.true,
+     initNode.t.n, getNext.t.n1.n | t <- ThreadID, n1 <- NodeIDType |},
+  {| getNode.t.ar.n | t <- ThreadID, ar <- AtomicRefID |},
+  {| releaseRefs.t.S | t <- ThreadID, S <- refSetsIncluding(n) |},
+  {| endEnqueue, endEnqueueFull, endDequeue, endDequeueEmpty,
+     GCNodes, noFreeNode |}
+})
+
+-- The complete garbage collector
+
+GarbageCollector = || n : NodeID @ [AlphaGC(n)] GC(n)
+
+--------- The system
+
+-- synchronisation set between Threads and GarbageCollector (note: doesn't
+-- include getNode._._.Null, getNext._._.Null, etc., since the
+-- GarbageCollector doesn't sync on these events).
+GCSyncSet = Union({
+  { CAS.t.Head.n.n1.true |
+       t <- ThreadID, n1 <- NodeIDType, n <- NodeIDType,
+       n1!=Null or n != Null },
+  { CASnext.t.n1.Null.n.true, getNext.t.n1.n |
+       t <- ThreadID, n1 <- NodeIDType, n <- NodeID },
+  { getNode.t.a.n | t <- ThreadID, a <- AtomicRefID, n <- NodeID },
+  {| endEnqueue, endEnqueueFull, endDequeue, endDequeueEmpty,
+     initNode, noFreeNode, releaseRefs |}
+})
+
+-- synchronisation set between Threads/GarbageCollector and Nodes/AtomicRefs
+syncSet = union(
+  {| initNode.t.n, getValue.t.n, getNext.t.n, CASnext.t.n |
+    t <- ThreadID, n <- NodeID |},
+  {| getNode, CAS, GCNodes |}
+)
+
+System0 =
+  (AllThreads [| GCSyncSet |] GarbageCollector)
+     [| syncSet |] (AllNodes ||| AllARs)
+
+System = System0 \ union(syncSet, {|noFreeNode, releaseRefs|})
+
+-- assert System :[deadlock free [F]] -- captured by main failures check below
+
+-- System with only end events visible
+SystemE = System \ {| beginEnqueue, beginDequeue|}
+assert SystemE :[divergence free]
+
+-- check Null refs are never dereferenced
+System1 =
+  let nullRefs =
+        {| initNode.t.Null, getValue.t.Null, getNext.t.Null, CASnext.t.Null |
+             t <- ThreadID |}
+  within System0 \ diff(Events,nullRefs)
+
+assert STOP [T= System1
+
+assert System1 :[symmetric]: ThreadID
+assert not System1 :[symmetric]: T
+assert System1 :[symmetric]: diff(T, {| A |})
+assert not System1 :[symmetric]: NodeIDType
+assert not System1 :[symmetric]: diff(NodeIDType, {| Null |})
+assert System1 :[symmetric]: diff(NodeIDType, {| Null, N0 |})
+
+--------- The specification
+
+-- We capture the specification as a linearization of a queue, described using
+-- the following events.
+
+channel enqueue, dequeue : ThreadID . T
+channel dequeueEmpty, enqueueFull : ThreadID
+
+-- The queue has maximum capacity card(NodeID)-1 (because of the dummy
+-- header).  An enqueue can fail in any state because the enqueuer is unable
+-- to obtain a node: another thread might have a reference to an old head,
+-- linked via an arbitrary number of nodes to the current head, thereby
+-- preventing the garbage collection of those nodes.
+
+QueueSpec = Queue(<>)
+Queue(q) =
+  ( if q==<> then dequeueEmpty?_ -> Queue(q)
+    else dequeue?_!head(q) -> Queue(tail(q)) )
+  []
+  if #q + 1 < card(NodeID) then
+    enqueue?_?x -> Queue(q ^ <x>) |~| enqueueFull?_ -> Queue(q)
+  else enqueueFull?_ -> Queue(q)
+
+-- We linearize the specification using the following process to ensure that
+-- me's queue events are between the corresponding begin/end events.
+
+Linearizer(me) =
+  beginEnqueue.me?value -> (
+    enqueue.me.value -> endEnqueue.me.value -> Linearizer(me)
+    []
+    enqueueFull.me -> endEnqueueFull.me.value -> Linearizer(me)
+  )
+  []
+  beginDequeue.me -> (
+    dequeueEmpty.me -> endDequeueEmpty.me -> Linearizer(me)
+    []
+    dequeue.me?value -> endDequeue.me.value -> Linearizer(me)
+  )
+
+AllLinearizers = ||| id : ThreadID @ Linearizer(id)
+
+specSyncSet = {| enqueue, dequeue, dequeueEmpty, enqueueFull |}
+
+Spec = (AllLinearizers [| specSyncSet |] QueueSpec) \ specSyncSet
+
+-- assert Spec [T= System -- implied by the following assertion
+assert Spec [F= System

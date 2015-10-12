@@ -1,0 +1,25 @@
+datatype T = T1 | T2
+datatype S = S1 | S2
+
+channel c_t : T
+channel c_s : S
+channel tock
+
+Timed {
+P = STOP
+P' = c_t?_ -> P'
+}
+
+assert P :[symmetric]: T, S
+assert P' :[symmetric]: T, S
+
+f(c_t.T1) = 1
+f(x) = 2
+
+assert not f :[symmetric]: T
+
+Timed(f) {
+P'' = c_t?_ -> P''
+}
+
+assert not P'' :[symmetric]: T

@@ -122,8 +122,10 @@ makeTest fp test expectedResult =
                     test fp
                     getState lastWarnings
         return $! case res of 
+                    Left (Panic e) -> LibCSPMTestPanic (show e)
                     Left (SourceError e) -> length (show e) `seq`
                         LibCSPMTestResult expectedResult ErrorOccured e []
+                    Left UserError -> LibCSPMTestPanic "Uncaught UserError"
                     Right [] -> LibCSPMTestResult expectedResult PassedNoWarnings [] []
                     Right ws -> length (show ws) `seq`
                         LibCSPMTestResult expectedResult WarningsEmitted [] ws
@@ -134,7 +136,8 @@ testFunctions = [
         ("typechecker", typeCheckerTest),
         ("prettyprinter", prettyPrinterTest),
         ("evaluator", evaluatorTest),
-        ("desugar", desugarTest)
+        ("desugar", desugarTest),
+        ("static_assertions", staticAssertionTest)
     ]
 
 typeCheckerTest :: FilePath -> TestM ()
@@ -166,6 +169,27 @@ desugarTest fp = do
         rms <- CSPM.renameFile ms
         typeCheckFile rms
     dsms <- desugarFile tms
+    return ()
+
+staticAssertionTest :: FilePath -> TestM ()
+staticAssertionTest fp = do
+    tcms <- disallowErrors $ do
+        ms <- parseFile fp
+        rms <- CSPM.renameFile ms
+        tms <- typeCheckFile rms
+        analyseSymmetriesInFile tms
+        desugarFile tms
+        return tms
+    let checkAssertion negated (An _ _ (ASNot a)) = checkAssertion (not negated) a
+        checkAssertion negated (An loc _ (SymmetryCheck e ns)) = do
+            if negated then do
+                res <- tryM $ checkSymmetryAssertion e ns
+                case res of
+                    Left err -> return ()
+                    Right _ -> throwSourceError [mkErrorMessage loc (text "Should have failed but passed")]
+            else checkSymmetryAssertion e ns
+        checkAssertion _ _ = return ()
+    mapM_ (checkAssertion False) (allAssertionsInFile tcms)
     return ()
 
 disallowErrors :: TestM a -> TestM a

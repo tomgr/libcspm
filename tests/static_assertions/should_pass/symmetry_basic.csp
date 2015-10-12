@@ -1,0 +1,69 @@
+datatype T = T1 | T2
+
+assert 0 :[symmetric]: T
+assert not T1 :[symmetric]: T
+
+id(x) = x
+
+assert id :[symmetric]: T
+
+assert T1 :[symmetric]: diff(T, {| T1 |})
+assert not T1 :[symmetric]: diff(T, {| T2 |})
+
+nonsymfun1(T1) = 0
+
+assert not nonsymfun1 :[symmetric]: T
+
+assert Set :[symmetric]: T
+assert set :[symmetric]: T
+assert seq :[symmetric]: T
+assert show :[symmetric]: T
+assert not seq({T1}) :[symmetric]: T
+assert not show(T1) :[symmetric]: T
+
+channel c : T
+
+assert c :[symmetric]: T
+
+letfn(x) =
+    let nonsym = T1
+    within nonsym
+
+assert not letfn :[symmetric]: T
+
+assert not (show(nonsymfun1)) :[symmetric]: T
+assert error(show(nonsymfun1)) :[symmetric]: T
+
+datatype S = S1 | S2
+
+assert seq({T1}) :[symmetric]: S
+assert show({T1}) :[symmetric]: S
+
+indirectseq1(x) = seq(x)
+indirectseq2(x,y) = indirectseq1(y)
+
+assert not seq(T) :[symmetric]: T
+assert not indirectseq1(T) :[symmetric]: T
+assert indirectseq2(T, S) :[symmetric]: T
+assert not indirectseq2(S, T) :[symmetric]: T
+
+external chase
+
+assert CHAOS({| c.t | t <- T |}) :[symmetric]: T
+assert not chase(CHAOS({| c |})) :[symmetric]: T
+
+polylet(x) = 
+    let
+        sid(y) = seq(y)
+    within
+        sid(x)
+
+assert polylet(T) :[symmetric]: S
+assert not polylet(T) :[symmetric]: T
+
+f =
+    let
+        g(T1) = 0
+    within g
+
+assert not f :[symmetric]: T

@@ -1,0 +1,16 @@
+datatype N = Null | N0 
+datatype T =  A | B | None
+
+Values = {A,B}
+
+channel init: N.T
+channel beginPush: T
+channel exCAS: T.T
+
+Push(value) = 
+    init?node!value ->
+    exCAS.value.None -> STOP
+
+Thread = beginPush?value:Values -> Push(value)
+
+assert not Thread :[symmetric]: diff(T, {|None|})

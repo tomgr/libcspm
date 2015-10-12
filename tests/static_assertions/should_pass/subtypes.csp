@@ -1,0 +1,12 @@
+datatype T = A.Int | B.Int
+datatype S = C.Int
+
+subtype TInt = A.Int
+
+assert not TInt :[symmetric]: T
+assert TInt :[symmetric]: S
+
+nametype X = (T, T)
+
+assert X :[symmetric]: T
+assert not seq(X) :[symmetric]: T
