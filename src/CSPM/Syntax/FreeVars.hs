@@ -250,7 +250,7 @@ instance FreeVars (Decl Name) where
     freeVars' (Transparent ns) = []
     freeVars' (Assert a) = freeVars a
     freeVars' (Module _ [] ds1 ds2) = boundNames (ds1++ds2)
-    freeVars' (Module _ _ ds1 ds2) = freeVars' ds1 ++ freeVars' ds2
+    freeVars' (Module _ ps ds1 ds2) = freeVars' ps ++ freeVars' ds1 ++ freeVars' ds2
     freeVars' (TimedSection (Just n) f ds) =
         n : freeVars' f ++ concatMap freeVars' ds
     freeVars' (ModuleInstance _ n args _ _) = n : freeVars' args
@@ -259,16 +259,20 @@ instance FreeVars (Decl Name) where
 instance FreeVars (Assertion Name) where
     freeVars' (Refinement e1 m e2 opts) = freeVars [e1, e2] ++ freeVars opts
     freeVars' (PropertyCheck e1 p m opts) = freeVars e1 ++ freeVars p ++ freeVars opts
-    freeVars' (SymmetryCheck e1 ns) = freeVars e1 ++ ns
+    freeVars' (SymmetryCheck e1 ns) = freeVars e1 ++ freeVars ns
     freeVars' (ASNot a) = freeVars a
 
 instance FreeVars (SemanticProperty Name) where
     freeVars' (HasTrace es) = freeVars' es
     freeVars' _ = []
-    
+
+instance FreeVars (SymmetrySpecification Name) where
+    freeVars' (StandardSymmetryGroup n ns) = n:ns
+
 instance FreeVars (ModelOption Name) where
     freeVars' (TauPriority e) = freeVars' e
     freeVars' (PartialOrderReduce _) = []
+    freeVars' (SymmetryReduce s) = freeVars' s
     
 instance FreeVars (Match Name) where
     freeVars' (Match ps e) =

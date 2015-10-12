@@ -1,10 +1,13 @@
 module CSPM.Syntax.Literals (
-    Literal(..)
+    Literal(..),
+    typeOfLiteral,
 ) where
 
 import qualified Data.ByteString as B
 
+import CSPM.Syntax.Types
 import Util.Annotated
+import Util.Exception
 import Util.PrettyPrint
 
 data Literal = 
@@ -27,3 +30,10 @@ instance PrettyPrintable Literal where
     prettyPrint (Char c) = quotes (char c)
     prettyPrint (String s) = doubleQuotes (bytestring s)
     prettyPrint (Loc l) = prettyPrint l
+
+typeOfLiteral :: Literal -> Type
+typeOfLiteral (Int _) = TInt
+typeOfLiteral (Bool _) = TBool
+typeOfLiteral (Char _) = TChar
+typeOfLiteral (String _) = TSeq TChar
+typeOfLiteral (Loc _) = panic "Cannot represent the type of a Loc"

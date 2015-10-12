@@ -11,6 +11,7 @@ import qualified Data.Set as S
 import CSPM.PrettyPrinter
 import CSPM.Prelude
 import CSPM.Syntax.AST hiding (timedSectionTockName)
+import CSPM.Syntax.Constructors
 import CSPM.Syntax.Literals
 import CSPM.Syntax.FreeVars
 import CSPM.Syntax.Names
@@ -370,32 +371,28 @@ instance Desugarable (Exp Name) where
     desugar (Var n) | n == builtInName "timed_priority" =
         maybeTimedSection (return $ Var n)
             (\ tn -> do
-                tock <- mkVar tn TEvent
-                mkApplication (builtInName "timed_priority")
-                    (TFunction [TEvent] (TFunction [TProc] TProc)) [tock])
+                return $ unAnnotate $ mkApplication (builtInName "timed_priority")
+                    (TFunction [TEvent] (TFunction [TProc] TProc)) [mkVar tn TEvent])
     desugar (Var n) | n == builtInName "WAIT" =
         maybeTimedSection (return $ Var n)
             (\ tn -> do
-                tock <- mkVar tn TEvent
-                mkApplication (builtInName "WAIT")
-                    (TFunction [TEvent] (TFunction [TInt] TProc)) [tock])
+                return $ unAnnotate $ mkApplication (builtInName "WAIT")
+                    (TFunction [TEvent] (TFunction [TInt] TProc)) [mkVar tn TEvent])
     desugar (Var n) | n == builtInName "STOP" =
         maybeTimedSection (return $ Var n)
             (\ tn -> do
-                tock <- mkVar tn TEvent
-                mkApplication (builtInName "TSTOP")
-                    (TFunction [TEvent] TProc) [tock])
+                return $ unAnnotate $ mkApplication (builtInName "TSTOP")
+                    (TFunction [TEvent] TProc) [mkVar tn TEvent])
     desugar (Var n) | n == builtInName "SKIP" =
         maybeTimedSection
             (return $ Var n)
             (\ tn -> do
-                tock <- mkVar tn TEvent
-                mkApplication (builtInName "TSKIP")
-                    (TFunction [TEvent] TProc) [tock])
+                return $ unAnnotate $ mkApplication (builtInName "TSKIP") (TFunction [TEvent] TProc) [mkVar tn TEvent])
     desugar (Var n) | S.member n locatedBuiltins = do
         loc <- gets currentLoc
-        lit <- mkLit (Loc loc)
-        mkLocatedApplication n (error "TODO") [lit]
+        let builtin = builtInWithName n
+            ForAll _ typ = typeScheme builtin
+        return $ unAnnotate $ mkLocatedApplication n typ [mkLit (Loc loc)]
     desugar (Var n) = substituteName n >>= return . Var
 
     desugar (AlphaParallel e1 e2 e3 e4) =
@@ -667,34 +664,3 @@ doublePatternInPrefixError :: SrcSpan -> TCPat -> ErrorMessage
 doublePatternInPrefixError loc pat = mkErrorMessage loc $
     text "The pattern" <+> prettyPrint pat
     <+> text "is not allowed in a prefix expression as it contains @@."
-
-mkApplication :: Name -> Type -> [AnExp Name] -> DesugarMonad (Exp Name)
-mkApplication fn fnTyp args = do
-    srcSpan <- gets currentLoc
-    ptype <- freshPType
-    setPType ptype fnTyp
-    var <- mkVar fn fnTyp
-    return $ App var args
-
-mkLocatedApplication :: Name -> Type -> [AnExp Name] -> DesugarMonad (Exp Name)
-mkLocatedApplication fn fnTyp args = do
-    srcSpan <- gets currentLoc
-    ptype <- freshPType
-    setPType ptype fnTyp
-    var <- mkVar fn fnTyp
-    return $ LocatedApp var args
-
-mkLit :: Literal -> DesugarMonad TCExp
-mkLit l = do
-    srcSpan <- gets currentLoc
-    let typ = error "typ"
-    ptype <- freshPType
-    setPType ptype typ
-    return $ An srcSpan (typ, ptype) (Lit l)
-
-mkVar :: Name -> Type -> DesugarMonad TCExp
-mkVar n typ = do
-    srcSpan <- gets currentLoc
-    ptype <- freshPType
-    setPType ptype typ
-    return $ An srcSpan (typ, ptype) (Var n)

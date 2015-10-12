@@ -13,6 +13,7 @@ module CSPM.Syntax.AST (
     Decl(..), Match(..),
     -- ** Assertions
     Assertion(..), Model(..), ModelOption(..), SemanticProperty(..),
+    SymmetrySpecification(..),
     -- ** Data Type Clauses
     DataTypeClause(..),
     -- * Expressions
@@ -44,15 +45,15 @@ module CSPM.Syntax.AST (
     -- laborious to type the names. Therefore, some shortcuts are provided.
     AnCSPMFile, AnDecl, AnMatch, AnPat, AnExp, AnField,
     AnStmt, AnDataTypeClause, AnAssertion, AnInteractiveStmt, AnSTypeScheme,
-    AnSTypeConstraint, AnSType, AnModelOption,
+    AnSTypeConstraint, AnSType, AnModelOption, 
     -- ** Pre-Renaming Types
     PCSPMFile, PDecl, PMatch, PPat, PExp, PField,
     PStmt, PDataTypeClause, PAssertion, PInteractiveStmt, PSTypeScheme,
-    PSTypeConstraint, PSType, PModelOption,
+    PSTypeConstraint, PSType, PModelOption, PSymmetrySpecification,
     -- ** Post-Renaming Types
     TCCSPMFile, TCDecl, TCMatch, TCPat, TCExp, TCField,
     TCStmt, TCDataTypeClause, TCAssertion, TCInteractiveStmt, TCSTypeScheme,
-    TCSTypeConstraint, TCSType, TCModelOption,
+    TCSTypeConstraint, TCSType, TCModelOption, TCSymmetrySpecification,
     -- * Helpers
     getType, getSymbolTable,
 ) where
@@ -73,13 +74,14 @@ type AnPat id = Annotated (Type, PType) (Pat id)
 type AnExp id = Annotated (Type, PType) (Exp id)
 type AnField id = Annotated () (Field id)
 type AnStmt id = Annotated () (Stmt id)
-type AnDataTypeClause id = Annotated () (DataTypeClause id)
+type AnDataTypeClause id = Annotated (Type, PType) (DataTypeClause id)
 type AnAssertion id = Annotated () (Assertion id)
 type AnInteractiveStmt id = Annotated () (InteractiveStmt id)
 type AnSTypeScheme id = Annotated () (STypeScheme id)
 type AnSTypeConstraint id = Annotated () (STypeConstraint id)
 type AnSType id = Annotated () (SType id)
 type AnModelOption id = Annotated () (ModelOption id)
+type AnSymmetrySpecification id = Annotated () (SymmetrySpecification id)
 
 getType :: Annotated (Type, PType) a -> Type
 getType an = fst (annotation an)
@@ -101,6 +103,7 @@ type PSTypeScheme = AnSTypeScheme UnRenamedName
 type PSTypeConstraint = AnSTypeConstraint UnRenamedName
 type PSType = AnSType UnRenamedName
 type PModelOption = AnModelOption UnRenamedName
+type PSymmetrySpecification = AnSymmetrySpecification UnRenamedName
 
 type TCCSPMFile = AnCSPMFile Name
 type TCDecl = AnDecl Name
@@ -116,6 +119,7 @@ type TCSTypeScheme = AnSTypeScheme Name
 type TCSTypeConstraint = AnSTypeConstraint Name
 type TCSType = AnSType Name
 type TCModelOption = AnModelOption Name
+type TCSymmetrySpecification = AnSymmetrySpecification Name
 
 -- *************************************************************************
 -- Files
@@ -617,7 +621,7 @@ data Assertion id =
     }
     | SymmetryCheck {
         symmetryCheckExpression :: AnExp id,
-        symmetryCheckTypes :: [id]
+        symmetryCheckRequirements :: [AnSymmetrySpecification id]
     }
     -- | The negation of an assertion, not currently supported.
     | ASNot (AnAssertion id)
@@ -638,6 +642,15 @@ data ModelOption id =
     TauPriority (AnExp id)
     -- | Apply partial order reduction when deciding this assertion
     | PartialOrderReduce (Maybe B.ByteString)
+    -- | Applies symmetry reduction. The second argument is optional, and if
+    -- non-empty, specifies the types over which symmetry reduction should be
+    -- performed. Its format is as per the SymmetryCheck assertion.
+    | SymmetryReduce [AnSymmetrySpecification id]
+    deriving (Eq, Ord, Show)
+
+data SymmetrySpecification id =
+    -- | Symmetric in T-{| C_1, ..., C_n |}.
+    StandardSymmetryGroup id [id]
     deriving (Eq, Ord, Show)
         
 data SemanticProperty id = 
