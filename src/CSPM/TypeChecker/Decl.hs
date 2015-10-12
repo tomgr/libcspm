@@ -440,7 +440,8 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                 tvref' <- freshRegisteredTypeVarRef []
                 unify (TExtendable parentType tvref') dataType
                 -- Check that the fields are compatible with the expected fields.
-                zipWithM unify actFields tsFields
+                ts <- zipWithM unify actFields tsFields
+                setPType (snd (annotation clause)) $ foldr TDotable parentType ts
             ) clauses
         ForAll [] t <- getType n
         t' <- unify t (TSet parentType)
@@ -469,6 +470,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                             return (n', ts)
             let texp = foldr TDotable (TDatatype n) ts
             t <- unify texp t
+            setPType (snd (annotation clause)) t
             return ((n', t), ts)
             ) clauses
         let (nts, tcss) = unzip ntss
@@ -624,19 +626,14 @@ instance TypeCheckable TCAssertion () where
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
 
 instance TypeCheckable (Assertion Name) () where
-    errorContext a = Just $ 
-        (hang (text "In the assertion" <> colon) tabWidth (prettyPrint a), [])
+    errorContext a = Nothing
     typeCheck' (PropertyCheck e1 p m opts) = do
         ensureIsProc e1
         typeCheck p
         mapM_ typeCheck opts
     typeCheck' (SymmetryCheck e1 ns) = do
         typeCheck e1
-        mapM_ (\ n -> do
-            ForAll _ t <- getType n
-            case t of
-                TSet (TDatatype _) -> return ()
-                _ -> raiseMessageAsError (nameIsNotADatatypeMessage n t)) ns
+        mapM_ typeCheck ns
     typeCheck' (Refinement e1 m e2 opts) = do
         ensureIsProc e1
         ensureIsProc e2
