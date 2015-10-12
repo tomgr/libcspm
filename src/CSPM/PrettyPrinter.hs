@@ -144,6 +144,11 @@ instance PrettyPrintable id => PrettyPrintable (Assertion id) where
             tabWidth (list (map prettyPrint ns))
     prettyPrint (ASNot a) = text "not" <+> prettyPrint a
 
+instance PrettyPrintable id => PrettyPrintable (SymmetrySpecification id) where
+    prettyPrint (StandardSymmetryGroup n []) = prettyPrint n
+    prettyPrint (StandardSymmetryGroup n ns) = text "diff" <+> parens (
+        prettyPrint n <> comma <+> (braces . bars . list . map prettyPrint) ns)
+
 instance PrettyPrintable Model where
     prettyPrint Traces = text "T"
     prettyPrint Failures = text "F"
@@ -159,6 +164,9 @@ instance PrettyPrintable id => PrettyPrintable (ModelOption id) where
     prettyPrint (PartialOrderReduce Nothing) = text ":[partial order reduce]"
     prettyPrint (PartialOrderReduce (Just m)) =
         text ":[partial order reduce" <+> bytestring m <+> text "]"
+    prettyPrint (SymmetryReduce []) = text ":[symmetry reduce]"
+    prettyPrint (SymmetryReduce spec) =
+        text ":[symmetry reduce]:" <+> list (map prettyPrint spec)
 
 instance PrettyPrintable id => PrettyPrintable (SemanticProperty id) where
     prettyPrint DeadlockFreedom = text "deadlock free"

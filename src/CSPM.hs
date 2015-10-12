@@ -94,6 +94,11 @@ module CSPM (
     typeCheckFile, typeCheckInteractiveStmt, typeCheckExpression,
     ensureExpressionIsOfType, typeOfExpression, modifyTypeCheckerErrorOptions,
     typeOfName, boundProcessNames,
+    -- * Symmetry Analyser API
+    S.SymmetryType(..), S.SymmetriesDectectable, allPossiblySymmetricTypes,
+    analyseSymmetriesInFile, analyseSymmetriesInInteractiveStmt,
+    checkIsSymmetric, listSymmetricTypes, checkSymmetryAssertion,
+    createSymmetryTrackerFunction,
     -- * Desugarer API
     desugarFile, desugarInteractiveStmt, desugarExpression,
     -- * Evaluator API
@@ -130,9 +135,11 @@ import qualified CSPM.Evaluator as EV
 import CSPM.Evaluator.Values
 import qualified CSPM.Parser as P
 import qualified CSPM.Renamer as RN
+import qualified CSPM.Symmetry as S
 import qualified CSPM.TypeChecker as TC
 import qualified CSPM.Desugar as DS
 import Paths_libcspm (version)
+import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint
 import qualified Util.MonadicPrettyPrint as M
@@ -145,7 +152,9 @@ data CSPMSession = CSPMSession {
         -- | The state of the type checker.
         tcState :: TC.TypeInferenceState,
         -- | The state of the evaluator.
-        evState :: EV.EvaluationState
+        evState :: EV.EvaluationState,
+        -- | The state of the symmetry detector
+        symState :: S.SymmetryState
     }
 
 -- | Create a new 'CSPMSession'.
@@ -156,7 +165,8 @@ newCSPMSession evOptions = do
     rnState <- liftIO $ RN.initRenamer
     tcState <- liftIO $ TC.initTypeChecker
     evState <- liftIO $ EV.initEvaluator evOptions
-    return $ CSPMSession rnState tcState evState
+    let symState = S.initialSymmetryDetectorState
+    return $ CSPMSession rnState tcState evState symState
 
 -- | The CSPMMonad is the main monad in which all functions must be called.
 -- Whilst there is a build in representation (see 'CSPM') it is recommended
@@ -337,6 +347,49 @@ modifyTypeCheckerErrorOptions :: CSPMMonad m =>
 modifyTypeCheckerErrorOptions f = reportWarnings $
     runTypeCheckerInCurrentState (TC.modifyErrorOptions f)
 
+-- Symmetry API
+
+runSymmetryDetectorInCurrentState :: CSPMMonad m => S.SymmetryMonad a -> m a
+runSymmetryDetectorInCurrentState p = withSession $ \s -> do
+    let (a, st) = S.runSymmetryDetector p (symState s)
+    modifySession (\s -> s { symState = st })
+    a `seq` return a
+
+-- | Analyses the symmetries available in the given file.
+analyseSymmetriesInFile :: CSPMMonad m => TCCSPMFile -> m ()
+analyseSymmetriesInFile f = runSymmetryDetectorInCurrentState $
+    S.analyseSymmetries f
+
+analyseSymmetriesInInteractiveStmt :: CSPMMonad m => TCInteractiveStmt -> m ()
+analyseSymmetriesInInteractiveStmt f = runSymmetryDetectorInCurrentState $
+    S.analyseSymmetries f
+
+-- | Returns a list of all types that are being considered for symmetry, along with the names of each constructor.    
+allPossiblySymmetricTypes :: CSPMMonad m => m [(Type, [Name])]
+allPossiblySymmetricTypes = runSymmetryDetectorInCurrentState S.allPossiblySymmetricTypes
+
+-- | Checks that the given expression is symmetric in the given types, throwing
+-- an error if it is not.
+checkIsSymmetric :: (CSPMMonad m, S.SymmetriesDectectable (Annotated a b), PrettyPrintable b) =>
+    Annotated a b -> [S.SymmetryType] -> m ()
+checkIsSymmetric exp ts = runSymmetryDetectorInCurrentState $
+    S.checkIsSymmetric exp ts
+
+-- | Checks a symmetry assertion, as taken from the AST.
+checkSymmetryAssertion :: CSPMMonad m => TCExp -> [TCSymmetrySpecification] -> m ()
+checkSymmetryAssertion exp ts = runSymmetryDetectorInCurrentState $
+    S.checkSymmetryAssertion exp ts
+
+-- | Returns a list of types that the given expression is symmetric in.
+listSymmetricTypes :: (CSPMMonad m, S.SymmetriesDectectable a) => a -> m [S.SymmetryType]
+listSymmetricTypes exp = runSymmetryDetectorInCurrentState $
+    S.listSymmetricTypes exp
+
+createSymmetryTrackerFunction :: CSPMMonad m =>
+    m (Maybe Name -> [(Name, Type)] -> [Name])
+createSymmetryTrackerFunction = runSymmetryDetectorInCurrentState $
+    S.createSymmetryTrackerFunction
+
 -- | Desugar a file, preparing it for evaulation.
 desugarFile :: CSPMMonad m => TCCSPMFile -> m TCCSPMFile
 desugarFile m = DS.runDesugar $ DS.desugar m
@@ -359,6 +412,13 @@ runEvaluatorInCurrentState p = withSession $ \s -> do
     return a
 
 -- Environment API
+
+-- | Reinitialises the evaluator. Note that this should not be called after any
+-- binds have taken place, since doing so will cause those binds to be discarded.
+reinitialiseEvaluator :: CSPMMonad m => EV.EvaluatorOptions -> m ()
+reinitialiseEvaluator evOptions = do
+    evState <- liftIO $ EV.initEvaluator evOptions
+    modifySession (\ st -> st { evState = evState })
  
 -- | Takes a declaration and adds it to the current environment. Requires the
 -- declaration to be desugared.

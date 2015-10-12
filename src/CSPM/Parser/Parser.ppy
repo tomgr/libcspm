@@ -28,6 +28,7 @@ import CSPM.Parser.Tokens
 import Prelude hiding (getChar)
 import Util.Annotated
 import Util.Exception (panic)
+import Util.PrettyPrint
 }
 
 -- Lift the src span from $1 to the resulting token
@@ -105,6 +106,7 @@ import Util.Exception (panic)
     "deterministic"     { L _ TDeterministic }
     "tau priority"      { L _ TTauPriority }
     "partial order reduce" { L _ TPartialOrderReduce }
+    "symmetry reduce"   { L _ TSymmetryReduce }
     "symmetric"         { L _ TSymmetric }
     string_option_literal { L _ (TStringOption _) }
     refines             { L _ (TRefines _) }
@@ -294,12 +296,12 @@ AnglesExpList :: { [PExp] }
     
 Assertion :: { PAssertion }
     :
-    CExp refines CExp OptModelOptionList    { AN2L (Refinement $1 (getRefinesModel $2) $3 $4) }
+    CExp refines CExp OptModelOptionList        { AN2L (Refinement $1 (getRefinesModel $2) $3 $4) }
     | CExp SemanticProperty OptModelOptionList  { AN2L (PropertyCheck $1 (unLoc $2) Nothing $3) }
     | CExp SemanticProperty model OptModelOptionList { AN2L (PropertyCheck $1 (unLoc $2) (Just (getPropModel $3)) $4) }
     | CExp "has trace" AnglesExpList OptModelOptionList { AN2L (PropertyCheck $1 (HasTrace $3) Nothing $4) }
     | CExp "has trace" model AnglesExpList OptModelOptionList { AN2L (PropertyCheck $1 (HasTrace $4) (Just (getPropModel $3)) $5) }
-    | CExp "symmetric" NameCommaList1       { AN2L (SymmetryCheck $1 (map unLoc $3)) }
+    | CExp "symmetric" SymmetrySpecList1        { AN2L (SymmetryCheck $1 $3) }
 
 SemanticProperty :: { Located (SemanticProperty UnRenamedName) }
     :
@@ -318,13 +320,26 @@ rModelOptionList :: { [PModelOption] }
     ModelOption                                 { [$1] }
     | rModelOptionList ModelOption              { $2:$1 }
 
+SymmetrySpecList1 :: { [PSymmetrySpecification] }
+    :
+    ExpCommaList1                               { map convertToSymmetryCheck $1 }
+
 ModelOption :: { PModelOption }
     :
     "tau priority" CExp                         { AN2 (TauPriority $2) }
     | "partial order reduce" string_option_literal { AN (PartialOrderReduce (Just (getStringOption $2))) }
     | "partial order reduce"                    { AN (PartialOrderReduce Nothing) }
+    | "symmetry reduce"                         { AN (SymmetryReduce []) }
+    | "symmetry reduce" SymmetrySpecList1       { AN (SymmetryReduce $2) }
 
 DataTypeClause :: { PDataTypeClause }
+    :
+    DataTypeClauseA                 {% do
+                                        t <- freshPType
+                                        let An l _ e = $1
+                                        return $ An l (typeThunk, t) e
+                                    }
+DataTypeClauseA :: { PDataTypeClause }
     :
     Name "." CExp                               { AN2 (DataTypeClause (unLoc $1) (Just $3) Nothing) }
     | Name                                      { AN (DataTypeClause (unLoc $1) Nothing Nothing) }
@@ -949,6 +964,18 @@ checkExp anExp =
         case transformHideProject anExp of
             An a b exp -> An a b (check exp)
 
+convertToSymmetryCheck :: PExp -> PSymmetrySpecification
+convertToSymmetryCheck (An loc _ (Var n)) = An loc () (StandardSymmetryGroup n [])
+convertToSymmetryCheck (An loc _ (App (An _ _ (Var diffName))
+        [An _ _ (Var typeName), An _ _ (SetEnum constants)]))
+    | show (prettyPrint diffName) == "diff" && and (map isVar constants)
+    = An loc () (StandardSymmetryGroup typeName [n | An _ _ (Var n) <- constants])
+    where
+        isVar (An _ _ (Var n)) = True
+        isVar _ = False
+convertToSymmetryCheck exp =
+    throwSourceError [invalidSymmetrySpecification exp]
+
 getFuncArgs :: PSType -> [PSType]
 getFuncArgs (An _ _ (STParen s)) = [s]
 getFuncArgs (An _ _ (STTuple ts)) = ts
@@ -996,6 +1023,10 @@ checkModelOptions options =
         cmp (TauPriority _) (TauPriority _) = EQ
         cmp (TauPriority _) _ = LT
         cmp _ (TauPriority _) = GT
+
+        cmp (SymmetryReduce {}) (SymmetryReduce {}) = EQ
+        cmp (SymmetryReduce {}) _ = LT
+        cmp _ (SymmetryReduce {}) = GT 
 
         optionGroups = groupBy (\ x y -> cmp (unAnnotate x) (unAnnotate y) == EQ)
             (sortBy (\ x y -> cmp (unAnnotate x) (unAnnotate y)) options)

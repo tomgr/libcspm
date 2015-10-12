@@ -13,6 +13,7 @@ module CSPM.TypeChecker.Exceptions (
     ambiguousDataTypeClauseError,
     ambiguousChannelError,
     nameIsNotADatatypeMessage,
+    nameIsNotADataConstructor,
     ErrorOptions(..), defaultErrorOptions,
 )
 where
@@ -63,6 +64,10 @@ nameIsNotADatatypeMessage :: Name -> Type -> Error
 nameIsNotADatatypeMessage name typ = noMap $
     prettyPrint name <+> text "is not a datatype, but is of type:"
     $$ tabIndent (prettyPrint typ)
+
+nameIsNotADataConstructor :: Name -> Error
+nameIsNotADataConstructor name = noMap $
+    prettyPrint name <+> text "is not a datatype constructor."
 
 unificationErrorMessage :: Bool -> [(Type, Type)] -> Error
 unificationErrorMessage _ [] _ = panic "Empty unification stack during error"

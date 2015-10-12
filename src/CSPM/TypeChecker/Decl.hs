@@ -640,6 +640,24 @@ instance TypeCheckable (Assertion Name) () where
         mapM_ typeCheck opts
     typeCheck' (ASNot a) = typeCheck a
 
+instance TypeCheckable TCSymmetrySpecification () where
+    errorContext _ = Nothing
+    typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
+
+instance TypeCheckable (SymmetrySpecification Name) () where
+    errorContext _ = Nothing
+    typeCheck' (StandardSymmetryGroup n cs) = do
+        ForAll _ t <- getType n
+        case t of
+            TSet (TDatatype dn) | dn == n -> return ()
+            _ -> raiseMessageAsError (nameIsNotADatatypeMessage n t)
+        -- Check each constant is of the correct type
+        mapM_ (\ c -> do
+            when (not (isNameDataConstructor c)) $
+                raiseMessageAsError (nameIsNotADataConstructor c)
+            ForAll _ tc <- getType c
+            unify (TDatatype n) tc) cs
+
 instance TypeCheckable TCModelOption () where
     errorContext an = Nothing
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
@@ -650,6 +668,7 @@ instance TypeCheckable (ModelOption Name) () where
         typeCheckExpect e (TSet TEvent)
         return ()
     typeCheck' (PartialOrderReduce _) = return ()
+    typeCheck' (SymmetryReduce s) = mapM_ typeCheck s
 
 instance TypeCheckable (SemanticProperty Name) () where
     errorContext a = Nothing

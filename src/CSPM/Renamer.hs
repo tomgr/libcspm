@@ -1044,7 +1044,7 @@ instance Renamable (Assertion UnRenamedName) (Assertion Name) where
     rename (PropertyCheck e1 p m mopts) =
         return PropertyCheck $$ rename e1 $$ rename p $$ return m $$ rename mopts
     rename (SymmetryCheck e1 ns) =
-        return SymmetryCheck $$ rename e1 $$ mapM renameVarRHS ns
+        return SymmetryCheck $$ rename e1 $$ rename ns
         
 instance Renamable (SemanticProperty UnRenamedName) (SemanticProperty Name) where
     rename (HasTrace e) = return HasTrace $$ rename e
@@ -1052,9 +1052,14 @@ instance Renamable (SemanticProperty UnRenamedName) (SemanticProperty Name) wher
     rename LivelockFreedom = return LivelockFreedom
     rename Deterministic = return Deterministic
 
+instance Renamable (SymmetrySpecification UnRenamedName) (SymmetrySpecification Name) where
+    rename (StandardSymmetryGroup n ns) =
+        return StandardSymmetryGroup $$ renameVarRHS n $$ mapM renameVarRHS ns
+
 instance Renamable (ModelOption UnRenamedName) (ModelOption Name) where
     rename (TauPriority e) = return TauPriority $$ rename e
     rename (PartialOrderReduce m) = return $ PartialOrderReduce m
+    rename (SymmetryReduce s) = return SymmetryReduce $$ rename s
 
 instance Renamable (Exp UnRenamedName) (Exp Name) where
     rename (App e es) = return App $$ rename e $$ rename es

@@ -24,6 +24,7 @@ data Token =
     | TModel Model
     | TTauPriority
     | TPartialOrderReduce
+    | TSymmetryReduce
     | TStringOption B.ByteString
     | TDeadlockFree
     | TDivergenceFree
@@ -153,6 +154,7 @@ instance PrettyPrintable Token where
     prettyPrint (TModel m) = char '[' <> prettyPrint m <> char ']'
     prettyPrint TTauPriority = text "tau priority"
     prettyPrint TPartialOrderReduce = text "partial order reduce"
+    prettyPrint TSymmetryReduce = text "symmetry reduce"
     prettyPrint (TStringOption s) = char '[' <> bytestring s <> char ']'
     prettyPrint TDeadlockFree = text "deadlock free"
     prettyPrint TDivergenceFree = text "divergence free"
