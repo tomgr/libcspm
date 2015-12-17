@@ -191,6 +191,7 @@ unifyConstraintNoStk CYieldable (TDot t1 t2) = do
         _ -> unifyConstraint CYieldable t
 unifyConstraintNoStk CYieldable t = raiseConstraintErrorMessage
 unifyConstraintNoStk CSet TProc = return ()
+unifyConstraintNoStk CComplete TProc = return ()
 unifyConstraintNoStk c TInt = return ()
 unifyConstraintNoStk c TChar = return ()
  -- Bools are not orderable
