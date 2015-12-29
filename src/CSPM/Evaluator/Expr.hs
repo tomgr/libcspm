@@ -34,6 +34,13 @@ import Util.List
 -- matching in BooleanBinaryOp And in case the first value is false.)
 
 eval :: TCExp -> AnalyserMonad (EvaluationMonad Value)
+eval (An an loc (LocatedApp func args)) = do
+    func <- eval func
+    args <- mapM eval args
+    return $! do
+        vs <- sequence args
+        VFunction _ f <- func
+        f vs
 eval (An _ _ (App (An _ _ (Var n)) [procArg, alphaArg]))
         | n == builtInName "lazy_compile" = do
     alpha <- eval alphaArg
@@ -201,7 +208,10 @@ eval (An loc _ (MathsBinaryOp op e1 e2)) = do
                     0 -> throwError $ divideByZeroMessage loc Nothing
                     _ -> return $ VInt (i1 `div` i2)
             Minus -> \ i1 i2 -> return $ VInt (i1 - i2)
-            Mod -> \ i1 i2 -> return $ VInt (i1 `mod` i2)
+            Mod -> \ i1 i2 ->
+                case i2 of
+                    0 -> throwError $ divideByZeroMessage loc Nothing
+                    _ -> return $ VInt (i1 `mod` i2)
             Plus -> \ i1 i2 -> return $ VInt (i1 + i2)
             Times -> \ i1 i2 -> return $ VInt (i1 * i2)
     return $! do
@@ -394,7 +404,7 @@ eval (An _ _ (Interleave e1 e2)) = do
         VProc p1 <- e1
         VProc p2 <- e2
         return $ VProc $ POp op [p1, p2]
-eval (An _ _ (LinkParallel e1 ties stmts e2)) = do
+eval (An loc _ (LinkParallel e1 ties stmts e2)) = do
     e1 <- eval e1
     ties <- evalTies stmts ties
     e2 <- eval e2
@@ -402,7 +412,11 @@ eval (An _ _ (LinkParallel e1 ties stmts e2)) = do
         VProc p1 <- e1
         VProc p2 <- e2
         ts <- ties
-        return $ VProc $ PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
+        let (lefts, rights) = unzip ts
+            check evs p = case firstDuplicate $ sort evs of
+                            Just ev -> throwError $ linkParallelAmbiguous ev loc Nothing
+                            Nothing -> p
+        check lefts $ check rights $ return $ VProc $ PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
 eval (An _ _ (Project e1 e2)) = do
     e1 <- eval e1
     e2 <- eval e2
@@ -500,7 +514,11 @@ eval (An loc _ e'@(ReplicatedLinkParallel ties tiesStmts stmts e)) = do
         return $! do
             ts <- ties
             p <- e
-            return (ts, p)
+            let (lefts, rights) = unzip ts
+                check evs p = case firstDuplicate $ sort evs of
+                                Just ev -> throwError $ linkParallelAmbiguous ev loc Nothing
+                                Nothing -> p
+            check lefts $ check rights $ return (ts, p)
         ]
     let mkLinkPar [(_, p)] = p
         mkLinkPar ((ts, p1):ps) =

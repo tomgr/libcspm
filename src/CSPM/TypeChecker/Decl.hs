@@ -221,14 +221,38 @@ typeCheckMutualyRecursiveGroup checkAmbiguity generaliseTypes ds' = do
         channelNames = S.fromList $ concatMap extractChannelNames ds
         channelDeclWithName n = head $ filter (\ x ->
             n `elem` extractChannelNames x) ds
+            
+        typeCheckAndGeneralise =
+            if generaliseTypes then generaliseGroup (map typeCheck ds)
+            else generaliseSubGroup toGeneralise (map typeCheck ds)
+            
+        hasDataType =
+            case ds of
+                An _ _ (DataType _ _) : _ -> True
+                _ -> False
+        
+        dataTypeNames = [n | An _ _ (DataType n _) <- ds]
 
     freshTypeVariableContext $ do
         ftvs <- replicateM (length fvs) freshRegisteredTypeVar
         zipWithM setType fvs (map (ForAll []) ftvs)
 
-        -- Type check each declaration then generalise the types
-        if generaliseTypes then generaliseGroup (map typeCheck ds)
-            else generaliseSubGroup toGeneralise (map typeCheck ds)
+        -- Type check each declaration then generalise the types. We firstly guess that all datatypes are comparable for
+        -- equality and if this fails, we unmark them as comparable for equality and retry (recalling that they are
+        -- mutually recursive).
+        (if hasDataType then do
+            -- In this case we need to mark all datatypes as comparable for equality, and backtrack if necessary
+            mapM_ markDatatypeAsComparableForEquality dataTypeNames
+            b <- tryAndRecover False 
+                    (typeCheckAndGeneralise >> return True)
+                    (return False)
+            when (not b) $ do
+                mapM_ unmarkDatatypeAsComparableForEquality dataTypeNames
+                typeCheckAndGeneralise
+                return ()
+        else do
+            typeCheckAndGeneralise
+            return ())
 
         -- Compress all the types we have inferred here (they should never be 
         -- touched again)
@@ -453,14 +477,8 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         -- We now need to decide if we should allow this type to be comparable
         -- for equality. Thus, we check to see if each of the fields in each of
         -- the constructors is comparable for equality.
-
-        -- We mark the type for equality, as if the type depends only on itself
-        -- (i.e. it is recursive), then it should be comparable for equality.
-        markDatatypeAsComparableForEquality n
-        b <- tryAndRecover False 
-                (mapM_ (ensureHasConstraint CEq) tclauses >> return True)
-                (return False)
-        when (not b) $ unmarkDatatypeAsComparableForEquality n
+        b <- datatypeIsComparableForEquality n
+        when b $ mapM_ (ensureHasConstraint CEq) tclauses
         ForAll [] t <- getType n
         t' <- unify t (TSet (TDatatype n))
         return $ (n, t'):nts

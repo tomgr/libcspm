@@ -212,18 +212,22 @@ evaluatorTest fp = do
                                         ]
                         when ("procTest" `isPrefixOf` s) $ do
                             VProc proc <- evalExpr s TProc
-                            let expectedOutputFile = 
-                                    (dropExtension fp)++"-"++s++"-expected.txt"
-                            expectedOutput <- liftIO $ readFile expectedOutputFile
-                            let output = prettyPrintAllRequiredProcesses proc
-                            when (not (compareOutputs (show output) expectedOutput)) $
-                                throwSourceError [mkErrorMessage (loc p) $
-                                        text "The output of" 
-                                        <+> prettyPrint n 
-                                        <+> text "did not match the expected output."
-                                        <+> text "The actual output was:"
-                                        $$ tabIndent output
-                                    ]
+                            let expectedOutputPrefix = (dropExtension fp)++"-"++s++"-expected"
+                                output = prettyPrintAllRequiredProcesses proc
+                            
+                                check (file:nextFile:files) = do
+                                    expectedOutput <- liftIO $ readFile file
+                                    nextFileExists <- doesFileExist nextFile
+                                    when (not (compareOutputs (show output) expectedOutput)) $
+                                        if nextFileExists then check (nextFile:files)
+                                        else throwSourceError [mkErrorMessage (loc p) $
+                                                    text "The output of" 
+                                                    <+> prettyPrint n 
+                                                    <+> text "did not match the expected output."
+                                                    <+> text "The actual output was:"
+                                                    $$ tabIndent output
+                                                ]
+                            liftIO $ check $ map (\ f -> expectedOutputPrefix++f++".txt") $ "" : map show [1..]
                     _ -> return ()
             _ -> return ()
         ) (map unAnnotate ds)

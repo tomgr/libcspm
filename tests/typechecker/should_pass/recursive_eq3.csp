@@ -1,0 +1,2 @@
+datatype VVVV = F | T | VVVVfork.(VVVVlink,VVVVlink)
+datatype VVVVlink = IfTrue.VVVV | IfFalse.VVVV

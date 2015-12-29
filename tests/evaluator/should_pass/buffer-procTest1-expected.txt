@@ -1,0 +1,6 @@
+BUFFER(2, {(c.false, d.false), (c.true, d.true)}) =
+    BUFFER(2, {(c.false, d.false), (c.true, d.true)})
+
+procTest1 = BUFFER(2, {(c.false, d.false), (c.true, d.true)})
+
+procTest1

@@ -97,6 +97,7 @@ instance FreeVars (Pat Name) where
 
 instance FreeVars (Exp Name) where
     freeVars' (App e es) = freeVars' (e:es)
+    freeVars' (LocatedApp e es) = freeVars' (e:es)
     freeVars' (BooleanBinaryOp _ e1 e2) = freeVars' [e1, e2]
     freeVars' (BooleanUnaryOp _ e) = freeVars' e
     freeVars' (Concat e1 e2) = freeVars' [e1, e2]

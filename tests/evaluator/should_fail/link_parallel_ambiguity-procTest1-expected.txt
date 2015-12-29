@@ -1,0 +1,1 @@
+STOP [c.true <-> d.true, c.true <-> d.false] STOP

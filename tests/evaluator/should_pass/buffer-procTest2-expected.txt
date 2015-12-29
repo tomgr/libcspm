@@ -1,0 +1,7 @@
+WEAK_BUFFER(2, explode, {(c.false, d.false), (c.true, d.true)}) =
+    WEAK_BUFFER(2, explode, {(c.false, d.false), (c.true, d.true)})
+
+procTest2 =
+    WEAK_BUFFER(2, explode, {(c.false, d.false), (c.true, d.true)})
+
+procTest2

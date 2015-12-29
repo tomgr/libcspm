@@ -1,0 +1,5 @@
+datatype A  = F1.B | F2.B
+subtype  B = F1.C
+subtype  C = F2.B
+datatype D = IfTrue1.A
+

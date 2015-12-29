@@ -393,7 +393,7 @@ instance Desugarable (Exp Name) where
     desugar (Var n) | S.member n locatedBuiltins = do
         loc <- gets currentLoc
         lit <- mkLit (Loc loc)
-        mkApplication n (error "TODO") [lit]
+        mkLocatedApplication n (error "TODO") [lit]
     desugar (Var n) = substituteName n >>= return . Var
 
     desugar (AlphaParallel e1 e2 e3 e4) =
@@ -673,6 +673,14 @@ mkApplication fn fnTyp args = do
     setPType ptype fnTyp
     var <- mkVar fn fnTyp
     return $ App var args
+
+mkLocatedApplication :: Name -> Type -> [AnExp Name] -> DesugarMonad (Exp Name)
+mkLocatedApplication fn fnTyp args = do
+    srcSpan <- gets currentLoc
+    ptype <- freshPType
+    setPType ptype fnTyp
+    var <- mkVar fn fnTyp
+    return $ LocatedApp var args
 
 mkLit :: Literal -> DesugarMonad TCExp
 mkLit l = do
