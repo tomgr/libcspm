@@ -3,6 +3,7 @@
     UndecidableInstances #-}
 module CSPM.Evaluator.ValuePrettyPrinter (
     prettyPrintAllRequiredProcesses,
+    debugPrintValue,
 ) where
 
 import Control.Monad
@@ -776,3 +777,6 @@ prettyPrintAllRequiredProcesses p =
         ppNamedProc (n,p) =
             hang (prettyPrint n <+> char '=') tabWidth (prettyPrint p)
     in vcat (punctuate (char '\n') ((map ppNamedProc namedPs)++[prettyPrint pInit]))
+    
+debugPrintValue :: Value -> String
+debugPrintValue = show . prettyPrint
