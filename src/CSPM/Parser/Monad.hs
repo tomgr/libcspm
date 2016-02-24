@@ -18,6 +18,7 @@ import Control.Exception
 import Control.Monad.State
 import qualified Data.ByteString.Char8 as B
 import qualified Data.Map as M
+import Data.Maybe (isNothing)
 #if __GLASGOW_HASKELL__ < 705
 import Prelude hiding (catch)
 #endif
@@ -110,13 +111,14 @@ pushFile fname prog = do
     dirname <- gets rootDir     
     let filename = combine dirname fname
     fileContentsMap <- gets fileContents
-    str <- case M.lookup filename fileContentsMap of
-            Just contents -> return contents
-            Nothing -> liftIO $
-                catch (B.readFile filename)
-                    (\ (_ :: IOException) ->
-                        throwSourceError [fileAccessErrorMessage filename]
-                    )
+    str <-
+        if not (M.null fileContentsMap) then
+            case M.lookup filename fileContentsMap of
+                Nothing -> throwSourceError [fileAccessErrorMessage filename]
+                Just str -> return str
+        else liftIO $ catch (B.readFile filename) (\ (_ :: IOException) ->
+                            throwSourceError [fileAccessErrorMessage filename]
+                        )
     when (B.isPrefixOf "{\\rtf1" str) $
         throwSourceError [looksLikeRTFErrorMessage filename]
     modify (\st -> st { loadedFiles = filename:loadedFiles st })
