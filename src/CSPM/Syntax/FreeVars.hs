@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 module CSPM.Syntax.FreeVars (
-    BoundNames(..), FreeVars(..)
+    BoundNames(..), FreeVars(..), TypedFreeVars(..), (\\\)
 ) where
 
 import Data.List
@@ -8,6 +8,7 @@ import qualified Data.Map as M
 
 import CSPM.Syntax.AST
 import CSPM.Syntax.Names
+import CSPM.Syntax.Types
 import Util.Annotated
 import Util.Exception
 
@@ -61,6 +62,196 @@ instance BoundNames (Field Name) where
     boundNames (Input p e) = boundNames p
     boundNames (NonDetInput p e) = boundNames p
     boundNames (Output e) = []
+
+class TypedFreeVars a where
+    typedFreeVars :: a -> [(Name, Type)]
+    typedFreeVars xs = nub $ sort $ typedFreeVars' xs
+    typedFreeVars' :: a -> [(Name, Type)]
+
+(\\\) :: [(Name, Type)] -> [Name] -> [(Name, Type)]
+free \\\ bound = filter (\x -> fst x `notElem` bound) free
+
+instance TypedFreeVars a => TypedFreeVars [a] where
+    typedFreeVars' xs = concatMap typedFreeVars' xs
+
+instance TypedFreeVars a => TypedFreeVars (Maybe a) where
+    typedFreeVars' Nothing = []
+    typedFreeVars' (Just x) = typedFreeVars' x
+
+typedFreeVarsStmts :: TypedFreeVars a => [TCStmt] -> a -> [(Name, Type)]
+typedFreeVarsStmts [] e = typedFreeVars e
+typedFreeVarsStmts (stmt:stmts) e =
+    let
+        depse = typedFreeVarsStmts stmts e
+        depsstmt = typedFreeVars stmt
+        fvstmt = boundNames stmt
+        depse' = nub (depsstmt++depse)
+    in depse' \\\ fvstmt
+
+instance TypedFreeVars TCPat where
+    typedFreeVars' _ = []
+
+instance TypedFreeVars TCExp where
+    typedFreeVars' (An _ _ (App e es)) = typedFreeVars' (e:es)
+    typedFreeVars' (An _ _ (BooleanBinaryOp _ e1 e2)) = typedFreeVars' [e1, e2]
+    typedFreeVars' (An _ _ (BooleanUnaryOp _ e)) = typedFreeVars' e
+    typedFreeVars' (An _ _ (Concat e1 e2)) = typedFreeVars' [e1, e2]
+    typedFreeVars' (An _ _ (DotApp e1 e2)) = typedFreeVars' [e1, e2]
+    typedFreeVars' (An _ _ (If e1 e2 e3)) = typedFreeVars' [e1, e2, e3]
+    typedFreeVars' (An _ _ (Lambda p e)) =
+        let
+            fvsp = boundNames p
+            depsp = typedFreeVars p
+            fvse = typedFreeVars e
+        in fvse \\\ fvsp ++ depsp
+    typedFreeVars' (An _ _ (Let ds e)) =
+        let
+            fvsd = typedFreeVars ds
+            newBoundVars = boundNames ds
+            fvse = typedFreeVars e
+        in nub (fvse++fvsd) \\\ newBoundVars
+    typedFreeVars' (An _ _ (Lit _)) =  []
+    typedFreeVars' (An _ _ (List es)) = typedFreeVars es
+    typedFreeVars' (An _ _ (ListComp es stmts)) =
+        let
+            fvStmts = boundNames stmts
+            depsStmts = typedFreeVars stmts
+            fvses' = typedFreeVars es
+            fvse = nub (fvses'++depsStmts)
+        in fvse \\\ fvStmts
+    typedFreeVars' (An _ _ (ListEnumFrom e1)) = typedFreeVars' e1
+    typedFreeVars' (An _ _ (ListEnumFromTo e1 e2)) = typedFreeVars' [e1,e2]
+    typedFreeVars' (An _ _ (ListEnumFromComp e1 stmts)) = typedFreeVarsStmts stmts [e1]
+    typedFreeVars' (An _ _ (ListEnumFromToComp e1 e2 stmts)) = typedFreeVarsStmts stmts [e1, e2]
+    typedFreeVars' (An _ _ (ListLength e)) = typedFreeVars' e
+    typedFreeVars' (An _ _ (Map kvs)) = typedFreeVars' (map fst kvs) ++ typedFreeVars' (map snd kvs)
+    typedFreeVars' (An _ _ (MathsBinaryOp _ e1 e2)) = typedFreeVars' [e1,e2]
+    typedFreeVars' (An _ _ (MathsUnaryOp _ e1)) = typedFreeVars' e1
+    typedFreeVars' (An _ _ (Paren e)) = typedFreeVars' e
+    typedFreeVars' (An _ _ (Set es)) = typedFreeVars es
+    typedFreeVars' (An _ _ (SetComp es stmts)) =
+        let
+            fvStmts = boundNames stmts
+            depsStmts = typedFreeVars stmts
+            fvses' = typedFreeVars es
+            fvse = nub (fvses'++depsStmts)
+        in fvse \\\ fvStmts
+    typedFreeVars' (An _ _ (SetEnumComp es stmts)) =
+        let
+            fvStmts = boundNames stmts
+            depsStmts = typedFreeVars stmts
+            fvses' = typedFreeVars es
+            fvse = nub (fvses'++depsStmts)
+        in fvse \\\ fvStmts
+    typedFreeVars' (An _ _ (SetEnumFrom e1)) = typedFreeVars' e1
+    typedFreeVars' (An _ _ (SetEnumFromTo e1 e2)) = typedFreeVars' [e1,e2]
+    typedFreeVars' (An _ _ (SetEnumFromComp e1 stmts)) = typedFreeVarsStmts stmts [e1]
+    typedFreeVars' (An _ _ (SetEnumFromToComp e1 e2 stmts)) = typedFreeVarsStmts stmts [e1, e2]
+    typedFreeVars' (An _ _ (SetEnum es)) = typedFreeVars' es
+    typedFreeVars' (An _ _ (Tuple es)) = typedFreeVars' es
+    typedFreeVars' (An _ _ (Var n)) | isNameDataConstructor n = []
+    typedFreeVars' (An _ (typ, _) (Var n)) = [(n, typ)]
+
+    -- Processes
+    typedFreeVars' (An _ _ (AlphaParallel e1 e2 e3 e4)) = typedFreeVars' [e1,e2,e3,e4]
+    typedFreeVars' (An _ _ (Exception e1 e2 e3)) = typedFreeVars' [e1,e2,e3]
+    typedFreeVars' (An _ _ (ExternalChoice e1 e2)) = typedFreeVars' [e1,e2]
+    typedFreeVars' (An _ _ (GenParallel e1 e2 e3)) = typedFreeVars' [e1,e2,e3]
+    typedFreeVars' (An _ _ (GuardedExp e1 e2)) = typedFreeVars' [e1,e2]
+    typedFreeVars' (An _ _ (Hiding e1 e2)) = typedFreeVars' [e1,e2]
+    typedFreeVars' (An _ _ (InternalChoice e1 e2)) = typedFreeVars' [e1,e2]
+    typedFreeVars' (An _ _ (Interrupt e1 e2)) = typedFreeVars' [e1,e2]
+    typedFreeVars' (An _ _ (LinkParallel e1 links stmts e2)) =
+        let
+            ds1 = typedFreeVars [e1,e2]
+            ds2 = typedFreeVarsStmts stmts (concatMap (\ (x,y) -> x:y:[]) links)
+        in ds1++ds2
+    typedFreeVars' (An _ _ (Interleave e1 e2)) = typedFreeVars' [e1,e2]
+    typedFreeVars' (An _ _ (Prefix e1 fields e2)) =
+        let
+            depse = typedFreeVars' [e1,e2]
+            depsfields = typedFreeVars' fields
+            fvfields = boundNames fields
+            fvse = nub (depsfields++depse)
+        in fvse \\\ fvfields
+    typedFreeVars' (An _ _ (Rename e1 renames stmts)) =
+        let
+            (es, es') = unzip renames
+            d1 = typedFreeVars' e1
+            d2 = typedFreeVarsStmts stmts (es++es')
+        in d1++d2
+    typedFreeVars' (An _ _ (SequentialComp e1 e2)) = typedFreeVars' [e1,e2]
+    typedFreeVars' (An _ _ (SlidingChoice e1 e2)) = typedFreeVars' [e1,e2]
+    typedFreeVars' (An _ _ (SynchronisingExternalChoice e1 e2 e3)) = typedFreeVars' [e1,e2,e3]
+    typedFreeVars' (An _ _ (SynchronisingInterrupt e1 e2 e3)) = typedFreeVars' [e1,e2,e3]
+
+    typedFreeVars' (An _ _ (ReplicatedAlphaParallel stmts e1 e2)) =
+        typedFreeVarsStmts stmts [e1,e2]
+    typedFreeVars' (An _ _ (ReplicatedInterleave stmts e1)) =
+        typedFreeVarsStmts stmts [e1]
+    typedFreeVars' (An _ _ (ReplicatedExternalChoice stmts e1)) =
+        typedFreeVarsStmts stmts [e1]
+    typedFreeVars' (An _ _ (ReplicatedInternalChoice stmts e1)) =
+        typedFreeVarsStmts stmts [e1]
+    typedFreeVars' (An _ _ (ReplicatedLinkParallel ties tiesStmts stmts e)) =
+        let
+            (es, es') = unzip ties
+            d1 = typedFreeVarsStmts tiesStmts (es++es')
+            d2 = typedFreeVarsStmts stmts e
+            -- The ties may depend on variables bound by stmts too
+            fvsstmts = typedFreeVars stmts
+        in (d1 \\ fvsstmts)++d2
+    typedFreeVars' (An _ _ (ReplicatedParallel e1 stmts e2)) =
+        typedFreeVars' e1 ++ typedFreeVarsStmts stmts [e2]
+    typedFreeVars' (An _ _ (ReplicatedSequentialComp stmts e1)) = typedFreeVarsStmts stmts [e1]
+    typedFreeVars' (An _ _ (ReplicatedSynchronisingExternalChoice e1 stmts e2)) =
+        typedFreeVars' e1 ++ typedFreeVarsStmts stmts [e2]
+
+    typedFreeVars' x = panic ("TCFreeVars.hs: unrecognised exp "++show x)
+
+instance TypedFreeVars TCStmt where
+    typedFreeVars' (An _ _ (Generator p e)) = typedFreeVars p ++ typedFreeVars e
+    typedFreeVars' (An _ _ (Qualifier e)) = typedFreeVars e
+
+instance TypedFreeVars TCField where
+    typedFreeVars' (An _ _ (Input p e)) = typedFreeVars p ++ typedFreeVars e
+    typedFreeVars' (An _ _ (NonDetInput p e)) = typedFreeVars p ++ typedFreeVars e
+    typedFreeVars' (An _ _ (Output e)) = typedFreeVars e
+
+instance TypedFreeVars TCDecl where
+    typedFreeVars' (An _ _ (FunBind n ms ta)) = typedFreeVars ms ++ typedFreeVars ta
+    typedFreeVars' (An _ _ (PatBind p e ta)) = typedFreeVars p ++ typedFreeVars e ++ typedFreeVars ta
+    typedFreeVars' (An _ _ (Module _ _ ds1 ds2)) = typedFreeVars' ds1 ++ typedFreeVars' ds2
+    typedFreeVars' (An _ _ (TimedSection (Just n) f ds)) =
+        (n, TEvent) : typedFreeVars' f ++ concatMap typedFreeVars' ds
+    typedFreeVars' x = []
+
+instance TypedFreeVars TCAssertion where
+    typedFreeVars' (An _ _ (Refinement e1 m e2 opts)) = typedFreeVars [e1, e2] ++ typedFreeVars opts
+    typedFreeVars' (An _ _ (PropertyCheck e1 p m opts)) = typedFreeVars e1 ++ typedFreeVars opts
+    typedFreeVars' (An _ _ (ASNot a)) = typedFreeVars a
+
+instance TypedFreeVars TCModelOption where
+    typedFreeVars' (An _ _ (TauPriority e)) = typedFreeVars' e
+    typedFreeVars' (An _ _ (PartialOrderReduce _)) = []
+
+instance TypedFreeVars TCMatch where
+    typedFreeVars' (An _ _ (Match ps e)) =
+        let
+            fvs1 = boundNames ps
+            depsPs = typedFreeVars ps
+            fvs2 = typedFreeVars e
+        in (fvs2 \\\ fvs1) ++ depsPs
+
+instance TypedFreeVars TCDataTypeClause where
+    typedFreeVars' (An _ _ (DataTypeClause n Nothing _)) = []
+    typedFreeVars' (An _ _ (DataTypeClause n (Just e) _)) = typedFreeVars' e
+
+instance TypedFreeVars TCSTypeScheme where
+    typedFreeVars' _ = []
+
+instance TypedFreeVars TCSType where
+    typedFreeVars' _ = []
 
 class FreeVars a where
     freeVars :: a -> [Name]
