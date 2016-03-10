@@ -1,6 +1,6 @@
 module CSPM.TypeChecker.Unification (
     generaliseGroup, generaliseSubGroup, instantiate, unify, unifyAll,
-    evaluateDots, typeToDotList, dotableToDotList, substituteTypes, instantiate',
+    evaluateDots, typeToDotList, reduceDotable, dotableToDotList, substituteTypes, instantiate',
     substituteTypeScheme, freeTypeVars,
 ) where
 
