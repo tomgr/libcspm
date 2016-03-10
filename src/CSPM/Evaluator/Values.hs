@@ -31,6 +31,7 @@ import Prelude hiding (lookup)
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Monad
 import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
+import {-# SOURCE #-} CSPM.Evaluator.ValuePrettyPrinter
 import CSPM.Syntax.AST
 import CSPM.Syntax.Names
 import CSPM.Syntax.Types
@@ -271,7 +272,7 @@ instance Ord Value where
     compare v1 v2 = panic $
         -- Must be as a result of a mixed set of values, which cannot happen
         -- as a result of type checking.
-        "Internal sets - cannot order "
+        "Internal sets - cannot order\n"++debugPrintValue v1 ++ "\n\n"++ debugPrintValue v2
 
 -- | This assumes that the value is a VDot with the left is a VChannel
 valueEventToEvent :: Value -> Event

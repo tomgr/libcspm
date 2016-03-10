@@ -757,6 +757,9 @@ evaluateDotApplication (exp@(An loc _ (DotApp left right))) = do
 
         isDotable (TDotable _ _) = True
         isDotable (TExtendable _ _) = True
+        -- We must be inside a polymorphic function, so cannot be sure what type this will be. Hence, it is unsafe
+        -- to assume it is not dotable. Thus, we assume the worst.
+        isDotable (TVar _) = True
         isDotable _ = False
 
         catVDots v v'@(VDot (VDataType _ : vs)) = VDot [v, v']

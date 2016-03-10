@@ -1,0 +1,14 @@
+datatype Direction = ack
+
+CellId = {1}
+
+channel write : CellId.Direction
+
+f(b) = { b.x | x <- extensions(write) }
+
+test1 =
+  let s1 = f(write)
+      s2 = {| write.1 |}
+   within card(union(s1, s2)) > 0
+
+assert if test1 then STOP else STOP :[deadlock free]
