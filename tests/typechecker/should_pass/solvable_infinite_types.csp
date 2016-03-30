@@ -8,4 +8,4 @@ datatype fact =
 nth(0, m) = head(m)
 nth(i, m) = nth(i-1, tail(m))
 
-fails(X) = { Sq.m.Ground, nth(0,m) | Sq.m <- X }
+fails(X) = { Sq.m.Ground, nth(0,m) | Sq.m._ <- X }

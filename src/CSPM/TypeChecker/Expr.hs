@@ -372,10 +372,10 @@ typeCheckStmt typc stmt tc =
             addErrorContext errCtxt (ensureIsBool e)
             tc
         check (Generator p exp) = do
-            texp <- addErrorContext errCtxt (typeCheck exp)
+            texp <- addErrorContext errCtxt (typeCheck exp >>= evaluateDots)
             addErrorContext errCtxt (do
-                tpat <- typeCheck p
-                unify (typc tpat) texp)
+                tpat <- typeCheck p >>= evaluateDots
+                disallowSymmetricUnification (unify (typc tpat) texp))
             tc
     in setSrcSpan (loc stmt) (check (unAnnotate stmt))
 

@@ -1,0 +1,14 @@
+channel a
+channel b : Bool
+
+Evs = {|a, b|}
+
+-- Check(y) = { c.x | c.x <- Evs, x ==y }
+
+-- f(y, c.x) = x == y
+
+-- test(y) = {f(y, z) | z <- Evs }
+
+Test =
+  let c.x = head(seq(Evs))
+  within x
