@@ -101,7 +101,7 @@ combineDots loc v1 v2 =
         splitFieldSet ix v fieldSet =
             case fastUnDotCartProduct fieldSet v of
                 Just restrictByField ->restrictByField!!(ix+1)
-                Nothing -> slowMatchDotPrefix (\ _ vs -> vs!!(ix+1)) fieldSet v
+                Nothing -> slowFindAllProductions (\ vs -> vs!!(ix+1)) fieldSet v
 
         -- | Dots the two values together, ensuring that if either the left or
         -- the right value is a dot list combines them into one dot list.
@@ -160,8 +160,7 @@ oneFieldExtensions v =
                         case fastUnDotCartProduct field (last vs) of
                             Just restrictByField ->
                                 exts (tail restrictByField) (last vs)
-                            Nothing -> return $! toList $ slowMatchDotPrefix
-                                (\ i v -> v!!i) field (last vs)
+                            Nothing -> return $! toList $ slowFindAllExtensions head field (last vs)
         exts _ _ = return [VDot []]
     in do
         case maybeNamedDot v of
@@ -216,22 +215,51 @@ extensionsSets fieldSets (VDot vs) = do
                 case fastUnDotCartProduct field (last vs) of
                     Just restrictByField ->
                         extensionsSets (tail restrictByField) (last vs)
-                    Nothing -> -- Need to do a slow scan
-                        return $! 
-                            [slowMatchDotPrefix (\ i v -> maybeWrap (drop i v))
-                            field (last vs)]
+                    Nothing ->
+                        return $! [slowFindAllExtensions maybeWrap field (last vs)]
     return $! exsLast ++ drop fieldCount fieldSets
 extensionsSets _ _ = return []
 
+-- | Given v1 and v2, if v1 is a production of v2 then returns xs such that v1 == v2.xs.
+-- Further, the list will contain exactly the number of fiels that v1 and v2 differ by
+-- (appropriately bracketed).
+productionDifference :: Value -> Value -> Maybe [Value]
+productionDifference (VDot (n1:fs1)) (VDot (n2:fs2))
+    | n1 == n2 && length fs1 >= length fs2 = listIsProductionOf fs1 fs2
+    where
+        listIsProductionOf vs [] = Just vs
+        listIsProductionOf [] _ = Nothing
+        listIsProductionOf [f1] [f2] = productionDifference f1 f2
+        listIsProductionOf (f1:fs1) [f2] =
+            case productionDifference f1 f2 of
+                Nothing -> Nothing
+                Just [] -> Just fs1
+                Just [v] -> Just (v : fs1)
+                Just vs -> Just (VDot vs : fs1)
+        listIsProductionOf (f1:fs1) (f2:fs2) | f1 == f2 = listIsProductionOf fs1 fs2
+        listIsProductionOf _ _ = Nothing
+productionDifference v1 v2 = if v1 == v2 then Just [] else Nothing
+
+-- | Finds all extensions of v1 in the given set, calling f for each.
+slowFindAllExtensions :: ([Value] -> Value) -> ValueSet -> Value -> ValueSet
+slowFindAllExtensions f set v1 =
+    let
+        matches v2 =
+            case productionDifference v2 v1 of
+                Nothing -> []
+                Just vs -> [f vs]
+    in
+        fromList (concatMap matches (toList set))
+
 -- | Given a set of dotted values, and a dotted value, scans the set of dotted
 -- values and calls the specified function for each value that matches.
-slowMatchDotPrefix :: (Int -> [Value] -> Value) -> ValueSet -> Value -> ValueSet
-slowMatchDotPrefix f set v1 =
+slowFindAllProductions :: ([Value] -> Value) -> ValueSet -> Value -> ValueSet
+slowFindAllProductions f set v1 =
     let
         matches v2 | v2 `isProductionOf` v1 = 
             let VDot vs' = v2
                 VDot vs = v1
-            in [f (length vs) vs']
+            in [f vs']
         matches _ = []
     in
         fromList (concatMap matches (toList set))
@@ -281,7 +309,7 @@ productionsSets fieldSets (VDot vs) = do
                         sets <- productionsSets (tail restrictByField) (last vs)
                         return [S.cartesianProduct CartDot sets]
                     Nothing -> return
-                        [slowMatchDotPrefix (\ _ -> VDot) field (last vs)]
+                        [slowFindAllProductions VDot field (last vs)]
 
     let psSets = case psLast of
                     [] -> map (\v -> fromList [v]) vs

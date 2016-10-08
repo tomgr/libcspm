@@ -1,0 +1,22 @@
+datatype Values = time.{0..1}
+
+datatype chan_names = channel_a_tag | channel_b_tag
+
+channel channel_a : Values
+channel channel_b : {time.0}
+
+F(channel_a_tag) = channel_a
+F(channel_b_tag) = channel_b
+
+channel s_analyse_ls : Values
+
+channel rx : Union({ {|F(chan)|} | chan <- chan_names })
+
+test1 = extensions(rx.channel_a.time) == {0,1}
+test2 = extensions(rx.channel_b.time) == {0}
+test3 = productions(rx.channel_a.time) == {rx.channel_a.time.0,rx.channel_a.time.1}
+test4 = productions(rx.channel_b.time) == {rx.channel_b.time.0}
+
+channel_a_TASK = rx.channel_a?time.t -> s_analyse_ls?time.ts -> (if t <= ts then STOP else STOP)
+
+assert channel_a_TASK :[deadlock free [F]]
