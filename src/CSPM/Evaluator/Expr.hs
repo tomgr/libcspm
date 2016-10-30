@@ -29,6 +29,8 @@ import Util.Annotated
 import Util.Exception
 import Util.List
 
+import CSPM.Prelude
+
 -- In order to keep lazy evaluation working properly only use pattern
 -- matching when you HAVE to know the value. (Hence why we delay pattern
 -- matching in BooleanBinaryOp And in case the first value is false.)
@@ -327,15 +329,33 @@ eval (An _ _ (Exception e1 e2 e3)) = do
         VProc p2 <- e3
         return $ VProc $ PBinaryOp (PException (S.valueSetToEventSet a)) p1 p2
 eval (An _ _ (ExternalChoice e1 e2)) = do
+    let
+        collectExternals (An _ _ (ExternalChoice e1 e2)) = e1 : collectExternals e2
+        collectExternals e = [e]
+        
+        isStop (InstantiatedFrame _ frame@(BuiltinFunctionFrame {}) _ _) =
+            builtinFunctionFrameFunctionName frame == builtInName "STOP"
+        isStop _ = False
+        
+        reduce [] [] = do
+            VProc stop <- lookupVar (builtInName "STOP")
+            return [stop]
+        reduce [] ps = return ps
+        reduce (PProcCall (ProcName pn) _ : ps) ps' | isStop pn = reduce ps ps'
+        reduce (p : ps) ps' = reduce ps (p:ps')
+        
+        unProc (VProc p) = p
+        
     e1 <- eval e1
-    e2 <- eval e2
+    e2 <- mapM eval (collectExternals e2)
     op <- maybeTimed
         (return $ VProc . POp PExternalChoice)
         (\ tn _ -> return $ VProc . POp (PSynchronisingExternalChoice (tockSet tn)))
     return $! do
         VProc p1 <- e1
-        VProc p2 <- e2
-        return $! op [p1, p2]
+        ps <- sequence e2
+        ps' <- reduce (p1 : map unProc ps) []
+        return $! op $ reverse ps'
 eval (An _ _ (GenParallel e1 e2 e3)) = do
     e1 <- eval e1
     e2 <- timedCSPSyncSet $ eval e2
