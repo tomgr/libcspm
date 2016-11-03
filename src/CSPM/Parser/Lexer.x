@@ -48,6 +48,8 @@ tokens :-
     <sem_prop>@spaces"tau priority over" { tok TTauPriority }
     <sem_prop>@spaces"deadlock free"   { tok TDeadlockFree }
     <sem_prop>@spaces"deadlock-free"   { tok TDeadlockFree }
+    <sem_prop>@spaces"sublock free"    { tok TSublockFree }
+    <sem_prop>@spaces"sublock-free"    { tok TSublockFree }
     <sem_prop>@spaces"livelock free"   { tok TLivelockFree }
     <sem_prop>@spaces"livelock-free"   { tok TLivelockFree }
     <sem_prop>@spaces"divergence free" { tok TDivergenceFree }

@@ -139,7 +139,7 @@ desugarDecl (an@(An x y (PatBind p e ta))) = do
             nameToBindTo <- mkFreshInternalName
             let typeOf n = head [ts | (n', ts) <- st, n' == n]
                 expToBindTo = An Unknown (annotation e') (Var nameToBindTo)
-                mkExtractorPat' n (An a b p) = An a b (mkExtractorPat n p) 
+                mkExtractorPat' n (An a b p) = An a b (mkExtractorPat n p)
                 mkExtractorPat n (PCompList p1 p2 pold) =
                     PCompList (map (mkExtractorPat' n) p1) (
                         case p2 of
@@ -159,7 +159,7 @@ desugarDecl (an@(An x y (PatBind p e ta))) = do
 
                 newPSymTableThunk = panic "new psymbole table evaluated"
                 mkExtractor n = An (loc an)
-                    ([(n, typeOf n)], newPSymTableThunk) 
+                    ([(n, typeOf n)], newPSymTableThunk)
                     (PatBind (mkExtractorPat' n p') expToBindTo Nothing)
                 -- TODO: calculate the correct ForAll
                 etype = ForAll (nub (sort (concat [ts | (_, ForAll ts _) <- st]))) (getType e')
@@ -221,7 +221,7 @@ desugarDecl (d@(An _ _ (ModuleInstance nax nt args nm (Just mod)))) = do
         desugarDecls $ patBinds ++ ds1 ++ ds2
 desugarDecl (An x y (Transparent ns)) =
     concatMapM makeAliasDefinition ns
-desugarDecl (An x y (External ns)) = 
+desugarDecl (An x y (External ns)) =
     concatMapM makeAliasDefinition ns
 desugarDecl (An x y d) = do
     d' <- case d of
@@ -270,9 +270,9 @@ desugarDecls ds = do
     concatMapM desugarDecl ds
 
 instance Desugarable (Assertion Name) where
-    desugar (Refinement e1 m e2 opts) = 
+    desugar (Refinement e1 m e2 opts) =
         return Refinement $$ desugar e1 $$ desugar m $$ desugar e2 $$ desugar opts
-    desugar (PropertyCheck e p m opts) = 
+    desugar (PropertyCheck e p m opts) =
         return PropertyCheck $$ desugar e $$ desugar p $$ desugar m $$ desugar opts
     desugar (ASNot a) = return ASNot $$ desugar a
 
@@ -300,7 +300,7 @@ instance Desugarable (Match Name) where
 
 instance Desugarable (Exp Name) where
     desugar (App e es) = return App $$ desugar e $$ desugar es
-    desugar (BooleanBinaryOp op e1 e2) = 
+    desugar (BooleanBinaryOp op e1 e2) =
         return (BooleanBinaryOp op) $$ desugar e1 $$ desugar e2
     desugar (BooleanUnaryOp op e) =
         return (BooleanUnaryOp op) $$ desugar e
@@ -315,7 +315,7 @@ instance Desugarable (Exp Name) where
     desugar (Let ds e) = do
         ds <- desugarDecls ds
         e <- desugar e
-        -- Remove unused let bindings 
+        -- Remove unused let bindings
         let usedVars = S.fromList $ freeVars ds ++ freeVars e
             ds' = filter (\ d -> or (map (\n -> S.member n usedVars) (boundNames d))) ds
         case ds' of
@@ -340,7 +340,7 @@ instance Desugarable (Exp Name) where
         return $! ListEnumFromToComp e1 e2 (restrictStatements [e1, e2] stmts)
     desugar (ListLength e) = return ListLength $$ desugar e
     desugar (Map kvs) = return Map $$ desugar kvs
-    desugar (MathsBinaryOp op e1 e2) = 
+    desugar (MathsBinaryOp op e1 e2) =
         return (MathsBinaryOp op) $$ desugar e1 $$ desugar e2
     desugar (MathsUnaryOp op e) = return (MathsUnaryOp op) $$ desugar e
     desugar (Paren e) = desugar e >>= return . unAnnotate
@@ -409,7 +409,7 @@ instance Desugarable (Exp Name) where
     desugar (InternalChoice e1 e2) = return InternalChoice $$ desugar e1 $$ desugar e2
     desugar (Interrupt e1 e2) = return Interrupt $$ desugar e1 $$ desugar e2
     desugar (Interleave e1 e2) = return Interleave $$ desugar e1 $$ desugar e2
-    desugar (LinkParallel e1 ties stmts e2) = 
+    desugar (LinkParallel e1 ties stmts e2) =
         maybeTimedSection
             (return LinkParallel $$ desugar e1 $$ desugar ties $$ desugar stmts
                 $$ desugar e2)
@@ -423,16 +423,16 @@ instance Desugarable (Exp Name) where
 
         -- Restrict patterns
         let namesToLeave = S.fromList $ freeVars fs ++ freeVars e2
-        
+
             patIsAllowed (An _ _ (PDoublePattern _ _)) = False
             patIsAllowed (An _ _ (PCompDot ps _)) = and (map patIsAllowed ps)
             patIsAllowed _ = True
-            
+
             checkPattern p =
                 if patIsAllowed p then return () else do
                 loc <- gets currentLoc
                 throwSourceError [doublePatternInPrefixError loc p]
-            
+
             restrictField (An a b (Input p e)) = do
                 checkPattern p
                 return $ An a b (Input (restrictPatternsToVars namesToLeave p) e)
@@ -464,7 +464,7 @@ instance Desugarable (Exp Name) where
         return SynchronisingExternalChoice $$ desugar e1 $$ desugar e2 $$ desugar e3
     desugar (SynchronisingInterrupt e1 e2 e3) =
         return SynchronisingInterrupt $$ desugar e1 $$ desugar e2 $$ desugar e3
-    
+
     desugar (ReplicatedAlphaParallel stmts e1 e2) = do
         e1 <- desugar e1
         e2 <- desugar e2
@@ -512,7 +512,7 @@ instance Desugarable (Exp Name) where
         e2 <- desugar e2
         return $! ReplicatedSynchronisingExternalChoice e1
             (restrictStatements [e1, e2] stmts) e2
-    
+
 instance Desugarable (Field Name) where
     desugar (Output e) = return Output $$ desugar e
     desugar (Input p e) = return Input $$ desugar p $$ desugar e
@@ -532,14 +532,14 @@ instance Desugarable (InteractiveStmt Name) where
     desugar (RunAssertion a) = return RunAssertion $$ desugar a
 
 instance Desugarable (Pat Name) where
-    desugar (PConcat p1 p2) = 
+    desugar (PConcat p1 p2) =
         let
             combine (as1, Just (p, bs1)) (as2, Nothing) = (as1, Just (p, bs1++as2))
             combine (as1, Nothing) (as2, p) = (as1++as2, p)
             combine _ _ = throwSourceError [mkErrorMessage l err]
                 where
                     l = loc p1
-                    err = prettyPrint (PConcat p1 p2) <+> 
+                    err = prettyPrint (PConcat p1 p2) <+>
                         text "is not a valid sequence pattern."
 
             extractCompList :: TCPat -> ([TCPat], Maybe (TCPat, [TCPat]))
@@ -552,7 +552,7 @@ instance Desugarable (Pat Name) where
             return $ PCompList start end (PConcat p1 p2)
     desugar (PList ps) =
         return PCompList $$ desugar ps $$ return Nothing $$ return (PList ps)
-    desugar (PDotApp p1 p2) = 
+    desugar (PDotApp p1 p2) =
         let
             extractDotList (An _ _ (PCompDot ds _)) = ds
             extractDotList d = [d]
@@ -651,7 +651,7 @@ restrictPatternsToVars ns =
 
 invalidSetPatternMessage :: Pat Name -> SrcSpan -> ErrorMessage
 invalidSetPatternMessage pat loc = mkErrorMessage loc $
-    text "The pattern" <+> prettyPrint pat <+> 
+    text "The pattern" <+> prettyPrint pat <+>
     text "is invalid as set patterns may only match at most one element."
 
 linkedParallelTimedSectionError :: SrcSpan -> ErrorMessage

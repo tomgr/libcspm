@@ -9,16 +9,16 @@ import Util.Annotated
 import Util.PrettyPrint
 
 instance PrettyPrintable id => PrettyPrintable (CSPMFile id) where
-    prettyPrint (CSPMFile decls) = 
+    prettyPrint (CSPMFile decls) =
         vcat (punctuate (char '\n') (map prettyPrint decls))
 
 instance PrettyPrintable id => PrettyPrintable (InteractiveStmt id) where
     prettyPrint (Evaluate e) = prettyPrint e
     prettyPrint (Bind (decl:_)) = text "let" <+> prettyPrint decl
     prettyPrint (RunAssertion a) = text "assert" <+> prettyPrint a
-    
+
 prettyPrintMatch :: PrettyPrintable id => id -> AnMatch id -> Doc
-prettyPrintMatch n (An _ _ (Match groups exp)) = 
+prettyPrintMatch n (An _ _ (Match groups exp)) =
         hang ((prettyPrint n <> hcat (map ppGroup groups))
              <+> equals)
             tabWidth (prettyPrint exp)
@@ -63,7 +63,7 @@ instance PrettyPrintable id => PrettyPrintable (SType id) where
 
 prettyPrintTypeAnnotation :: PrettyPrintable id => Doc -> Maybe (AnSTypeScheme id) -> Doc
 prettyPrintTypeAnnotation _ Nothing = empty
-prettyPrintTypeAnnotation ns (Just ta) = 
+prettyPrintTypeAnnotation ns (Just ta) =
     ns <+> text "::" <+> prettyPrint ta
 
 instance PrettyPrintable id => PrettyPrintable (Decl id) where
@@ -84,10 +84,10 @@ instance PrettyPrintable id => PrettyPrintable (Decl id) where
     prettyPrint (Transparent ns) =
         text "transparent" <+> list (map prettyPrint ns)
     prettyPrint (DataType n dtcs) =
-        text "datatype" <+> prettyPrint n <+> text "=" 
+        text "datatype" <+> prettyPrint n <+> text "="
             <+> fsep (punctuate (text "|") (map prettyPrint dtcs))
     prettyPrint (SubType n dtcs) =
-        text "subtype" <+> prettyPrint n <+> text "=" 
+        text "subtype" <+> prettyPrint n <+> text "="
             <+> fsep (punctuate (text "|") (map prettyPrint dtcs))
     prettyPrint (NameType n e mta) =
         (case mta of
@@ -148,9 +148,9 @@ instance PrettyPrintable Model where
     prettyPrint RefusalsDivergences = text "RD"
     prettyPrint Revivals = text "V"
     prettyPrint RevivalsDivergences = text "VD"
-    
+
 instance PrettyPrintable id => PrettyPrintable (ModelOption id) where
-    prettyPrint (TauPriority e) = 
+    prettyPrint (TauPriority e) =
         text ":[tau priority over]:" <+> prettyPrint e
     prettyPrint (PartialOrderReduce Nothing) = text ":[partial order reduce]"
     prettyPrint (PartialOrderReduce (Just m)) =
@@ -161,6 +161,7 @@ instance PrettyPrintable id => PrettyPrintable (ModelOption id) where
 
 instance PrettyPrintable id => PrettyPrintable (SemanticProperty id) where
     prettyPrint DeadlockFreedom = text "deadlock free"
+    prettyPrint SublockFreedom = text "sublock free"
     prettyPrint Deterministic = text "deterministic"
     prettyPrint LivelockFreedom = text "divergence free"
     prettyPrint (HasTrace _) = text "has trace"
@@ -178,21 +179,21 @@ instance PrettyPrintable id => PrettyPrintable (Pat id) where
         prettyPrint e1 <> text "." <> prettyPrint e2
     prettyPrint (PDoublePattern e1 e2) =
         prettyPrint e1 <+> text "@@" <+> prettyPrint e2
-    prettyPrint (PList patterns) = 
+    prettyPrint (PList patterns) =
         angles (list (map prettyPrint patterns))
     prettyPrint (PLit lit) = prettyPrint lit
-    prettyPrint (PSet patterns) = 
+    prettyPrint (PSet patterns) =
         braces (list (map prettyPrint patterns))
     prettyPrint (PParen pattern) =
         parens (prettyPrint pattern)
-    prettyPrint (PTuple patterns) = 
+    prettyPrint (PTuple patterns) =
         parens (list (map prettyPrint patterns))
     prettyPrint (PVar name) = prettyPrint name
     prettyPrint (PWildCard) = char '_'
-    
+
     prettyPrint (PCompList _ _ p) = prettyPrint p
     prettyPrint (PCompDot _ p) = prettyPrint p
-    
+
 instance PrettyPrintable BinaryBooleanOp where
     prettyPrint And = text "and"
     prettyPrint Or = text "or"
@@ -217,36 +218,36 @@ instance PrettyPrintable UnaryMathsOp where
     -- {-1} which would start a block comment
     prettyPrint Negate = text " -"
 
-instance PrettyPrintable id => PrettyPrintable (Exp id) where  
-    prettyPrint (App e1 args) = 
+instance PrettyPrintable id => PrettyPrintable (Exp id) where
+    prettyPrint (App e1 args) =
         prettyPrint e1 <> parens (list (map prettyPrint args))
-    prettyPrint (BooleanBinaryOp op e1 e2) = 
+    prettyPrint (BooleanBinaryOp op e1 e2) =
         ppBinOp (prettyPrint e1) (prettyPrint op) (prettyPrint e2)
     prettyPrint (BooleanUnaryOp op e1) = prettyPrint op <+> prettyPrint e1
     prettyPrint (Concat e1 e2) =
         ppBinOp' (prettyPrint e1) (char '^') (prettyPrint e2)
     prettyPrint (DotApp e1 e2) =
         ppBinOp' (prettyPrint e1) (char '.') (prettyPrint e2)
-    prettyPrint (If e1 e2 e3) = 
-        sep [hang (text "if" <+> prettyPrint e1 <+> text "then") 
+    prettyPrint (If e1 e2 e3) =
+        sep [hang (text "if" <+> prettyPrint e1 <+> text "then")
                 tabWidth (prettyPrint e2),
             text "else" <+> prettyPrint e3]
-    prettyPrint (Lambda ps exp) = 
+    prettyPrint (Lambda ps exp) =
         text "\\" <> list (map prettyPrint ps)
         <+> text "@"
         <+> prettyPrint exp
-    prettyPrint (Let decls exp) = 
+    prettyPrint (Let decls exp) =
         sep [hang (text "let") tabWidth (vcat (map prettyPrint decls)),
             hang (text "within") tabWidth (prettyPrint exp)]
     prettyPrint (ListLength exp) = char '#' <> prettyPrint exp
     prettyPrint (List exps) = angles (list (map prettyPrint exps))
     prettyPrint (ListComp es stmts) = angles (ppComp es stmts)
     prettyPrint (ListEnumFrom lb) = angles (prettyPrint lb <> text "..")
-    prettyPrint (ListEnumFromTo lb ub) = 
+    prettyPrint (ListEnumFromTo lb ub) =
         angles (prettyPrint lb <> text ".." <> prettyPrint ub)
-    prettyPrint (ListEnumFromComp lb stmts) = 
+    prettyPrint (ListEnumFromComp lb stmts) =
         angles (ppComp' [prettyPrint lb <> text ".."] stmts)
-    prettyPrint (ListEnumFromToComp lb ub stmts) = 
+    prettyPrint (ListEnumFromToComp lb ub stmts) =
         angles (ppComp' [prettyPrint lb <> text ".." <> prettyPrint ub] stmts)
     prettyPrint (Lit lit) = prettyPrint lit
     prettyPrint (Map kvs) = text "(|" <+>
@@ -263,28 +264,28 @@ instance PrettyPrintable id => PrettyPrintable (Exp id) where
     prettyPrint (SetEnumFrom lb) = braces (prettyPrint lb <> text "..")
     prettyPrint (SetEnumFromTo lb ub) =
         braces (prettyPrint lb <> text ".." <> prettyPrint ub)
-    prettyPrint (SetEnumFromComp lb stmts) = 
+    prettyPrint (SetEnumFromComp lb stmts) =
         braces (ppComp' [prettyPrint lb <> text ".."] stmts)
-    prettyPrint (SetEnumFromToComp lb ub stmts) = 
+    prettyPrint (SetEnumFromToComp lb ub stmts) =
         braces (ppComp' [prettyPrint lb <> text ".." <> prettyPrint ub] stmts)
     prettyPrint (Tuple exps) = parens (list (map prettyPrint exps))
     prettyPrint (Var qname) = prettyPrint qname
-        
+
     -- Processes
     prettyPrint(AlphaParallel e1 a1 a2 e2) =
         ppBinOp (prettyPrint e1) (brackets (prettyPrint a1 <> text "||"
                                     <> prettyPrint a2)) (prettyPrint e2)
     prettyPrint (Exception e1 a e2) =
-        ppBinOp (prettyPrint e1) (text "[|" <+> prettyPrint a <+> text "|>") 
+        ppBinOp (prettyPrint e1) (text "[|" <+> prettyPrint a <+> text "|>")
                 (prettyPrint e2)
-    prettyPrint (ExternalChoice e1 e2) = 
+    prettyPrint (ExternalChoice e1 e2) =
         ppBinOp (prettyPrint e1) (text "[]") (prettyPrint e2)
-    prettyPrint (GenParallel e1 alpha e2) = 
-        ppBinOp (prettyPrint e1) (brackets (bars (prettyPrint alpha))) 
+    prettyPrint (GenParallel e1 alpha e2) =
+        ppBinOp (prettyPrint e1) (brackets (bars (prettyPrint alpha)))
                 (prettyPrint e2)
-    prettyPrint (GuardedExp e1 e2) = 
+    prettyPrint (GuardedExp e1 e2) =
         ppBinOp (prettyPrint e1) (char '&') (prettyPrint e2)
-    prettyPrint (Hiding e1 e2) = 
+    prettyPrint (Hiding e1 e2) =
         ppBinOp (prettyPrint e1) (char '\\') (prettyPrint e2)
     prettyPrint (InternalChoice e1 e2) =
         ppBinOp (prettyPrint e1) (text "|~|") (prettyPrint e2)
@@ -299,7 +300,7 @@ instance PrettyPrintable id => PrettyPrintable (Exp id) where
     prettyPrint (Prefix ev fs e) =
         ppBinOp (prettyPrint ev <> hcat (map prettyPrint fs)) (text "->")
                 (prettyPrint e)
-    prettyPrint (Project e1 e2) = 
+    prettyPrint (Project e1 e2) =
         ppBinOp (prettyPrint e1) (text "|\\") (prettyPrint e2)
     prettyPrint (Rename e ties stmts) =
         prettyPrint e <+> brackets (brackets (
@@ -316,17 +317,17 @@ instance PrettyPrintable id => PrettyPrintable (Exp id) where
         ppBinOp (prettyPrint e1) (text "/+" <> prettyPrint a <> text "+\\")
             (prettyPrint e2)
 
-    prettyPrint (ReplicatedAlphaParallel stmts alpha e) = 
-        ppRepOp (text "||") stmts 
+    prettyPrint (ReplicatedAlphaParallel stmts alpha e) =
+        ppRepOp (text "||") stmts
                 (brackets (prettyPrint alpha) <+> prettyPrint e)
-    prettyPrint (ReplicatedExternalChoice stmts e) = 
+    prettyPrint (ReplicatedExternalChoice stmts e) =
         ppRepOp (text "[]") stmts (prettyPrint e)
-    prettyPrint (ReplicatedInterleave stmts e) = 
+    prettyPrint (ReplicatedInterleave stmts e) =
         ppRepOp (text "|||") stmts (prettyPrint e)
-    prettyPrint (ReplicatedInternalChoice stmts e) = 
+    prettyPrint (ReplicatedInternalChoice stmts e) =
         ppRepOp (text "|~|") stmts (prettyPrint e)
     prettyPrint (ReplicatedLinkParallel ties tiesStmts stmts e) =
-        ppRepOp (brackets (ppComp' (map ppTie ties) tiesStmts)) 
+        ppRepOp (brackets (ppComp' (map ppTie ties) tiesStmts))
                 stmts (prettyPrint e)
     prettyPrint (ReplicatedParallel alpha stmts e) =
         ppRepOp (brackets (bars (prettyPrint alpha))) stmts (prettyPrint e)
@@ -335,32 +336,32 @@ instance PrettyPrintable id => PrettyPrintable (Exp id) where
     prettyPrint (ReplicatedSynchronisingExternalChoice e1 stmts e2) =
         ppRepOp (text "[+" <> prettyPrint e1 <> text "+]")
             stmts (prettyPrint e2)
-        
+
     -- Patterns - this is only used when emitting parser errors about invalid
     -- expressions.
     prettyPrint (ExpPatWildCard) = char '_'
-    prettyPrint (ExpPatDoublePattern e1 e2) = 
+    prettyPrint (ExpPatDoublePattern e1 e2) =
         prettyPrint e1 <+> text "@@" <+> prettyPrint e2
 
     prettyPrint (TimedPrefix _ p) = prettyPrint p
     prettyPrint (LocatedApp (An _ _ (Var n)) _) = prettyPrint n
 
 instance PrettyPrintable id => PrettyPrintable (Field id) where
-    prettyPrint (Output exp) = 
+    prettyPrint (Output exp) =
         char '!' <> prettyPrint exp
     prettyPrint (Input pat Nothing) =
         char '?' <> prettyPrint pat
     prettyPrint (Input pat (Just exp)) =
         char '?' <> prettyPrint pat <+> colon <+> prettyPrint exp
-    prettyPrint (NonDetInput pat Nothing) = 
+    prettyPrint (NonDetInput pat Nothing) =
         char '$' <> prettyPrint pat
     prettyPrint (NonDetInput pat (Just exp)) =
         char '$' <> prettyPrint pat <+> colon <+> prettyPrint exp
 
 instance PrettyPrintable id => PrettyPrintable (Stmt id) where
-    prettyPrint (Generator pat exp) = 
+    prettyPrint (Generator pat exp) =
         sep [prettyPrint pat, text "<-" <+> prettyPrint exp]
-    prettyPrint (Qualifier exp) = 
+    prettyPrint (Qualifier exp) =
         prettyPrint exp
 
 ppTie :: PrettyPrintable id => (AnExp id, AnExp id) -> Doc
@@ -376,14 +377,14 @@ ppRepOp op stmts exp =
             tabWidth exp)
 
 ppComp :: PrettyPrintable id => [AnExp id] -> [AnStmt id] -> Doc
-ppComp es stmts = ppComp' (map prettyPrint es) stmts 
-        
+ppComp es stmts = ppComp' (map prettyPrint es) stmts
+
 ppComp' :: PrettyPrintable id => [Doc] -> [AnStmt id] -> Doc
-ppComp' es stmts = 
+ppComp' es stmts =
     hang (list es) tabWidth
         (if length stmts > 0 then char '|' <+> list (map prettyPrint stmts)
         else empty)
-        
+
 ppBinOp :: Doc -> Doc -> Doc -> Doc
 ppBinOp arg1 op arg2 = sep [arg1, op <+> arg2]
 

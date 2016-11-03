@@ -10,7 +10,7 @@ import CSPM.PrettyPrinter
 import Util.Annotated
 import Util.PrettyPrint
 
-data Token = 
+data Token =
     TInteger Int
     | TChar Char
     | TString B.ByteString
@@ -27,6 +27,7 @@ data Token =
     | TAnalyseStatically
     | TStringOption B.ByteString
     | TDeadlockFree
+    | TSublockFree
     | TDivergenceFree
     | TLivelockFree
     | TDeterministic
@@ -111,8 +112,8 @@ data Token =
     | TLPipeSqBracket
     | TRPipeSqBracket
     | TLSqBracket
-    | TRSqBracket 
-    
+    | TRSqBracket
+
     | TExtChoice
     | TIntChoice
     | TInterleave
@@ -133,7 +134,7 @@ data Token =
 
     | TEOF
     deriving Eq
-    
+
 type LToken = Located Token
 
 instance Show Token where
@@ -156,6 +157,7 @@ instance PrettyPrintable Token where
     prettyPrint TAnalyseStatically = text "static"
     prettyPrint (TStringOption s) = char '[' <> bytestring s <> char ']'
     prettyPrint TDeadlockFree = text "deadlock free"
+    prettyPrint TSublockFree = text "sublock free"
     prettyPrint TDivergenceFree = text "divergence free"
     prettyPrint TLivelockFree = text "livelock free"
     prettyPrint TDeterministic = text "deterministic"
@@ -241,7 +243,7 @@ instance PrettyPrintable Token where
     prettyPrint TRPipeSqBracket = text "|]"
     prettyPrint TLSqBracket = text "["
     prettyPrint TRSqBracket = text "]"
-    
+
     prettyPrint TExtChoice = text "[]"
     prettyPrint TIntChoice = text "|~|"
     prettyPrint TInterleave = text "|||"

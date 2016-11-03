@@ -1,7 +1,7 @@
 {
 module CSPM.Parser.Parser (
     parseFile_, parseInteractiveStmt_, parseExpression_
-) 
+)
 where
 
 -- To generate the corresponding .hs file run the following commands
@@ -99,6 +99,7 @@ import Util.Exception (panic)
 
     "assert"            { L _ TAssert }
     "deadlock free"     { L _ TDeadlockFree }
+    "sublock free"      { L _ TSublockFree }
     "livelock free"     { L _ TLivelockFree }
     "divergence free"   { L _ TDivergenceFree }
     "has trace"         { L _ THasTrace }
@@ -109,7 +110,7 @@ import Util.Exception (panic)
     string_option_literal { L _ (TStringOption _) }
     refines             { L _ (TRefines _) }
     model               { L _ (TModel _) }
-    
+
     "not"               { L _ TNot }
     "anot"              { L _ TAssertNot }
     "and"               { L _ TAnd }
@@ -196,11 +197,11 @@ import Util.Exception (panic)
 CSPMFile :: { PCSPMFile }
     :
     Newlines0 DeclList                          { mkLoc Unknown (CSPMFile $2) }
-    
+
 InteractiveStmt :: { PInteractiveStmt }
     :
     "let" Exp "=" CExp                          {% do
-                                                    d <- convDecl $2 $4 
+                                                    d <- convDecl $2 $4
                                                     d <- annotateWithSymbolTable d
                                                     return $ AN2 (Bind [d])}
     | "assert" "anot" Assertion                 { AN2 (RunAssertion (AN2 (ASNot $3))) }
@@ -233,7 +234,7 @@ DeclList1 :: { [PDecl] }
 rDeclList1NC :: { [PDecl] }
     :
     Decl                                        { [$1] }
-    | rDeclList1NC Newlines MaybeDecl           { case $3 of 
+    | rDeclList1NC Newlines MaybeDecl           { case $3 of
                                                     Just d -> d:$1
                                                     Nothing -> $1 }
 MaybeDecl :: { Maybe PDecl }
@@ -257,7 +258,7 @@ DeclA :: { PDecl }
     | "assert" Assertion                        { AN2 (Assert $2) }
     | "nametype" Name "=" CExp                  { AN2 (NameType (unLoc $2) $4 Nothing) }
     | "module" Name OptPatList Newlines DeclList
-      "exports" Newlines DeclList "endmodule"    { AN2 (Module (unLoc $2) $3 
+      "exports" Newlines DeclList "endmodule"    { AN2 (Module (unLoc $2) $3
                                                     (map checkModuleDecl $5)
                                                     (map checkModuleDecl $8)) }
     | "Timed" "{" DeclList "}"                  { AN2 (TimedSection Nothing
@@ -291,7 +292,7 @@ ExpList :: { [PExp] }
 AnglesExpList :: { [PExp] }
     :
     BegSeq CExpList EndSeq                      { $2 }
-    
+
 Assertion :: { PAssertion }
     :
     CExp refines CExp OptModelOptionList    { AN2L (Refinement $1 (getRefinesModel $2) $3 $4) }
@@ -303,6 +304,7 @@ Assertion :: { PAssertion }
 SemanticProperty :: { Located (SemanticProperty UnRenamedName) }
     :
     "deadlock free"                             { LL DeadlockFreedom }
+    | "sublock free"                           { LL SublockFreedom }
     | "livelock free"                           { LL LivelockFreedom }
     | "divergence free"                         { LL LivelockFreedom }
     | "deterministic"                           { LL Deterministic }
@@ -338,12 +340,12 @@ rDataTypeClauseList :: { [PDataTypeClause] }
     | rDataTypeClauseList "|" DataTypeClause    { $3:$1 }
 
 MaybeQualName :: { Located UnRenamedName }
-    : 
+    :
     ident                           { LL (UnQual (OccName (getName $1))) }
     | ident "::" MaybeQualName      { AN (Qual (OccName (getName $1)) (unLoc $3)) }
 
 Name :: { Located UnRenamedName }
-    : 
+    :
     ident                           { LL (UnQual (OccName (getName $1))) }
 
 NameCommaList1 :: { [Located UnRenamedName] }
@@ -424,7 +426,7 @@ BegSeq
     :
     "<"                         {% do
                                     modifyTopFileParserState (
-                                        \ st @ (FileParserState { sequenceStack = (c:cs) }) -> 
+                                        \ st @ (FileParserState { sequenceStack = (c:cs) }) ->
                                             st { sequenceStack = (c+1):cs })
                                     return $1
                                 }
@@ -477,7 +479,7 @@ ExpA :: { PExp }
     | Exp ">" Exp                   { AN2 (BooleanBinaryOp GreaterThan $1 $3) }
     | Exp "<=" Exp                  { AN2 (BooleanBinaryOp LessThanEq $1 $3) }
     | Exp ">=" Exp                  { AN2 (BooleanBinaryOp GreaterThanEq $1 $3) }
-    | "not" Exp                     { AN2 (BooleanUnaryOp Not $2) } 
+    | "not" Exp                     { AN2 (BooleanUnaryOp Not $2) }
     | Exp "or" Exp                  { AN2 (BooleanBinaryOp Or $1 $3) }
     | Exp "and" Exp                 { AN2 (BooleanBinaryOp And $1 $3) }
 
@@ -701,7 +703,7 @@ attachTypeAnnotations ds =
             ) unusedNames
 
         typeAnMap = M.fromList extractedAnnotations
-            
+
         annotationForName n =
             M.findWithDefault (panic "attachedTypeAnnotations: invalid state")
                 n typeAnMap
@@ -736,19 +738,19 @@ attachTypeAnnotations ds =
 convDecl :: PExp -> PExp -> ParseMonad PDecl
 convDecl lhs rhs | srcSpanFile (loc lhs) /= srcSpanFile (loc rhs) =
     throwSourceError [definitionSpanFileError lhs rhs (loc lhs)]
-convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) = 
+convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) =
     let
         span = combineSpans loc1 loc2
 
         -- REMEMBER: needs to reverse pts
         getPats :: Exp UnRenamedName -> ([[PPat]], UnRenamedName)
-        getPats (App f args) = 
+        getPats (App f args) =
                 ((map convPat args):ps, n)
             where
                 (ps, n) = getPats (unAnnotate f)
         getPats (Var n) = ([], n)
-        
-        convFunBind exp = 
+
+        convFunBind exp =
                 FunBind n [An span (dummyAnnotation) (Match (reverse ps) rhs)]
                     Nothing
             where
@@ -761,7 +763,7 @@ convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) =
             App f args  -> return $ An span (symbolTableThunk, symbTable) (convFunBind lhsexp)
             _           -> return $ An span (symbolTableThunk, symbTable) (convPatBind lhs)
 
--- | Throws an error if a declaration that is not allowed inside a let 
+-- | Throws an error if a declaration that is not allowed inside a let
 -- expression is found.
 checkLetDecls :: [PDecl] -> [PDecl]
 checkLetDecls decls =
@@ -783,7 +785,7 @@ checkLetDecls decls =
                 -- check (ModuleInstance _ _ _ _ _) = True
                 check _ = throwSourceError [invalidLetDeclarationErrorMessage anDecl]
             in check decl
-    
+
 checkModuleDecl :: PDecl -> PDecl
 checkModuleDecl (anDecl@(An _ _ (Assert _))) =
     throwSourceError [invalidModuleDeclarationErrorMessage anDecl]
@@ -871,7 +873,7 @@ transformHideProject exp =
 
 checkExp :: PExp -> PExp
 checkExp anExp =
-    let 
+    let
         check :: Exp UnRenamedName -> Exp UnRenamedName
         check (App e es) = App (checkExp e) (map checkExp es)
         check (BooleanBinaryOp op e1 e2) = BooleanBinaryOp op (checkExp e1) (checkExp e2)
@@ -908,7 +910,7 @@ checkExp anExp =
         check (Tuple es) = Tuple (map checkExp es)
         check (Var qname) = Var qname
 
-        check (AlphaParallel e1 e2 e3 e4) = 
+        check (AlphaParallel e1 e2 e3 e4) =
             AlphaParallel (checkExp e1) (checkExp e2) (checkExp e3) (checkExp e4)
         check (Exception e1 e2 e3) = Exception (checkExp e1) (checkExp e2) (checkExp e3)
         check (ExternalChoice e1 e2) = ExternalChoice (checkExp e1) (checkExp e2)
@@ -918,7 +920,7 @@ checkExp anExp =
         check (InternalChoice e1 e2) = InternalChoice (checkExp e1) (checkExp e2)
         check (Interrupt e1 e2) = Interrupt (checkExp e1) (checkExp e2)
         check (Interleave e1 e2) = Interleave (checkExp e1) (checkExp e2)
-        check (LinkParallel e1 ties stmts e2) = 
+        check (LinkParallel e1 ties stmts e2) =
             LinkParallel (checkExp e1) ties stmts (checkExp e2)
         check (Prefix e1 fields e2) = Prefix (checkExp e1) fields (checkExp e2)
         check (Project e1 e2) = Project (checkExp e1) (checkExp e2)
@@ -930,21 +932,21 @@ checkExp anExp =
         check (SynchronisingInterrupt e1 e2 e3) =
             SynchronisingInterrupt (checkExp e1) (checkExp e2) (checkExp e3)
 
-        check (ReplicatedAlphaParallel stmts e1 e2) = 
+        check (ReplicatedAlphaParallel stmts e1 e2) =
             ReplicatedAlphaParallel stmts (checkExp e1) (checkExp e2)
         check (ReplicatedInterleave stmts e1) = ReplicatedInterleave stmts (checkExp e1)
         check (ReplicatedExternalChoice stmts e1) = ReplicatedExternalChoice stmts (checkExp e1)
         check (ReplicatedInternalChoice stmts e1) = ReplicatedInternalChoice stmts (checkExp e1)
-        check (ReplicatedParallel e1 stmts e2) = 
+        check (ReplicatedParallel e1 stmts e2) =
             ReplicatedParallel (checkExp e1) stmts (checkExp e2)
-        check (ReplicatedLinkParallel ties tiesStmts stmts e) = 
+        check (ReplicatedLinkParallel ties tiesStmts stmts e) =
             ReplicatedLinkParallel ties tiesStmts stmts (checkExp e)
-        check (ReplicatedSequentialComp stmts e1) = 
+        check (ReplicatedSequentialComp stmts e1) =
             ReplicatedSequentialComp stmts (checkExp e1)
         check (ReplicatedSynchronisingExternalChoice e1 stmts e3) =
             ReplicatedSynchronisingExternalChoice (checkExp e1) stmts
                 (checkExp e3)
-        
+
         check x = throwSourceError [invalidExpressionErrorMessage anExp]
     in
         case transformHideProject anExp of
@@ -956,8 +958,8 @@ getFuncArgs (An _ _ (STTuple ts)) = ts
 getFuncArgs s = throwSourceError [invalidFunctionArgsErrorMessage s]
 
 dotAppToList :: PExp -> [PExp]
-dotAppToList (An a b exp) = 
-    let 
+dotAppToList (An a b exp) =
+    let
         list :: Exp UnRenamedName -> [PExp]
         list (DotApp e1 e2) = (dotAppToList e1) ++ (dotAppToList e2)
         list x = [An a b x]
@@ -965,7 +967,7 @@ dotAppToList (An a b exp) =
         list exp
 
 convPat :: PExp -> PPat
-convPat (anExp@ (An a b exp)) = 
+convPat (anExp@ (An a b exp)) =
     let
         trans :: Exp UnRenamedName -> Pat UnRenamedName
         trans (Concat e1 e2) = PConcat (convPat e1) (convPat e2)
@@ -981,7 +983,7 @@ convPat (anExp@ (An a b exp)) =
         trans (Tuple xs) = PTuple (map convPat xs)
         trans (Var x) = PVar x
         trans (ExpPatWildCard) = PWildCard
-        trans (ExpPatDoublePattern e1 e2) = 
+        trans (ExpPatDoublePattern e1 e2) =
             PDoublePattern (convPat e1) (convPat e2)
         trans x = throwSourceError [invalidPatternErrorMessage anExp]
     in
@@ -1053,21 +1055,21 @@ instance Locatable (Annotated a) where
 annotate :: (Locatable t1, Locatable t2) => t1 a -> b -> t2 b
 annotate t1 b = mkLoc (getLoc t1) b
 
-annotate2 :: 
+annotate2 ::
     (Locatable t1, Locatable t2, Locatable t3) => t1 a -> t2 b -> c -> t3 c
 annotate2 t1 t2 b = mkLoc (combineSpans (getLoc t1) (getLoc t2)) b
-annotate2List :: 
+annotate2List ::
     (Locatable t1, Locatable t2, Locatable t3) => t1 a -> [t2 b] -> c -> t3 c
 annotate2List t1 [] b = mkLoc (getLoc t1) b
 annotate2List t1 t2 b = annotate2 t1 (last t2) b
-annotate2Lista :: 
+annotate2Lista ::
     (Locatable t1, Locatable t2, Locatable t3) => [t1 a] -> t2 b -> c -> t3 c
 annotate2Lista t1 t2 b = annotate2 (last t1) t2 b
 
 symbolTableThunk = panic "Symbol table not typechecked yet"
 typeThunk = panic "Type not typechecked yet"
 
-annotateWithSymbolTable 
+annotateWithSymbolTable
     :: Annotated (SymbolTable, PSymbolTable) a -> ParseMonad (Annotated (SymbolTable, PSymbolTable) a)
 annotateWithSymbolTable (An l _ a) = do
     symbTable <- freshPSymbolTable

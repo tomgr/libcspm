@@ -1,3 +1,4 @@
+assert STOP :[sublock free] :[static]
 assert STOP :[deadlock free] :[static]
 assert STOP :[deadlock free] :[tau priority over]: {} :[static]
 assert STOP :[deadlock free] :[static] :[tau priority over]: {}

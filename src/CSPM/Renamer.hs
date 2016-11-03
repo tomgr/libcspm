@@ -269,7 +269,7 @@ addErrors msgs = do
 
 addModuleContext :: OccName -> RenamerMonad a -> RenamerMonad a
 addModuleContext mName prog = do
-    modify (\ st -> st { currentModuleQualificationStack = 
+    modify (\ st -> st { currentModuleQualificationStack =
         mName : currentModuleQualificationStack st })
     a <- prog
     modify (\st -> st { currentModuleQualificationStack =
@@ -828,7 +828,7 @@ renamePattern nm ap =
         renamePat ap = reAnnotate ap $ case unAnnotate ap of
             PConcat p1 p2 -> return PConcat $$ renamePat p1 $$ renamePat p2
             PDotApp p1 p2 -> return PDotApp $$ renamePat p1 $$ renamePat p2
-            PDoublePattern p1 p2 -> 
+            PDoublePattern p1 p2 ->
                 return PDoublePattern $$ renamePat p1 $$ renamePat p2
             PList ps -> return PList $$ mapM renamePat ps
             PLit l -> return $ PLit l
@@ -901,7 +901,7 @@ checkDuplicates' aps = do
         gfvs = group fvs
         duped = filter (\l -> length l > 1) gfvs
         nameLocMap =
-            concatMap (\(ns, FreeVarElement d) -> [(n, loc d) | n <- ns]) 
+            concatMap (\(ns, FreeVarElement d) -> [(n, loc d) | n <- ns])
                 (zip fvss aps)
 
     loc <- gets srcSpan
@@ -911,7 +911,7 @@ checkDuplicates' aps = do
     else return ()
 
 -- | Rename a variable on the right hand side of a definition.
--- 
+--
 -- If the variable does not exist it returns an error thunk and adds an error
 -- that will be raised when the monad is evaluated.
 renameVarRHS :: UnRenamedName -> RenamerMonad Name
@@ -962,7 +962,7 @@ renameFields fs inner = do
         -- the nondet fields bind first.
 
         -- Firstly, we do the nondet fields.
-        fsNonDet <- mapM (\afd -> 
+        fsNonDet <- mapM (\afd ->
                 case unAnnotate afd of
                     Output e -> return Nothing
                     Input p me -> return Nothing
@@ -982,8 +982,8 @@ renameFields fs inner = do
                         p' <- renamePattern internalNameMaker p
                         return $ Just $ reAnnotatePure afd $ Input p' me'
                     NonDetInput p me -> return Nothing) fs
-        
-        let 
+
+        let
             combineJusts :: [Maybe a] -> [Maybe a] -> [a]
             combineJusts [] [] = []
             combineJusts (Just x:xs) (Nothing:ys) = x:combineJusts xs ys
@@ -1002,7 +1002,7 @@ renameStatements stmts inner = do
     -- No duplicates, so we can just add one scope
     addScope (do
         -- We do the stmts left to right, to ensure that the scoping is correct
-        stmts' <- mapM (\ astmt -> reAnnotate astmt $ 
+        stmts' <- mapM (\ astmt -> reAnnotate astmt $
                 case unAnnotate astmt of
                     Generator p e -> do
                         -- Rename e first, as it can't depend on p
@@ -1039,14 +1039,15 @@ instance Renamable (CSPMFile UnRenamedName) (CSPMFile Name) where
 instance Renamable (Assertion UnRenamedName) (Assertion Name) where
     rename (ASNot e) =
         return ASNot $$ rename e
-    rename (Refinement e1 m e2 mopts) = 
+    rename (Refinement e1 m e2 mopts) =
         return Refinement $$ rename e1 $$ return m $$ rename e2 $$ rename mopts
     rename (PropertyCheck e1 p m mopts) =
         return PropertyCheck $$ rename e1 $$ rename p $$ return m $$ rename mopts
-        
+
 instance Renamable (SemanticProperty UnRenamedName) (SemanticProperty Name) where
     rename (HasTrace e) = return HasTrace $$ rename e
     rename DeadlockFreedom = return DeadlockFreedom
+    rename SublockFreedom = return SublockFreedom
     rename LivelockFreedom = return LivelockFreedom
     rename Deterministic = return Deterministic
 
@@ -1057,7 +1058,7 @@ instance Renamable (ModelOption UnRenamedName) (ModelOption Name) where
 
 instance Renamable (Exp UnRenamedName) (Exp Name) where
     rename (App e es) = return App $$ rename e $$ rename es
-    rename (BooleanBinaryOp op e1 e2) = return 
+    rename (BooleanBinaryOp op e1 e2) = return
         (BooleanBinaryOp op) $$ rename e1 $$ rename e2
     rename (BooleanUnaryOp op e) = return
         (BooleanUnaryOp op) $$ rename e
@@ -1091,7 +1092,7 @@ instance Renamable (Exp UnRenamedName) (Exp Name) where
         return $ ListEnumFromToComp e1' e2' stmts'
     rename (ListLength e) = return ListLength $$ rename e
     rename (Map kvs) = return Map $$ rename kvs
-    rename (MathsBinaryOp op e1 e2) = return 
+    rename (MathsBinaryOp op e1 e2) = return
         (MathsBinaryOp op) $$ rename e1 $$ rename e2
     rename (MathsUnaryOp op e) = return (MathsUnaryOp op) $$ rename e
     rename (Paren e) = return Paren $$ rename e
@@ -1197,7 +1198,7 @@ instance Renamable (STypeScheme UnRenamedName) (STypeScheme Name) where
         mapM_ ( \ (An loc _ (c@(STypeConstraint _ n))) -> do
                 n' <- renameTypeVar n
                 case n' of
-                    Just (STVar n') | not (n' `elem` ns) -> 
+                    Just (STVar n') | not (n' `elem` ns) ->
                         let msg = invalidTypeConstraintLocation c n'
                         in addErrors [mkErrorMessage loc msg]
                     _ -> return ()
@@ -1207,7 +1208,7 @@ instance Renamable (STypeScheme UnRenamedName) (STypeScheme Name) where
 instance Renamable (STypeConstraint UnRenamedName) (STypeConstraint Name) where
     rename (STypeConstraint c n) =
         return STypeConstraint $$ return c $$ do
-            n' <- renameTypeVar n 
+            n' <- renameTypeVar n
             case n' of
                 Nothing -> return renameTypeVarThunk
                 Just (STVar n) -> return n
@@ -1285,7 +1286,7 @@ class FreeVars a where
 
 instance FreeVars a => FreeVars [a] where
     freeVars xs = concatMapM freeVars xs
-    
+
 instance FreeVars a => FreeVars (Annotated b a) where
     freeVars (An _ _ inner) = freeVars inner
 
@@ -1382,20 +1383,20 @@ duplicatedDefinitionsMessage ns = duplicatedDefinitionsMessage' $
     in [(n, locationsOf n) | n <- dupNames]
 
 duplicatedDefinitionsMessage' :: [(UnRenamedName, [SrcSpan])] -> [Error]
-duplicatedDefinitionsMessage' nlocs = 
+duplicatedDefinitionsMessage' nlocs =
     map (\ (n, spans) ->
-        hang (text "The variable" <+> prettyPrint n 
+        hang (text "The variable" <+> prettyPrint n
                 <+> text "has multiple definitions at" <> colon) tabWidth
             (vcat (map prettyPrint (sort spans)))) nlocs
 
 transparentFunctionNotRecognised :: UnRenamedName -> Error
 transparentFunctionNotRecognised n =
-    text "The transparent function" <+> prettyPrint n <+> 
+    text "The transparent function" <+> prettyPrint n <+>
     text "is not recognised."
 
 externalFunctionNotRecognised :: UnRenamedName -> Error
-externalFunctionNotRecognised n = 
-    text "The external function" <+> prettyPrint n <+> 
+externalFunctionNotRecognised n =
+    text "The external function" <+> prettyPrint n <+>
     text "is not recognised."
 
 varNotInScopeMessage :: UnRenamedName -> Bool -> RenamerMonad Error
@@ -1456,7 +1457,7 @@ varNotInScopeMessage n isModule = do
                                 ))) builtinSuggestions
                         ))
             _ -> hang (text "Did you mean:") tabWidth (vcat (
-                    (map (\ (rn, n) -> 
+                    (map (\ (rn, n) ->
                         prettyPrint rn <+>
                         case nameDefinition n of
                             Unknown -> empty
@@ -1492,14 +1493,14 @@ typeVarNotInScopeMessage n = do
     let availablePp = [(show $ prettyPrint rn, (rn, n)) |
                         (rn, RenamedType n Public) <- HM.flatten env]
         suggestions = fuzzyLookup (show $ prettyPrint n) availablePp
-    return $ 
+    return $
         (text "The type-variable" <+> prettyPrint n <+> text "is not in scope")
         P.$$ case suggestions of
             [] -> empty
             _ -> hang (text "Did you mean:") tabWidth (vcat (
-                    (map (\ (rn, t) -> 
+                    (map (\ (rn, t) ->
                         prettyPrint rn <+>
-                        case t of 
+                        case t of
                             STVar n | nameDefinition n /= Unknown ->
                                 parens (text "defined at" <+> prettyPrint
                                     (nameDefinition n))
@@ -1517,7 +1518,7 @@ invalidFieldsErrorMessage fs =
     text "is not a valid field sequence as a $ occurs after a ? or a !."
 
 invalidExtendableTypeVariable :: PrettyPrintable id => SType id -> Error
-invalidExtendableTypeVariable t = 
+invalidExtendableTypeVariable t =
     text "The type" <+> prettyPrint t
     P.$$ text "is not valid as the left hand side of =>*, which must be a type-variable."
 
