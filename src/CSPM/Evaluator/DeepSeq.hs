@@ -47,7 +47,7 @@ instance NFData Proc where
 
 instance NFData CSPOperator where
     rnf (PAlphaParallel evs) = rnf evs
-    rnf (PBuffer mode bound evs) = rnf mode `seq` rnf bound `seq` rnf evs
+    rnf (PBuffer bm bound evs) = rnf bm `seq` rnf bound `seq` rnf evs
     rnf (PChaos evs) = rnf evs
     rnf (PException evs) = rnf evs
     rnf PExternalChoice = ()
@@ -82,9 +82,10 @@ instance NFData ProcOperator where
     rnf (TraceWatchdog evs ev) = rnf evs `seq` rnf ev
     rnf WeakBisim = ()
 
-instance NFData BufferFullMode where
-    rnf WhenFullRefuseInputs = ()
-    rnf (WhenFullExplode ev) = rnf ev
+instance NFData BufferMode where
+    rnf BufferStandard = ()
+    rnf (BufferSignalWhenFull ev) = rnf ev
+    rnf (BufferAlwaysSignal ev1 ev2) = rnf ev1 `seq` rnf ev2
 
 instance NFData ProcName where
     rnf (ProcName s) = rnf s

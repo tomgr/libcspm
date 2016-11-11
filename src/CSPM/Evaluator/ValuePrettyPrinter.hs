@@ -378,9 +378,10 @@ instance (Applicative m, Monad m,
                             if length as > spaceThreashold `div` 2 then M.ellipsis
                             else M.parens (M.list (mapM ppSmallValue as))) args)
 
-bufferFunction :: Monad m => BufferFullMode -> m Doc
-bufferFunction WhenFullRefuseInputs = M.text "BUFFER"
-bufferFunction (WhenFullExplode _) = M.text "WEAK_BUFFER"
+bufferFunction :: Monad m => BufferMode -> m Doc
+bufferFunction BufferStandard = M.text "BUFFER"
+bufferFunction (BufferSignalWhenFull {}) = M.text "WEAK_BUFFER"
+bufferFunction (BufferAlwaysSignal {}) = M.text "SIGNAL_BUFFER"
 
 instance (Applicative m, Monad m,
         M.MonadicPrettyPrintable m EventSet,
@@ -416,8 +417,11 @@ instance (Applicative m, Monad m,
     prettyPrint (PBuffer bm capacity em) =
         M.text "Buffer with capacity" M.<+> M.int capacity
             M.<+> case bm of
-                WhenFullExplode ev -> M.text "and when full the buffer performs" M.<+> M.prettyPrint ev
-                WhenFullRefuseInputs -> M.text "and when full the buffer refuses new inputs"
+                BufferStandard -> M.text "and when full the buffer refuses new inputs"
+                BufferSignalWhenFull ev -> M.text "and when full the buffer performs" M.<+> M.prettyPrint ev
+                BufferAlwaysSignal { emptySignal = em, fullSignal = fm } ->
+                  M.text "and when full the buffer performs" M.<+> M.prettyPrint fm
+                  M.<+> M.text "and when empty the buffer performs " M.<+> M.prettyPrint em
         M.$$ M.text "and event pairs:"
         M.$$ (M.tabIndent $ M.vcat $
             mapM (\(ev1, ev2) -> M.parens (M.prettyPrint ev1 M.<> M.comma M.<+> M.prettyPrint ev2))
@@ -536,15 +540,21 @@ instance
                     zipWithM (\ a p -> M.parens $ M.sep $ sequence [
                             M.prettyPrint a, M.comma M.<+> M.prettyPrint p]
                     ) (F.toList as) (F.toList ps))) M.<+> M.text "@ [a] p"
-    prettyPrint (POp (PBuffer mode@WhenFullRefuseInputs capacity em) _) =
+    prettyPrint (POp (PBuffer mode@BufferStandard capacity em) _) =
         bufferFunction mode M.<> M.parens (M.int capacity M.<> M.comma 
             M.<+> M.braces (M.list (
                 mapM (\ (evOld, evNew) -> M.parens (M.prettyPrint evOld M.<> M.comma M.<+> M.prettyPrint evNew))
                     (F.toList em)
             )))
-    prettyPrint (POp (PBuffer mode@(WhenFullExplode ev) capacity em) _) =
+    prettyPrint (POp (PBuffer mode@(BufferSignalWhenFull ev) capacity em) _) =
         bufferFunction mode M.<> M.parens (M.int capacity M.<> M.comma M.<+> M.prettyPrint ev M.<> M.comma
             M.<+> M.braces (M.list (
+                mapM (\ (evOld, evNew) -> M.parens (M.prettyPrint evOld M.<> M.comma M.<+> M.prettyPrint evNew))
+                    (F.toList em)
+            )))
+    prettyPrint (POp (PBuffer mode@(BufferAlwaysSignal { emptySignal = emS, fullSignal = fm}) capacity em) _) =
+        bufferFunction mode M.<> M.parens (M.int capacity M.<> M.comma M.<+> M.prettyPrint fm M.<+> M.prettyPrint emS
+            M.<> M.comma M.<+> M.braces (M.list (
                 mapM (\ (evOld, evNew) -> M.parens (M.prettyPrint evOld M.<> M.comma M.<+> M.prettyPrint evNew))
                     (F.toList em)
             )))
@@ -621,11 +631,14 @@ instance
             M.prettyPrintBriefPrec (precedence op) p M.<+> M.text "[…||…] SKIP"
         else M.sep (M.punctuateFront (M.text "[…||…] ")
                 (mapM (M.prettyPrintBriefPrec (precedence op)) (F.toList ps)))
-    prettyPrintBrief (POp (PBuffer m@WhenFullRefuseInputs capacity em) _) =
+    prettyPrintBrief (POp (PBuffer m@BufferStandard capacity em) _) =
         bufferFunction m M.<> M.parens (M.int capacity M.<> M.comma M.<+> M.ellipsis)
-    prettyPrintBrief (POp (PBuffer m@(WhenFullExplode ev) capacity em) _) =
+    prettyPrintBrief (POp (PBuffer m@(BufferSignalWhenFull ev) capacity em) _) =
          bufferFunction m M.<> M.parens (M.int capacity M.<> M.comma M.<+> M.prettyPrintBrief ev
                                             M.<> M.comma M.<+> M.ellipsis)
+    prettyPrintBrief (POp (PBuffer m@(BufferAlwaysSignal { emptySignal = ev, fullSignal = fv }) capacity em) _) =
+         bufferFunction m M.<> M.parens (M.int capacity M.<> M.comma M.<+> M.prettyPrintBrief fv
+                                            M.<+> M.prettyPrintBrief ev M.<> M.comma M.<+> M.ellipsis)
     prettyPrintBrief (op@(POp (PChaos _) _)) =
         M.text "CHAOS" M.<> M.parens (M.ellipsis)
     prettyPrintBrief (op@(PBinaryOp (PException a) p1 p2)) =

@@ -156,7 +156,7 @@ builtInFunctions = do
                 -- (for instance) a CompositeSet of CartProduct sets.
                 n = builtinProcName csp_refusing_buffer_frame [[VInt bound, VSet pairs]]
                 events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
-                p = POp (PBuffer WhenFullRefuseInputs bound events) []
+                p = POp (PBuffer BufferStandard bound events) []
         csp_exploding_buffer_frame = frameForBuiltin "WEAK_BUFFER"
         csp_exploding_buffer loc [VInt bound, explode, VSet pairs] =
                 checkBufferBound loc bound $
@@ -169,7 +169,23 @@ builtInFunctions = do
                 -- (for instance) a CompositeSet of CartProduct sets.
                 n = builtinProcName csp_exploding_buffer_frame [[VInt bound, explode, VSet pairs]]
                 events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
-                p = POp (PBuffer (WhenFullExplode (UserEvent explode)) bound events) []
+                p = POp (PBuffer (BufferSignalWhenFull (UserEvent explode)) bound events) []
+                
+        csp_signal_buffer_frame = frameForBuiltin "SIGNAL_BUFFER"
+        csp_signal_buffer loc [VInt bound, explode, empty, VSet pairs] =
+                checkBufferBound loc bound $
+                checkForAmbiguousBufferEvents loc
+                    (explode : empty : concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs])
+                    (VProc bufferCall)
+            where
+                bufferCall = PProcCall n p
+                -- | We convert the set into an explicit set as this makes
+                -- comparisons faster than leaving it as a set represented as
+                -- (for instance) a CompositeSet of CartProduct sets.
+                n = builtinProcName csp_exploding_buffer_frame [[VInt bound, explode, empty, VSet pairs]]
+                events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
+                bm = BufferAlwaysSignal { fullSignal = UserEvent explode, emptySignal = UserEvent empty }
+                p = POp (PBuffer bm bound events) []
 
         cspm_extensions [v] = do
             exs <- extensions v
@@ -269,7 +285,8 @@ builtInFunctions = do
             ("prioritise_nocache", csp_prioritise False),
             ("prioritisepo", csp_prioritise_partialorder),
             ("mapLookup", cspm_mapLookup),
-            ("WEAK_BUFFER", csp_exploding_buffer), ("BUFFER", csp_refusing_buffer)
+            ("WEAK_BUFFER", csp_exploding_buffer), ("BUFFER", csp_refusing_buffer),
+            ("SIGNAL_BUFFER", csp_signal_buffer)
             ]
 
         procs = [
