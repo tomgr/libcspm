@@ -32,7 +32,7 @@ $notid = [[^0-9a-zA-Z_]\(\[$whitechar]
 @spaces = $white_no_nl*
 @white_no_nl = ((\-\-.*)|$white_no_nl)+
 @nl = ((\-\-.*\n)|$whitechar)*
-@comment = (\-\-.*) 
+@comment = (\-\-.*)
 @nltok = (@comment|())\n@nl
 @notnot = [^n]|(n[^o])|(no[^t])
 
@@ -45,11 +45,13 @@ $notid = [[^0-9a-zA-Z_]\(\[$whitechar]
 tokens :-
     <0>@nl:\[                   { begin sem_prop }
     <sem_prop>@spaces"tau priority"    { tok TTauPriority }
+    <sem_prop>@spaces"tags"    { tok TTags }
     <sem_prop>@spaces"tau priority over" { tok TTauPriority }
     <sem_prop>@spaces"deadlock free"   { tok TDeadlockFree }
     <sem_prop>@spaces"deadlock-free"   { tok TDeadlockFree }
     <sem_prop>@spaces"sublock free"    { tok TSublockFree }
     <sem_prop>@spaces"sublock-free"    { tok TSublockFree }
+    <sem_prop>@spaces"mutual exclusion" { tok TMutualExclusion }
     <sem_prop>@spaces"livelock free"   { tok TLivelockFree }
     <sem_prop>@spaces"livelock-free"   { tok TLivelockFree }
     <sem_prop>@spaces"divergence free" { tok TDivergenceFree }
@@ -222,17 +224,17 @@ lstrip = B.dropWhile (`elem` wschars)
 rstrip :: B.ByteString -> B.ByteString
 rstrip = B.reverse . lstrip . B.reverse
 
-openseq token inp len = 
+openseq token inp len =
     do
         cs <- getSequenceStack
         setSequenceStack (0:cs)
         tok token inp len
-closeseq token inp len = 
+closeseq token inp len =
     do
         (c:cs) <- getSequenceStack
         case cs of
             c1:cs -> setSequenceStack (c+c1:cs)
-            [] -> 
+            [] ->
                 -- Must be because of a syntax error (too many closing brakcets)
                 -- We let the parser catch this and we try and do something
                 -- sensible.
@@ -322,7 +324,7 @@ tok :: Token -> AlexInput -> Int -> ParseMonad LToken
 tok t (ParserState { fileStack = fps:_ }) len =
         return $ L (SrcSpanOneLine f lineno colno (colno+len)) t
     where
-        (FileParserState { tokenizerPos = FilePosition _ lineno colno, 
+        (FileParserState { tokenizerPos = FilePosition _ lineno colno,
                             fileName = f }) = fps
 tok _ _ _ = panic "tok: invalid state"
 
@@ -344,7 +346,7 @@ takeChars len (FileParserState { input = input }:stk) =
 nestedComment :: AlexInput -> Int -> ParseMonad LToken
 nestedComment _ _ = do
     st <- getParserState
-    let 
+    let
         startLoc = currentFilePosition st
         getChar st =
             alexGetByteWithErrorMessage (commentNotClosedErrorMessage startLoc) st
@@ -368,8 +370,8 @@ nestedComment _ _ = do
 
 switchInput :: AlexInput -> Int -> ParseMonad LToken
 switchInput st len = do
-    FileParserState { 
-        fileName = fname, 
+    FileParserState {
+        fileName = fname,
         tokenizerPos = pos } <- getTopFileParserState
     let
         str :: String
@@ -380,14 +382,14 @@ switchInput st len = do
         rstrip = reverse . lstrip . reverse
 
         quotedFname = strip (drop (length ("include" :: [Char])) str)
-        
+
         hasStartQuote ('\"':_) = True
         hasStartQuote _ = False
 
         hasEndQuote [] = False
         hasEndQuote ('\"':_) = True
         hasEndQuote (_:cs) = hasEndQuote cs
-        
+
         file = calcFile (tail quotedFname)
         calcFile ('\"':_) = ""
         calcFile (c:cs) = c:calcFile cs
@@ -416,7 +418,7 @@ alexGetByte :: AlexInput -> Maybe (Word8, AlexInput)
 alexGetByte (ParserState { fileStack = [] }) = Nothing
 alexGetByte (st @ (ParserState { fileStack = fps:fpss })) = gc fps
     where
-        gc (FileParserState { input = input }) | B.null input = 
+        gc (FileParserState { input = input }) | B.null input =
             alexGetByte (st { fileStack = fpss })
         gc (fps @ (FileParserState { tokenizerPos = p, input = input })) =
                 c `seq` p' `seq` fps' `seq` st' `seq` Just (c, st')
@@ -440,7 +442,7 @@ alexGetByteWithErrorMessage msg st =
 
 getNextToken :: ParseMonad LToken
 getNextToken = do
-    FileParserState { 
+    FileParserState {
         input = input,
         currentStartCode = sc } <- getTopFileParserState
     st <- getParserState
@@ -468,8 +470,8 @@ getNextTokenWrapper cont = getNextToken >>= cont
 
 currentFilePosition :: AlexInput -> SrcSpan
 currentFilePosition st =
-   let FileParserState { 
-            fileName = fname, 
+   let FileParserState {
+            fileName = fname,
             tokenizerPos = pos
             } = head (fileStack st)
     in filePositionToSrcLoc fname pos

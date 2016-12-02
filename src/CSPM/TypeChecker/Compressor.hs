@@ -49,7 +49,7 @@ instance (Compressable a, Compressable b) => Compressable (a, b) where
         return (v1', v2')
 instance Compressable (Exp a) where
     mcompress (App e es) = return App $$ mcompress e $$ mcompress es
-    mcompress (BooleanBinaryOp op e1 e2) = return 
+    mcompress (BooleanBinaryOp op e1 e2) = return
         (BooleanBinaryOp op) $$ mcompress e1 $$ mcompress e2
     mcompress (BooleanUnaryOp op e) = return
         (BooleanUnaryOp op) $$ mcompress e
@@ -60,7 +60,7 @@ instance Compressable (Exp a) where
     mcompress (Let ds e) = return Let $$ mcompress ds $$ mcompress e
     mcompress (Lit l) = return Lit $$ mcompress l
     mcompress (List es) = return List $$ mcompress es
-    mcompress (ListComp es stmts) = return ListComp $$ mcompress es $$ mcompress stmts  
+    mcompress (ListComp es stmts) = return ListComp $$ mcompress es $$ mcompress stmts
     mcompress (ListEnumFrom e) = return ListEnumFrom $$ mcompress e
     mcompress (ListEnumFromTo e1 e2) = return ListEnumFromTo $$ mcompress e1 $$ mcompress e2
     mcompress (ListEnumFromComp e stmts) =
@@ -69,7 +69,7 @@ instance Compressable (Exp a) where
         return ListEnumFromToComp $$ mcompress e1 $$ mcompress e2 $$ mcompress stmts
     mcompress (ListLength e) = return ListLength $$ mcompress e
     mcompress (Map kvs) = return Map $$ mcompress kvs
-    mcompress (MathsBinaryOp op e1 e2) = return 
+    mcompress (MathsBinaryOp op e1 e2) = return
         (MathsBinaryOp op) $$ mcompress e1 $$ mcompress e2
     mcompress (MathsUnaryOp op e) = return (MathsUnaryOp op) $$ mcompress e
     -- TODO: do we want to do this?
@@ -99,7 +99,7 @@ instance Compressable (Exp a) where
     mcompress (InternalChoice e1 e2) = return InternalChoice $$ mcompress e1 $$ mcompress e2
     mcompress (Interrupt e1 e2) = return Interrupt $$ mcompress e1 $$ mcompress e2
     mcompress (Interleave e1 e2) = return Interleave $$ mcompress e1 $$ mcompress e2
-    mcompress (LinkParallel e1 ties stmts e2) = return 
+    mcompress (LinkParallel e1 ties stmts e2) = return
         LinkParallel $$ mcompress e1 $$ mcompress ties $$ mcompress stmts $$ mcompress e2
     mcompress (Prefix e1 fs e2) = return Prefix $$ mcompress e1 $$ mcompress fs $$ mcompress e2
     mcompress (Project e1 e2) = return Project $$ mcompress e1 $$ mcompress e2
@@ -113,7 +113,7 @@ instance Compressable (Exp a) where
     mcompress (SynchronisingInterrupt e1 e2 e3) =
         return SynchronisingInterrupt $$ mcompress e1 $$ mcompress e2
             $$ mcompress e3
-    
+
     mcompress (ReplicatedAlphaParallel stmts e1 e2) =
         return ReplicatedAlphaParallel $$ mcompress stmts $$ mcompress e1 $$ mcompress e2
     mcompress (ReplicatedInterleave stmts e) =
@@ -125,14 +125,14 @@ instance Compressable (Exp a) where
     mcompress (ReplicatedParallel stmts e1 e2) =
         return ReplicatedParallel $$ mcompress stmts $$ mcompress e1 $$ mcompress e2
     mcompress (ReplicatedLinkParallel ties tiesStmts stmts e) =
-        return ReplicatedLinkParallel $$ mcompress ties $$ mcompress tiesStmts 
+        return ReplicatedLinkParallel $$ mcompress ties $$ mcompress tiesStmts
                                         $$ mcompress stmts $$ mcompress e
     mcompress (ReplicatedSequentialComp stmts e1) =
         return ReplicatedSequentialComp $$ mcompress stmts $$ mcompress e1
     mcompress (ReplicatedSynchronisingExternalChoice e1 stmts e3) =
         return ReplicatedSynchronisingExternalChoice $$ mcompress e1
             $$ mcompress stmts $$ mcompress e3
-    
+
 instance Compressable (CSPMFile a) where
     mcompress (CSPMFile ds) = return CSPMFile $$ mcompress ds
 
@@ -158,14 +158,15 @@ instance Compressable (Decl a) where
     mcompress (PrintStatement s) = return $ PrintStatement s
 
 instance Compressable (Assertion a) where
-    mcompress (Refinement e1 m e2 opts) = return 
+    mcompress (Refinement e1 m e2 opts) = return
         Refinement $$ mcompress e1 $$ mcompress m $$ mcompress e2 $$ mcompress opts
-    mcompress (PropertyCheck e p m opts) = return 
+    mcompress (PropertyCheck e p m opts) = return
         PropertyCheck $$ mcompress e $$ mcompress p $$ mcompress m $$ mcompress opts
     mcompress (ASNot a) = return ASNot $$ mcompress a
 
 instance Compressable (ModelOption a) where
     mcompress (TauPriority e) = return TauPriority $$ mcompress e
+    mcompress (Tags e) = return Tags $$ mcompress e
     mcompress (PartialOrderReduce m) = return $ PartialOrderReduce m
     mcompress (AnalyseStatically m) = return $ AnalyseStatically m
 
@@ -189,7 +190,7 @@ instance Compressable (InteractiveStmt a) where
     mcompress (Bind d) = return Bind $$ mcompress d
     mcompress (Evaluate e) = return Evaluate $$ mcompress e
     mcompress (RunAssertion a) = return RunAssertion $$ mcompress a
-    
+
 instance Compressable (Pat a) where
     mcompress (PConcat p1 p2) = return PConcat $$ mcompress p1 $$ mcompress p2
     mcompress (PList ps) = return PList $$ mcompress ps

@@ -152,6 +152,8 @@ instance PrettyPrintable Model where
 instance PrettyPrintable id => PrettyPrintable (ModelOption id) where
     prettyPrint (TauPriority e) =
         text ":[tau priority over]:" <+> prettyPrint e
+    prettyPrint (Tags e) =
+        text ":[tags]:" <+> prettyPrint e
     prettyPrint (PartialOrderReduce Nothing) = text ":[partial order reduce]"
     prettyPrint (PartialOrderReduce (Just m)) =
         text ":[partial order reduce" <+> bytestring m <+> text "]"
@@ -162,6 +164,7 @@ instance PrettyPrintable id => PrettyPrintable (ModelOption id) where
 instance PrettyPrintable id => PrettyPrintable (SemanticProperty id) where
     prettyPrint DeadlockFreedom = text "deadlock free"
     prettyPrint SublockFreedom = text "sublock free"
+    prettyPrint MutualExclusion = text "mutual exclusion"
     prettyPrint Deterministic = text "deterministic"
     prettyPrint LivelockFreedom = text "divergence free"
     prettyPrint (HasTrace _) = text "has trace"

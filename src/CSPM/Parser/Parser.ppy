@@ -100,11 +100,13 @@ import Util.Exception (panic)
     "assert"            { L _ TAssert }
     "deadlock free"     { L _ TDeadlockFree }
     "sublock free"      { L _ TSublockFree }
+    "mutual exclusion"  { L _ TMutualExclusion }
     "livelock free"     { L _ TLivelockFree }
     "divergence free"   { L _ TDivergenceFree }
     "has trace"         { L _ THasTrace }
     "deterministic"     { L _ TDeterministic }
     "tau priority"      { L _ TTauPriority }
+    "tags"              { L _ TTags }
     "partial order reduce" { L _ TPartialOrderReduce }
     "static"            { L _ TAnalyseStatically }
     string_option_literal { L _ (TStringOption _) }
@@ -304,7 +306,8 @@ Assertion :: { PAssertion }
 SemanticProperty :: { Located (SemanticProperty UnRenamedName) }
     :
     "deadlock free"                             { LL DeadlockFreedom }
-    | "sublock free"                           { LL SublockFreedom }
+    | "sublock free"                            { LL SublockFreedom }
+    | "mutual exclusion"                        { LL MutualExclusion }
     | "livelock free"                           { LL LivelockFreedom }
     | "divergence free"                         { LL LivelockFreedom }
     | "deterministic"                           { LL Deterministic }
@@ -322,6 +325,7 @@ rModelOptionList :: { [PModelOption] }
 ModelOption :: { PModelOption }
     :
     "tau priority" CExp                         { AN2 (TauPriority $2) }
+    | "tags" CExp                             { AN2 (Tags $2) }
     | "partial order reduce" string_option_literal { AN (PartialOrderReduce (Just (getStringOption $2))) }
     | "partial order reduce"                    { AN (PartialOrderReduce Nothing) }
     | "static" string_option_literal            { AN (AnalyseStatically (Just (getStringOption $2))) }
@@ -999,6 +1003,10 @@ checkModelOptions options =
         cmp (TauPriority _) (TauPriority _) = EQ
         cmp (TauPriority _) _ = LT
         cmp _ (TauPriority _) = GT
+
+        cmp (Tags _) (Tags _) = EQ
+        cmp (Tags _) _ = LT
+        cmp _ (Tags _) = GT
 
         optionGroups = groupBy (\ x y -> cmp (unAnnotate x) (unAnnotate y) == EQ)
             (sortBy (\ x y -> cmp (unAnnotate x) (unAnnotate y)) options)

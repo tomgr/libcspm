@@ -283,6 +283,7 @@ instance Desugarable Model where
     desugar m = return m
 instance Desugarable (ModelOption Name) where
     desugar (TauPriority e) = return TauPriority $$ desugar e
+    desugar (Tags e) = return Tags $$ desugar e
     desugar (PartialOrderReduce m) = return $ PartialOrderReduce m
     desugar (AnalyseStatically m) = return $ AnalyseStatically m
 

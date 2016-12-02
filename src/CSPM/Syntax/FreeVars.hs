@@ -155,7 +155,7 @@ instance FreeVars (Exp Name) where
     freeVars' (SetEnum es) = freeVars' es
     freeVars' (Tuple es) = freeVars' es
     freeVars' (Var n) = [n]
-    
+
     -- Processes
     freeVars' (AlphaParallel e1 e2 e3 e4) = freeVars' [e1,e2,e3,e4]
     freeVars' (Exception e1 e2 e3) = freeVars' [e1,e2,e3]
@@ -191,13 +191,13 @@ instance FreeVars (Exp Name) where
     freeVars' (SynchronisingExternalChoice e1 e2 e3) = freeVars' [e1,e2,e3]
     freeVars' (SynchronisingInterrupt e1 e2 e3) = freeVars' [e1,e2,e3]
 
-    freeVars' (ReplicatedAlphaParallel stmts e1 e2) = 
+    freeVars' (ReplicatedAlphaParallel stmts e1 e2) =
         freeVarsStmts stmts [e1,e2]
-    freeVars' (ReplicatedInterleave stmts e1) = 
+    freeVars' (ReplicatedInterleave stmts e1) =
         freeVarsStmts stmts [e1]
-    freeVars' (ReplicatedExternalChoice stmts e1) = 
+    freeVars' (ReplicatedExternalChoice stmts e1) =
         freeVarsStmts stmts [e1]
-    freeVars' (ReplicatedInternalChoice stmts e1) = 
+    freeVars' (ReplicatedInternalChoice stmts e1) =
         freeVarsStmts stmts [e1]
     freeVars' (ReplicatedLinkParallel ties tiesStmts stmts e) =
         let
@@ -210,9 +210,9 @@ instance FreeVars (Exp Name) where
     freeVars' (ReplicatedParallel e1 stmts e2) =
         freeVars' e1 ++ freeVarsStmts stmts [e2]
     freeVars' (ReplicatedSequentialComp stmts e1) = freeVarsStmts stmts [e1]
-    freeVars' (ReplicatedSynchronisingExternalChoice e1 stmts e2) = 
+    freeVars' (ReplicatedSynchronisingExternalChoice e1 stmts e2) =
         freeVars' e1 ++ freeVarsStmts stmts [e2]
-    
+
     freeVars' x = panic ("TCFreeVars.hs: unrecognised exp "++show x)
 
 -- Recall that a later stmt can depend on values that appear in an ealier stmt
@@ -264,12 +264,13 @@ instance FreeVars (Assertion Name) where
 instance FreeVars (SemanticProperty Name) where
     freeVars' (HasTrace es) = freeVars' es
     freeVars' _ = []
-    
+
 instance FreeVars (ModelOption Name) where
     freeVars' (TauPriority e) = freeVars' e
+    freeVars' (Tags e) = freeVars' e
     freeVars' (PartialOrderReduce _) = []
     freeVars' (AnalyseStatically _) = []
-    
+
 instance FreeVars (Match Name) where
     freeVars' (Match ps e) =
         let

@@ -23,11 +23,13 @@ data Token =
     | TRefines Model
     | TModel Model
     | TTauPriority
+    | TTags
     | TPartialOrderReduce
     | TAnalyseStatically
     | TStringOption B.ByteString
     | TDeadlockFree
     | TSublockFree
+    | TMutualExclusion
     | TDivergenceFree
     | TLivelockFree
     | TDeterministic
@@ -153,11 +155,13 @@ instance PrettyPrintable Token where
     prettyPrint (TRefines m) = char '[' <> prettyPrint m <> char '='
     prettyPrint (TModel m) = char '[' <> prettyPrint m <> char ']'
     prettyPrint TTauPriority = text "tau priority"
+    prettyPrint TTags = text "tags"
     prettyPrint TPartialOrderReduce = text "partial order reduce"
     prettyPrint TAnalyseStatically = text "static"
     prettyPrint (TStringOption s) = char '[' <> bytestring s <> char ']'
     prettyPrint TDeadlockFree = text "deadlock free"
     prettyPrint TSublockFree = text "sublock free"
+    prettyPrint TMutualExclusion = text "mutual exclusion"
     prettyPrint TDivergenceFree = text "divergence free"
     prettyPrint TLivelockFree = text "livelock free"
     prettyPrint TDeterministic = text "deterministic"

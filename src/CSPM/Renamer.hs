@@ -1048,11 +1048,13 @@ instance Renamable (SemanticProperty UnRenamedName) (SemanticProperty Name) wher
     rename (HasTrace e) = return HasTrace $$ rename e
     rename DeadlockFreedom = return DeadlockFreedom
     rename SublockFreedom = return SublockFreedom
+    rename MutualExclusion = return MutualExclusion
     rename LivelockFreedom = return LivelockFreedom
     rename Deterministic = return Deterministic
 
 instance Renamable (ModelOption UnRenamedName) (ModelOption Name) where
     rename (TauPriority e) = return TauPriority $$ rename e
+    rename (Tags e) = return Tags $$ rename e
     rename (PartialOrderReduce m) = return $ PartialOrderReduce m
     rename (AnalyseStatically m) = return $ AnalyseStatically m
 

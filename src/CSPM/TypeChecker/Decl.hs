@@ -74,7 +74,7 @@ typeCheckDecls checkAmbiguity generaliseTypes decls = do
             case M.lookup did invDeclMap of
                 Just ds -> ds
                 Nothing -> panic $ "Could not find declarations in "++show did
-    
+
     let
         namesBoundByDecls = concatMap (\ (decl, declId) ->
             case decl of
@@ -111,7 +111,7 @@ typeCheckDecls checkAmbiguity generaliseTypes decls = do
         -- | The strongly connected components themselves, topologically sorted
         sccs :: [S.Set Int]
         sccs = topologicalSort sccgraph
-        
+
         -- | Get the declarations corresponding to certain ids
         typeInferenceGroup dids = map declarationsInGroup dids
 
@@ -119,15 +119,15 @@ typeCheckDecls checkAmbiguity generaliseTypes decls = do
         -- instance of the module.
         checkSCCForModuleCycles :: [TCDecl] -> TypeCheckMonad ()
         checkSCCForModuleCycles decls =
-            let 
+            let
                 instances = [i | An _ _ (i@(ModuleInstance _ _ _ _ _)) <- decls]
                 mods = [m | An _ _ (m@(Module _ _ _ _)) <- decls]
 
                 instancesOfMod n =
                     [i | i@(ModuleInstance _ nt _ _ _) <- instances, nt == n]
 
-                checkMod (Module nm _ ds1 ds2) = 
-                    mapM_ (\ (ModuleInstance ni _ _ instanceMap _) -> mapM_ (\ n -> 
+                checkMod (Module nm _ ds1 ds2) =
+                    mapM_ (\ (ModuleInstance ni _ _ instanceMap _) -> mapM_ (\ n ->
                         -- Check to see if there is a path from the module to
                         -- this var of this instance of the module.
                         when (hasPath declGraph (variableDeclaration nm)
@@ -155,8 +155,8 @@ typeCheckDecls checkAmbiguity generaliseTypes decls = do
                 ) (return True)
             if not err then typeCheckGroups gs b
             -- Else, continue type checking but remove all declaration groups
-            -- that are reachable from this group. Also, set the flag to be 
-            -- True to indicate that an error has occured so that failM is 
+            -- that are reachable from this group. Also, set the flag to be
+            -- True to indicate that an error has occured so that failM is
             -- called at the end.
             else typeCheckGroups (gs \\ (reachableVertices sccgraph g)) True
 
@@ -182,13 +182,13 @@ typeCheckDecls checkAmbiguity generaliseTypes decls = do
     -- Add the type of each declaration (if one exists to each declaration)
     mapM_ annotate decls
 
--- | Type checks a group of certainly mutually recursive functions. Only 
+-- | Type checks a group of certainly mutually recursive functions. Only
 -- functions that are mutually recursive should be included otherwise the
 -- types could end up being less general.
 typeCheckMutualyRecursiveGroup :: Bool -> Bool -> [TCDecl] -> TypeCheckMonad ()
 typeCheckMutualyRecursiveGroup checkAmbiguity generaliseTypes ds' = do
     -- TODO: fix temporary hack
-    let 
+    let
         cmp x y = case (unAnnotate x, unAnnotate y) of
             (DataType _ _, DataType _ _) -> EQ
             (DataType _ _, _) -> LT
@@ -230,7 +230,7 @@ typeCheckMutualyRecursiveGroup checkAmbiguity generaliseTypes ds' = do
         if generaliseTypes then generaliseGroup (map typeCheck ds)
             else generaliseSubGroup toGeneralise (map typeCheck ds)
 
-        -- Compress all the types we have inferred here (they should never be 
+        -- Compress all the types we have inferred here (they should never be
         -- touched again)
         mapM_ (\ n -> do
             t <- getType n
@@ -282,7 +282,7 @@ instance TypeCheckable TCDecl [(Name, Type)] where
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
 
 instance TypeCheckable (Decl Name) [(Name, Type)] where
-    errorContext (FunBind n ms _) = Just $ 
+    errorContext (FunBind n ms _) = Just $
         -- This will only be helpful if the equations don't match in
         -- type
         (text "In the declaration of:" <+> prettyPrint n, [])
@@ -305,7 +305,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         (text "In the declaration of the module instance:" <+> prettyPrint n, [])
     errorContext (Module _ _ _ _) = Nothing
     errorContext (PrintStatement _) = Nothing
-    
+
     typeCheck' (FunBind n ms mta) = do
         let boundTypeVars =
                 case mta of
@@ -317,7 +317,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                         ForAll _ t <- typeCheck ta
                         return $ Just t
                     Nothing -> return Nothing
-            mapM (\ m -> addErrorContext (matchCtxt m) $ 
+            mapM (\ m -> addErrorContext (matchCtxt m) $
                 case mta of
                     Nothing -> typeCheck m
                     Just ta -> typeCheckExpect m ta) ms
@@ -327,8 +327,8 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         (t' @ (TFunction tsargs _)) <- unifyAll (t:ts)
         return [(n, t')]
         where
-            matchCtxt an = 
-                (hang (text "In an equation for" <+> prettyPrint n <> colon) 
+            matchCtxt an =
+                (hang (text "In an equation for" <+> prettyPrint n <> colon)
                     tabWidth (prettyPrintMatch n an),
                 [])
     typeCheck' (p@(PatBind pat exp mta)) = do
@@ -362,7 +362,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         let ns = boundNames p
         ts <- mapM getType ns
         return $ zip ns [t | ForAll _ t <- ts]
-    -- The following two clauses rely on the fact that they have been 
+    -- The following two clauses rely on the fact that they have been
     -- prebound.
     typeCheck' (Channel ns Nothing ta) = do
         case ta of
@@ -425,7 +425,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         ForAll [] t <- getType n
         unify t (TSet (TDatatype n))
         ntss <- mapM (\ clause -> do
-            let 
+            let
                 n' = case unAnnotate clause of
                         DataTypeClause x _ _ -> x
             ForAll [] t <- getType n'
@@ -457,7 +457,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         -- We mark the type for equality, as if the type depends only on itself
         -- (i.e. it is recursive), then it should be comparable for equality.
         markDatatypeAsComparableForEquality n
-        b <- tryAndRecover False 
+        b <- tryAndRecover False
                 (mapM_ (ensureHasConstraint CEq) tclauses >> return True)
                 (return False)
         when (not b) $ unmarkDatatypeAsComparableForEquality n
@@ -514,7 +514,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                 -- We also need to change any datatype according to name map
                 let sub (TVar tvref) = do
                         res <- readTypeRef tvref
-                        case res of 
+                        case res of
                             Left _ -> return $ TVar tvref
                             Right t -> sub t
                     sub (TSet t) = sub t >>= return . TSet
@@ -588,7 +588,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                     ForAll _ t <- getType (subName n)
                     return t) clauses
                 markDatatypeAsComparableForEquality n'
-                b <- tryAndRecover False 
+                b <- tryAndRecover False
                         (mapM_ (ensureHasConstraint CEq) tclauses >> return True)
                         (return False)
                 when (not b) $ unmarkDatatypeAsComparableForEquality n'
@@ -605,7 +605,7 @@ instance TypeCheckable TCAssertion () where
     typeCheck' an = setSrcSpan (loc an) $ typeCheck (inner an)
 
 instance TypeCheckable (Assertion Name) () where
-    errorContext a = Just $ 
+    errorContext a = Just $
         (hang (text "In the assertion" <> colon) tabWidth (prettyPrint a), [])
     typeCheck' (PropertyCheck e1 p m opts) = do
         ensureIsProc e1
@@ -626,6 +626,9 @@ instance TypeCheckable (ModelOption Name) () where
     typeCheck' (TauPriority e) = do
         typeCheckExpect e (TSet TEvent)
         return ()
+    typeCheck' (Tags e) = do
+        typeCheckExpect e (TSet TEvent)
+        return ()
     typeCheck' (PartialOrderReduce _) = return ()
     typeCheck' (AnalyseStatically _) = return ()
 
@@ -640,7 +643,7 @@ instance TypeCheckable TCDataTypeClause (Name, [Type]) where
 
 instance TypeCheckable (DataTypeClause Name) (Name, [Type]) where
     errorContext c = Just $
-        (hang (text "In the data type clause" <> colon) tabWidth 
+        (hang (text "In the data type clause" <> colon) tabWidth
             (prettyPrint c), [])
     typeCheck' (DataTypeClause n' Nothing _) = do
         return (n', [])
@@ -664,19 +667,19 @@ instance TypeCheckable (Match Name) Type where
         -- Introduce free variables for all the parameters
         let fvs = boundNames groups
         local fvs $ do
-            tgroups <- mapM (\ pats -> mapM (\ pat -> 
-                    -- We evaluate the dots here to implment the longest 
+            tgroups <- mapM (\ pats -> mapM (\ pat ->
+                    -- We evaluate the dots here to implment the longest
                     -- match rule
                     typeCheck pat >>= evaluateDots
                 ) pats) groups
-    
+
             -- We evaluate the dots here to implment the longest match rule
             tr <- typeCheck exp >>= evaluateDots
-            
-            -- We need to evaluate the dots in the patterns twice just in case 
-            -- the type inferences on the RHS have resulted in extra dots on 
+
+            -- We need to evaluate the dots in the patterns twice just in case
+            -- the type inferences on the RHS have resulted in extra dots on
             -- the left being able to be removed.
-            tgroups <- mapM (\ pats -> mapM (\ pat -> 
+            tgroups <- mapM (\ pats -> mapM (\ pat ->
                     typeCheck pat >>= evaluateDots
                 ) pats) groups
 
@@ -700,7 +703,7 @@ instance TypeCheckable (Match Name) Type where
                     disallowSymmetricUnification (unify tact argt) >>= evaluateDots
                 ) pats argts) groups argts
             tr <- typeCheckExpect exp rt >>= evaluateDots
-            tgroups <- mapM (\ pats -> mapM (\ pat -> 
+            tgroups <- mapM (\ pats -> mapM (\ pat ->
                     typeCheck pat >>= evaluateDots
                 ) pats) groups
             return $ foldr (\ targs tr -> TFunction targs tr) tr tgroups

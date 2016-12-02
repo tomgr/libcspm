@@ -632,6 +632,7 @@ data Model =
 data ModelOption id =
     -- | Apply tau-priority over the set of events when deciding this assertion.
     TauPriority (AnExp id)
+    | Tags (AnExp id)
     -- | Apply partial order reduction when deciding this assertion
     | PartialOrderReduce (Maybe B.ByteString)
     -- | Statically analyse the assertion, possibly with an option.
@@ -641,6 +642,7 @@ data ModelOption id =
 data SemanticProperty id =
     DeadlockFreedom
     | SublockFreedom
+    | MutualExclusion
     | Deterministic
     | LivelockFreedom
     | HasTrace [AnExp id]
