@@ -329,6 +329,11 @@ eval (An _ _ (Exception e1 e2 e3)) = do
         VProc p2 <- e3
         return $ VProc $ PBinaryOp (PException (S.valueSetToEventSet a)) p1 p2
 eval (An _ _ (ExternalChoice e1 e2)) = do
+    stop <- maybeTimed
+        (return $! lookupVar (builtInName "STOP"))
+        (\ tn _ -> return $! do
+            VFunction _ fn <- lookupVar (builtInName "TSTOP")
+            fn [tockValue tn])
     let
         collectExternals (An _ _ (ExternalChoice e1 e2)) = e1 : collectExternals e2
         collectExternals e = [e]
@@ -338,7 +343,7 @@ eval (An _ _ (ExternalChoice e1 e2)) = do
         isStop _ = False
         
         reduce [] [] = do
-            VProc stop <- lookupVar (builtInName "STOP")
+            VProc stop <- stop
             return [stop]
         reduce [] ps = return ps
         reduce (PProcCall (ProcName pn) _ : ps) ps' | isStop pn = reduce ps ps'

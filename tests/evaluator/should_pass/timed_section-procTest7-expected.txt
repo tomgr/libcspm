@@ -12,7 +12,7 @@ SI2 = STOP /+ {a} +\ STOP
 
 IN2 = STOP /\ STOP
 
-E2 = STOP [] STOP
+E2 = STOP
 
 AP2 = STOP [{a} || {a}] STOP
 

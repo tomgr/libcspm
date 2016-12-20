@@ -14,7 +14,7 @@ SI1 = STOP(tock) /+ {a, tock} +\ STOP(tock)
 
 IN1 = STOP(tock) /+ {tock} +\ STOP(tock)
 
-E1 = STOP(tock) [+{tock}+] STOP(tock)
+E1 = STOP(tock)
 
 AP1 = STOP(tock) [{a, tock} || {a, tock}] STOP(tock)
 
