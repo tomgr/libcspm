@@ -61,6 +61,7 @@ instance NFData CSPOperator where
     rnf (PPrefix ev) = rnf ev
     rnf (PPrefixEventSet evs) = rnf evs
     rnf (PRename evm) = rnf evm
+    rnf (PRun evm) = rnf evm
     rnf PSequentialComp = ()
     rnf PSlidingChoice = ()
     rnf (PSynchronisingExternalChoice evs) = rnf evs
