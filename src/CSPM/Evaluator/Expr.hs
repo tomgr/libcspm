@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, RecordWildCards #-}
 module CSPM.Evaluator.Expr (
     eval,
 ) where
@@ -36,20 +36,26 @@ import CSPM.Prelude
 -- matching in BooleanBinaryOp And in case the first value is false.)
 
 eval :: TCExp -> AnalyserMonad (EvaluationMonad Value)
-eval (An an loc (LocatedApp func args)) = do
+eval (An loc _ (LocatedApp func args)) = do
     func <- eval func
     args <- mapM eval args
+    recordTraces <- shouldRecordStackTraces
     return $! do
         vs <- sequence args
-        VFunction _ f <- func
-        f vs
-eval (An _ _ (App func args)) = do
+        VFunction frame func <- func
+        newFrame <- instantiateFrameWithArguments (instantiatedFrameFrame frame) (instantiatedFrameMaybeArguments frame)
+        if recordTraces then registerFrame newFrame loc (func vs) else func vs
+eval (An loc _ (App func args)) = do
     func <- eval func
     args <- mapM eval args
+    recordTraces <- shouldRecordStackTraces
     return $! do
         vs <- sequence args
-        VFunction _ f <- func
-        f vs
+        VFunction frame func <- func
+        newFrame <- instantiateFrameWithArguments (instantiatedFrameFrame frame)
+            (instantiatedFrameMaybeArguments frame ++ [vs])
+        if recordTraces then registerFrame newFrame loc (func vs) else func vs
+
 eval (An _ _ (BooleanBinaryOp op e1 e2)) = do
     e1 <- eval e1
     e2 <- eval e2
@@ -195,12 +201,12 @@ eval (An loc _ (MathsBinaryOp op e1 e2)) = do
     let fn = case op of
             Divide -> \ i1 i2 -> do
                 case i2 of
-                    0 -> throwError $ divideByZeroMessage loc Nothing
+                    0 -> throwError' $ divideByZeroMessage loc
                     _ -> return $ VInt (i1 `div` i2)
             Minus -> \ i1 i2 -> return $ VInt (i1 - i2)
             Mod -> \ i1 i2 ->
                 case i2 of
-                    0 -> throwError $ divideByZeroMessage loc Nothing
+                    0 -> throwError' $ divideByZeroMessage loc
                     _ -> return $ VInt (i1 `mod` i2)
             Plus -> \ i1 i2 -> return $ VInt (i1 + i2)
             Times -> \ i1 i2 -> return $ VInt (i1 * i2)
@@ -427,7 +433,7 @@ eval (An loc _ (LinkParallel e1 ties stmts e2)) = do
         ts <- ties
         let (lefts, rights) = unzip ts
             check evs p = case firstDuplicate $ sort evs of
-                            Just ev -> throwError $ linkParallelAmbiguous ev loc Nothing
+                            Just ev -> throwError' $ linkParallelAmbiguous ev loc
                             Nothing -> p
         check lefts $ check rights $ return $ VProc $ PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
 eval (An _ _ (Project e1 e2)) = do
@@ -529,7 +535,7 @@ eval (An loc _ e'@(ReplicatedLinkParallel ties tiesStmts stmts e)) = do
             p <- e
             let (lefts, rights) = unzip ts
                 check evs p = case firstDuplicate $ sort evs of
-                                Just ev -> throwError $ linkParallelAmbiguous ev loc Nothing
+                                Just ev -> throwError' $ linkParallelAmbiguous ev loc
                                 Nothing -> p
             check lefts $ check rights $ return (ts, p)
         ]

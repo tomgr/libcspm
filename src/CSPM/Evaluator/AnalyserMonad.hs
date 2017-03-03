@@ -1,7 +1,7 @@
 module CSPM.Evaluator.AnalyserMonad (
     AnalyserState, initialAnalyserState,
     AnalyserMonad, runAnalyser, getState,
-    withinTimedSection, maybeTimed,
+    withinTimedSection, maybeTimed, shouldRecordStackTraces,
 
     DataTypeInformation(..), DataTypeConstructor(..), FieldSet(..),
     dataTypeForName, addDataTypes, channelInformationForName,
@@ -49,18 +49,23 @@ data AnalyserState = AnalyserState {
         --
         -- Then the relevant vars for q include x, because q depends on p, which
         -- depends on x.
-        relevantVarMap :: M.Map Name [Name]
+        relevantVarMap :: M.Map Name [Name],
+        recordStackTraces :: Bool
     }
 
-initialAnalyserState :: IO AnalyserState
-initialAnalyserState = do
+initialAnalyserState :: Bool -> IO AnalyserState
+initialAnalyserState recordStackTraces = do
     return $ AnalyserState {
         timedSectionFunctionName = Nothing,
         timedSectionTockName = Nothing,
         registeredDataTypes = M.empty,
         parentFrame = Nothing,
-        relevantVarMap = M.empty
+        relevantVarMap = M.empty,
+        recordStackTraces = recordStackTraces
     }
+
+shouldRecordStackTraces :: AnalyserMonad Bool
+shouldRecordStackTraces = gets recordStackTraces
 
 relevantVars :: Name -> AnalyserMonad [Name]
 relevantVars n = do

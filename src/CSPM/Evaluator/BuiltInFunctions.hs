@@ -73,8 +73,7 @@ builtInFunctions = do
         cspm_show [v] =
             VList (map VChar (show (prettyPrint v)))
         cspm_error loc [err] =
-            throwError' $ \ _ -> mkErrorMessage loc $
-                text "Error:" <+> prettyPrint err
+            throwError' $ explicitErrorMessage err loc
 
         cspm_mapFromList [VList s] = VMap $
             M.fromList [(arr!0, arr!1) | VTuple arr <- s]
@@ -137,13 +136,13 @@ builtInFunctions = do
                 procCall = PProcCall pn (PBinaryOp PSequentialComp p procCall)
             in VProc procCall
     
-        checkBufferBound loc cap p | cap <= 0 = throwError $ bufferCapacityInsufficient cap loc Nothing
+        checkBufferBound loc cap p | cap <= 0 = throwError' $ bufferCapacityInsufficient cap loc
         checkBufferBound _ _ p = p
             
         checkForAmbiguousBufferEvents loc evs p = 
             case firstDuplicate $ sort evs of
                 Nothing -> return p
-                Just ev -> throwError $ bufferEventAmbiguous (UserEvent ev) loc Nothing
+                Just ev -> throwError' $ bufferEventAmbiguous (UserEvent ev) loc
         csp_refusing_buffer_frame = frameForBuiltin "BUFFER"
         csp_refusing_buffer loc [VInt bound, VSet pairs] =
                 checkBufferBound loc bound $
@@ -363,7 +362,7 @@ builtInFunctions = do
             let n = builtInName s
                 frameInfo = frameForBuiltin s
                 outerFid = instantiateBuiltinFrameWithArguments frameInfo []
-                innerFid loc = instantiateBuiltinFrameWithArguments frameInfo [[VLoc loc]]
+                innerFid loc = instantiateBuiltinFrameWithArguments frameInfo []
             innerFn <- profile frameInfo $ \ loc args -> f loc args
             let outerFn [VLoc loc] = return $ VFunction (innerFid loc) $ innerFn loc
             return $! (n, VFunction outerFid outerFn)

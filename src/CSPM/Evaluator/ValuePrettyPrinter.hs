@@ -33,6 +33,9 @@ instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m (Exp Name) where
 instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m TCExp where
     prettyPrint = return . prettyPrint
 
+instance (Applicative m, Monad m) => M.MonadicPrettyPrintable m SrcSpan where
+    prettyPrint = return . prettyPrint
+
 instance PrettyPrintable Event where
     prettyPrint = runIdentity . M.prettyPrint
 
@@ -226,7 +229,7 @@ instance (Applicative m, Monad m,
                     M.char '\\'
                     M.<> M.list (mapM ppPat (lambdaFramePatterns frame))
                     M.<+> M.char '@'
-                    M.<+> return (prettyPrint (lambdaFrameExpression frame))
+                    M.<+> M.ellipsis
                 )
             ppFrame frame@(PartiallyAppliedFunctionFrame {}) =
                 ppParentFrame (frameParent frame)
@@ -242,9 +245,12 @@ instance (Applicative m, Monad m,
 
             ppTopMostFrame frame@(LambdaFrame {}) =
                 ppParentFrame (frameParent frame)
-                M.<> M.parens (return $ prettyPrint
-                        (Lambda (lambdaFramePatterns frame)
-                            (lambdaFrameExpression frame)))
+                M.<> M.parens (
+                    M.char '\\'
+                    M.<> M.list (mapM (return . prettyPrint) (lambdaFramePatterns frame))
+                    M.<+> M.char '@'
+                    M.<+> M.ellipsis
+                )
             ppTopMostFrame frame = ppFrame frame
         in
             ppTopMostFrame frame
@@ -285,7 +291,7 @@ instance (Applicative m, Monad m,
                     Nothing -> M.char '_'
             ppPat (An _ _ PWildCard) = M.char '_'
 
-            spaceThreashold = 15
+            spaceThreshold = 15
 
             spaceCost :: Value -> Int
             spaceCost (VInt _) = 1
@@ -302,9 +308,10 @@ instance (Applicative m, Monad m,
             spaceCost (VMap m) =
                     2 + sum (map spaceCost (map fst vs ++ map snd vs))
                 where vs = Mp.toList m
-            spaceCost (VFunction _ _) = spaceThreashold
-            spaceCost (VProc _) = spaceThreashold
-            spaceCost (VThunk _) = spaceThreashold
+            spaceCost (VFunction _ _) = spaceThreshold
+            spaceCost (VProc _) = spaceThreshold
+            spaceCost (VLoc loc) = length (show (prettyPrint loc))
+            spaceCost (VThunk _) = spaceThreshold
 
             patSpaceCost :: TCPat -> Int
             patSpaceCost (An _ _ (PCompList xs me _)) =
@@ -334,9 +341,9 @@ instance (Applicative m, Monad m,
                     Nothing -> 1
             patSpaceCost (An _ _ PWildCard) = 1
 
-            ppSmallValue v | spaceCost v > spaceThreashold = M.ellipsis
+            ppSmallValue v | spaceCost v > spaceThreshold = M.ellipsis
             ppSmallValue v = M.prettyPrint v
-            ppSmallPat p | patSpaceCost p > spaceThreashold = M.ellipsis
+            ppSmallPat p | patSpaceCost p > spaceThreshold = M.ellipsis
             ppSmallPat p = ppPat p
 
             ppFrame :: FrameInformation -> m Doc
@@ -349,7 +356,7 @@ instance (Applicative m, Monad m,
                 M.<> case functionFramePatterns frame of
                         [] -> M.empty
                         args -> M.hcat (mapM (\ as ->
-                            if length as > spaceThreashold `div` 2 then M.ellipsis
+                            if length as > spaceThreshold `div` 2 then M.ellipsis
                             else M.parens (M.list (mapM ppSmallPat as))) args)
             ppFrame frame@(LambdaFrame {}) =
                 ppParentFrame (frameParent frame)
@@ -375,7 +382,7 @@ instance (Applicative m, Monad m,
             M.<> case args of
                     [] -> M.empty
                     _ -> M.hcat (mapM (\ as ->
-                            if length as > spaceThreashold `div` 2 then M.ellipsis
+                            if length as > spaceThreshold `div` 2 then M.ellipsis
                             else M.parens (M.list (mapM ppSmallValue as))) args)
 
 bufferFunction :: Monad m => BufferMode -> m Doc
@@ -720,6 +727,7 @@ instance (Applicative m, Monad m,
         M.<+> M.text "|)"
     prettyPrint (VFunction fid _) = M.prettyPrint fid
     prettyPrint (VProc p) = M.prettyPrint p
+    prettyPrint (VLoc span) = M.prettyPrint span
     prettyPrint (VThunk th) = M.text "<thunk>"
 
     prettyPrintBrief (VSet s) = M.braces M.ellipsis

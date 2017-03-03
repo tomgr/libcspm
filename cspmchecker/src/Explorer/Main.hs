@@ -32,7 +32,7 @@ assertionExpressions (An _ _ (PropertyCheck e1 _ _ _)) = [e1]
 
 doFile :: Options -> FilePath -> IO ()
 doFile opts fp = do
-    session <- newCSPMSession
+    session <- newCSPMSession defaultEvaluatorOptions
     unCSPM session $ do 
         liftIO $ putStrLn $ "Exploring "++fp
         res <- tryM $ convertExceptionsToPanics $ do

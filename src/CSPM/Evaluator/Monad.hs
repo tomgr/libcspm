@@ -7,6 +7,7 @@ import Prelude hiding (lookup)
 import CSPM.Syntax.Names
 import CSPM.Evaluator.Environment
 import {-# SOURCE #-} CSPM.Evaluator.Values
+import Util.Annotated
 import Util.Exception
 
 type EvaluationState = Environment
@@ -63,9 +64,26 @@ addScopeAndBindM binds prog = do
         bs = [(n, runEvaluator st' v) | (n, v) <- binds]
     modify (\_ -> st') prog
 
+registerFrame :: InstantiatedFrame -> SrcSpan -> EvaluationMonad a -> EvaluationMonad a
+registerFrame frame loc prog = modify (\st -> addFrame st (StackFrame frame loc)) prog
+{-# INLINE registerFrame #-}
+
+getCallStack :: EvaluationMonad StackTrace
+getCallStack = do
+    env <- getEnvironment
+    return $ getFrames env
+{-# INLINE getCallStack #-}
+
+withCurrentCallStack :: EvaluationState -> EvaluationMonad EvaluationState
+withCurrentCallStack st = do
+    stk <- getCallStack
+    return $ withFrames st stk
+{-# INLINE withCurrentCallStack #-}
+
 throwError :: ErrorMessage -> a
 throwError err = throwSourceError [err]
 
--- TOOD: sort out stack trace
-throwError' :: (Maybe InstantiatedFrame -> ErrorMessage) -> EvaluationMonad a
-throwError' f = throwError (f Nothing)
+throwError' :: (StackTrace -> ErrorMessage) -> EvaluationMonad a
+throwError' f = do
+    stk <- getCallStack
+    throwError (f stk)
