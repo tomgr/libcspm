@@ -6,6 +6,7 @@ module CSPM.Evaluator (
     
     initEvaluator, runFromStateToState,
     EvaluationMonad, runEvaluator, EvaluationState,
+    EvaluatorOptions(..), defaultEvaluatorOptions,
     module CSPM.Evaluator.Values,
     module CSPM.Evaluator.ValueSet,
 
@@ -38,6 +39,15 @@ import qualified Util.MonadicPrettyPrint as M
 import qualified Data.Map as Mp
 import qualified Data.Set as S
 
+data EvaluatorOptions = EvaluatorOptions {
+        recordStackTraces :: Bool
+    }
+
+defaultEvaluatorOptions :: EvaluatorOptions
+defaultEvaluatorOptions = EvaluatorOptions {
+        recordStackTraces = False
+    }
+
 data EvaluationState = EvaluationState {
         analyserState :: A.AnalyserState,
         evaluatorState :: E.EvaluationState
@@ -62,9 +72,9 @@ runFromStateToState :: EvaluationState -> EvaluationMonad a ->
 runFromStateToState st anProg = runStateT anProg st
 
 -- | The environment to use initially. 
-initEvaluator :: IO EvaluationState
-initEvaluator = do
-    analyserState <- A.initialAnalyserState
+initEvaluator :: EvaluatorOptions -> IO EvaluationState
+initEvaluator evOptions = do
+    analyserState <- A.initialAnalyserState (recordStackTraces evOptions)
     let initialEvState = new
         initialState = EvaluationState {
                 analyserState = analyserState,

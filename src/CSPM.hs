@@ -41,7 +41,7 @@
 --
 -- >    main :: IO ()
 -- >    main = do
--- >        session <- newCSPMSession False
+-- >        session <- newCSPMSession defaultEvaluatorOptions
 -- >        (value, resultingSession) <- unCSPM session $ do
 -- >            -- Parse the file, returning something of type PCSPMFile.
 -- >            parsedFile <- parseFile "test.csp"
@@ -71,6 +71,7 @@
 module CSPM (
     -- * CSPM Monad
     CSPMSession, newCSPMSession,
+    EV.EvaluatorOptions(..), EV.defaultEvaluatorOptions,
     CSPMMonad(..),
     withSession,
     -- ** A basic implementation of the monad
@@ -148,13 +149,13 @@ data CSPMSession = CSPMSession {
     }
 
 -- | Create a new 'CSPMSession'.
-newCSPMSession :: MonadIO m => m CSPMSession
-newCSPMSession = do
+newCSPMSession :: MonadIO m => EV.EvaluatorOptions -> m CSPMSession
+newCSPMSession evOptions = do
     -- Get the type checker environment with the built in functions already
     -- injected
     rnState <- liftIO $ RN.initRenamer
     tcState <- liftIO $ TC.initTypeChecker
-    evState <- liftIO $ EV.initEvaluator
+    evState <- liftIO $ EV.initEvaluator evOptions
     return $ CSPMSession rnState tcState evState
 
 -- | The CSPMMonad is the main monad in which all functions must be called.

@@ -95,8 +95,10 @@ createFunction :: InstantiatedFrame ->
     ([Value] -> EvaluationMonad Value) ->
     EvaluationMonad Value
 createFunction frame fn = do
-    st <- gets id
-    return $! VFunction frame $! \ args -> return $! runEvaluator st (fn args)
+    st <- getEnvironment
+    return $! VFunction frame $! \ args -> do
+        st' <- withCurrentCallStack st
+        return $! runEvaluator st' (fn args)
 
 defaultSalt :: Int
 defaultSalt = 17

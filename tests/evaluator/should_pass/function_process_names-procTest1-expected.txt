@@ -1,9 +1,7 @@
-P(procTest1::(\x @ length(x) == 1)) = STOP
+P(procTest1::(\x @ …)) = STOP
 
-P(procTest1::(\x @ length(x) == 0)) = STOP
+P(procTest1::(\x @ …)) = STOP
 
-procTest1 =
-    P(procTest1::(\x @ length(x) == 0))
-    [] P(procTest1::(\x @ length(x) == 1))
+procTest1 = P(procTest1::(\x @ …)) [] P(procTest1::(\x @ …))
 
 procTest1
