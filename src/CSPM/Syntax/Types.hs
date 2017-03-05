@@ -55,7 +55,7 @@ data Constraint =
     -- | Orderable
     | COrd 
     -- | Can be input on a channel
-    | CInputable
+    | CComplete
     -- | Can form sets of the type.
     | CSet
     -- | Is something that can be yielded on the right hand side of =>.
@@ -224,7 +224,7 @@ isPolymorphic (TDatatype _) = False
 instance PrettyPrintable Constraint where
     prettyPrint CEq = text "Eq"
     prettyPrint COrd = text "Ord"
-    prettyPrint CInputable = text "Inputable"
+    prettyPrint CComplete = text "Complete"
     prettyPrint CSet = text "Set"
     prettyPrint CYieldable = text "Yieldable"
 

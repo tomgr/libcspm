@@ -67,9 +67,6 @@ module Util.MonadicPrettyPrintInternal(
     fullRender,
 ) where
 
-import Control.Applicative hiding (empty)
---import Control.Monad.Reader
---import Control.Monad.Trans.Class
 import qualified Text.PrettyPrint.HughesPJ as P
 
 --------------------------------------------------------------------------------

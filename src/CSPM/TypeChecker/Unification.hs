@@ -1,6 +1,6 @@
 module CSPM.TypeChecker.Unification (
     generaliseGroup, generaliseSubGroup, instantiate, unify, unifyAll,
-    evaluateDots, typeToDotList, dotableToDotList, substituteTypes, instantiate',
+    evaluateDots, typeToDotList, reduceDotable, dotableToDotList, substituteTypes, instantiate',
     substituteTypeScheme, freeTypeVars,
 ) where
 
@@ -174,7 +174,7 @@ unifyConstraintNoStk c (TExtendable t pt) = do
         Left _  ->
             if c == CYieldable then
                 safeWriteTypeRef pt TExtendableEmptyDotList
-            else if c == CInputable then do
+            else if c == CComplete then do
                 unifyConstraint c t
                 safeWriteTypeRef pt TExtendableEmptyDotList
             else 
@@ -191,6 +191,7 @@ unifyConstraintNoStk CYieldable (TDot t1 t2) = do
         _ -> unifyConstraint CYieldable t
 unifyConstraintNoStk CYieldable t = raiseConstraintErrorMessage
 unifyConstraintNoStk CSet TProc = return ()
+unifyConstraintNoStk CComplete TProc = return ()
 unifyConstraintNoStk c TInt = return ()
 unifyConstraintNoStk c TChar = return ()
  -- Bools are not orderable
@@ -202,32 +203,32 @@ unifyConstraintNoStk CEq (TDatatype n) = do
 -- User data types are not orderable
 unifyConstraintNoStk c (TDatatype n) | c /= COrd = return ()
 unifyConstraintNoStk c TEvent | c /= COrd = return ()
-unifyConstraintNoStk CInputable (TSeq _) = return ()
+unifyConstraintNoStk CComplete (TSeq _) = return ()
 unifyConstraintNoStk CSet (TSeq t) = unifyConstraint CSet t
 unifyConstraintNoStk CEq (TSeq t) = unifyConstraint CEq t
 -- Ordering sequenecs means prefixing testing, which requires only equality
 unifyConstraintNoStk COrd (TSeq t) = unifyConstraint CEq t
-unifyConstraintNoStk CInputable (TTuple _) = return ()
+unifyConstraintNoStk CComplete (TTuple _) = return ()
 unifyConstraintNoStk c (TTuple ts) = mapM_ (unifyConstraint c) ts
 -- Dotable types are not orderable (as events and datatypes are not). Nor are
--- they inputable. We can create sets of them though.
+-- they Complete. We can create sets of them though.
 unifyConstraintNoStk CEq (TDotable a b) = unifyConstraint CEq a >> unifyConstraint CEq b
 unifyConstraintNoStk CSet (TDotable a b) = unifyConstraint CSet a >> unifyConstraint CSet b
-unifyConstraintNoStk CInputable (TDot t1 t2) = do
+unifyConstraintNoStk CComplete (TDot t1 t2) = do
     t <- evaluateDots (TDot t1 t2)
     case t of
-        TDot t1 t2 -> mapM_ (unifyConstraint CInputable) [t1,t2]
-        _ -> unifyConstraint CInputable t
+        TDot t1 t2 -> mapM_ (unifyConstraint CComplete) [t1,t2]
+        _ -> unifyConstraint CComplete t
 unifyConstraintNoStk c (TDot t1 t2) | c /= COrd =
     unifyConstraint c t1 >> unifyConstraint c t2
 unifyConstraintNoStk CSet (TSet t) = unifyConstraint CSet t
-unifyConstraintNoStk CInputable (TSet t) = return ()
+unifyConstraintNoStk CComplete (TSet t) = return ()
 unifyConstraintNoStk CEq (TSet t) = unifyConstraint CEq t
 -- sets are comparable for equality/orderable iff their inner type is
 -- comparable for equality (as set ordering means subset testing, which requires
 -- only equality)
 unifyConstraintNoStk COrd (TSet t) = unifyConstraint CEq t
-unifyConstraintNoStk CInputable (TMap _ _) = return ()
+unifyConstraintNoStk CComplete (TMap _ _) = return ()
 unifyConstraintNoStk c (TMap k v) = unifyConstraint c k >> unifyConstraint c v
 unifyConstraintNoStk c t = raiseConstraintErrorMessage
 

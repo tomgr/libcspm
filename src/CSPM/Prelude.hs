@@ -74,7 +74,9 @@ locatedBuiltins = S.fromList $ map builtInName [
         "mapLookup",
         "prioritise",
         "prioritise_nocache",
-        "prioritisepo"
+        "prioritisepo",
+        "BUFFER",
+        "WEAK_BUFFER"
     ]
 
 allBuiltins :: [BuiltIn]
@@ -111,10 +113,12 @@ makeBuiltins = do
         cspm_null fv = ("null", [TSeq fv], TBool)
         cspm_head fv = ("head", [TSeq fv], fv)
         cspm_tail fv = ("tail", [TSeq fv], TSeq fv)
+        cspm_nth fv = ("nth", [TInt, TSeq fv], fv)
+        cspm_modify_nth fv = ("modify_nth", [TInt, fv, TSeq fv], TSeq fv)
         cspm_concat fv = ("concat", [TSeq (TSeq fv)], TSeq fv)
         cspm_elem fv = ("elem", [fv, TSeq fv], TBool)       
         
-        seqs = [cspm_length, cspm_null, cspm_head, cspm_tail, cspm_concat]
+        seqs = [cspm_length, cspm_null, cspm_head, cspm_tail, cspm_nth, cspm_modify_nth, cspm_concat]
         eqSeqs = [cspm_elem]
 
         cspm_STOP = ("STOP", TProc)
@@ -125,10 +129,12 @@ makeBuiltins = do
         csp_tskip = ("TSKIP", TFunction [] TProc)
         csp_tstop = ("TSTOP", TFunction [] TProc)
         csp_wait = ("WAIT", TFunction [TInt] TProc)
+        cspm_refusing_buffer = ("BUFFER", TFunction [TInt, TSet (TTuple [TEvent, TEvent])] TProc)
+        cspm_exploding_buffer = ("WEAK_BUFFER", TFunction [TInt, TEvent, TSet (TTuple [TEvent, TEvent])] TProc)
 
         builtInProcs :: [(B.ByteString, Type)]
         builtInProcs = [cspm_STOP, cspm_SKIP, cspm_CHAOS, cspm_RUN, csp_tstop,
-            csp_tskip, csp_wait, cspm_DIV]
+            csp_tskip, csp_wait, cspm_DIV, cspm_refusing_buffer, cspm_exploding_buffer]
 
         cspm_Int = ("Int", TSet TInt)
         cspm_Bool = ("Bool", TSet TBool)

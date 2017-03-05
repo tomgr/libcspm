@@ -46,6 +46,11 @@ headEmptyListMessage loc scope = mkErrorMessage loc $
     text "Attempt to take head of empty list."
     $$ printCallStack scope
 
+listIndexFailureMessage :: Maybe InstantiatedFrame -> ErrorMessage
+listIndexFailureMessage scope = mkErrorMessage Unknown $
+    text "Attempt to index past end of list."
+    $$ printCallStack scope
+
 prioritiseEmptyListMessage :: SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
 prioritiseEmptyListMessage loc scope = mkErrorMessage loc $ 
     text "Prioritise must be called with a non-empty list."
@@ -171,3 +176,20 @@ prioritisePartialOrderEventsMissing allEvents missingEvents loc scid = mkErrorMe
     $$ text "appear in the partial order, or in the set of maximal events, but are"
     $$ text "not in the set of all prioritised events:"
     $$ tabIndent (list (map prettyPrint allEvents))
+
+linkParallelAmbiguous :: Event -> SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
+linkParallelAmbiguous event loc scid = mkErrorMessage loc $
+    text "The event:" <+> prettyPrint event
+    $$ text "was erroneously mentioned several times in a linked-parallel expression;"
+    $$ text "each event may appear at most once."
+
+bufferEventAmbiguous :: Event -> SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
+bufferEventAmbiguous event loc scid = mkErrorMessage loc $
+    text "The event:" <+> prettyPrint event
+    $$ text "was erroneously mentioned several times in call to a buffer;"
+    $$ text "each event may appear as either an input event, an output event, or (in the case of"
+    $$ text "an exploding buffer) an explosion event."
+
+bufferCapacityInsufficient :: Int -> SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
+bufferCapacityInsufficient cap loc scid = mkErrorMessage loc $
+    text "The supplied buffer capacity" <+> int cap <+> text "was insufficient; it must be at least 1."

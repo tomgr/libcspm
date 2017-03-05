@@ -14,7 +14,6 @@ module Util.MonadicPrettyPrint(
     bytestring,
 ) where
 
-import Control.Applicative hiding (empty)
 import qualified Data.ByteString.Char8 as B
 import Numeric
 import Util.MonadicPrettyPrintInternal

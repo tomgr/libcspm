@@ -52,9 +52,9 @@ builtInFunctions = do
         cspm_Union [VSet s] = S.unions (map (\ (VSet s) -> s) (S.toList s))
         cspm_Inter [VSet s] = 
             S.intersections (map (\ (VSet s) -> s) (S.toList s))
-        cspm_member [v, VSet s] = VBool $ S.member v s
+        cspm_member [v, VSet s] = makeBoolValue $ S.member v s
         cspm_card [VSet s] = VInt $ fromIntegral $ S.card s
-        cspm_empty [VSet s] = VBool $ S.empty s
+        cspm_empty [VSet s] = makeBoolValue $ S.empty s
         cspm_set [VList xs] = S.fromList xs
         cspm_Set [VSet s] = S.powerset s
         -- | Set of all sequences over s
@@ -84,8 +84,8 @@ builtInFunctions = do
                 Nothing -> throwError' $ keyNotInDomainOfMapMessage loc
         cspm_mapMember [VMap m, k] =
             case M.lookup k m of
-                Just v -> VBool True
-                Nothing -> VBool False
+                Just v -> trueValue
+                Nothing -> falseValue
         cspm_mapToList [VMap m] = VList $
             [VTuple (listArray (0,1) [k, v]) | (k, v) <- M.toList m]
         cspm_mapUpdate [VMap m, k, v] = VMap $ M.insert k v m
@@ -104,13 +104,17 @@ builtInFunctions = do
             ]
         
         cspm_length [VList xs] = VInt $ length xs
-        cspm_null [VList xs] = VBool $ null xs
+        cspm_null [VList xs] = makeBoolValue $ null xs
         cspm_head loc [VList []] = throwError' $ headEmptyListMessage loc
         cspm_head _ [VList (x:xs)] = return x
         cspm_tail loc [VList []] = throwError' $ tailEmptyListMessage loc
         cspm_tail _ [VList (x:xs)] = return $ VList xs
-        cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
-        cspm_elem [v, VList vs] = VBool $ v `elem` vs
+        cspm_nth [VInt n, VList xs] | n >= length xs = throwError' listIndexFailureMessage
+        cspm_nth [VInt n, VList xs] = return $ xs !! n
+        cspm_modify_nth [VInt n, _, VList xs] | n >= length xs = throwError' listIndexFailureMessage
+        cspm_modify_nth [VInt n, v, VList xs] = return $ VList $ take n xs ++ [v] ++ drop (n+1) xs
+        cspm_concat [VList xs] = concatMap (\(VList ys) -> ys) xs
+        cspm_elem [v, VList vs] = makeBoolValue $ v `elem` vs
         csp_chaos_frame = frameForBuiltin "CHAOS"
         csp_chaos [VSet a] = VProc chaosCall
             where
@@ -136,6 +140,40 @@ builtInFunctions = do
             let pn = builtinProcName csp_loop_frame [[VProc p]]
                 procCall = PProcCall pn (PBinaryOp PSequentialComp p procCall)
             in VProc procCall
+    
+        checkBufferBound loc cap p | cap <= 0 = throwError $ bufferCapacityInsufficient cap loc Nothing
+        checkBufferBound _ _ p = p
+            
+        checkForAmbiguousBufferEvents loc evs p = 
+            case firstDuplicate $ sort evs of
+                Nothing -> return p
+                Just ev -> throwError $ bufferEventAmbiguous (UserEvent ev) loc Nothing
+        csp_refusing_buffer_frame = frameForBuiltin "BUFFER"
+        csp_refusing_buffer loc [VInt bound, VSet pairs] =
+                checkBufferBound loc bound $
+                checkForAmbiguousBufferEvents loc (concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs])
+                    (VProc bufferCall)
+            where
+                bufferCall = PProcCall n p
+                -- | We convert the set into an explicit set as this makes
+                -- comparisons faster than leaving it as a set represented as
+                -- (for instance) a CompositeSet of CartProduct sets.
+                n = builtinProcName csp_refusing_buffer_frame [[VInt bound, VSet pairs]]
+                events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
+                p = POp (PBuffer WhenFullRefuseInputs bound events) []
+        csp_exploding_buffer_frame = frameForBuiltin "WEAK_BUFFER"
+        csp_exploding_buffer loc [VInt bound, explode, VSet pairs] =
+                checkBufferBound loc bound $
+                checkForAmbiguousBufferEvents loc (explode : concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs])
+                    (VProc bufferCall)
+            where
+                bufferCall = PProcCall n p
+                -- | We convert the set into an explicit set as this makes
+                -- comparisons faster than leaving it as a set represented as
+                -- (for instance) a CompositeSet of CartProduct sets.
+                n = builtinProcName csp_exploding_buffer_frame [[VInt bound, explode, VSet pairs]]
+                events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
+                p = POp (PBuffer (WhenFullExplode (UserEvent explode)) bound events) []
 
         cspm_extensions [v] = do
             exs <- extensions v
@@ -225,7 +263,8 @@ builtInFunctions = do
 
         -- | Functions that require a monadic context.
         monadic_funcs = [
-            ("productions", cspm_productions), ("extensions", cspm_extensions)
+            ("productions", cspm_productions), ("extensions", cspm_extensions),
+            ("nth", cspm_nth), ("modify_nth", cspm_modify_nth)
             ]
 
         locatedFunctions = [
@@ -234,7 +273,8 @@ builtInFunctions = do
             ("prioritise", csp_prioritise True),
             ("prioritise_nocache", csp_prioritise False),
             ("prioritisepo", csp_prioritise_partialorder),
-            ("mapLookup", cspm_mapLookup)
+            ("mapLookup", cspm_mapLookup),
+            ("WEAK_BUFFER", csp_exploding_buffer), ("BUFFER", csp_refusing_buffer)
             ]
 
         procs = [
@@ -286,10 +326,10 @@ builtInFunctions = do
 
         mkProc (s, p) = return (builtInName s, VProc p)
         
-        cspm_true = ("true", VBool True)
-        cspm_false = ("false", VBool False)
-        cspm_True = ("True", VBool True)
-        cspm_False = ("False", VBool False)
+        cspm_true = ("true", trueValue)
+        cspm_false = ("false", falseValue)
+        cspm_True = ("True", trueValue)
+        cspm_False = ("False", falseValue)
         
         cspm_Bool = ("Bool", VSet (S.fromList [snd cspm_true, snd cspm_false]))
         cspm_Int = ("Int", VSet S.Integers)

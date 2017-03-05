@@ -5,8 +5,6 @@
 {-# OPTIONS_HADDOCK not-home #-}
 module Data.Graph.Wrapper.Internal where
 
-import Control.Applicative (Applicative)
-
 import Data.Array
 import Data.Maybe (fromMaybe)
 import qualified Data.Graph as G

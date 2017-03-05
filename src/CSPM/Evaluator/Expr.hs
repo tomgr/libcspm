@@ -34,6 +34,13 @@ import Util.List
 -- matching in BooleanBinaryOp And in case the first value is false.)
 
 eval :: TCExp -> AnalyserMonad (EvaluationMonad Value)
+eval (An an loc (LocatedApp func args)) = do
+    func <- eval func
+    args <- mapM eval args
+    return $! do
+        vs <- sequence args
+        VFunction _ f <- func
+        f vs
 eval (An _ _ (App (An _ _ (Var n)) [procArg, alphaArg]))
         | n == builtInName "lazy_compile" = do
     alpha <- eval alphaArg
@@ -79,12 +86,12 @@ eval (An _ _ (BooleanBinaryOp op e1 e2)) = do
     return $! do
         v1 <- e1
         v2 <- e2
-        return $! VBool $ fn v1 v2
+        return $! makeBoolValue $ fn v1 v2
 eval (An _ _ (BooleanUnaryOp Not e)) = do
     e <- eval e
     return $! do
         VBool b <- e
-        return $ VBool (not b)
+        return $ makeBoolValue (not b)
 eval (An _ _ (Concat e1 e2)) = do
     e1 <- eval e1
     e2 <- eval e2
@@ -129,7 +136,7 @@ eval (An _ _ (Let decls e)) = do
             nvs <- decls
             addScopeAndBindM nvs e
 eval (An _ _ (Lit (Int i))) = return $! return $! VInt i
-eval (An _ _ (Lit (Bool b))) = return $! return $! VBool b
+eval (An _ _ (Lit (Bool b))) = return $! return $! makeBoolValue b
 eval (An _ _ (Lit (Char c))) = return $! return $! VChar c
 eval (An _ _ (Lit (Loc l))) = return $! return $! VLoc l
 eval (An _ _ (Lit (String s))) =
@@ -201,7 +208,10 @@ eval (An loc _ (MathsBinaryOp op e1 e2)) = do
                     0 -> throwError $ divideByZeroMessage loc Nothing
                     _ -> return $ VInt (i1 `div` i2)
             Minus -> \ i1 i2 -> return $ VInt (i1 - i2)
-            Mod -> \ i1 i2 -> return $ VInt (i1 `mod` i2)
+            Mod -> \ i1 i2 ->
+                case i2 of
+                    0 -> throwError $ divideByZeroMessage loc Nothing
+                    _ -> return $ VInt (i1 `mod` i2)
             Plus -> \ i1 i2 -> return $ VInt (i1 + i2)
             Times -> \ i1 i2 -> return $ VInt (i1 * i2)
     return $! do
@@ -394,7 +404,7 @@ eval (An _ _ (Interleave e1 e2)) = do
         VProc p1 <- e1
         VProc p2 <- e2
         return $ VProc $ POp op [p1, p2]
-eval (An _ _ (LinkParallel e1 ties stmts e2)) = do
+eval (An loc _ (LinkParallel e1 ties stmts e2)) = do
     e1 <- eval e1
     ties <- evalTies stmts ties
     e2 <- eval e2
@@ -402,7 +412,11 @@ eval (An _ _ (LinkParallel e1 ties stmts e2)) = do
         VProc p1 <- e1
         VProc p2 <- e2
         ts <- ties
-        return $ VProc $ PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
+        let (lefts, rights) = unzip ts
+            check evs p = case firstDuplicate $ sort evs of
+                            Just ev -> throwError $ linkParallelAmbiguous ev loc Nothing
+                            Nothing -> p
+        check lefts $ check rights $ return $ VProc $ PBinaryOp (PLinkParallel (removeDuplicateTies ts)) p1 p2
 eval (An _ _ (Project e1 e2)) = do
     e1 <- eval e1
     e2 <- eval e2
@@ -500,7 +514,11 @@ eval (An loc _ e'@(ReplicatedLinkParallel ties tiesStmts stmts e)) = do
         return $! do
             ts <- ties
             p <- e
-            return (ts, p)
+            let (lefts, rights) = unzip ts
+                check evs p = case firstDuplicate $ sort evs of
+                                Just ev -> throwError $ linkParallelAmbiguous ev loc Nothing
+                                Nothing -> p
+            check lefts $ check rights $ return (ts, p)
         ]
     let mkLinkPar [(_, p)] = p
         mkLinkPar ((ts, p1):ps) =
@@ -739,6 +757,9 @@ evaluateDotApplication (exp@(An loc _ (DotApp left right))) = do
 
         isDotable (TDotable _ _) = True
         isDotable (TExtendable _ _) = True
+        -- We must be inside a polymorphic function, so cannot be sure what type this will be. Hence, it is unsafe
+        -- to assume it is not dotable. Thus, we assume the worst.
+        isDotable (TVar _) = True
         isDotable _ = False
 
         catVDots v v'@(VDot (VDataType _ : vs)) = VDot [v, v']

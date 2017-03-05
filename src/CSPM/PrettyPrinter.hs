@@ -340,6 +340,7 @@ instance PrettyPrintable id => PrettyPrintable (Exp id) where
         prettyPrint e1 <+> text "@@" <+> prettyPrint e2
 
     prettyPrint (TimedPrefix _ p) = prettyPrint p
+    prettyPrint (LocatedApp (An _ _ (Var n)) _) = prettyPrint n
 
 instance PrettyPrintable id => PrettyPrintable (Field id) where
     prettyPrint (Output exp) = 

@@ -75,6 +75,9 @@ ensureIsProc :: TypeCheckable a b => a -> TypeCheckMonad b
 ensureIsProc e = typeCheckExpect e TProc
 
 ensureHasConstraint :: Constraint -> Type -> TypeCheckMonad Type
-ensureHasConstraint c t = do
-    fv1 <- freshRegisteredTypeVarWithConstraints [c]
+ensureHasConstraint c = ensureHasConstraints [c]
+
+ensureHasConstraints :: [Constraint] -> Type -> TypeCheckMonad Type
+ensureHasConstraints cs t = do
+    fv1 <- freshRegisteredTypeVarWithConstraints cs
     unify fv1 t

@@ -110,13 +110,14 @@ pushFile fname prog = do
     dirname <- gets rootDir     
     let filename = combine dirname fname
     fileContentsMap <- gets fileContents
-    str <- case M.lookup filename fileContentsMap of
-            Just contents -> return contents
-            Nothing -> liftIO $
-                catch (B.readFile filename)
-                    (\ (_ :: IOException) ->
-                        throwSourceError [fileAccessErrorMessage filename]
-                    )
+    str <-
+        if not (M.null fileContentsMap) then
+            case M.lookup filename fileContentsMap of
+                Nothing -> throwSourceError [fileAccessErrorMessage filename]
+                Just str -> return str
+        else liftIO $ catch (B.readFile filename) (\ (_ :: IOException) ->
+                            throwSourceError [fileAccessErrorMessage filename]
+                        )
     when (B.isPrefixOf "{\\rtf1" str) $
         throwSourceError [looksLikeRTFErrorMessage filename]
     modify (\st -> st { loadedFiles = filename:loadedFiles st })

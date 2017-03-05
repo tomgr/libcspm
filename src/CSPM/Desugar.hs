@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 module CSPM.Desugar (Desugarable(..), runDesugar) where
 
 import Control.Monad.State
@@ -393,7 +393,7 @@ instance Desugarable (Exp Name) where
     desugar (Var n) | S.member n locatedBuiltins = do
         loc <- gets currentLoc
         lit <- mkLit (Loc loc)
-        mkApplication n (error "TODO") [lit]
+        mkLocatedApplication n (error "TODO") [lit]
     desugar (Var n) = substituteName n >>= return . Var
 
     desugar (AlphaParallel e1 e2 e3 e4) =
@@ -422,13 +422,26 @@ instance Desugarable (Exp Name) where
 
         -- Restrict patterns
         let namesToLeave = S.fromList $ freeVars fs ++ freeVars e2
-            restrictField (An a b (Input p e)) =
-                An a b (Input (restrictPatternsToVars namesToLeave p) e)
-            restrictField (An a b (NonDetInput p e)) =
-                An a b (NonDetInput (restrictPatternsToVars namesToLeave p) e)
-            restrictField (An a b (Output e)) = (An a b (Output e))
 
-            dp = Prefix e1 (map restrictField fs) e2
+            patIsAllowed (An _ _ (PDoublePattern _ _)) = False
+            patIsAllowed (An _ _ (PCompDot ps _)) = and (map patIsAllowed ps)
+            patIsAllowed _ = True
+
+            checkPattern p =
+                if patIsAllowed p then return () else do
+                loc <- gets currentLoc
+                throwSourceError [doublePatternInPrefixError loc p]
+
+            restrictField (An a b (Input p e)) = do
+                checkPattern p
+                return $ An a b (Input (restrictPatternsToVars namesToLeave p) e)
+            restrictField (An a b (NonDetInput p e)) = do
+                checkPattern p
+                return $ An a b (NonDetInput (restrictPatternsToVars namesToLeave p) e)
+            restrictField (An a b (Output e)) = return $ An a b (Output e)
+
+        fs <- mapM restrictField fs
+        let dp = Prefix e1 fs e2
         maybeTimedSection
             (return dp)
             (\ _ -> do
@@ -648,6 +661,11 @@ nondetFieldTimedSectionError :: SrcSpan -> ErrorMessage
 nondetFieldTimedSectionError loc = mkErrorMessage loc $
     text "A non-deterministic input (i.e. $) is not allowed in a timed section."
 
+doublePatternInPrefixError :: SrcSpan -> TCPat -> ErrorMessage
+doublePatternInPrefixError loc pat = mkErrorMessage loc $
+    text "The pattern" <+> prettyPrint pat
+    <+> text "is not allowed in a prefix expression as it contains @@."
+
 mkApplication :: Name -> Type -> [AnExp Name] -> DesugarMonad (Exp Name)
 mkApplication fn fnTyp args = do
     srcSpan <- gets currentLoc
@@ -655,6 +673,14 @@ mkApplication fn fnTyp args = do
     setPType ptype fnTyp
     var <- mkVar fn fnTyp
     return $ App var args
+
+mkLocatedApplication :: Name -> Type -> [AnExp Name] -> DesugarMonad (Exp Name)
+mkLocatedApplication fn fnTyp args = do
+    srcSpan <- gets currentLoc
+    ptype <- freshPType
+    setPType ptype fnTyp
+    var <- mkVar fn fnTyp
+    return $ LocatedApp var args
 
 mkLit :: Literal -> DesugarMonad TCExp
 mkLit l = do

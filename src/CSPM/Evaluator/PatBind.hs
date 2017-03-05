@@ -1,6 +1,6 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module CSPM.Evaluator.PatBind (
     bind,
+    fieldsConsumed,
     bindAll,
 ) where
 
@@ -17,6 +17,12 @@ thenBind :: Maybe [(Name, Value)] -> Maybe [(Name, Value)] -> Maybe [(Name, Valu
 thenBind Nothing _ = Nothing
 thenBind _ Nothing = Nothing
 thenBind (Just xs) (Just ys) = Just (xs ++ ys)
+
+-- | Returns the number of complete fields consumed by a pattern.
+fieldsConsumed :: TCPat -> Int
+fieldsConsumed (An _ _ (PCompDot ps _)) = sum (map fieldsConsumed ps)
+fieldsConsumed (An _ _ (PDoublePattern p1 p2)) = fieldsConsumed p1 `max` fieldsConsumed p2
+fieldsConsumed _ = 1
 
 bind :: TCPat -> AnalyserMonad (Value -> Maybe [(Name, Value)])
 -- We can decompose any PConcat pattern into three patterns representing:
@@ -84,11 +90,21 @@ bind (An _ _ (PCompDot ps _)) = do
                     _ -> Nothing
         matchCompDot (p:ps) = do
             binder <- bind p
+            let fs = fieldsConsumed p
+                split n left right | n == fs = Just (reverse left, right)
+                split n left (v:vs) = split (n+1) (v:left) vs
+                split _ _ _ = Nothing
             bindRest <- matchCompDot ps
-            return $! \ vs ->
-                case vs of
-                    (v:vs) -> binder v `thenBind` bindRest vs
-                    _ -> Nothing
+            if fs == 1 then 
+                return $! \ vs ->
+                    case vs of
+                        (v:vs) -> binder v `thenBind` bindRest vs
+                        _ -> Nothing
+            else
+                return $! \ vs ->
+                    case split 0 [] vs of
+                        Just (left, right) -> binder (VDot left) `thenBind` bindRest right
+                        _ -> Nothing
     binder <- matchCompDot ps
     return $! \ (VDot xs) -> binder xs
 bind (An _ _ (PDoublePattern p1 p2)) = do

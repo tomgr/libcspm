@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric, GeneralizedNewtypeDeriving #-}
 module CSPM.Evaluator.Values (
     Value(..),  compareValues,
+    trueValue, falseValue, makeBoolValue,
 
     InstantiatedFrame(..), makeProcessName, procName, instantiateFrame,
     instantiateFrameWithArguments, instantiateBuiltinFrameWithArguments,
@@ -8,13 +9,13 @@ module CSPM.Evaluator.Values (
     valueEventToEvent, createFunction,
     noSave, maybeSave, removeThunk, lookupVar, maybeLookupVar,
     tupleFromList,
-    trimValueForProcessName,
     module Data.Array,
 
     -- * Events
     Event(..), EventSet, eventSetFromList, EventMap,
     -- * Processes
     Proc(..), CSPOperator(..), ProcOperator(..),  ProcName(..),
+    BufferFullMode(..),
     SyntacticOperator(..),
     operator, components, splitProcIntoComponents,
 ) where
@@ -27,12 +28,13 @@ import qualified Data.Map as M
 import GHC.Generics (Generic)
 import Prelude hiding (lookup)
 
-import CSPM.Syntax.Names
-import CSPM.Syntax.AST
-import CSPM.Syntax.Types
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Monad
 import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
+import {-# SOURCE #-} CSPM.Evaluator.ValuePrettyPrinter
+import CSPM.Syntax.AST
+import CSPM.Syntax.Names
+import CSPM.Syntax.Types
 import Util.Annotated
 import Util.Exception
 import Util.Prelude
@@ -58,6 +60,14 @@ data Value =
     | VProc Proc
     | VLoc SrcSpan
     | VThunk (EvaluationMonad Value)
+
+trueValue, falseValue :: Value
+trueValue = VBool True
+falseValue = VBool False
+
+makeBoolValue :: Bool -> Value
+makeBoolValue True = trueValue
+makeBoolValue False = falseValue
 
 -- | A disambiguator between different occurences of either processes or
 -- functions. This works by storing the values that are bound (i.e. the free
@@ -262,7 +272,7 @@ instance Ord Value where
     compare v1 v2 = panic $
         -- Must be as a result of a mixed set of values, which cannot happen
         -- as a result of type checking.
-        "Internal sets - cannot order "
+        "Internal sets - cannot order\n"++debugPrintValue v1 ++ "\n\n"++ debugPrintValue v2
 
 -- | This assumes that the value is a VDot with the left is a VChannel
 valueEventToEvent :: Value -> Event
@@ -311,8 +321,16 @@ data ProcOperator =
 
 instance Hashable ProcOperator
 
+data BufferFullMode =
+    WhenFullRefuseInputs
+    | WhenFullExplode Event
+    deriving (Eq, Generic, Ord)
+
+instance Hashable BufferFullMode    
+
 data CSPOperator =
     PAlphaParallel [EventSet]
+    | PBuffer BufferFullMode Int EventMap
     | PChaos EventSet
     | PException EventSet
     | PExternalChoice
@@ -430,83 +448,3 @@ splitProcIntoComponents p =
             else explore (St.insert n s) ((n, p):pns) p
         explore s pns (PSyntacticOp _ _ _) = (s, pns)
     in (p, snd $ explore St.empty [] p)
-
-
--- Trimming support
---
--- Trimming removes values from the value representation that are not required
--- for the purposes of pretty printing etc, in an attempt to save memory.
---
--- The main thing that happens is that VFunctions have their function removed,
--- and PProcCalls have there inner process removed.
-
-errorThunk = panic "Trimmed value function evaluated"
-
-trimInstantiatedFrame :: InstantiatedFrame -> InstantiatedFrame
-trimInstantiatedFrame (InstantiatedFrame h n vss args) =
-    InstantiatedFrame h n (map trimValueForProcessName vss)
-        (map (map trimValueForProcessName) args)
-
-trimValueForProcessName :: Value -> Value
-trimValueForProcessName (VInt i) = VInt i
-trimValueForProcessName (VChar c) = VChar c
-trimValueForProcessName (VBool b) = VBool b
-trimValueForProcessName (VLoc l) = VLoc l
-trimValueForProcessName (VTuple vs) = VTuple (fmap trimValueForProcessName vs)
-trimValueForProcessName (VList vs) = VList (map trimValueForProcessName vs)
-trimValueForProcessName (VSet s) =
-    VSet $ S.fromList $ map trimValueForProcessName $ S.toList s
-trimValueForProcessName (VMap m) = VMap $ M.fromList $
-    map (\ (v1, v2) -> (trimValueForProcessName v1, trimValueForProcessName v2))
-        (M.toList m)
-trimValueForProcessName (VDot vs) = VDot $ map trimValueForProcessName vs
-trimValueForProcessName (VChannel n) = VChannel n
-trimValueForProcessName (VDataType n) = VDataType n
-trimValueForProcessName (VFunction id _) =
-    VFunction (trimInstantiatedFrame id) errorThunk
-trimValueForProcessName (VProc p) = VProc (trimProcess p)
-
-trimProcess :: Proc -> Proc
-trimProcess (PUnaryOp op p1) =
-    PUnaryOp (trimOperator op) (trimProcess p1)
-trimProcess (PBinaryOp op p1 p2) =
-    PBinaryOp (trimOperator op) (trimProcess p1) (trimProcess p2)
-trimProcess (POp op ps) =
-    POp (trimOperator op) (fmap trimProcess ps)
-trimProcess (PSyntacticOp op nvs e) = PSyntacticOp (trimSyntacticOperator op)
-    (map (\ (n, v) -> (n, trimValueForProcessName v)) nvs) e
-trimProcess (PProcCall pn _) = PProcCall pn errorThunk
-
-trimEvent :: Event -> Event
-trimEvent Tau = Tau
-trimEvent Tick = Tick
-trimEvent (UserEvent v) = UserEvent (trimValueForProcessName v)
-
-trimOperator :: CSPOperator -> CSPOperator
-trimOperator (PAlphaParallel s) = PAlphaParallel (fmap (fmap trimEvent) s)
-trimOperator (PChaos s) = PChaos (fmap trimEvent s)
-trimOperator (PException s) = PException (fmap trimEvent s)
-trimOperator PExternalChoice = PExternalChoice
-trimOperator (PGenParallel evs) = PGenParallel (fmap trimEvent evs)
-trimOperator (PHide evs) = PHide (fmap trimEvent evs)
-trimOperator PInternalChoice = PInternalChoice
-trimOperator PInterrupt = PInterrupt
-trimOperator PInterleave = PInterleave
-trimOperator (PLinkParallel evm) =
-    PLinkParallel (fmap (\(ev,ev') -> (trimEvent ev, trimEvent ev')) evm)
-trimOperator (POperator op) = POperator op
-trimOperator (PPrefix ev) = PPrefix (trimEvent ev)
-trimOperator (PPrefixEventSet evs) = PPrefixEventSet (fmap trimEvent evs)
-trimOperator (PProject evs) = PProject (fmap trimEvent evs)
-trimOperator (PRename evm) = 
-    PRename (fmap (\(ev,ev') -> (trimEvent ev, trimEvent ev')) evm)
-trimOperator (PRun s) = PRun (fmap trimEvent s)
-trimOperator PSequentialComp = PSequentialComp
-trimOperator PSlidingChoice = PSlidingChoice
-trimOperator (PSynchronisingExternalChoice evs) =
-    PSynchronisingExternalChoice (fmap trimEvent evs)
-trimOperator (PSynchronisingInterrupt evs) =
-    PSynchronisingInterrupt (fmap trimEvent evs)
-
-trimSyntacticOperator :: SyntacticOperator -> SyntacticOperator
-trimSyntacticOperator (LazyCompile e) = LazyCompile e

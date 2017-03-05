@@ -1,0 +1,4 @@
+datatype VVVV = F | T | VVVVfork.(VVVVlink,VVVVlinkx)
+datatype VVVVlink = IfTrue.VVVV | IfFalse.VVVV | X.Proc
+
+VVVVlinkx = if (IfTrue.F) == (IfTrue.F) then VVVVlink else VVVVlink

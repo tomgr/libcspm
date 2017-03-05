@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances #-}
 module CSPM.TypeChecker.Expr () where
 
 import Control.Monad
@@ -16,7 +16,6 @@ import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Pat()
 import CSPM.TypeChecker.Unification
 import Util.Annotated
-import Util.List
 import Util.PrettyPrint
 
 checkFunctionCall :: Doc -> [TCExp] -> [Type] -> TypeCheckMonad ()
@@ -275,9 +274,6 @@ instance TypeCheckable (Exp Name) Type where
         let 
             fvsByField = map (\f -> (f, boundNames f)) fields
             fvs = concatMap snd fvsByField
-        -- Throw an error if a name is defined multiple times
-        when (not (noDups fvs)) (panic "Dupes found in prefix after renaming.")
-
         t1 <- typeCheck e1
         let 
             tcfs [] tsfields = do
@@ -359,13 +355,13 @@ typeCheckField field tc =
             tp <- addErrorContext errCtxt (do
                     tp <- typeCheck p
                     unify (TSet tp) t
-                    ensureHasConstraint CInputable tp
+                    ensureHasConstraint CComplete tp
                     return tp)
             tc tp
         chkInputNoSet p = do
             t <- addErrorContext errCtxt $ do
                     t <- typeCheck p
-                    ensureHasConstraint CInputable t
+                    ensureHasConstraint CComplete t
             tc t
         check (NonDetInput p (Just e)) = checkInput p e
         check (Input p (Just e)) = checkInput p e

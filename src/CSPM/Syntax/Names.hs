@@ -13,7 +13,6 @@ module CSPM.Syntax.Names (
     isNameDataConstructor,
 ) where
 
-import Control.Applicative
 import Control.Monad.Trans
 import qualified Data.ByteString.Char8 as B
 import Data.Hashable

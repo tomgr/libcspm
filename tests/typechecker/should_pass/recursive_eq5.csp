@@ -1,0 +1,7 @@
+datatype FT   = VVVVRRR | VVVVKKK
+datatype VVVV  = VNNN1.FT | VMMM1.(XXX1,XXX1) |
+                VNNN2.FT | VMMM2.(XXX2,XXX2)
+subtype  VVVV1 = VNNN1.FT | VMMM1.(XXX1,XXX1)
+subtype  VVVV2 = VNNN2.FT | VMMM2.(XXX2,XXX2)
+datatype XXX1 = LLLKKK1.VVVV2 | LLLRRR1.VVVV2
+datatype XXX2 = LLLKKK2.FT | LLLRRR2.FT

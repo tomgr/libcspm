@@ -1,0 +1,2 @@
+datatype X = K.Y
+datatype Y = A.X

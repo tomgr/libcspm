@@ -1,0 +1,3 @@
+channel c, d : Bool
+
+procTest1 = BUFFER(0, {(c.x, d.true) | x <- Bool})
