@@ -46,6 +46,11 @@ headEmptyListMessage loc scope = mkErrorMessage loc $
     text "Attempt to take head of empty list."
     $$ printCallStack scope
 
+listIndexFailureMessage :: Maybe InstantiatedFrame -> ErrorMessage
+listIndexFailureMessage scope = mkErrorMessage Unknown $
+    text "Attempt to index past end of list."
+    $$ printCallStack scope
+
 prioritiseEmptyListMessage :: SrcSpan -> Maybe InstantiatedFrame -> ErrorMessage
 prioritiseEmptyListMessage loc scope = mkErrorMessage loc $ 
     text "Prioritise must be called with a non-empty list."

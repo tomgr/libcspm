@@ -93,6 +93,7 @@ instance TypedFreeVars TCPat where
 
 instance TypedFreeVars TCExp where
     typedFreeVars' (An _ _ (App e es)) = typedFreeVars' (e:es)
+    typedFreeVars' (An _ _ (LocatedApp e es)) = typedFreeVars' (e:es)
     typedFreeVars' (An _ _ (BooleanBinaryOp _ e1 e2)) = typedFreeVars' [e1, e2]
     typedFreeVars' (An _ _ (BooleanUnaryOp _ e)) = typedFreeVars' e
     typedFreeVars' (An _ _ (Concat e1 e2)) = typedFreeVars' [e1, e2]

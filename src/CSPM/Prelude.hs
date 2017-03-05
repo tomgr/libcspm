@@ -113,10 +113,12 @@ makeBuiltins = do
         cspm_null fv = ("null", [TSeq fv], TBool)
         cspm_head fv = ("head", [TSeq fv], fv)
         cspm_tail fv = ("tail", [TSeq fv], TSeq fv)
+        cspm_nth fv = ("nth", [TInt, TSeq fv], fv)
+        cspm_modify_nth fv = ("modify_nth", [TInt, fv, TSeq fv], TSeq fv)
         cspm_concat fv = ("concat", [TSeq (TSeq fv)], TSeq fv)
         cspm_elem fv = ("elem", [fv, TSeq fv], TBool)       
         
-        seqs = [cspm_length, cspm_null, cspm_head, cspm_tail, cspm_concat]
+        seqs = [cspm_length, cspm_null, cspm_head, cspm_tail, cspm_nth, cspm_modify_nth, cspm_concat]
         eqSeqs = [cspm_elem]
 
         cspm_STOP = ("STOP", TProc)

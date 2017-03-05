@@ -109,7 +109,11 @@ builtInFunctions = do
         cspm_head _ [VList (x:xs)] = return x
         cspm_tail loc [VList []] = throwError' $ tailEmptyListMessage loc
         cspm_tail _ [VList (x:xs)] = return $ VList xs
-        cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
+        cspm_nth [VInt n, VList xs] | n >= length xs = throwError' listIndexFailureMessage
+        cspm_nth [VInt n, VList xs] = return $ xs !! n
+        cspm_modify_nth [VInt n, _, VList xs] | n >= length xs = throwError' listIndexFailureMessage
+        cspm_modify_nth [VInt n, v, VList xs] = return $ VList $ take n xs ++ [v] ++ drop (n+1) xs
+        cspm_concat [VList xs] = concatMap (\(VList ys) -> ys) xs
         cspm_elem [v, VList vs] = makeBoolValue $ v `elem` vs
         csp_chaos_frame = frameForBuiltin "CHAOS"
         csp_chaos [VSet a] = VProc chaosCall
@@ -259,7 +263,8 @@ builtInFunctions = do
 
         -- | Functions that require a monadic context.
         monadic_funcs = [
-            ("productions", cspm_productions), ("extensions", cspm_extensions)
+            ("productions", cspm_productions), ("extensions", cspm_extensions),
+            ("nth", cspm_nth), ("modify_nth", cspm_modify_nth)
             ]
 
         locatedFunctions = [
