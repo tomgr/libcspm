@@ -168,6 +168,8 @@ instance PrettyPrintable id => PrettyPrintable (SemanticProperty id) where
     prettyPrint Deterministic = text "deterministic"
     prettyPrint LivelockFreedom = text "divergence free"
     prettyPrint (HasTrace _) = text "has trace"
+    prettyPrint (LocalStaticProperty _) = text "local"
+    prettyPrint (GlobalStaticProperty _) = text "global"
 
 instance PrettyPrintable id => PrettyPrintable (DataTypeClause id) where
     prettyPrint (DataTypeClause n me _) = prettyPrint n

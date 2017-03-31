@@ -109,6 +109,8 @@ import Util.Exception (panic)
     "tags"              { L _ TTags }
     "partial order reduce" { L _ TPartialOrderReduce }
     "static"            { L _ TAnalyseStatically }
+    "local"             { L _ TLocalStaticProperty }
+    "global"            { L _ TGlobalStaticProperty }
     string_option_literal { L _ (TStringOption _) }
     refines             { L _ (TRefines _) }
     model               { L _ (TModel _) }
@@ -311,6 +313,8 @@ SemanticProperty :: { Located (SemanticProperty UnRenamedName) }
     | "livelock free"                           { LL LivelockFreedom }
     | "divergence free"                         { LL LivelockFreedom }
     | "deterministic"                           { LL Deterministic }
+    | "local" CExp                              { AN2 (LocalStaticProperty $2) }
+    | "global" CExp                             { AN2 (GlobalStaticProperty $2) }
 
 OptModelOptionList :: { [PModelOption] }
     :

@@ -26,6 +26,8 @@ data Token =
     | TTags
     | TPartialOrderReduce
     | TAnalyseStatically
+    | TLocalStaticProperty
+    | TGlobalStaticProperty
     | TStringOption B.ByteString
     | TDeadlockFree
     | TSublockFree
@@ -158,6 +160,8 @@ instance PrettyPrintable Token where
     prettyPrint TTags = text "tags"
     prettyPrint TPartialOrderReduce = text "partial order reduce"
     prettyPrint TAnalyseStatically = text "static"
+    prettyPrint TLocalStaticProperty = text "local"
+    prettyPrint TGlobalStaticProperty = text "global"
     prettyPrint (TStringOption s) = char '[' <> bytestring s <> char ']'
     prettyPrint TDeadlockFree = text "deadlock free"
     prettyPrint TSublockFree = text "sublock free"

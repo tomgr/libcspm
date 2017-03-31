@@ -13,6 +13,7 @@ module CSPM.Renamer (
     runFromStateToState,
     initRenamer,
     rename,
+    nameForString,
     newScope,
     getBoundNames,
 )  where
@@ -142,6 +143,9 @@ getBoundNames = do
             && renamedNameVisibility rname == Public
             && not (renamedNameIsModule rname)
     return $ map (renamedName . snd) $ filter isInteresting $ HM.flatten env
+
+nameForString :: String -> RenamerMonad (Maybe Name)
+nameForString str = lookupMaybeHiddenName (UnQual (OccName (B.pack str))) False
 
 -- **********************
 -- Monad Operations
@@ -1046,6 +1050,8 @@ instance Renamable (Assertion UnRenamedName) (Assertion Name) where
 
 instance Renamable (SemanticProperty UnRenamedName) (SemanticProperty Name) where
     rename (HasTrace e) = return HasTrace $$ rename e
+    rename (LocalStaticProperty e) = return (LocalStaticProperty e)
+    rename (GlobalStaticProperty e) = return (GlobalStaticProperty e)
     rename DeadlockFreedom = return DeadlockFreedom
     rename SublockFreedom = return SublockFreedom
     rename MutualExclusion = return MutualExclusion

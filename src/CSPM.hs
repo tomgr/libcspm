@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, IncoherentInstances,
     MultiParamTypeClasses, TypeSynonymInstances, UndecidableInstances #-}
--- | This module provides the main high-level interface to the library 
+-- | This module provides the main high-level interface to the library
 -- functionality. It does this through a monadic interface, mainly due to the
 -- fact that several of the components require the use of the IO monad. It is
 -- highly recommended that users of this library use a monad and then implement
@@ -14,11 +14,11 @@
 -- module.
 --
 -- The library exports several APIs which, in likely order of usage, are:
--- 
+--
 --      [@Parser@] Parses strings or files and produces an AST, parametrised
 --        by 'UnRenamedName', which are simply pieces of text.
 --
---      [@Renamer@] Renames the AST and produces an equivalent AST, but 
+--      [@Renamer@] Renames the AST and produces an equivalent AST, but
 --        parametrised by 'Name', which uniquely identify the binding instance
 --        of each variable (see documentation of 'Name').
 --
@@ -26,11 +26,11 @@
 --        types.
 --
 --      [@Desugarer@] Desugars an AST, remove syntactic sugar and prepares it for
---        evaluation. The AST produced by this phase should not be pretty 
+--        evaluation. The AST produced by this phase should not be pretty
 --        printed as it parenthesis have been removed, potentially making it not
 --        equivalent.
 --
---      [@Evaluator@] Evaluates an AST, returning a 'Value'. Note that the 
+--      [@Evaluator@] Evaluates an AST, returning a 'Value'. Note that the
 --        evaluator is lazy, meaning that the resulting Value will be generated
 --        as it is consumed, making it suitable for streaming to subsequent
 --        compilation phases.
@@ -53,7 +53,7 @@
 -- >            desugaredFile <- desugarFile typeCheckedFile
 -- >            -- Bind the file, making all functions and patterns available.
 -- >            bindFile desugaredFile
--- >            
+-- >
 -- >            -- The file is now ready for use, so now we build the expression
 -- >            -- to be evaluated.
 -- >            parsedExpression <- parseExpression "test(1,2,3)"
@@ -88,7 +88,7 @@ module CSPM (
     parseStringAsFile, parseStringsAsFile, parseFile, parseInteractiveStmt,
     parseExpression, filesRequiredByFile,
     -- * Renamer API
-    renameFile, renameInteractiveStmt, renameExpression, getBoundNames,
+    renameFile, renameInteractiveStmt, renameExpression, getBoundNames, nameForString,
     -- * Type Checker API
     typeCheckFile, typeCheckInteractiveStmt, typeCheckExpression,
     ensureExpressionIsOfType, typeOfExpression, modifyTypeCheckerErrorOptions,
@@ -102,15 +102,15 @@ module CSPM (
     -- * Shortcuts
     stringToValue,
     -- * Low-Level API
-    -- | Whilst this module provides many of the commonly used functionality 
+    -- | Whilst this module provides many of the commonly used functionality
     -- within the CSPM monad, sometimes there are additional functions exported
     -- by other modules that are of use. The following functions allow the
     -- renamer, typechecker and evaluator to be run in the current state. They
     -- also save the resulting state in the current session.
     runParserInCurrentState,
-    runRenamerInCurrentState, 
+    runRenamerInCurrentState,
     runTypeCheckerInCurrentState,
-    runEvaluatorInCurrentState, 
+    runEvaluatorInCurrentState,
     reportWarnings,
     -- * Misc functions
     getLibCSPMVersion,
@@ -210,7 +210,7 @@ parseFile fp =
         dir' = if dir == "./" then "" else dir
     in runParserInCurrentState dir' (P.parseFile fname)
 
--- | Parses a string, treating it as though it were a file. Throws a 
+-- | Parses a string, treating it as though it were a file. Throws a
 -- 'SourceError' on any parse error.
 parseStringAsFile :: CSPMMonad m => String -> m PCSPMFile
 parseStringAsFile str = runParserInCurrentState "" (P.parseStringAsFile str)
@@ -224,7 +224,7 @@ parseStringsAsFile rootFile fileContents =
 
 -- | Parses a 'PInteractiveStmt'. Throws a 'SourceError' on any parse error.
 parseInteractiveStmt :: CSPMMonad m => String -> m PInteractiveStmt
-parseInteractiveStmt str = 
+parseInteractiveStmt str =
     runParserInCurrentState "" (P.parseInteractiveStmt str)
 
 -- | Parses an 'Exp'. Throws a 'SourceError' on any parse error.
@@ -274,8 +274,8 @@ runTypeCheckerInCurrentState p = withSession $ \s -> do
     modifySession (\s -> s { tcState = st })
     return (a, ws)
 
--- | Type checks a file, also desugaring and annotating it. Throws a 
--- 'SourceError' if an error is encountered and will call 'handleWarnings' on 
+-- | Type checks a file, also desugaring and annotating it. Throws a
+-- 'SourceError' if an error is encountered and will call 'handleWarnings' on
 -- any warnings. This also performs desugaraing.
 typeCheckFile :: CSPMMonad m => TCCSPMFile -> m TCCSPMFile
 typeCheckFile ms = reportWarnings $ runTypeCheckerInCurrentState $ do
@@ -295,11 +295,12 @@ typeCheckExpression exp = reportWarnings $ runTypeCheckerInCurrentState $ do
 -- annoated and desugared expression.
 ensureExpressionIsOfType :: CSPMMonad m => Type -> TCExp -> m TCExp
 ensureExpressionIsOfType t exp = reportWarnings $ runTypeCheckerInCurrentState $ do
+    --liftIO $ print exp
     TC.typeCheckExpect t exp
 
 -- | Gets the type of the expression in the current context.
 typeOfExpression :: CSPMMonad m => TCExp -> m Type
-typeOfExpression exp = 
+typeOfExpression exp =
     reportWarnings $ runTypeCheckerInCurrentState (TC.typeOfExp exp)
 
 -- | Returns all currently bound process names, optionally including functions
@@ -384,7 +385,7 @@ maybeProcessNameToProcess pn =
 -- providing the expression is of the correct type.
 stringToValue :: CSPMMonad m => Type -> String -> m Value
 stringToValue typ str =
-    parseExpression str >>= renameExpression >>= 
+    parseExpression str >>= renameExpression >>=
     ensureExpressionIsOfType typ >>= desugarExpression >>= evaluateExpression
 
 -- | Dumps any profiling data that has been computed to stdout/stderr.
@@ -396,6 +397,9 @@ getLibCSPMVersion :: Version
 getLibCSPMVersion = version
 
 instance {-# OVERLAPPABLE #-} (Applicative m, CSPMMonad m,
-            M.MonadicPrettyPrintable EV.EvaluationMonad a) => 
+            M.MonadicPrettyPrintable EV.EvaluationMonad a) =>
         M.MonadicPrettyPrintable m a where
     prettyPrint = runEvaluatorInCurrentState . M.prettyPrint
+
+nameForString :: CSPMMonad m => String -> m (Maybe Name)
+nameForString str = runRenamerInCurrentState $ RN.nameForString str

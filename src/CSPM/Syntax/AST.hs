@@ -646,6 +646,8 @@ data SemanticProperty id =
     | Deterministic
     | LivelockFreedom
     | HasTrace [AnExp id]
+    | LocalStaticProperty PExp
+    | GlobalStaticProperty PExp
     deriving (Eq, Ord, Show)
 
 -- | The clause of a datatype, e.g. if a datatype declaration was:
