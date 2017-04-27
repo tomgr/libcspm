@@ -16,7 +16,7 @@ import Util.PrettyPrint
 
 printCallStack :: StackTrace -> Doc
 printCallStack [] =
-    text "Lexical call stack: none available (set cspm.evaluator.record_call_stacks to on to enable stack tracing)"
+    text "Lexical call stack: none available (set cspm.evaluator.record_stack_traces to on to enable stack tracing)"
 printCallStack fs =
     let ppFrame _ [] = empty
         ppFrame i (StackFrame frame loc:fs) =
