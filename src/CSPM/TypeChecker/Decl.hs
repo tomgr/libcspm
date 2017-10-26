@@ -496,6 +496,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                     ForAll _ typ <- typeCheck ta
                     t <- typeCheckExpect e typ
                     evalTypeExpression t
+        valueType <- ensureHasConstraint CComplete valueType
         return [(n, TSet valueType)]
     typeCheck' (Transparent ns) = return []
     typeCheck' (External ns) = return []

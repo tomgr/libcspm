@@ -1,0 +1,6 @@
+datatype A = A_A
+datatype B = B_A.A
+datatype D = D_A.B.A
+nametype E = {D_A.B_A.d | d <- A}
+
+test1 = not empty(E)
