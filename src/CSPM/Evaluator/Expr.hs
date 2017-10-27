@@ -43,8 +43,7 @@ eval (An loc _ (LocatedApp func args)) = do
     return $! do
         vs <- sequence args
         VFunction frame func <- func
-        newFrame <- instantiateFrameWithArguments (instantiatedFrameFrame frame) (instantiatedFrameMaybeArguments frame)
-        if recordTraces then registerFrame newFrame loc (func vs) else func vs
+        if recordTraces then registerFrame frame loc (func vs) else func vs
 eval (An loc _ (App func args)) = do
     func <- eval func
     args <- mapM eval args
@@ -52,8 +51,7 @@ eval (An loc _ (App func args)) = do
     return $! do
         vs <- sequence args
         VFunction frame func <- func
-        newFrame <- instantiateFrameWithArguments (instantiatedFrameFrame frame)
-            (instantiatedFrameMaybeArguments frame ++ [vs])
+        newFrame <- reinstantiateFrameWithArguments frame (instantiatedFrameMaybeArguments frame ++ [vs])
         if recordTraces then registerFrame newFrame loc (func vs) else func vs
 
 eval (An _ _ (BooleanBinaryOp op e1 e2)) = do

@@ -1,0 +1,16 @@
+tesFn = 
+  \x @ \a @
+    let zs = {true | _ <- x}
+    within error(show(empty(zs)))
+
+useConstants = tesFn({})(0)
+
+tesFn2(x) = 
+  let innerFn(a) =
+    let zs = {true | _ <- x}
+    within error(show(empty(zs)))
+  within innerFn
+
+useConstants2 = tesFn2({})(0)
+
+assert useConstants :[deadlock free]

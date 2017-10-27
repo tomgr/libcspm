@@ -5,6 +5,7 @@ module CSPM.Evaluator.Values (
 
     InstantiatedFrame(..), makeProcessName, procName, instantiateFrame,
     instantiateFrameWithArguments, instantiateBuiltinFrameWithArguments,
+    reinstantiateFrameWithArguments,
 
     valueEventToEvent, createFunction,
     noSave, maybeSave, removeThunk, lookupVar, maybeLookupVar,
@@ -29,6 +30,7 @@ import Prelude hiding (lookup)
 
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Monad
+import CSPM.Evaluator.Environment
 import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
 import {-# SOURCE #-} CSPM.Evaluator.ValuePrettyPrinter
 import CSPM.Syntax.Names
@@ -117,6 +119,15 @@ instantiateFrameWithArguments :: FrameInformation -> [[Value]] ->
 instantiateFrameWithArguments frame args = do
     vs <- mapM lookupVar (frameFreeVars frame)
     let h = defaultSalt `hashWithSalt` frame `hashWithSalt` vs
+                `hashWithSalt` args
+    return $! InstantiatedFrame h frame vs args
+
+reinstantiateFrameWithArguments :: InstantiatedFrame -> [[Value]] ->
+    EvaluationMonad InstantiatedFrame
+reinstantiateFrameWithArguments iframe args = do  
+    let frame = instantiatedFrameFrame iframe
+        vs = instantiatedFrameFreeVars iframe
+        h = defaultSalt `hashWithSalt` frame `hashWithSalt` vs
                 `hashWithSalt` args
     return $! InstantiatedFrame h frame vs args
 
