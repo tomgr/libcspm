@@ -1063,6 +1063,10 @@ instance Renamable (ModelOption UnRenamedName) (ModelOption Name) where
     rename (Tags e) = return Tags $$ rename e
     rename (PartialOrderReduce m) = return $ PartialOrderReduce m
     rename (AnalyseStatically m) = return $ AnalyseStatically m
+    rename (AnalysePair m) = return $ AnalysePair m
+    rename (AnalysePairStatic m) = return $ AnalysePairStatic m
+    rename (AnalysePairToken m) = return $ AnalysePairToken m
+    rename (AnalyseApprOx m) = return $ AnalyseApprOx m
 
 instance Renamable (Exp UnRenamedName) (Exp Name) where
     rename (App e es) = return App $$ rename e $$ rename es

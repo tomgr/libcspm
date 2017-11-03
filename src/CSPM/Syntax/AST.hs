@@ -637,6 +637,14 @@ data ModelOption id =
     | PartialOrderReduce (Maybe B.ByteString)
     -- | Statically analyse the assertion, possibly with an option.
     | AnalyseStatically (Maybe B.ByteString)
+    -- | Statically analyse the assertion using Pair, possibly with an option.
+    | AnalysePair (Maybe B.ByteString)
+    -- | Statically analyse the assertion using PairStatic, possibly with an option.
+    | AnalysePairStatic (Maybe B.ByteString)
+    -- | Statically analyse the assertion using PairToken, possibly with an option.
+    | AnalysePairToken (Maybe B.ByteString)
+    -- | Statically analyse the assertion using ApprOx, possibly with an option.
+    | AnalyseApprOx (Maybe B.ByteString)
     deriving (Eq, Ord, Show)
 
 data SemanticProperty id =

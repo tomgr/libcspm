@@ -17,7 +17,7 @@ module CSPM.Parser.Exceptions (
     duplicateModelOptionsError,
     ambiguousChannelTypeError,
     commentNotClosedErrorMessage,
-    
+
     throwSourceError
 )
 where
@@ -33,7 +33,7 @@ import Util.PrettyPrint
 invalidPatternErrorMessage :: PExp -> ErrorMessage
 invalidPatternErrorMessage e = mkErrorMessage (loc e) $
     hang (prettyPrint e) tabWidth (text "is not a valid pattern")
-    
+
 invalidLetDeclarationErrorMessage :: PDecl -> ErrorMessage
 invalidLetDeclarationErrorMessage d = mkErrorMessage (loc d) $
     hang (prettyPrint d) tabWidth (text "is not a valid declaration in a let expression")
@@ -56,7 +56,7 @@ invalidFunctionArgsErrorMessage t = mkErrorMessage (loc t) $
         (text "is not a valid type for a function argument list")
 
 invalidIncludeErrorMessage :: SrcSpan -> ErrorMessage
-invalidIncludeErrorMessage srcspan = 
+invalidIncludeErrorMessage srcspan =
     mkErrorMessage srcspan (text "Invalid include directive")
 
 lexicalErrorMessage :: SrcSpan -> ErrorMessage
@@ -76,7 +76,7 @@ fileAccessErrorMessage fp = mkErrorMessage Unknown $
 
 ambiguousTypeAnnotationsError :: UnRenamedName -> [SrcSpan] -> ErrorMessage
 ambiguousTypeAnnotationsError n spans = mkErrorMessage Unknown $
-    hang (text "The variable" <+> prettyPrint n 
+    hang (text "The variable" <+> prettyPrint n
             <+> text "has multiple type annotations at" <> colon)
         tabWidth (vcat (map prettyPrint spans))
 
@@ -108,6 +108,10 @@ duplicateModelOptionsError opts = mkErrorMessage (loc (head opts)) $
             TauPriority _ -> text ":[tau priority over]:"
             PartialOrderReduce _ -> text ":[partial order reduce]"
             AnalyseStatically _ -> text ":[static]"
+            AnalysePair _ -> text ":[Pair]"
+            AnalysePairStatic _ -> text ":[PairStatic]"
+            AnalysePairToken _ -> text ":[PairToken]"
+            AnalyseApprOx _ -> text ":[ApprOx]"
     <+> text "has been specified several times at:"
     $$ list (map (prettyPrint . loc) opts)
 

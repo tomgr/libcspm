@@ -26,6 +26,10 @@ data Token =
     | TTags
     | TPartialOrderReduce
     | TAnalyseStatically
+    | TAnalysePair
+    | TAnalysePairStatic
+    | TAnalysePairToken
+    | TAnalyseApprOx
     | TLocalStaticProperty
     | TGlobalStaticProperty
     | TStringOption B.ByteString

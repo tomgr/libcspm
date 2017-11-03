@@ -60,6 +60,10 @@ tokens :-
     <sem_prop>@spaces"has trace"   { tok THasTrace }
     <sem_prop>@spaces"partial order reduce" { tok TPartialOrderReduce }
     <sem_prop>@spaces"static" 	{ tok TAnalyseStatically }
+    <sem_prop>@spaces"Pair" 	{ tok TAnalysePair }
+    <sem_prop>@spaces"PairStatic" 	{ tok TAnalysePairStatic }
+    <sem_prop>@spaces"PairToken" 	{ tok TAnalysePairToken }
+    <sem_prop>@spaces"ApprOx" 	{ tok TAnalyseApprOx }
     <sem_prop>@spaces"global" 	{ tok TGlobalStaticProperty }
     <sem_prop>@spaces"local" 	{ tok TLocalStaticProperty }
     <sem_prop>@nl"[T]"          { tok (TModel Traces) }

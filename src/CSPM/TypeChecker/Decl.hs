@@ -631,6 +631,10 @@ instance TypeCheckable (ModelOption Name) () where
         return ()
     typeCheck' (PartialOrderReduce _) = return ()
     typeCheck' (AnalyseStatically _) = return ()
+    typeCheck' (AnalysePair _) = return ()
+    typeCheck' (AnalysePairStatic _) = return ()
+    typeCheck' (AnalysePairToken _) = return ()
+    typeCheck' (AnalyseApprOx _) = return ()
 
 instance TypeCheckable (SemanticProperty Name) () where
     errorContext a = Nothing

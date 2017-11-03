@@ -286,6 +286,10 @@ instance Desugarable (ModelOption Name) where
     desugar (Tags e) = return Tags $$ desugar e
     desugar (PartialOrderReduce m) = return $ PartialOrderReduce m
     desugar (AnalyseStatically m) = return $ AnalyseStatically m
+    desugar (AnalysePair m) = return $ AnalysePair m
+    desugar (AnalysePairStatic m) = return $ AnalysePairStatic m
+    desugar (AnalysePairToken m) = return $ AnalysePairToken m
+    desugar (AnalyseApprOx m) = return $ AnalyseApprOx m
 
 instance Desugarable (DataTypeClause Name) where
     desugar (DataTypeClause n me ta) =

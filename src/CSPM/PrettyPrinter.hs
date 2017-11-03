@@ -160,6 +160,18 @@ instance PrettyPrintable id => PrettyPrintable (ModelOption id) where
     prettyPrint (AnalyseStatically Nothing) = text ":[static]"
     prettyPrint (AnalyseStatically (Just m)) =
         text ":[static" <+> bytestring m <+> text "]"
+    prettyPrint (AnalysePair Nothing) = text ":[Pair]"
+    prettyPrint (AnalysePair (Just m)) =
+        text ":[Pair" <+> bytestring m <+> text "]"
+    prettyPrint (AnalysePairStatic Nothing) = text ":[PairStatic]"
+    prettyPrint (AnalysePairStatic (Just m)) =
+        text ":[PairStatic" <+> bytestring m <+> text "]"
+    prettyPrint (AnalysePairToken Nothing) = text ":[PairToken]"
+    prettyPrint (AnalysePairToken (Just m)) =
+        text ":[PairToken" <+> bytestring m <+> text "]"
+    prettyPrint (AnalyseApprOx Nothing) = text ":[ApprOx]"
+    prettyPrint (AnalyseApprOx (Just m)) =
+        text ":[ApprOx" <+> bytestring m <+> text "]"
 
 instance PrettyPrintable id => PrettyPrintable (SemanticProperty id) where
     prettyPrint DeadlockFreedom = text "deadlock free"

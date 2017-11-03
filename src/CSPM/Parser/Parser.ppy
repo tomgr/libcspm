@@ -109,6 +109,10 @@ import Util.Exception (panic)
     "tags"              { L _ TTags }
     "partial order reduce" { L _ TPartialOrderReduce }
     "static"            { L _ TAnalyseStatically }
+    "Pair"            { L _ TAnalysePair }
+    "PairStatic"            { L _ TAnalysePairStatic }
+    "PairToken"            { L _ TAnalysePairToken }
+    "ApprOx"            { L _ TAnalyseApprOx }
     "local"             { L _ TLocalStaticProperty }
     "global"            { L _ TGlobalStaticProperty }
     string_option_literal { L _ (TStringOption _) }
@@ -334,6 +338,14 @@ ModelOption :: { PModelOption }
     | "partial order reduce"                    { AN (PartialOrderReduce Nothing) }
     | "static" string_option_literal            { AN (AnalyseStatically (Just (getStringOption $2))) }
     | "static"                                  { AN (AnalyseStatically Nothing) }
+    | "Pair" string_option_literal            { AN (AnalysePair (Just (getStringOption $2))) }
+    | "Pair"                                  { AN (AnalysePair Nothing) }
+    | "PairStatic" string_option_literal            { AN (AnalysePairStatic (Just (getStringOption $2))) }
+    | "PairStatic"                                  { AN (AnalysePairStatic Nothing) }
+    | "PairToken" string_option_literal            { AN (AnalysePairToken (Just (getStringOption $2))) }
+    | "PairToken"                                  { AN (AnalysePairToken Nothing) }
+    | "ApprOx" string_option_literal            { AN (AnalyseApprOx (Just (getStringOption $2))) }
+    | "ApprOx"                                  { AN (AnalyseApprOx Nothing) }
 
 DataTypeClause :: { PDataTypeClause }
     :

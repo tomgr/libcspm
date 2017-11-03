@@ -270,6 +270,10 @@ instance FreeVars (ModelOption Name) where
     freeVars' (Tags e) = freeVars' e
     freeVars' (PartialOrderReduce _) = []
     freeVars' (AnalyseStatically _) = []
+    freeVars' (AnalysePair _) = []
+    freeVars' (AnalysePairStatic _) = []
+    freeVars' (AnalysePairToken _) = []
+    freeVars' (AnalyseApprOx _) = []
 
 instance FreeVars (Match Name) where
     freeVars' (Match ps e) =

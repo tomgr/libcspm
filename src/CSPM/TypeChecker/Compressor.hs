@@ -169,6 +169,10 @@ instance Compressable (ModelOption a) where
     mcompress (Tags e) = return Tags $$ mcompress e
     mcompress (PartialOrderReduce m) = return $ PartialOrderReduce m
     mcompress (AnalyseStatically m) = return $ AnalyseStatically m
+    mcompress (AnalysePair m) = return $ AnalysePair m
+    mcompress (AnalysePairStatic m) = return $ AnalysePairStatic m
+    mcompress (AnalysePairToken m) = return $ AnalysePairToken m
+    mcompress (AnalyseApprOx m) = return $ AnalyseApprOx m
 
 instance Compressable (DataTypeClause a) where
     mcompress (DataTypeClause n me ta) =
