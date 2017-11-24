@@ -364,8 +364,8 @@ evalProc' (An _ _ (Exception e1 e2 e3)) = do
         p1 <- e1
         VSet a <- e2
         p2 <- e3
-        return $ VProc $ PBinaryOp (PException (S.valueSetToEventSet a)) p1 p2
-eval (An _ _ (ExternalChoice e1 e2)) = do
+        return $ PBinaryOp (PException (S.valueSetToEventSet a)) p1 p2
+evalProc' (An _ _ (ExternalChoice e1 e2)) = do
     stop <- maybeTimed
         (return $! lookupVar (builtInName "STOP"))
         (\ tn _ -> return $! do
@@ -392,7 +392,7 @@ eval (An _ _ (ExternalChoice e1 e2)) = do
         (return $ POp PExternalChoice)
         (\ tn _ -> return $ POp (PSynchronisingExternalChoice (tockSet tn)))
     return $! do
-        VProc p1 <- e1
+        p1 <- e1
         ps <- sequence e2
         ps' <- reduce (p1 : ps) []
         return $! op $ reverse ps'

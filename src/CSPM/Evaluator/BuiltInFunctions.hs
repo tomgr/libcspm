@@ -114,82 +114,6 @@ builtInFunctions = do
         cspm_concat [VList xs] = concat (map (\(VList ys) -> ys) xs)
         cspm_elem [v, VList vs] = makeBoolValue $ v `elem` vs
 
-        csp_chaos_frame = frameForBuiltin "CHAOS"
-        csp_chaos [VSet a] = VProc chaosCall
-            where
-                chaosCall = PProcCall n p
-                -- | We convert the set into an explicit set as this makes
-                -- comparisons faster than leaving it as a set represented as
-                -- (for instance) a CompositeSet of CartProduct sets.
-                n = builtinProcName csp_chaos_frame
-                        [[VSet $ S.fromList $ S.toList a]]
-                p = POp (PChaos (S.valueSetToEventSet a)) []
-        csp_run_frame = frameForBuiltin "RUN"
-        csp_run [VSet a] = VProc runCall
-            where
-                runCall = PProcCall n p
-                -- | We convert the set into an explicit set as this makes
-                -- comparisons faster than leaving it as a set represented as
-                -- (for instance) a CompositeSet of CartProduct sets.
-                n = builtinProcName csp_run_frame
-                        [[VSet $ S.fromList $ S.toList a]]
-                p = POp (PRun (S.valueSetToEventSet a)) []
-        csp_loop_frame = frameForBuiltin "loop"
-        csp_loop [VProc p] =
-            let pn = builtinProcName csp_loop_frame [[VProc p]]
-                procCall = PProcCall pn (PBinaryOp PSequentialComp p procCall)
-            in VProc procCall
-    
-        checkBufferBound loc cap p | cap <= 0 = throwError' $ bufferCapacityInsufficient cap loc
-        checkBufferBound _ _ p = p
-            
-        checkForAmbiguousBufferEvents loc evs p = 
-            case firstDuplicate $ sort evs of
-                Nothing -> return p
-                Just ev -> throwError' $ bufferEventAmbiguous (UserEvent ev) loc
-        csp_refusing_buffer_frame = frameForBuiltin "BUFFER"
-        csp_refusing_buffer loc [VInt bound, VSet pairs] =
-                checkBufferBound loc bound $
-                checkForAmbiguousBufferEvents loc (concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs])
-                    (VProc bufferCall)
-            where
-                bufferCall = PProcCall n p
-                -- | We convert the set into an explicit set as this makes
-                -- comparisons faster than leaving it as a set represented as
-                -- (for instance) a CompositeSet of CartProduct sets.
-                n = builtinProcName csp_refusing_buffer_frame [[VInt bound, VSet pairs]]
-                events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
-                p = POp (PBuffer BufferStandard bound events) []
-        csp_exploding_buffer_frame = frameForBuiltin "WEAK_BUFFER"
-        csp_exploding_buffer loc [VInt bound, explode, VSet pairs] =
-                checkBufferBound loc bound $
-                checkForAmbiguousBufferEvents loc (explode : concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs])
-                    (VProc bufferCall)
-            where
-                bufferCall = PProcCall n p
-                -- | We convert the set into an explicit set as this makes
-                -- comparisons faster than leaving it as a set represented as
-                -- (for instance) a CompositeSet of CartProduct sets.
-                n = builtinProcName csp_exploding_buffer_frame [[VInt bound, explode, VSet pairs]]
-                events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
-                p = POp (PBuffer (BufferSignalWhenFull (UserEvent explode)) bound events) []
-                
-        csp_signal_buffer_frame = frameForBuiltin "SIGNAL_BUFFER"
-        csp_signal_buffer loc [VInt bound, explode, empty, VSet pairs] =
-                checkBufferBound loc bound $
-                checkForAmbiguousBufferEvents loc
-                    (explode : empty : concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs])
-                    (VProc bufferCall)
-            where
-                bufferCall = PProcCall n p
-                -- | We convert the set into an explicit set as this makes
-                -- comparisons faster than leaving it as a set represented as
-                -- (for instance) a CompositeSet of CartProduct sets.
-                n = builtinProcName csp_exploding_buffer_frame [[VInt bound, explode, empty, VSet pairs]]
-                events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
-                bm = BufferAlwaysSignal { fullSignal = UserEvent explode, emptySignal = UserEvent empty }
-                p = POp (PBuffer bm bound events) []
-
         cspm_extensions [v] = do
             exs <- extensions v
             return $ VSet $ S.fromList exs
@@ -285,17 +209,9 @@ builtInFunctions = do
             ("prioritise", csp_prioritise True),
             ("prioritise_nocache", csp_prioritise False),
             ("prioritisepo", csp_prioritise_partialorder),
-            ("mapLookup", cspm_mapLookup),
-            ("WEAK_BUFFER", csp_exploding_buffer), ("BUFFER", csp_refusing_buffer),
-            ("SIGNAL_BUFFER", csp_signal_buffer)
+            ("mapLookup", cspm_mapLookup)
             ]
 
-        procs = [
-            ("STOP", csp_stop),
-            ("SKIP", csp_skip),
-            ("DIV", csp_div)
-            ]
-    
         csp_skip_id = builtinProcName (frameForBuiltin "SKIP") []
         csp_stop_id = builtinProcName (frameForBuiltin "STOP") []
         csp_div_id = builtinProcName (frameForBuiltin "DIV") []
@@ -362,13 +278,14 @@ builtInFunctions = do
                 track <- makeUnaryTracker "RUN" runProc
                 return $ csp_run track
             
-        checkBufferBound loc cap p | cap <= 0 = throwError $ bufferCapacityInsufficient cap loc Nothing
+        checkBufferBound loc cap p | cap <= 0 = throwError' $ bufferCapacityInsufficient cap loc
         checkBufferBound _ _ p = p
             
         checkForAmbiguousBufferEvents loc evs p = 
             case firstDuplicate $ sort evs of
                 Nothing -> return p
-                Just ev -> throwError $ bufferEventAmbiguous (UserEvent ev) loc Nothing
+                Just ev -> throwError' $ bufferEventAmbiguous (UserEvent ev) loc
+    
         csp_refusing_buffer_frame = frameForBuiltin "BUFFER"
         csp_refusing_buffer =
             let
@@ -379,7 +296,7 @@ builtInFunctions = do
                     checkBufferBound loc bound $
                     checkForAmbiguousBufferEvents loc (concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs]) $
                         let events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
-                        in POp (PBuffer WhenFullRefuseInputs bound events) []
+                        in POp (PBuffer BufferStandard bound events) []
             
                 csp_refusing_buffer mkProc loc [bound, pairs] = do
                     p <- mkProc loc bound pairs
@@ -405,7 +322,7 @@ builtInFunctions = do
                     checkBufferBound loc bound $
                     checkForAmbiguousBufferEvents loc (concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs]) $
                         let events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
-                        in POp (PBuffer (WhenFullExplode (UserEvent explode)) bound events) []
+                        in POp (PBuffer (BufferSignalWhenFull (UserEvent explode)) bound events) []
             
                 csp_exploding_buffer mkProc loc [bound, explode, pairs] = do
                     p <- mkProc loc bound explode pairs
@@ -422,20 +339,38 @@ builtInFunctions = do
                 return $ \ [VLoc loc] -> VFunction (innerFnId loc) (csp_exploding_buffer mkWithAnnotation loc)
             else
                 return $ \ [VLoc loc] -> VFunction (innerFnId loc) (csp_exploding_buffer bufferProc loc)
+
+        csp_signal_buffer_frame = frameForBuiltin "SIGNAL_BUFFER"
+        csp_signal_buffer :: AnalyserMonad ([Value] -> Value)
+        csp_signal_buffer =
+            let
+                innerFnId loc = instantiateBuiltinFrameWithArguments csp_signal_buffer_frame [[VLoc loc]]
+        
+                bufferName bound explode empty pairs = builtinProcName csp_signal_buffer_frame
+                                                            [[bound, explode, empty, pairs]]
+                bufferProc loc (VInt bound) explode empty (VSet pairs) =
+                    checkBufferBound loc bound $
+                    checkForAmbiguousBufferEvents loc (concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs]) $
+                        let events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
+                            buffer = BufferAlwaysSignal { fullSignal = UserEvent explode, emptySignal = UserEvent empty }
+                        in POp (PBuffer buffer bound events) []
             
-        -- csp_exploding_buffer_frame = frameForBuiltin "WEAK_BUFFER"
-        -- csp_exploding_buffer loc [VInt bound, explode, VSet pairs] = panic "not implemented"
-        --         checkBufferBound loc bound $
-        --         checkForAmbiguousBufferEvents loc (explode : concat [[arr!0, arr!1] | VTuple arr <- S.toList pairs])
-        --             (VProc bufferCall)
-        --     where
-        --         bufferCall = PProcCall n p
-        --         -- | We convert the set into an explicit set as this makes
-        --         -- comparisons faster than leaving it as a set represented as
-        --         -- (for instance) a CompositeSet of CartProduct sets.
-        --         n = builtinProcName csp_exploding_buffer_frame [[VInt bound, explode, VSet pairs]]
-        --         events = [(UserEvent (arr!0), UserEvent (arr!1)) | VTuple arr <- S.toList pairs]
-        --         p = POp (PBuffer (WhenFullExplode (UserEvent explode)) bound events) []
+                csp_signal_buffer mkProc loc [bound, explode, empty, pairs] = do
+                    p <- mkProc loc bound explode empty pairs
+                    return $ VProc $ PProcCall (bufferName bound explode empty pairs) p
+            in if trackVariables then do
+                syntacticState <- takeNextSyntacticState (mkVar (builtInName "BUFFER") TProc)
+                arg1 <- mkFreshInternalName
+                arg2 <- mkFreshInternalName
+                arg3 <- mkFreshInternalName
+                arg4 <- mkFreshInternalName
+                let mkWithAnnotation loc bound explode empty events = do
+                        p <- bufferProc loc bound explode empty events
+                        let vars = [(arg1, bound), (arg2, explode), (arg3, empty), (arg4, events)]
+                        return $ PUnaryOp (PVariableAnnotation syntacticState vars) p
+                return $ \ [VLoc loc] -> VFunction (innerFnId loc) (csp_signal_buffer mkWithAnnotation loc)
+            else
+                return $ \ [VLoc loc] -> VFunction (innerFnId loc) (csp_signal_buffer bufferProc loc)
 
         csp_tstop =
             if trackVariables then do

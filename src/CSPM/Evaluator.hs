@@ -41,14 +41,14 @@ import qualified Data.Map as Mp
 import qualified Data.Set as S
 
 data EvaluatorOptions = EvaluatorOptions {
-        recordStackTraces :: Bool
+        recordStackTraces :: Bool,
         trackVariables :: Bool,
         variablesToTrackFunction :: Maybe (Maybe Name -> [(Name, Type)] -> [Name])
     }
 
 defaultEvaluatorOptions :: EvaluatorOptions
 defaultEvaluatorOptions = EvaluatorOptions {
-        recordStackTraces = False
+        recordStackTraces = False,
         trackVariables = False,
         variablesToTrackFunction = Nothing
     }
