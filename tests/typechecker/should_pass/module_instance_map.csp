@@ -1,0 +1,8 @@
+module M(X)
+exports
+  z = mapFromList(X)
+endmodule
+
+instance M1 = M(<(0,1)>)
+
+test1 = M1::z == mapFromList(<(0,1)>)

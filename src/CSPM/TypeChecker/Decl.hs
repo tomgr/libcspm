@@ -543,6 +543,10 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
                         t2 <- sub t2
                         return $! TDot t1 t2
                     sub (TTuple ts) = mapM sub ts >>= return . TTuple
+                    sub (TMap t1 t2) = do
+                        t1 <- sub t1
+                        t2 <- sub t2
+                        return $! TMap t1 t2
                     sub (TFunction ts t) = do
                         ts <- mapM sub ts
                         t <- sub t
