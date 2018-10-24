@@ -126,7 +126,7 @@ combineDots loc v1 v2 =
         splitIntoFields :: Value -> [Value]
         splitIntoFields (v@(VDot (VDataType n:_))) = [v]
         splitIntoFields (v@(VDot (VChannel n:_))) = [v]
-        splitIntoFields (VDot vs) = vs
+        splitIntoFields (VDot vs) = concatMap splitIntoFields vs
         splitIntoFields v = [v]
 
         -- | Given a base value and a list of many fields dots the fields onto

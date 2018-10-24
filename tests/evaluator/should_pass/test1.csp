@@ -1,0 +1,8 @@
+datatype Ty =
+  XXX.Bool.Bool
+  |
+  YYY.Ty.Ty
+
+v1 = YYY.(XXX.true.true).(XXX.true.true)
+
+test1 = v1 == v1
