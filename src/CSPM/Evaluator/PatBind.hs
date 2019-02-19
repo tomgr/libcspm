@@ -24,6 +24,13 @@ fieldsConsumed (An _ _ (PCompDot ps _)) = sum (map fieldsConsumed ps)
 fieldsConsumed (An _ _ (PDoublePattern p1 p2)) = fieldsConsumed p1 `max` fieldsConsumed p2
 fieldsConsumed _ = 1
 
+--- | Returns length xs == bound, without fully evaluating xs.
+isExactlyLength :: Int -> [a] -> Bool
+isExactlyLength 0 [] = True
+isExactlyLength 0 _ = False
+isExactlyLength _ [] = False
+isExactlyLength bound (x:xs) = isExactlyLength (bound-1) xs
+    
 bind :: TCPat -> AnalyserMonad (Value -> Maybe [(Name, Value)])
 -- We can decompose any PConcat pattern into three patterns representing:
 -- Begining (of the form PList), middle (either PWildcard or PVar)
@@ -32,7 +39,7 @@ bind (An _ _ (PCompList ps Nothing _)) = do
     binder <- bindAll ps
     let required = length ps
     return $! \ (VList xs) ->
-        if required == length xs then
+        if isExactlyLength required xs then
             binder xs
         else
             Nothing

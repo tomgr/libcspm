@@ -1,0 +1,11 @@
+zip :: (<a>,<b>) -> <(a,b)>
+zip(<>,_) =
+  <>
+zip(_,<>) =
+  <>
+zip(<x>^xs, <y>^ys) =
+  <(x,y)>^zip(xs,ys)
+
+list = zip(<1..>,<>)
+
+assert if null(list) then STOP else STOP :[deadlock free [F]]
