@@ -60,6 +60,7 @@ instance NFData CSPOperator where
     rnf (POperator op) = rnf op
     rnf (PPrefix ev) = rnf ev
     rnf (PPrefixEventSet evs) = rnf evs
+    rnf (PProject evs) = rnf evs
     rnf (PRename evm) = rnf evm
     rnf (PRun evm) = rnf evm
     rnf PSequentialComp = ()
