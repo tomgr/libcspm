@@ -90,6 +90,7 @@ analyseRelevantVars ds prog = do
         makeRelevant (x, y) = (x, sortedNub $ sort $ filter (flip S.member boundVars) y)
         freeVarMap = [(n, n') | d <- ds, n <- boundNames d, n' <- freeVars d,
                                 n /= n']
+                      ++ [(n, n') | (n, xs) <- M.toList oldMap, n' <- xs]
         -- We now need to take the transitive closure of freeVarMap
         tcMap = runST $ do
                     let allVars = sortedNub $ sort $ map fst freeVarMap ++ map snd freeVarMap

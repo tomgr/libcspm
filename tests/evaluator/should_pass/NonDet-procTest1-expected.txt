@@ -1,0 +1,30 @@
+Round({1})::ANNON(1)::P2 = Round({})
+
+Round({1})::ANNON(1)::P1 = signal.1 -> Round({1})::ANNON(1)::P2
+
+Round({1}) = Round({1})::ANNON(1)::P1
+
+Round({1, 2})::ANNON(2)::P2 = Round({1})
+
+Round({1, 2})::ANNON(2)::P1 =
+    signal.2 -> Round({1, 2})::ANNON(2)::P2
+
+Round({2})::ANNON(2)::P2 = Round({})
+
+Round({2})::ANNON(2)::P1 = signal.2 -> Round({2})::ANNON(2)::P2
+
+Round({2}) = Round({2})::ANNON(2)::P1
+
+Round({1, 2})::ANNON(1)::P2 = Round({2})
+
+Round({1, 2})::ANNON(1)::P1 =
+    signal.1 -> Round({1, 2})::ANNON(1)::P2
+
+Round({1, 2}) =
+    Round({1, 2})::ANNON(1)::P1 [] Round({1, 2})::ANNON(2)::P1
+
+Round({}) = Round({1, 2})
+
+procTest1 = Round({})
+
+procTest1

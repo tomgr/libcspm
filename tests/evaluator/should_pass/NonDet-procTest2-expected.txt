@@ -1,0 +1,12 @@
+Round'({2}) = signal.2 -> Round'({})
+
+Round'({1}) = signal.1 -> Round'({})
+
+Round'({1, 2}) =
+    signal.2 -> Round'({1}) [] signal.1 -> Round'({2})
+
+Round'({}) = Round'({1, 2})
+
+procTest2 = Round'({})
+
+procTest2

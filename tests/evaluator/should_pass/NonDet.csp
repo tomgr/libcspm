@@ -1,0 +1,28 @@
+Ids = {1,2}
+channel signal : Ids
+
+Round({}) = Round(Ids)
+Round(ids) =
+  [] id : ids @
+  let
+    remainingIds = diff(ids,{id})
+  within
+    STOP
+    []
+    let
+      P1 =
+        signal.id ->
+        P2
+      P2 =
+        Round(remainingIds)
+    within
+      P1
+
+-- Round' should be equivalent to Round
+Round'({}) = Round'(Ids)
+Round'(ids) =
+  signal?id:ids ->
+  Round'(diff(ids,{id}))
+
+procTest1 = Round({})
+procTest2 = Round'({})
