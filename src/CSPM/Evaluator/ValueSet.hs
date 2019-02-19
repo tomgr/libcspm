@@ -72,7 +72,7 @@ instance Hashable ValueSet where
     -- ways so we have to normalise to an explicit set, essentially. 
     -- This is already guaranteed to be sorted
     hashWithSalt s (ExplicitSet vs) = s `hashWithSalt` (5 :: Int) `hashWithSalt` (S.toList vs)
-    hashWithSalt s set = s `hashWithSalt` (sort $ toList set)
+    hashWithSalt s set = s `hashWithSalt` (UL.sortedNub $ sort $ toList set)
 
 instance Eq ValueSet where
     s1 == s2 = compare s1 s2 == EQ
@@ -90,14 +90,13 @@ instance Ord ValueSet where
     -- Mixed infinite cases
 
     -- Explicitly finite cases
-    compare (CompositeSet s1) (CompositeSet s2) = compare s1 s2
     compare (AllSequences s1) (AllSequences s2) = compare s1 s2
     compare (ExplicitSet s1) (ExplicitSet s2) = compare s1 s2
     compare (Powerset s1) (Powerset s2) = compare s1 s2
     compare (AllMaps k1 v1) (AllMaps k2 v2) =
         compare k1 k2 `thenCmp` compare v1 v2
     -- Fallback to comparing the lists
-    compare s1 s2 = compare (sort $ toList s1) (sort $ toList s2)
+    compare s1 s2 = compare (UL.sortedNub $ sort $ toList s1) (UL.sortedNub $ sort $ toList s2)
 
 flipOrder :: Maybe Ordering -> Maybe Ordering
 flipOrder Nothing = Nothing

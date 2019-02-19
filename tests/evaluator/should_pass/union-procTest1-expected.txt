@@ -1,0 +1,10 @@
+P(Union({{A}, {}, {B}})) =
+    c.A -> P(Union({{A}, {A}, {}, {B}}))
+    [] c.B -> P(Union({{B}, {A}, {}, {B}}))
+
+P(Union({{}, {B}})) =
+    c.A -> P(Union({{A}, {}, {B}})) [] c.B -> P(Union({{B}, {}, {B}}))
+
+procTest1 = P(Union({{}, {B}}))
+
+procTest1

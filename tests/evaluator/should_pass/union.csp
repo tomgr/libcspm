@@ -1,0 +1,9 @@
+datatype T = A | B
+
+S = diff(T,{A})
+
+channel c : T
+
+P(s) = c?e -> P(union(s,{e}))
+
+procTest1 = P(diff(T,{A}))
