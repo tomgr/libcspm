@@ -117,11 +117,13 @@ cannotConvertProcessesToListMessage = mkErrorMessage Unknown $
 
 cannotCheckSetMembershipError :: Value -> ValueSet -> ErrorMessage
 cannotCheckSetMembershipError v vs = mkErrorMessage Unknown $
-    text "Cannot check for set membership as the supplied set is infinite."
+    text "Cannot check for set membership as the supplied set is infinite:"
+    $$ tabIndent (prettyPrint vs)
 
 cardOfInfiniteSetMessage :: ValueSet -> ErrorMessage
 cardOfInfiniteSetMessage vs = mkErrorMessage Unknown $
-    text "Attempt to take the cardinatlity of an infinite set."
+    text "Attempt to take the cardinatlity of an infinite set:"
+    $$ tabIndent (prettyPrint vs)
 
 cannotDifferenceSetsMessage :: ValueSet -> ValueSet -> ErrorMessage
 cannotDifferenceSetsMessage vs1 vs2 = mkErrorMessage Unknown $
