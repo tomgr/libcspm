@@ -1,0 +1,5 @@
+testInter1 = Inter({{0}, {1}}) == {}
+testInter2 = Inter({{0, 1}, {1}}) == {1}
+testInter3 = Inter({{0, 1}}) == {0, 1}
+testInter4 = Inter({{0, 1}, {0}, {1}}) == {}
+testInter5 = Inter({{0, 1}, {0}, {0, 1}}) == {0}

@@ -318,7 +318,7 @@ infiniteUnions vs =
 -- | Replicated intersection.
 intersections :: [ValueSet] -> ValueSet
 intersections [] = emptySet
-intersections (v:vs) = foldr1 intersection vs
+intersections vs = foldr1 intersection vs
 
 -- | Union two sets throwing an error if it cannot be done in a way that will
 -- terminate.
