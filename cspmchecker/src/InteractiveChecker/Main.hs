@@ -2,6 +2,7 @@ module Main where
 
 import Data.Char
 import Control.Exception (AsyncException(..))
+import Control.Monad.Catch
 import Control.Monad.Trans
 import Data.List
 import Prelude hiding (catch)

@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances #-}
 module CSPM.TypeChecker.Decl (typeCheckDecls) where
 
+import Prelude hiding ((<>))
+
 import Control.Monad
 import Data.List (sort)
 import Data.Graph.Wrapper

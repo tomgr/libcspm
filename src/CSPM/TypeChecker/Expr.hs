@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances #-}
 module CSPM.TypeChecker.Expr () where
 
+import Prelude hiding ((<>))
+
 import Control.Monad
 import Data.List
 

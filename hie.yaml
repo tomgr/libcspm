@@ -1,0 +1,19 @@
+cradle:
+  cabal:
+    - path: "src"
+      component: "lib:libcspm"
+
+    - path: "cspmchecker/src/Checker"
+      component: "exe:cspmchecker"
+
+    - path: "cspmchecker/src/Explorer"
+      component: "exe:cspmexplorer"
+
+    - path: "cspmchecker/src/InteractiveChecker"
+      component: "exe:cspmcheckeri"
+
+    - path: "profiler/src"
+      component: "exe:cspmprofiler"
+
+    - path: "tests"
+      component: "libcspm:test:libcspm_tests"

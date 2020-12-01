@@ -1,3 +1,4 @@
+{-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, IncoherentInstances,
     MultiParamTypeClasses, ScopedTypeVariables, TypeSynonymInstances,
     UndecidableInstances #-}
@@ -523,7 +524,8 @@ maybeNull' s _ | null (F.toList s) = M.text "SKIP"
 maybeNull' _ d = d
 
 instance
-    (M.MonadicPrettyPrintable m EventSet,
+    (Monad m,
+        M.MonadicPrettyPrintable m EventSet,
         M.MonadicPrettyPrintable m ValueSet) =>
         M.MonadicPrettyPrintable m Proc
     where

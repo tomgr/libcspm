@@ -17,6 +17,8 @@ module CSPM.Renamer (
     getBoundNames,
 )  where
 
+import Prelude hiding ((<>))
+
 import Control.Monad.State
 import qualified Data.ByteString.Char8 as B
 import Data.List

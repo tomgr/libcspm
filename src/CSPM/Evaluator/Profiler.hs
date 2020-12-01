@@ -30,6 +30,8 @@ module CSPM.Evaluator.Profiler (
     profile, dumpProfilingData,
 ) where
 
+import Prelude hiding ((<>))
+
 import Control.Monad.Trans
 import Data.Array.IArray
 import Data.Array.IO

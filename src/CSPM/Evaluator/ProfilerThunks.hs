@@ -7,9 +7,7 @@ module CSPM.Evaluator.ProfilerThunks (
 )
 where
 
-import CSPM.Evaluator.ProfilerThunksTH
 import Data.Array
-import Language.Haskell.TH
 
 #ifndef CSPM_PROFILING
 

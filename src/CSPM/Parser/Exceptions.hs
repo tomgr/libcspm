@@ -22,6 +22,8 @@ module CSPM.Parser.Exceptions (
 )
 where
 
+import Prelude hiding ((<>))
+
 import CSPM.Syntax.Names
 import CSPM.Syntax.AST
 import CSPM.Parser.Tokens

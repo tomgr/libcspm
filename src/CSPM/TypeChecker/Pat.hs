@@ -1,6 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances #-}
 module CSPM.TypeChecker.Pat () where
 
+import Prelude hiding ((<>))
+
 import CSPM.Syntax.FreeVars
 import CSPM.Syntax.Names
 import CSPM.Syntax.AST hiding (getType)

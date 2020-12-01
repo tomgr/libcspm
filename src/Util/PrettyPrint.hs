@@ -12,6 +12,8 @@ module Util.PrettyPrint (
 )
 where 
 
+import Prelude hiding ((<>))
+
 import qualified Data.ByteString.Char8 as B
 
 import Numeric
