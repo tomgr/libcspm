@@ -30,7 +30,6 @@ import Prelude hiding (lookup)
 
 import CSPM.Evaluator.AnalyserMonad
 import CSPM.Evaluator.Monad
-import CSPM.Evaluator.Environment
 import {-# SOURCE #-} qualified CSPM.Evaluator.ValueSet as S
 import {-# SOURCE #-} CSPM.Evaluator.ValuePrettyPrinter
 import CSPM.Syntax.Names
@@ -153,7 +152,7 @@ noSave :: EvaluationMonad Value -> EvaluationMonad Value
 noSave prog = do
     --pn <- getParentScopeIdentifier
     return $ VThunk prog 
-        -- $ modify 
+        --  $ modify 
         --(\ st -> st {
             --CSPM.Evaluator.Monad.parentScopeIdentifier = pn
         -- }) prog

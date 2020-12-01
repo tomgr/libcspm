@@ -39,7 +39,7 @@ import Control.Monad.State
 import Data.List ((\\))
 import qualified Data.Map as M
 import qualified Data.Set as S
-import Prelude hiding (lookup)
+import Prelude hiding ((<>), lookup)
 
 import CSPM.Syntax.Names
 import CSPM.Syntax.Types

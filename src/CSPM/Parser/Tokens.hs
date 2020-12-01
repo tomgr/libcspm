@@ -3,6 +3,8 @@ module CSPM.Parser.Tokens (
 )
 where
 
+import Prelude hiding ((<>))
+
 import qualified Data.ByteString as B
 
 import CSPM.Syntax.AST (Model(..))

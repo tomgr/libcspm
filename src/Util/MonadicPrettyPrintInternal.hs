@@ -67,6 +67,8 @@ module Util.MonadicPrettyPrintInternal(
     fullRender,
 ) where
 
+import Prelude hiding ((<>))
+
 import qualified Text.PrettyPrint.HughesPJ as P
 
 --------------------------------------------------------------------------------

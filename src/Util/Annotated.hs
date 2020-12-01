@@ -4,7 +4,7 @@ module Util.Annotated where
 import qualified Data.ByteString as B
 import Data.Hashable
 import GHC.Generics (Generic)
-import Prelude
+import Prelude hiding ((<>))
 import Util.Exception
 import Util.Prelude
 import Util.PrettyPrint

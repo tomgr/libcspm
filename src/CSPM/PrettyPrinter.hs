@@ -4,6 +4,8 @@ module CSPM.PrettyPrinter (
 )
 where
 
+import Prelude hiding ((<>))
+
 import CSPM.Syntax.AST
 import Util.Annotated
 import Util.PrettyPrint

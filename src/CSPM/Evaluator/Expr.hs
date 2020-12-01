@@ -29,8 +29,6 @@ import Util.Annotated
 import Util.Exception
 import Util.List
 
-import CSPM.Prelude
-
 -- In order to keep lazy evaluation working properly only use pattern
 -- matching when you HAVE to know the value. (Hence why we delay pattern
 -- matching in BooleanBinaryOp And in case the first value is false.)

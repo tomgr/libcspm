@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstrainedClassMethods #-}
 {-# LANGUAGE CPP, DeriveDataTypeable, FlexibleInstances, ScopedTypeVariables,
     TypeSynonymInstances #-}
 module Util.Exception (
@@ -19,6 +20,8 @@ import Data.List
 
 #if __GLASGOW_HASKELL__ < 705
 import Prelude hiding (catch)
+#else
+import Prelude hiding ((<>))
 #endif
 
 import {-# SOURCE #-} Util.Annotated

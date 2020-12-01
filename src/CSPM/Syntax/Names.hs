@@ -13,6 +13,8 @@ module CSPM.Syntax.Names (
     isNameDataConstructor,
 ) where
 
+import Prelude hiding ((<>))
+
 import Control.Monad.Trans
 import qualified Data.ByteString.Char8 as B
 import Data.Hashable
