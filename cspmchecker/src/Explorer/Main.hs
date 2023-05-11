@@ -16,7 +16,7 @@ import System.FilePath
 import System.Exit
 import System.IO
 
-import qualified Paths_cspmexplorer as C
+import qualified Paths_cspmchecker as C
 import Data.Version (showVersion)
 
 import CSPM

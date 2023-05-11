@@ -1,8 +1,9 @@
 module Main where
 
 import Data.Char
-import Control.Exception hiding (evaluate)
+import Control.Exception hiding (catch, evaluate)
 import Control.Monad
+import Control.Monad.Catch (catch)
 import Control.Monad.Trans
 import Data.List
 import Prelude hiding (catch)
