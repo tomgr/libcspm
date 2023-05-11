@@ -16,7 +16,7 @@ module CSPM.TypeChecker.Exceptions (
 )
 where
 
-import Prelude
+import Prelude hiding ((<>))
 import Data.Maybe
 
 import Data.List (intersect, nub, sort)

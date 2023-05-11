@@ -11,6 +11,7 @@ module Data.Graph.ST (
 ) where
 
 import Control.Monad
+import Control.Monad.Fail
 import Control.Monad.ST
 import Data.Array.ST
 import Data.Array.Unboxed
@@ -26,6 +27,9 @@ import Util.Monad
 type HashTable s k v = B.HashTable s k v
 
 data SCC a = AcyclicSCC a | CyclicSCC [a] deriving (Eq, Show)
+
+instance MonadFail (ST s) where
+    fail s = error s
 
 nodesOfScc :: SCC a -> [a]
 nodesOfScc (AcyclicSCC a) = [a]

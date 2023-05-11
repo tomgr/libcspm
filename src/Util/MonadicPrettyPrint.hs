@@ -16,6 +16,7 @@ module Util.MonadicPrettyPrint(
 
 import qualified Data.ByteString.Char8 as B
 import Numeric
+import Prelude hiding ((<>))
 import Util.MonadicPrettyPrintInternal
 import Util.Precedence
 

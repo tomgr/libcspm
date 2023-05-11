@@ -324,7 +324,7 @@ tok t (ParserState { fileStack = fps:_ }) len =
 tok _ _ _ = panic "tok: invalid state"
 
 stok :: (B.ByteString -> Token) -> AlexInput -> Int -> ParseMonad LToken
-stok f (st @ ParserState { fileStack = stk }) len =
+stok f (st@ParserState { fileStack = stk }) len =
     tok (f (takeChars len stk)) st len
     -- (filter (\c -> not (elem c ['\r','\n']))
 
@@ -411,11 +411,11 @@ alexInputPrevChar _ = panic "alexInputPrevChar: invalid state - no previous char
 
 alexGetByte :: AlexInput -> Maybe (Word8, AlexInput)
 alexGetByte (ParserState { fileStack = [] }) = Nothing
-alexGetByte (st @ (ParserState { fileStack = fps:fpss })) = gc fps
+alexGetByte (st@(ParserState { fileStack = fps:fpss })) = gc fps
     where
         gc (FileParserState { input = input }) | B.null input = 
             alexGetByte (st { fileStack = fpss })
-        gc (fps @ (FileParserState { tokenizerPos = p, input = input })) =
+        gc (fps@(FileParserState { tokenizerPos = p, input = input })) =
                 c `seq` p' `seq` fps' `seq` st' `seq` Just (c, st')
             where
                 Just (c, s) = B.uncons input

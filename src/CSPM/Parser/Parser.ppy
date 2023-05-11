@@ -421,7 +421,7 @@ BegSeq
     :
     "<"                         {% do
                                     modifyTopFileParserState (
-                                        \ st @ (FileParserState { sequenceStack = (c:cs) }) -> 
+                                        \ st@(FileParserState { sequenceStack = (c:cs) }) -> 
                                             st { sequenceStack = (c+1):cs })
                                     return $1
                                 }
@@ -733,7 +733,7 @@ attachTypeAnnotations ds =
 convDecl :: PExp -> PExp -> ParseMonad PDecl
 convDecl lhs rhs | srcSpanFile (loc lhs) /= srcSpanFile (loc rhs) =
     throwSourceError [definitionSpanFileError lhs rhs (loc lhs)]
-convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) = 
+convDecl (lhs@(An loc1 b lhsexp)) (rhs@(An loc2 d _)) = 
     let
         span = combineSpans loc1 loc2
 

@@ -23,6 +23,7 @@ import Data.List
 import qualified Data.Map as M
 import Data.Maybe (fromJust, isJust,isNothing)
 import qualified Data.Set as S
+import Prelude hiding ((<>))
 
 import CSPM.Syntax.Names
 import CSPM.Syntax.AST

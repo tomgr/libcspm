@@ -34,6 +34,7 @@ import Control.Monad.Trans
 import Data.Array.IArray
 import Data.Array.IO
 import Data.IORef
+import Prelude hiding ((<>))
 import System.Directory
 import System.Environment
 import System.FilePath

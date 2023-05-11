@@ -8,6 +8,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.List ((\\), sortBy)
 import Data.Maybe (fromJust)
+import Prelude hiding ((<>))
 
 import CSPM.Syntax.FreeVars
 import CSPM.Syntax.Names
@@ -348,7 +349,7 @@ instance TypeCheckable (Decl Name) [(Name, Type)] where
         ForAll [] t <- getType n
         -- This unification also ensures that each equation has the same number
         -- of arguments.
-        (t' @ (TFunction tsargs _)) <- unifyAll (t:ts)
+        (t'@(TFunction tsargs _)) <- unifyAll (t:ts)
         return [(n, t')]
         where
             matchCtxt an = 

@@ -1,7 +1,8 @@
 module Main where
 
 import Data.Char
-import Control.Exception (AsyncException(..))
+import Control.Exception hiding (evaluate)
+import Control.Monad
 import Control.Monad.Trans
 import Data.List
 import Prelude hiding (catch)

@@ -35,7 +35,7 @@ module Util.MonadicPrettyPrintInternal(
 
     -- ** Combining documents
     empty,
-    (<>), (<+>), hcat, hsep,
+    (Util.MonadicPrettyPrintInternal.<>), (<+>), hcat, hsep,
     ($$), ($+$), vcat,
     sep, cat,
     fsep, fcat,

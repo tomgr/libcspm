@@ -2,11 +2,13 @@
 module Main where
 
 import Control.DeepSeq
+import Control.Exception
 import Control.Monad
 import Control.Monad.Trans
 import Data.IORef
 import qualified Data.HashTable.IO as H
 import Data.List
+import Prelude hiding (catch)
 import System.Console.GetOpt
 import System.Directory
 import System.Environment

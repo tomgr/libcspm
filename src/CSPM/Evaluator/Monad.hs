@@ -1,6 +1,7 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, DerivingStrategies, GeneralizedNewtypeDeriving #-}
 module CSPM.Evaluator.Monad where
 
+import qualified Control.Monad.Fail as Fail
 import Control.Monad.Reader
 import Prelude hiding (lookup)
 
@@ -11,7 +12,10 @@ import Util.Annotated
 import Util.Exception
 
 type EvaluationState = Environment
-type EvaluationMonad = Reader EvaluationState
+newtype EvaluationMonad a = EvaluationMonad (Reader EvaluationState a)
+    deriving newtype (Functor, Applicative, Monad, MonadReader EvaluationState)
+instance Fail.MonadFail EvaluationMonad where
+    fail msg = Fail.fail msg
 
 gets :: (EvaluationState -> a) -> EvaluationMonad a
 gets = asks
@@ -20,7 +24,7 @@ modify :: (EvaluationState -> EvaluationState) -> EvaluationMonad a -> Evaluatio
 modify = local
 
 runEvaluator :: EvaluationState -> EvaluationMonad a -> a
-runEvaluator st prog = runReader prog st
+runEvaluator st (EvaluationMonad prog) = runReader prog st
 
 getState :: EvaluationMonad EvaluationState
 getState = gets id

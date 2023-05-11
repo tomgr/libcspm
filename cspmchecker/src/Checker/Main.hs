@@ -1,8 +1,10 @@
 module Main where
 
+import Control.Exception
 import Control.Monad
 import Control.Monad.Trans
 import Data.List
+import Prelude hiding (catch)
 import System.Console.GetOpt
 import System.Directory
 import System.Environment

@@ -14,6 +14,7 @@ import CSPM.TypeChecker.Exceptions
 import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Pat()
 import CSPM.TypeChecker.Unification
+import Prelude hiding ((<>))
 import Util.Annotated
 import Util.PrettyPrint
 

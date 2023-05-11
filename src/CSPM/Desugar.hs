@@ -531,15 +531,14 @@ instance Desugarable (InteractiveStmt Name) where
     desugar (RunAssertion a) = return RunAssertion $$ desugar a
 
 instance Desugarable (Pat Name) where
-    desugar (PConcat p1 p2) = 
+    desugar original@(PConcat p1 p2) = 
         let
-            combine (as1, Just (p, bs1)) (as2, Nothing) = (as1, Just (p, bs1++as2))
-            combine (as1, Nothing) (as2, p) = (as1++as2, p)
-            combine _ _ = throwSourceError [mkErrorMessage l err]
-                where
-                    l = loc p1
-                    err = prettyPrint (PConcat p1 p2) <+> 
-                        text "is not a valid sequence pattern."
+            combine (as1, Just (p, bs1)) (as2, Nothing) = return (as1, Just (p, bs1++as2))
+            combine (as1, Nothing) (as2, p) = return (as1++as2, p)
+            combine _ _ = do
+                loc <- gets currentLoc
+                let err = prettyPrint original <+>  text "is not a valid sequence pattern."
+                throwSourceError [mkErrorMessage loc err]
 
             extractCompList :: TCPat -> ([TCPat], Maybe (TCPat, [TCPat]))
             extractCompList (An _ _ (PCompList ps mp _)) = (ps, mp)
@@ -547,7 +546,7 @@ instance Desugarable (Pat Name) where
         in do
             p1' <- desugar p1
             p2' <- desugar p2
-            let (start, end) = combine (extractCompList p1') (extractCompList p2')
+            (start, end) <- combine (extractCompList p1') (extractCompList p2')
             return $ PCompList start end (PConcat p1 p2)
     desugar (PList ps) =
         return PCompList $$ desugar ps $$ return Nothing $$ return (PList ps)
