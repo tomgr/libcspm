@@ -35,6 +35,7 @@ module CSPM.TypeChecker.Monad (
 )
 where
 
+import Control.Monad
 import Control.Monad.State
 import Data.List ((\\))
 import qualified Data.Map as M

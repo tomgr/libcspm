@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 module CSPM.Desugar (Desugarable(..), runDesugar) where
 
+import Control.Monad
 import Control.Monad.State
 import qualified Data.ByteString.Char8 as B
 import Data.List (nub, sort)

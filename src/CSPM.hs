@@ -118,6 +118,7 @@ module CSPM (
 )
 where
 
+import Control.Monad
 import Control.Monad.State
 import qualified Data.ByteString as B
 import Data.Version

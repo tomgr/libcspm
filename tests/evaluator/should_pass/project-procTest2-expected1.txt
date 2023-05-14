@@ -1,0 +1,3 @@
+procTest2 = STOP |\ {b, a}
+
+procTest2
