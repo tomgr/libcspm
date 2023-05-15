@@ -151,12 +151,7 @@ tupleFromList vs = VTuple $! listArray (0, length vs - 1) vs
 -- processes).
 noSave :: EvaluationMonad Value -> EvaluationMonad Value
 noSave prog = do
-    --pn <- getParentScopeIdentifier
     return $ VThunk prog 
-        -- $ modify 
-        --(\ st -> st {
-            --CSPM.Evaluator.Monad.parentScopeIdentifier = pn
-        -- }) prog
 
 maybeSave :: Type -> EvaluationMonad Value -> EvaluationMonad Value
 maybeSave TProc prog = noSave prog

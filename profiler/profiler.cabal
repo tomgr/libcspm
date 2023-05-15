@@ -26,7 +26,7 @@ Source-repository this
 Executable cspmprofiler
     Main-is: Main.hs
     
-    Extensions: DoAndIfThenElse
+    Default-Extensions: DoAndIfThenElse
 
     Build-depends: 
         base >= 4 && < 5,

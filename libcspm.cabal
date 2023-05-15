@@ -1,5 +1,6 @@
+Cabal-version: 3.4
 Name: libcspm
-License: BSD3
+License: BSD-3-Clause
 License-File: LICENSE.txt
 Copyright: (c) 2011 Thomas Gibson-Robinson
 Author: Thomas Gibson-Robinson <thomas.gibsonrobinson@gmail.com>
@@ -8,7 +9,6 @@ Bug-reports: https://github.com/tomgr/libcspm/issues
 Homepage: https://github.com/tomgr/libcspm
 Category: Concurrency
 Build-type: Simple
-Cabal-version: >=1.9.2
 Synopsis: A library providing a parser, type checker and evaluator for CSPM.
 Description:
     This library provides a parser, type checker and evaluator for machine CSP.
@@ -28,7 +28,8 @@ Description:
     high level format. See "CSPM" for an example of how to use this module.
 Version: 1.0.0
 Extra-source-files: 
-    README.md,
+    README.md
+Extra-doc-files:
     CHANGELOG.txt
 
 Source-Repository head
@@ -54,11 +55,11 @@ Library
         hashtables >= 1.1 && < 1.4,
         mtl >= 2.1 && < 3,
         pretty >= 1.1 && < 1.2,
-        template-haskell >= 2.10.0.0,
+        template-haskell >= 2.10 && < 3,
         text >= 2 && < 3,
         value-supply >= 0.6 && < 0.7
 
-    Build-Tools: alex >= 3.1.3, happy >= 1.19.3
+    Build-Tool-Depends: alex:alex >= 3.1.3, happy:happy >= 1.19.3
 
     Exposed-Modules:
         CSPM,
@@ -131,6 +132,9 @@ Library
     Other-Modules:
         CSPM.Evaluator.ProfilerThunksTH
         Paths_libcspm
+
+    Autogen-Modules:
+        Paths_libcspm
     
     GHC-Options:
         -O3
@@ -138,22 +142,22 @@ Library
         -fwarn-dodgy-imports
         -fwarn-missing-methods
         -fwarn-unused-imports
-    GHC-Prof-Options: -auto-all -prof
     
     Hs-Source-Dirs: src
     
-    Extensions: DoAndIfThenElse, OverloadedStrings
+    Default-Extensions: DoAndIfThenElse, OverloadedStrings
 
 Test-Suite libcspm_tests
     Type: exitcode-stdio-1.0
     Main-is: Main.hs
 
-    Extensions: DoAndIfThenElse
+    Default-Extensions: DoAndIfThenElse
     
     Hs-Source-Dirs: tests
     
     Build-depends: 
         base,
+        deepseq >= 1.3 && < 1.5,
         directory >= 1.0,
         libcspm,
         filepath >= 1.2, 

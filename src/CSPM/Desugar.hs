@@ -229,8 +229,6 @@ desugarDecl (An x y d) = do
             FunBind n ms ta ->
                 return FunBind $$ substituteName n $$ desugar ms $$ return ta
             Assert a -> return Assert $$ desugar a
-            External ns -> return External $$ mapM substituteName ns
-            Transparent ns -> return Transparent $$ mapM substituteName ns
             Channel ns me ta ->
                 return Channel $$ mapM substituteName ns $$ desugar me $$ return ta
             DataType n cs -> return DataType $$ substituteName n $$ desugar cs
