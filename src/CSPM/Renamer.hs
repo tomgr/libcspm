@@ -17,12 +17,14 @@ module CSPM.Renamer (
     getBoundNames,
 )  where
 
+import Control.Monad
 import Control.Monad.State
 import qualified Data.ByteString.Char8 as B
 import Data.List
 import qualified Data.Map as M
 import Data.Maybe (fromJust, isJust,isNothing)
 import qualified Data.Set as S
+import Prelude hiding ((<>))
 
 import CSPM.Syntax.Names
 import CSPM.Syntax.AST

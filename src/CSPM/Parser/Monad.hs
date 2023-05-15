@@ -15,10 +15,10 @@ module CSPM.Parser.Monad (
 where
 
 import Control.Exception
+import Control.Monad
 import Control.Monad.State
 import qualified Data.ByteString.Char8 as B
 import qualified Data.Map as M
-import Data.Maybe (isNothing)
 #if __GLASGOW_HASKELL__ < 705
 import Prelude hiding (catch)
 #endif

@@ -708,7 +708,7 @@ substituteTypeScheme sub (ForAll xs t) = do
 -- type instantiation where we create a fresh type for each universal 
 -- variable
 substituteType :: (TypeVar, Type) -> Type -> TypeCheckMonad Type
-substituteType (tv, t) (b @ (TVar tvref)) = do
+substituteType (tv, t) (b@(TVar tvref)) = do
     res <- readTypeRef tvref
     case res of
         Left (tv', _) -> if tv == tv' then return t else return b

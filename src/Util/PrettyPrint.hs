@@ -15,6 +15,7 @@ where
 import qualified Data.ByteString.Char8 as B
 
 import Numeric
+import Prelude hiding ((<>))
 import Text.PrettyPrint.HughesPJ
 
 class PrettyPrintable a where

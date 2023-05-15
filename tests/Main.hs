@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable, MultiParamTypeClasses, ScopedTypeVariables #-}
 module Main (main) where
 
+import Control.DeepSeq
 import Control.Exception
 import Control.Monad
 import Control.Monad.Trans
@@ -13,6 +14,7 @@ import Prelude hiding (catch)
 import System.Directory
 import System.Exit (exitFailure, exitSuccess)
 import System.FilePath
+import System.IO
 import Test.Framework
 import qualified Test.Framework.Providers.API as T
 import Test.Framework.Runners.Console
@@ -214,11 +216,15 @@ evaluatorTest fp = do
                             VProc proc <- evalExpr s TProc
                             let expectedOutputPrefix = (dropExtension fp)++"-"++s++"-expected"
                                 output = prettyPrintAllRequiredProcesses proc
+                                outputStr = show output
                             
                                 check (file:nextFile:files) = do
-                                    expectedOutput <- liftIO $ readFile file
-                                    nextFileExists <- doesFileExist nextFile
-                                    when (not (compareOutputs (show output) expectedOutput)) $
+                                    expectedOutput <- liftIO $ do
+                                        inputHandle <- openFile file ReadMode 
+                                        hSetEncoding inputHandle utf8
+                                        hGetContents inputHandle
+                                    nextFileExists <- liftIO $ doesFileExist nextFile
+                                    when (not (compareOutputs outputStr expectedOutput)) $
                                         if nextFileExists then check (nextFile:files)
                                         else throwSourceError [mkErrorMessage (loc p) $
                                                     text "The output of" 
@@ -227,7 +233,7 @@ evaluatorTest fp = do
                                                     <+> text "The actual output was:"
                                                     $$ tabIndent output
                                                 ]
-                            liftIO $ check $ map (\ f -> expectedOutputPrefix++f++".txt") $ "" : map show [1..]
+                            check $ map (\ f -> expectedOutputPrefix++f++".txt") $ "" : map show [1..]
                     _ -> return ()
             _ -> return ()
         ) (map unAnnotate ds)
@@ -243,8 +249,8 @@ compareOutputs s1 s2 =
 
         cmp :: [(String, String)] -> String -> String -> Bool
         cmp nameMap [] [] = True
-        cmp nameMap [] _ = False
-        cmp nameMap _ [] = False
+        cmp nameMap [] xs = xs `deepseq` False
+        cmp nameMap xs [] = xs `deepseq` False
         cmp nameMap ('i':xs) ('i':ys) | hasNum xs && hasNum ys =
             let
                 isSpace ' ' = True

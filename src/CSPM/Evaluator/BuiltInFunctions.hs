@@ -477,7 +477,8 @@ computePrioritisePartialOrder loc evs maxEvents prioritsedEvents =
                     edges <- mapM (\ n -> do
                         successors <- G.successorNodes graph n
                         newSuccessors <- mapM (\ s -> do
-                                Just xs <- H.lookup htable s
+                                lookupResult <- H.lookup htable s
+                                let Just xs = lookupResult
                                 return xs
                             ) successors
                         let xs = sortedNub $ sort $ successors ++ concat newSuccessors

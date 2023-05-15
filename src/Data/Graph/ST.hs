@@ -56,7 +56,8 @@ successorsForNode gr nid =
 
 successorNodes :: (Eq a, Hashable a) => Graph s a -> a -> ST s [a]
 successorNodes graph node = do
-    Just nid <- H.lookup (nodeMap graph) node
+    lookupResult <- H.lookup (nodeMap graph) node
+    let Just nid = lookupResult
     mapM (readArray (invNodeMap graph)) (successorsForNode graph nid)
 
 newGraph :: (Eq a, Hashable a) => [a] -> [(a, a)] -> ST s (Graph s a)
@@ -78,8 +79,10 @@ newGraph nodes edges = do
 
     -- The following requires mapM otherwise we might pop the stack
     intEdges <- mapM' (\(x,y) -> do
-            Just ix <- H.lookup nodeNumberTable x
-            Just iy <- H.lookup nodeNumberTable y
+            ixResult <- H.lookup nodeNumberTable x
+            let Just ix = ixResult
+            iyResult <- H.lookup nodeNumberTable y
+            let Just iy = iyResult
             return (ix,iy)
         ) edges
 
@@ -121,8 +124,10 @@ newGraphNoDupeNodes nodes edges = do
     zipWithM (writeArray invNodeNumberTable) [0..] nodes
     -- The following requires mapM otherwise we might pop the stack
     intEdges <- mapM' (\(x,y) -> do
-            Just ix <- H.lookup nodeNumberTable x
-            Just iy <- H.lookup nodeNumberTable y
+            ixResult <- H.lookup nodeNumberTable x
+            let Just ix = ixResult
+            iyResult <- H.lookup nodeNumberTable y
+            let Just iy = iyResult
             return (ix,iy)
         ) edges
 
@@ -187,7 +192,8 @@ intSccs graph = do
 
     let modifyStackTop nid tid = modifySTRef programStack (\ stk -> (nid, tid):tail stk)
         popStack = do
-            _:stk <- readSTRef programStack
+            remaining <- readSTRef programStack
+            let _:stk = remaining
             modifySTRef programStack (\ _ -> stk )
             case stk of
                 [] -> return ()

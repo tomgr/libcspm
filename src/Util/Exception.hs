@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, DeriveDataTypeable, FlexibleInstances, ScopedTypeVariables,
+{-# LANGUAGE CPP, ConstrainedClassMethods, DeriveDataTypeable, FlexibleInstances, ScopedTypeVariables,
     TypeSynonymInstances #-}
 module Util.Exception (
     Exception,
@@ -16,10 +16,7 @@ import Control.Monad.State
 import qualified Control.Monad.State.Strict as ST
 import Data.Typeable
 import Data.List
-
-#if __GLASGOW_HASKELL__ < 705
-import Prelude hiding (catch)
-#endif
+import Prelude hiding ((<>))
 
 import {-# SOURCE #-} Util.Annotated
 import Util.PrettyPrint

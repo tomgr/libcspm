@@ -183,22 +183,22 @@ makeBuiltins = do
         complexExternalFunctions :: IO [(B.ByteString, TypeScheme)]
         complexExternalFunctions = do
             mtransclose <- do
-                fv @ (TVar (TypeVarRef tv _ _)) <- freshTypeVarWithConstraints [CEq]
+                fv@(TVar (TypeVarRef tv _ _)) <- freshTypeVarWithConstraints [CEq]
                 return $ ForAll [(tv, [CEq])] 
                     (TFunction [TSet (TTuple [fv,fv]), TSet fv] (TSet (TTuple [fv,fv])))
             relational_image <- do
-                fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CEq]
-                fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints [CSet]
+                fv1@(TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CEq]
+                fv2@(TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints [CSet]
                 return $ ForAll [(tv1, [CEq]), (tv2, [CSet])] 
                     (TFunction [TSet (TTuple [fv1,fv2])] (TFunction [fv1] (TSet fv2)))
             relational_inverse_image <- do
-                fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CEq]
-                fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints [CSet]
+                fv1@(TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CEq]
+                fv2@(TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints [CSet]
                 return $ ForAll [(tv2, [CEq]), (tv1, [CSet])] 
                     (TFunction [TSet (TTuple [fv1,fv2])] (TFunction [fv2] (TSet fv1)))
             transpose <- do
-                fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CSet]
-                fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints [CSet]
+                fv1@(TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CSet]
+                fv2@(TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints [CSet]
                 return $ ForAll [(tv1, [CSet]), (tv2, [CSet])] 
                     (TFunction [TSet (TTuple [fv1,fv2])] (TSet (TTuple [fv2,fv1])))
             return [
@@ -242,13 +242,13 @@ makeBuiltins = do
         hiddenNames = ["TSKIP", "TSTOP", "timed_priority", "WAIT"]
 
         mkFuncType cs func = do
-            fv @ (TVar (TypeVarRef tv _ _)) <- freshTypeVarWithConstraints cs
+            fv@(TVar (TypeVarRef tv _ _)) <- freshTypeVarWithConstraints cs
             let (n, args, ret) = func fv
             let t = ForAll [(tv, cs)] (TFunction args ret)
             return (n, t)
         mkUnsafeFuncType n = do
-            fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints []
-            fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints []
+            fv1@(TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints []
+            fv2@(TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints []
             let t = ForAll [(tv1, []), (tv2, [])] (TFunction [fv1] fv2)
             return (n, t)
         mkPatternType func = do 
@@ -256,14 +256,14 @@ makeBuiltins = do
             return (n, ForAll [] t)
 
         mkMapFunction f = do
-            fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CSet]
-            fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints []
+            fv1@(TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CSet]
+            fv2@(TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints []
             let (n, t) = f fv1 fv2
             return (n, ForAll [(tv1, [CSet]), (tv2, [])] t)
 
         mkMapFunction' f = do
-            fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CSet]
-            fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints [CSet]
+            fv1@(TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints [CSet]
+            fv2@(TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints [CSet]
             let (n, t) = f fv1 fv2
             return (n, ForAll [(tv1, [CSet]), (tv2, [CSet])] t)
 
@@ -302,13 +302,13 @@ makeBuiltins = do
         makeReplacements _ b = return b
 
         makeExtensionType = do
-            fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints []
-            fv2 @ (TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints []
+            fv1@(TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints []
+            fv2@(TVar (TypeVarRef tv2 _ _)) <- freshTypeVarWithConstraints []
             return $ ForAll [(tv1, []), (tv2, [CYieldable])]
                         (TFunction [TDotable fv1 fv2] (TSet fv1))
         makeProductionsType = do
-            fv1 @ (TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints []
-            fv2 @ (TVar (fv2ref@(TypeVarRef tv2 _ _))) <-
+            fv1@(TVar (TypeVarRef tv1 _ _)) <- freshTypeVarWithConstraints []
+            fv2@(TVar (fv2ref@(TypeVarRef tv2 _ _))) <-
                 freshTypeVarWithConstraints []
             return $ ForAll [(tv1, [CYieldable]), (tv2, [])]
                         (TFunction [TExtendable fv1 fv2ref] (TSet fv1))

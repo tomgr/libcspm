@@ -1573,7 +1573,7 @@ happyReduction_100 (happy_x_1 `HappyStk`
 	 = happyThen (case happyOutTok happy_x_1 of { happy_var_1 -> 
 	( do
                                     modifyTopFileParserState (
-                                        \ st @ (FileParserState { sequenceStack = (c:cs) }) -> 
+                                        \ st@(FileParserState { sequenceStack = (c:cs) }) -> 
                                             st { sequenceStack = (c+1):cs })
                                     return happy_var_1)}
 	) (\r -> happyReturn (happyIn42 r))
@@ -2994,7 +2994,7 @@ attachTypeAnnotations ds =
 convDecl :: PExp -> PExp -> ParseMonad PDecl
 convDecl lhs rhs | srcSpanFile (loc lhs) /= srcSpanFile (loc rhs) =
     throwSourceError [definitionSpanFileError lhs rhs (loc lhs)]
-convDecl (lhs @ (An loc1 b lhsexp)) (rhs @ (An loc2 d _)) = 
+convDecl (lhs@(An loc1 b lhsexp)) (rhs@(An loc2 d _)) = 
     let
         span = combineSpans loc1 loc2
 
@@ -3223,7 +3223,7 @@ dotAppToList (An a b exp) =
         list exp
 
 convPat :: PExp -> PPat
-convPat (anExp@ (An a b exp)) = 
+convPat (anExp@(An a b exp)) = 
     let
         trans :: Exp UnRenamedName -> Pat UnRenamedName
         trans (Concat e1 e2) = PConcat (convPat e1) (convPat e2)

@@ -26,6 +26,7 @@ import CSPM.Syntax.Names
 import CSPM.Syntax.AST
 import CSPM.Parser.Tokens
 import CSPM.PrettyPrinter
+import Prelude hiding ((<>))
 import Util.Annotated
 import Util.Exception
 import Util.PrettyPrint

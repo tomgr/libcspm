@@ -502,6 +502,6 @@ compressIntoEnumeratedSet vs =
                     return $! Just (vsRecursive ++ concat vsDone)
     in case toList vs of
             [] -> return Nothing
-            (vs @ (VDot ((VChannel _) :_) : _)) ->
+            (vs@(VDot ((VChannel _) :_) : _)) ->
                 repeatablyCompress (map (\ (VDot xs) -> xs) vs)
             _ -> return Nothing -- must be a set that we cannot handle

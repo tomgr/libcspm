@@ -4,6 +4,7 @@ module CSPM.Parser.Tokens (
 where
 
 import qualified Data.ByteString as B
+import Prelude hiding ((<>))
 
 import CSPM.Syntax.AST (Model(..))
 import CSPM.PrettyPrinter

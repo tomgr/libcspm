@@ -51,7 +51,7 @@ bindDecls ds = do
         return $ concat nvs
 
 bindDecl :: TCDecl -> AnalyserMonad (EvaluationMonad [(Name, EvaluationMonad Value)])
-bindDecl (an @(An loc _ (FunBind n ms _))) = do
+bindDecl (an@(An loc _ (FunBind n ms _))) = do
     let
         matches = map unAnnotate ms
         argGroupCount = head (map (\ (Match pss e) -> length pss) matches)

@@ -1,6 +1,6 @@
 module CSPM.Evaluator.Exceptions where
 
-import Prelude
+import Prelude hiding ((<>))
 
 import CSPM.Syntax.Names
 import CSPM.Syntax.AST

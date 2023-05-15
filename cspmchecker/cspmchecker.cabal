@@ -27,7 +27,7 @@ Executable cspmchecker
     Main-is: Main.hs
     Other-modules: Monad
     
-    Extensions: DoAndIfThenElse
+    Default-Extensions: DoAndIfThenElse
 
     Build-depends: 
         base >= 4 && < 5,
@@ -44,6 +44,7 @@ Executable cspmcheckeri
   
     Build-depends: 
         base >= 4 && < 5,
+        exceptions >= 0.8 && < 1,
         libcspm,
         filepath >= 1.2, 
         mtl >= 2.0,
@@ -54,12 +55,12 @@ Executable cspmcheckeri
 
 Executable cspmexplorer
     Main-is: Main.hs
-    Other-modules: Monad
   
     Build-depends: 
         base >= 4 && < 5,
-        hashable >= 1.2 && < 1.3,
-        hashtables >= 1.1 && < 1.3,
+        deepseq >= 1.3 && < 2,
+        hashable >= 1.2 && < 1.5,
+        hashtables >= 1.1 && < 1.4,
         libcspm,
         filepath >= 1.2,
         mtl >= 2.0,

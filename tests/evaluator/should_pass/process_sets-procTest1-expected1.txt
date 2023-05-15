@@ -1,0 +1,5 @@
+CHAOS({}) = CHAOS({})
+
+procTest1 = CHAOS({}) [] STOP
+
+procTest1

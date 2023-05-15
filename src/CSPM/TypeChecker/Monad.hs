@@ -35,11 +35,12 @@ module CSPM.TypeChecker.Monad (
 )
 where
 
+import Control.Monad
 import Control.Monad.State
 import Data.List ((\\))
 import qualified Data.Map as M
 import qualified Data.Set as S
-import Prelude hiding (lookup)
+import Prelude hiding (lookup, (<>))
 
 import CSPM.Syntax.Names
 import CSPM.Syntax.Types
@@ -427,7 +428,7 @@ compressTypeScheme (ForAll ts t) =
 -- | Takes a type and compresses the type by reading all type variables and
 -- if they point to another type, it returns that type instead.
 compress :: MonadIO m => Type -> m Type
-compress (tr @ (TVar typeRef)) = do
+compress (tr@(TVar typeRef)) = do
     res <- readTypeRef typeRef
     case res of
         Left tv -> return tr
@@ -452,7 +453,7 @@ compress (TDot t1 t2) = do
     t1' <- compress t1
     t2' <- compress t2
     return $ TDot t1' t2'
-compress (tr @ (TExtendable t pt)) = do
+compress (tr@(TExtendable t pt)) = do
     t <- compress t
     let extract (Just pt) (Left tv) = return $! TExtendable t pt
         extract _ (Right TExtendableEmptyDotList) = return t

@@ -8,6 +8,7 @@ import CSPM.Syntax.Types
 import CSPM.TypeChecker.Common
 import CSPM.TypeChecker.Monad
 import CSPM.TypeChecker.Unification
+import Prelude hiding ((<>))
 import Util.Annotated
 import Util.PrettyPrint
     
@@ -61,7 +62,7 @@ instance TypeCheckable (Pat Name) Type where
         return $ TTuple ts
     typeCheck' (PWildCard) = freshRegisteredTypeVar
     typeCheck' (PVar n) = do
-        t @ (ForAll _ t') <- getType n
+        t@(ForAll _ t') <- getType n
         -- All variables are already in scope hence we can just return the
         -- type (since we always typeCheck a pattern in between a 
         -- local (freeVars pat)).

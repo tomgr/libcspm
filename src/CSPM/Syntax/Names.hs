@@ -19,6 +19,7 @@ import Data.Hashable
 import Data.IORef
 import Data.Supply
 import Data.Typeable
+import Prelude hiding ((<>))
 import System.IO.Unsafe
 
 import Util.Annotated
